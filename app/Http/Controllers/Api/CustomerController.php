@@ -1,0 +1,115 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Customer;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+
+class CustomerController extends Controller
+{
+    public function index(Request $request): JsonResponse
+    {
+        $query = Customer::query();
+
+        if ($request->search) {
+            $query->where(function ($q) use ($request) {
+                $q->where('nama_lengkap', 'like', "%{$request->search}%")
+                    ->orWhere('no_hp', 'like', "%{$request->search}%")
+                    ->orWhere('no_ktp', 'like', "%{$request->search}%");
+            });
+        }
+
+        $customer = $query->withCount('orders')->orderBy('created_at', 'desc')->paginate(15);
+
+        return response()->json($customer);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'nama_lengkap' => 'required|string|max:255',
+            'no_hp' => 'required|string|max:255',
+            'email' => 'nullable|email',
+            'alamat' => 'nullable|string',
+            'no_ktp' => 'nullable|string|unique:customers,no_ktp',
+            'no_sim' => 'nullable|string',
+            'foto_ktp' => 'nullable|image|max:2048',
+            'foto_sim' => 'nullable|image|max:2048',
+            'catatan' => 'nullable|string',
+        ]);
+
+        if ($request->hasFile('foto_ktp')) {
+            $validated['foto_ktp'] = $request->file('foto_ktp')->store('customers', 'public');
+        }
+
+        if ($request->hasFile('foto_sim')) {
+            $validated['foto_sim'] = $request->file('foto_sim')->store('customers', 'public');
+        }
+
+        $customer = Customer::create($validated);
+
+        return response()->json($customer, 201);
+    }
+
+    public function show(Customer $customer): JsonResponse
+    {
+        $customer->load(['orders' => function ($q) {
+            $q->with('kendaraan')->latest()->limit(10);
+        }]);
+
+        return response()->json($customer);
+    }
+
+    public function update(Request $request, Customer $customer): JsonResponse
+    {
+        $validated = $request->validate([
+            'nama_lengkap' => 'required|string|max:255',
+            'no_hp' => 'required|string|max:255',
+            'email' => 'nullable|email',
+            'alamat' => 'nullable|string',
+            'no_ktp' => 'nullable|string|unique:customers,no_ktp,'.$customer->id,
+            'no_sim' => 'nullable|string',
+            'foto_ktp' => 'nullable|image|max:2048',
+            'foto_sim' => 'nullable|image|max:2048',
+            'catatan' => 'nullable|string',
+        ]);
+
+        if ($request->hasFile('foto_ktp')) {
+            if ($customer->foto_ktp) {
+                Storage::disk('public')->delete($customer->foto_ktp);
+            }
+            $validated['foto_ktp'] = $request->file('foto_ktp')->store('customers', 'public');
+        }
+
+        if ($request->hasFile('foto_sim')) {
+            if ($customer->foto_sim) {
+                Storage::disk('public')->delete($customer->foto_sim);
+            }
+            $validated['foto_sim'] = $request->file('foto_sim')->store('customers', 'public');
+        }
+
+        $customer->update($validated);
+
+        return response()->json($customer);
+    }
+
+    public function destroy(Customer $customer): JsonResponse
+    {
+        $hasActiveOrder = $customer->orders()
+            ->whereIn('status_order', ['pending', 'confirmed', 'active'])
+            ->exists();
+
+        if ($hasActiveOrder) {
+            return response()->json([
+                'message' => 'Tidak bisa menghapus customer yang memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.',
+            ], 422);
+        }
+
+        $customer->delete();
+
+        return response()->json(['message' => 'Customer berhasil dihapus']);
+    }
+}
