@@ -11,7 +11,7 @@ class GarasiPartnerController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = GarasiPartner::query();
+        $query = GarasiPartner::where('is_own', false);
 
         if ($request->search) {
             $query->where(function ($q) use ($request) {
@@ -59,7 +59,7 @@ class GarasiPartnerController extends Controller
 
     public function show(GarasiPartner $garasiPartner): JsonResponse
     {
-        $garasiPartner->load(['kendaraans', 'garasiRequests.order.customer']);
+        $garasiPartner->load(['kendaraans.kategori', 'kendaraans.tipe', 'garasiRequests.order.customer']);
 
         return response()->json($garasiPartner);
     }

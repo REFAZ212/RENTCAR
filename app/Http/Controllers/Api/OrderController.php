@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Kendaraan;
 use App\Models\Order;
+use App\Models\SupirCalo;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ class OrderController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Order::with(['customer', 'kendaraan.garasiPartner', 'admin']);
+        $query = Order::with(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo']);
 
         if ($request->search) {
             $query->where(function ($q) use ($request) {
@@ -67,8 +68,23 @@ class OrderController extends Controller
             'bukti_transfer' => 'nullable|image|max:2048',
             'bukti_pengiriman' => 'nullable|image|max:2048',
             'bukti_pengembalian' => 'nullable|image|max:2048',
+            'supir_id' => 'nullable|exists:supir_calos,id',
+            'calo_id' => 'nullable|exists:supir_calos,id',
             'catatan' => 'nullable|string',
         ]);
+
+        if (! empty($validated['supir_id'])) {
+            $supir = SupirCalo::find($validated['supir_id']);
+            if ($supir && $supir->jenis !== 'supir') {
+                return response()->json(['message' => 'ID yang dipilih bukan supir.'], 422);
+            }
+        }
+        if (! empty($validated['calo_id'])) {
+            $calo = SupirCalo::find($validated['calo_id']);
+            if ($calo && $calo->jenis !== 'calo') {
+                return response()->json(['message' => 'ID yang dipilih bukan calo.'], 422);
+            }
+        }
 
         $statusPengiriman = $validated['status_pengiriman'] ?? 'belum_diambil';
         if (in_array($statusPengiriman, ['sudah_diantarkan', 'dalam_penyewaan']) && ! $request->hasFile('bukti_pengiriman')) {
@@ -112,6 +128,12 @@ class OrderController extends Controller
             $durasi = 1;
         }
 
+        $supirTarif = 0;
+        if (! empty($validated['supir_id'])) {
+            $supir = SupirCalo::find($validated['supir_id']);
+            $supirTarif = (float) ($supir->tarif_per_hari ?? 0);
+        }
+
         $buktiPath = null;
         if ($request->hasFile('bukti_transfer')) {
             $buktiPath = $request->file('bukti_transfer')->store('bukti-transfer', 'public');
@@ -144,7 +166,9 @@ class OrderController extends Controller
             'bukti_pengiriman' => $buktiPengirimanPath,
             'bukti_pengembalian' => $buktiPengembalianPath,
             'durasi_hari' => $durasi,
-            'harga_total' => $durasi * $hargaPerHari,
+            'harga_total' => ($durasi * $hargaPerHari) + ($supirTarif * $durasi),
+            'supir_id' => $validated['supir_id'] ?? null,
+            'calo_id' => $validated['calo_id'] ?? null,
             'admin_id' => $request->user()->id,
         ]);
 
@@ -157,12 +181,12 @@ class OrderController extends Controller
             $order->save();
         }
 
-        return response()->json($order->load(['customer', 'kendaraan.garasiPartner', 'admin']), 201);
+        return response()->json($order->load(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo']), 201);
     }
 
     public function show(Order $order): JsonResponse
     {
-        $order->load(['customer', 'kendaraan.garasiPartner', 'admin', 'garasiRequests.garasiPartner']);
+        $order->load(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo', 'garasiRequests.garasiPartner']);
 
         return response()->json($order);
     }
@@ -183,8 +207,23 @@ class OrderController extends Controller
             'bukti_transfer' => 'nullable|image|max:2048',
             'bukti_pengiriman' => 'nullable|image|max:2048',
             'bukti_pengembalian' => 'nullable|image|max:2048',
+            'supir_id' => 'nullable|exists:supir_calos,id',
+            'calo_id' => 'nullable|exists:supir_calos,id',
             'catatan' => 'nullable|string',
         ]);
+
+        if (isset($validated['supir_id']) && $validated['supir_id'] !== null) {
+            $supir = SupirCalo::find($validated['supir_id']);
+            if ($supir && $supir->jenis !== 'supir') {
+                return response()->json(['message' => 'ID yang dipilih bukan supir.'], 422);
+            }
+        }
+        if (isset($validated['calo_id']) && $validated['calo_id'] !== null) {
+            $calo = SupirCalo::find($validated['calo_id']);
+            if ($calo && $calo->jenis !== 'calo') {
+                return response()->json(['message' => 'ID yang dipilih bukan calo.'], 422);
+            }
+        }
 
         $newStatusPengiriman = $validated['status_pengiriman'] ?? $order->status_pengiriman;
         if (in_array($newStatusPengiriman, ['sudah_diantarkan', 'dalam_penyewaan']) && ! $request->hasFile('bukti_pengiriman') && ! $order->bukti_pengiriman) {
@@ -266,7 +305,14 @@ class OrderController extends Controller
 
         $updateData['harga_per_hari'] = $harga;
         $updateData['durasi_hari'] = $durasi;
-        $updateData['harga_total'] = $durasi * $harga;
+
+        $supirTarif = 0;
+        $supirId = $validated['supir_id'] ?? $order->supir_id;
+        if (! empty($supirId)) {
+            $supir = SupirCalo::find($supirId);
+            $supirTarif = (float) ($supir->tarif_per_hari ?? 0);
+        }
+        $updateData['harga_total'] = ($durasi * $harga) + ($supirTarif * $durasi);
 
         $order->update($updateData);
 
@@ -296,7 +342,7 @@ class OrderController extends Controller
             }
         }
 
-        return response()->json($order->load(['customer', 'kendaraan.garasiPartner', 'admin']));
+        return response()->json($order->load(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo']));
     }
 
     public function destroy(Order $order): JsonResponse

@@ -12,6 +12,7 @@ class TipeSeeder extends Seeder
     {
         $mobil = Kategori::where('nama_kategori', 'Mobil')->first();
         $motor = Kategori::where('nama_kategori', 'Motor')->first();
+        $sepeda = Kategori::where('nama_kategori', 'Sepeda')->first();
 
         $tipes = [
             // Mobil
@@ -29,6 +30,14 @@ class TipeSeeder extends Seeder
             ['kategori_id' => $motor?->id, 'nama_tipe' => 'Matic', 'deskripsi' => 'Motor matik, mudah dikendarai', 'aktif' => true],
             ['kategori_id' => $motor?->id, 'nama_tipe' => 'Bebek', 'deskripsi' => 'Motor bebek irit dan handal', 'aktif' => true],
             ['kategori_id' => $motor?->id, 'nama_tipe' => 'Trail', 'deskripsi' => 'Motor off-road untuk medan berat', 'aktif' => true],
+
+            // Sepeda
+            ['kategori_id' => $sepeda?->id, 'nama_tipe' => 'Gunung (MTB)', 'deskripsi' => 'Sepeda gunung untuk medan off-road dan tanjakan', 'aktif' => true],
+            ['kategori_id' => $sepeda?->id, 'nama_tipe' => 'Jalan (Road Bike)', 'deskripsi' => 'Sepeda jalan untuk kecepatan di aspal', 'aktif' => true],
+            ['kategori_id' => $sepeda?->id, 'nama_tipe' => 'Lipat', 'deskripsi' => 'Sepeda lipat, praktis untuk transportasi', 'aktif' => true],
+            ['kategori_id' => $sepeda?->id, 'nama_tipe' => 'BMX', 'deskripsi' => 'Sepeda BMX untuk freestyle dan balap', 'aktif' => true],
+            ['kategori_id' => $sepeda?->id, 'nama_tipe' => 'Listrik', 'deskripsi' => 'Sepeda elektrik dengan motor bantu', 'aktif' => true],
+            ['kategori_id' => $sepeda?->id, 'nama_tipe' => 'Kota', 'deskripsi' => 'Sepeda kota untuk perjalanan ringan sehari-hari', 'aktif' => true],
         ];
 
         foreach ($tipes as $tipe) {

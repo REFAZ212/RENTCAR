@@ -3,18 +3,20 @@ import { kendaraanAPI, garasiPartnerAPI, kategoriAPI, tipeAPI } from '../service
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 
-const statuses = ['tersedia', 'disewa', 'maintenance'];
+const statuses = ['tersedia', 'disewa', 'maintenance', 'tidak_tersedia'];
 
 const statusStyles = {
   tersedia: 'bg-green-100 text-green-800',
   disewa: 'bg-blue-100 text-blue-800',
   maintenance: 'bg-yellow-100 text-yellow-800',
+  tidak_tersedia: 'bg-red-100 text-red-800',
 };
 
 const statusLabels = {
   tersedia: 'Tersedia',
   disewa: 'Disewa',
   maintenance: 'Maintenance',
+  tidak_tersedia: 'Tidak Tersedia',
 };
 
 const emptyForm = { garasi_partner_id: '', kategori_id: '', tipe_id: '', nama_kendaraan: '', plat_nomor: '', merek: '', model: '', tahun: new Date().getFullYear(), warna: '', kapasitas_penumpang: 7, harga_sewa_per_hari: '', status: 'tersedia', catatan: '' };

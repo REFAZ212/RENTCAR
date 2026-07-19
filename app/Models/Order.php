@@ -42,6 +42,8 @@ class Order extends Model
         'bukti_pengembalian',
         'jam_overtime',
         'denda_overtime',
+        'supir_id',
+        'calo_id',
         'catatan',
     ];
 
@@ -86,6 +88,16 @@ class Order extends Model
     public function admin(): BelongsTo
     {
         return $this->belongsTo(User::class, 'admin_id');
+    }
+
+    public function supir(): BelongsTo
+    {
+        return $this->belongsTo(SupirCalo::class, 'supir_id');
+    }
+
+    public function calo(): BelongsTo
+    {
+        return $this->belongsTo(SupirCalo::class, 'calo_id');
     }
 
     public function garasiRequests(): HasMany
@@ -158,9 +170,15 @@ class Order extends Model
 
         $hargaDasar = (float) $this->harga_per_hari * (int) $this->durasi_hari;
 
+        $supirTarif = 0;
+        if ($this->supir_id) {
+            $supir = SupirCalo::find($this->supir_id);
+            $supirTarif = (float) ($supir->tarif_per_hari ?? 0);
+        }
+
         $this->jam_overtime = $hasil['jam_overtime'];
         $this->denda_overtime = $hasil['denda_overtime'];
-        $this->harga_total = $hargaDasar + $hasil['denda_overtime'];
+        $this->harga_total = $hargaDasar + ($supirTarif * (int) $this->durasi_hari) + $hasil['denda_overtime'];
 
         if ($hasil['jam_overtime'] > 0) {
             $waktuSelesai = $batas->format('d/m/Y H:i');

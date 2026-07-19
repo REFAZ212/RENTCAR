@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\KategoriController;
 use App\Http\Controllers\Api\KendaraanController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\SupirCaloController;
 use App\Http\Controllers\Api\TipeController;
 use Illuminate\Support\Facades\Route;
 
@@ -34,6 +35,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('garasi-requests', GarasiRequestController::class);
     Route::apiResource('kategoris', KategoriController::class);
     Route::apiResource('tipes', TipeController::class);
+    Route::get('/tipes/{tipe}/kendaraans', [TipeController::class, 'kendaraans']);
+    Route::apiResource('supir-calos', SupirCaloController::class);
 
     Route::prefix('laporan')->group(function () {
         Route::get('ringkasan', [ReportController::class, 'ringkasan']);
