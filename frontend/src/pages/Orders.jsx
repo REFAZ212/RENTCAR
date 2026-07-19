@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { orderAPI, customerAPI, kendaraanAPI } from '../services/api';
+import { orderAPI, customerAPI, kendaraanAPI, supirCaloAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -69,6 +69,8 @@ const emptyForm = {
   status_order: 'confirmed',
   status_pembayaran: 'unpaid',
   status_pengiriman: 'belum_diambil',
+  supir_id: '',
+  calo_id: '',
   catatan: '',
 };
 
@@ -144,6 +146,8 @@ export default function Orders() {
   const [customers, setCustomers] = useState([]);
   const [kendaraans, setKendaraans] = useState([]);
   const [allKendaraans, setAllKendaraans] = useState([]);
+  const [supirs, setSupirs] = useState([]);
+  const [calos, setCalos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [filterStatus, setFilterStatus] = useState('');
@@ -212,6 +216,8 @@ export default function Orders() {
     customerAPI.list().then(({ data }) => setCustomers(data.data)).catch(() => {});
     kendaraanAPI.list({ status: 'tersedia' }).then(({ data }) => setKendaraans(data.data)).catch(() => {});
     kendaraanAPI.list().then(({ data }) => setAllKendaraans(data.data)).catch(() => {});
+    supirCaloAPI.list({ jenis: 'supir' }).then(({ data }) => setSupirs(data.data)).catch(() => {});
+    supirCaloAPI.list({ jenis: 'calo' }).then(({ data }) => setCalos(data.data)).catch(() => {});
   }, []);
 
   // Ringkasan cepat dari data yang sedang ditampilkan (mengikuti filter aktif).
@@ -303,7 +309,9 @@ export default function Orders() {
     return 0;
   })();
 
-  const hargaTotal = durasiHari * (Number(form.harga_per_hari) || 0);
+  const selectedSupirCreate = form.supir_id ? supirs.find((s) => String(s.id) === String(form.supir_id)) : null;
+  const supirTarifCreate = selectedSupirCreate ? Number(selectedSupirCreate.tarif_per_hari || 0) : 0;
+  const hargaTotal = durasiHari * (Number(form.harga_per_hari) || 0) + supirTarifCreate * durasiHari;
 
   /**
    * Buka modal edit. Dipakai baik untuk edit biasa (pensil) maupun aksi cepat
@@ -323,6 +331,8 @@ export default function Orders() {
       status_pembayaran: item.status_pembayaran,
       metode_pembayaran: item.metode_pembayaran || 'cash',
       status_pengiriman: sewakan ? 'dalam_penyewaan' : item.status_pengiriman,
+      supir_id: item.supir_id || '',
+      calo_id: item.calo_id || '',
       catatan: item.catatan || '',
     });
     setEditBuktiFile(null);
@@ -368,7 +378,9 @@ export default function Orders() {
     return 0;
   })();
 
-  const editTotal = editDurasi * editHargaPerHari;
+  const selectedSupirEdit = editForm.supir_id ? supirs.find((s) => String(s.id) === String(editForm.supir_id)) : null;
+  const supirTarifEdit = selectedSupirEdit ? Number(selectedSupirEdit.tarif_per_hari || 0) : 0;
+  const editTotal = editDurasi * editHargaPerHari + supirTarifEdit * editDurasi;
 
   const handleEditKendaraanSelect = (id) => {
     setEditForm((prev) => ({ ...prev, kendaraan_id: id }));
@@ -565,6 +577,22 @@ export default function Orders() {
                     {customers.map((c) => <option key={c.id} value={c.id}>{c.nama_lengkap} — {c.no_hp}</option>)}
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Supir</label>
+                  <select value={form.supir_id} onChange={(e) => setField('supir_id', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+                    <option value="">Pilih Supir (opsional)</option>
+                    {supirs.filter((s) => s.status === 'active').map((s) => <option key={s.id} value={s.id}>{s.nama} — {s.no_hp}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Calo</label>
+                  <select value={form.calo_id} onChange={(e) => setField('calo_id', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+                    <option value="">Pilih Calo (opsional)</option>
+                    {calos.filter((c) => c.status === 'active').map((c) => <option key={c.id} value={c.id}>{c.nama} — {c.no_hp}</option>)}
+                  </select>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Kendaraan *</label>
@@ -676,14 +704,28 @@ export default function Orders() {
                 </div>
               </div>
               {form.tanggal_mulai && form.tanggal_selesai && form.harga_per_hari ? (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                  <div className="flex items-center justify-between text-sm text-blue-700 mb-2">
-                    <span>{durasiHari} hari x {formatRupiah(form.harga_per_hari)}/hari</span>
-                    <span className="text-xs text-blue-500">{form.tanggal_mulai} s/d {form.tanggal_selesai}</span>
+                <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl space-y-3">
+                  <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Rincian Biaya</p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">Sewa Kendaraan</p>
+                      <p className="text-xs text-gray-500">{durasiHari} hari × {formatRupiah(form.harga_per_hari)}/hari</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{form.tanggal_mulai} {form.jam_mulai || '08:00'} → {form.tanggal_selesai} {form.jam_selesai || '17:00'} WIB</p>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-800 shrink-0">{formatRupiah(durasiHari * (Number(form.harga_per_hari) || 0))}</p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-blue-700">Total</span>
-                    <span className="text-xl font-bold text-blue-800">{formatRupiah(hargaTotal)}</span>
+                  {supirTarifCreate > 0 && (
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">Biaya Supir</p>
+                        <p className="text-xs text-gray-500">{selectedSupirCreate?.nama} · {durasiHari} hari × {formatRupiah(supirTarifCreate)}/hari</p>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-800 shrink-0">{formatRupiah(supirTarifCreate * durasiHari)}</p>
+                    </div>
+                  )}
+                  <div className="border-t border-blue-200 pt-2 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-800">Total</span>
+                    <span className="text-lg font-bold text-blue-700">{formatRupiah(hargaTotal)}</span>
                   </div>
                 </div>
               ) : null}
@@ -748,6 +790,22 @@ export default function Orders() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
                     <option value="">Pilih Customer</option>
                     {customers.map((c) => <option key={c.id} value={c.id}>{c.nama_lengkap} — {c.no_hp}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Supir</label>
+                  <select value={editForm.supir_id || ''} onChange={(e) => setEditField('supir_id', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+                    <option value="">Pilih Supir (opsional)</option>
+                    {supirs.filter((s) => s.status === 'active').map((s) => <option key={s.id} value={s.id}>{s.nama} — {s.no_hp}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Calo</label>
+                  <select value={editForm.calo_id || ''} onChange={(e) => setEditField('calo_id', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+                    <option value="">Pilih Calo (opsional)</option>
+                    {calos.filter((c) => c.status === 'active').map((c) => <option key={c.id} value={c.id}>{c.nama} — {c.no_hp}</option>)}
                   </select>
                 </div>
               </div>
@@ -873,14 +931,28 @@ export default function Orders() {
                 </div>
               </div>
               {editForm.tanggal_mulai && editForm.tanggal_selesai && editHargaPerHari > 0 ? (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                  <div className="flex items-center justify-between text-sm text-blue-700 mb-2">
-                    <span>{editDurasi} hari x {formatRupiah(editHargaPerHari)}/hari</span>
-                    <span className="text-xs text-blue-500">{editForm.tanggal_mulai} s/d {editForm.tanggal_selesai}</span>
+                <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl space-y-3">
+                  <p className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Rincian Biaya</p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">Sewa Kendaraan</p>
+                      <p className="text-xs text-gray-500">{editDurasi} hari × {formatRupiah(editHargaPerHari)}/hari</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{editForm.tanggal_mulai} {editForm.jam_mulai || '08:00'} → {editForm.tanggal_selesai} {editForm.jam_selesai || '17:00'} WIB</p>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-800 shrink-0">{formatRupiah(editDurasi * editHargaPerHari)}</p>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-blue-700">Total</span>
-                    <span className="text-xl font-bold text-blue-800">{formatRupiah(editTotal)}</span>
+                  {supirTarifEdit > 0 && (
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">Biaya Supir</p>
+                        <p className="text-xs text-gray-500">{selectedSupirEdit?.nama} · {editDurasi} hari × {formatRupiah(supirTarifEdit)}/hari</p>
+                      </div>
+                      <p className="text-sm font-semibold text-gray-800 shrink-0">{formatRupiah(supirTarifEdit * editDurasi)}</p>
+                    </div>
+                  )}
+                  <div className="border-t border-blue-200 pt-2 flex items-center justify-between">
+                    <span className="text-sm font-semibold text-gray-800">Total</span>
+                    <span className="text-lg font-bold text-blue-700">{formatRupiah(editTotal)}</span>
                   </div>
                 </div>
               ) : null}
@@ -1005,21 +1077,55 @@ export default function Orders() {
                 {detailOrder.kendaraan?.garasiPartner && <div className="flex justify-between text-sm"><span className="text-gray-500">Garasi</span><span className="text-gray-900">{detailOrder.kendaraan.garasiPartner.nama_partner}</span></div>}
               </div>
 
-              <div className="bg-blue-50 rounded-xl p-4 space-y-2">
-                <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider mb-2">Periode Sewa</h3>
-                <div className="flex justify-between text-sm"><span className="text-blue-600">Tanggal Mulai</span><span className="text-blue-900">{fmtDate(detailOrder.tanggal_mulai)}{detailOrder.jam_mulai ? `, ${fmtTime(detailOrder.jam_mulai)} WIB` : ''}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-blue-600">Tanggal Selesai</span><span className="text-blue-900">{fmtDate(detailOrder.tanggal_selesai)}{detailOrder.jam_selesai ? `, ${fmtTime(detailOrder.jam_selesai)} WIB` : ''}</span></div>
-                <div className="flex justify-between text-sm"><span className="text-blue-600">Durasi</span><span className="text-blue-900">{detailOrder.durasi_hari} hari</span></div>
-                <div className="flex justify-between text-sm"><span className="text-blue-600">Harga / Hari</span><span className="text-blue-900">{formatRupiah(detailOrder.harga_per_hari)}</span></div>
+              {(detailOrder.supir || detailOrder.calo) && (
+                <div className="bg-gray-50 rounded-xl p-4 space-y-1">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Supir & Calo</h3>
+                  {detailOrder.supir && <div className="flex justify-between text-sm"><span className="text-gray-500">Supir</span><span className="text-gray-900">{detailOrder.supir.nama} — {detailOrder.supir.no_hp}</span></div>}
+                  {detailOrder.calo && <div className="flex justify-between text-sm"><span className="text-gray-500">Calo</span><span className="text-gray-900">{detailOrder.calo.nama} — {detailOrder.calo.no_hp}</span></div>}
+                  {detailOrder.calo?.komisi && <div className="flex justify-between text-sm"><span className="text-gray-500">Komisi Calo</span><span className="text-gray-900">{formatRupiah(detailOrder.calo.komisi)}</span></div>}
+                </div>
+              )}
+
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 space-y-3">
+                <h3 className="text-xs font-semibold text-blue-400 uppercase tracking-wider">Rincian Biaya</h3>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">Sewa Kendaraan</p>
+                    <p className="text-xs text-gray-500">{detailOrder.durasi_hari} hari × {formatRupiah(detailOrder.harga_per_hari)}/hari</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{fmtDate(detailOrder.tanggal_mulai)} {fmtTime(detailOrder.jam_mulai) || '08:00'} → {fmtDate(detailOrder.tanggal_selesai)} {fmtTime(detailOrder.jam_selesai) || '17:00'} WIB</p>
+                  </div>
+                  <p className="text-sm font-semibold text-gray-800 shrink-0">{formatRupiah(Number(detailOrder.harga_per_hari) * detailOrder.durasi_hari)}</p>
+                </div>
+                {detailOrder.supir?.tarif_per_hari > 0 && (
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">Biaya Supir</p>
+                      <p className="text-xs text-gray-500">{detailOrder.supir.nama} · {detailOrder.durasi_hari} hari × {formatRupiah(detailOrder.supir.tarif_per_hari)}/hari</p>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-800 shrink-0">{formatRupiah(Number(detailOrder.supir.tarif_per_hari) * detailOrder.durasi_hari)}</p>
+                  </div>
+                )}
                 {detailOrder.jam_overtime > 0 && (
-                  <div className="flex justify-between text-sm"><span className="text-red-600">Denda Overtime ({detailOrder.jam_overtime} jam × {formatRupiah(OVERTIME_RATE_PER_HOUR)})</span><span className="text-red-700 font-medium">{formatRupiah(detailOrder.denda_overtime)}</span></div>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-red-600">Denda Overtime</p>
+                      <p className="text-xs text-red-400">{detailOrder.jam_overtime} jam × {formatRupiah(OVERTIME_RATE_PER_HOUR)}/jam</p>
+                    </div>
+                    <p className="text-sm font-semibold text-red-600 shrink-0">{formatRupiah(detailOrder.denda_overtime)}</p>
+                  </div>
                 )}
                 {detailOrder.status_order === 'active' && detailOrder.jam_overtime_saat_ini > 0 && !detailOrder.jam_overtime && (
-                  <div className="flex justify-between text-sm"><span className="text-red-600">Overtime saat ini ({detailOrder.jam_overtime_saat_ini} jam × {formatRupiah(OVERTIME_RATE_PER_HOUR)})</span><span className="text-red-700 font-medium">{formatRupiah(detailOrder.denda_overtime_saat_ini)}</span></div>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-red-600">Overtime saat ini</p>
+                      <p className="text-xs text-red-400">{detailOrder.jam_overtime_saat_ini} jam × {formatRupiah(OVERTIME_RATE_PER_HOUR)}/jam</p>
+                    </div>
+                    <p className="text-sm font-semibold text-red-600 shrink-0">{formatRupiah(detailOrder.denda_overtime_saat_ini)}</p>
+                  </div>
                 )}
-                <div className="flex justify-between items-center pt-2 border-t border-blue-200">
-                  <span className="text-blue-600 font-medium">Total</span>
-                  <span className="text-xl font-bold text-blue-800">{formatRupiah(
+                <div className="border-t border-blue-200 pt-2 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-gray-800">Total</span>
+                  <span className="text-lg font-bold text-blue-700">{formatRupiah(
                     Number(detailOrder.harga_total) +
                     (detailOrder.status_order === 'active' && detailOrder.jam_overtime_saat_ini > 0 && !detailOrder.jam_overtime
                       ? Number(detailOrder.denda_overtime_saat_ini)
@@ -1146,6 +1252,14 @@ export default function Orders() {
                 <p className="font-medium text-gray-900">{invoiceOrder.kendaraan?.nama_kendaraan}</p>
                 <p className="text-gray-600 text-xs font-mono">{invoiceOrder.kendaraan?.plat_nomor}</p>
               </div>
+
+              {(invoiceOrder.supir || invoiceOrder.calo) && (
+                <div className="bg-gray-50 rounded-xl p-3 text-sm">
+                  <p className="text-xs text-gray-400 mb-1">Supir & Calo</p>
+                  {invoiceOrder.supir && <p className="font-medium text-gray-900">Supir: {invoiceOrder.supir.nama}</p>}
+                  {invoiceOrder.calo && <p className="text-gray-600 text-xs">Calo: {invoiceOrder.calo.nama}{invoiceOrder.calo.komisi ? ` (${formatRupiah(invoiceOrder.calo.komisi)})` : ''}</p>}
+                </div>
+              )}
 
               <div className="text-sm">
                 <p className="text-xs text-gray-400 mb-2">Periode Sewa</p>
@@ -1436,6 +1550,16 @@ export default function Orders() {
                         <p className="text-xs text-gray-400 truncate">{item.kendaraan?.plat_nomor}</p>
                       </div>
                     </div>
+                    {(item.supir || item.calo) && (
+                      <div className="space-y-0.5">
+                        <span className="text-xs text-gray-400 uppercase tracking-wider">Supir / Calo</span>
+                        <div className="px-2 py-1">
+                          {item.supir && <span className="text-gray-900 block truncate">{item.supir.nama}</span>}
+                          {item.calo && <p className="text-xs text-gray-400 truncate">{item.calo.nama}</p>}
+                          {!item.supir && !item.calo && <span className="text-gray-400">-</span>}
+                        </div>
+                      </div>
+                    )}
                     <div className="space-y-0.5">
                       <span className="text-xs text-gray-400 uppercase tracking-wider">Periode</span>
                       <div className="px-2 py-1">

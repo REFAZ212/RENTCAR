@@ -72,4 +72,14 @@ class TipeController extends Controller
 
         return response()->json(['message' => 'Tipe berhasil dihapus']);
     }
+
+    public function kendaraans(Tipe $tipe): JsonResponse
+    {
+        $kendaraans = $tipe->kendaraans()
+            ->with(['kategori', 'garasiPartner'])
+            ->orderBy('nama_kendaraan')
+            ->get();
+
+        return response()->json($kendaraans);
+    }
 }

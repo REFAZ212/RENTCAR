@@ -1,0 +1,1 @@
+use App\Models\GarasiPartner;  = GarasiPartner::where('nama_garasi','Garasi Jaya Abadi')-; if() { echo json_encode([-, -, -; } else { echo 'NOT FOUND'; } 

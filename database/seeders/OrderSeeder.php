@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Customer;
 use App\Models\Kendaraan;
 use App\Models\Order;
+use App\Models\SupirCalo;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
@@ -20,12 +21,19 @@ class OrderSeeder extends Seeder
         $customers = Customer::all();
         $kendaraans = Kendaraan::all();
 
+        $supir1 = SupirCalo::where('jenis', 'supir')->where('nama', 'Andi Kurniawan')->first();
+        $supir2 = SupirCalo::where('jenis', 'supir')->where('nama', 'Budi Hartono')->first();
+        $calo1 = SupirCalo::where('jenis', 'calo')->where('nama', 'Eka Putri')->first();
+        $calo2 = SupirCalo::where('jenis', 'calo')->where('nama', 'Fadli Ramadhan')->first();
+
         $orders = [
             // Order 1 - Active (disewa)
             [
                 'customer_id' => $customers[0]->id,
                 'kendaraan_id' => $kendaraans->where('nama_kendaraan', 'Honda HR-V')->first()->id,
                 'admin_id' => $admin->id,
+                'supir_id' => $supir1?->id,
+                'calo_id' => $calo1?->id,
                 'tanggal_mulai' => Carbon::now()->subDays(1)->toDateString(),
                 'tanggal_selesai' => Carbon::now()->addDays(2)->toDateString(),
                 'durasi_hari' => 3,
@@ -42,6 +50,7 @@ class OrderSeeder extends Seeder
                 'customer_id' => $customers[1]->id,
                 'kendaraan_id' => $kendaraans->where('nama_kendaraan', 'Toyota Avanza Veloz')->first()->id,
                 'admin_id' => $petugas1->id,
+                'supir_id' => $supir2?->id,
                 'tanggal_mulai' => Carbon::now()->subDays(10)->toDateString(),
                 'tanggal_selesai' => Carbon::now()->subDays(7)->toDateString(),
                 'durasi_hari' => 3,
@@ -57,6 +66,7 @@ class OrderSeeder extends Seeder
                 'customer_id' => $customers[2]->id,
                 'kendaraan_id' => $kendaraans->where('nama_kendaraan', 'Toyota Fortuner VRZ')->first()->id,
                 'admin_id' => $petugas1->id,
+                'calo_id' => $calo2?->id,
                 'tanggal_mulai' => Carbon::now()->addDays(3)->toDateString(),
                 'tanggal_selesai' => Carbon::now()->addDays(5)->toDateString(),
                 'durasi_hari' => 2,
@@ -72,6 +82,7 @@ class OrderSeeder extends Seeder
                 'customer_id' => $customers[3]->id,
                 'kendaraan_id' => $kendaraans->where('nama_kendaraan', 'Toyota Kijang Innova Reborn')->first()->id,
                 'admin_id' => $admin->id,
+                'supir_id' => $supir1?->id,
                 'tanggal_mulai' => Carbon::now()->addDays(1)->toDateString(),
                 'tanggal_selesai' => Carbon::now()->addDays(4)->toDateString(),
                 'durasi_hari' => 3,
@@ -88,6 +99,7 @@ class OrderSeeder extends Seeder
                 'customer_id' => $customers[4]->id,
                 'kendaraan_id' => $kendaraans->where('nama_kendaraan', 'Daihatsu Xenia')->first()->id,
                 'admin_id' => $petugas2->id,
+                'calo_id' => $calo1?->id,
                 'tanggal_mulai' => Carbon::now()->subDays(5)->toDateString(),
                 'tanggal_selesai' => Carbon::now()->subDays(3)->toDateString(),
                 'durasi_hari' => 2,
@@ -103,6 +115,8 @@ class OrderSeeder extends Seeder
                 'customer_id' => $customers[5]->id,
                 'kendaraan_id' => $kendaraans->where('nama_kendaraan', 'Toyota Vios')->first()->id,
                 'admin_id' => $petugas1->id,
+                'supir_id' => $supir2?->id,
+                'calo_id' => $calo2?->id,
                 'tanggal_mulai' => Carbon::now()->subDays(15)->toDateString(),
                 'tanggal_selesai' => Carbon::now()->subDays(12)->toDateString(),
                 'durasi_hari' => 3,
@@ -118,6 +132,8 @@ class OrderSeeder extends Seeder
                 'customer_id' => $customers[6]->id,
                 'kendaraan_id' => $kendaraans->where('nama_kendaraan', 'Mitsubishi Colt Diesel')->first()->id,
                 'admin_id' => $admin->id,
+                'supir_id' => $supir1?->id,
+                'calo_id' => $calo1?->id,
                 'tanggal_mulai' => Carbon::now()->toDateString(),
                 'tanggal_selesai' => Carbon::now()->addDays(7)->toDateString(),
                 'durasi_hari' => 7,
@@ -134,6 +150,7 @@ class OrderSeeder extends Seeder
                 'customer_id' => $customers[7]->id,
                 'kendaraan_id' => $kendaraans->where('nama_kendaraan', 'Toyota Camry')->first()->id,
                 'admin_id' => $petugas2->id,
+                'supir_id' => $supir2?->id,
                 'tanggal_mulai' => Carbon::now()->addDays(5)->toDateString(),
                 'tanggal_selesai' => Carbon::now()->addDays(6)->toDateString(),
                 'durasi_hari' => 1,

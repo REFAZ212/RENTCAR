@@ -3,12 +3,10 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Kendaraan from './pages/Kendaraan';
-import Customers from './pages/Customers';
-import Orders from './pages/Orders';
-import GarasiPartner from './pages/GarasiPartner';
-import GarasiSaya from './pages/GarasiSaya';
+import CustomersOrders from './pages/CustomersOrders';
+import GarasiPage from './pages/GarasiPage';
 import KategoriTipe from './pages/KategoriTipe';
+import SupirCalo from './pages/SupirCalo';
 import Laporan from './pages/Laporan';
 import Katalog from './pages/Katalog';
 import KendaraanDetail from './pages/KendaraanDetail';
@@ -51,13 +49,16 @@ export default function App() {
 
           {/* Admin routes — auth required */}
           <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/kendaraan" element={<PrivateRoute><Kendaraan /></PrivateRoute>} />
+          <Route path="/kendaraan" element={<Navigate to="/garasi" replace />} />
           <Route path="/kategori-tipe" element={<PrivateRoute><KategoriTipe /></PrivateRoute>} />
-          <Route path="/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
-          <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
+          <Route path="/supir-calo" element={<PrivateRoute><SupirCalo /></PrivateRoute>} />
+          <Route path="/customers-orders" element={<PrivateRoute><CustomersOrders /></PrivateRoute>} />
+          <Route path="/customers" element={<PrivateRoute><CustomersOrders /></PrivateRoute>} />
+          <Route path="/orders" element={<PrivateRoute><CustomersOrders /></PrivateRoute>} />
           <Route path="/laporan" element={<PrivateRoute><Laporan /></PrivateRoute>} />
-          <Route path="/garasi" element={<PrivateRoute><GarasiPartner /></PrivateRoute>} />
-          <Route path="/garasi-saya" element={<PrivateRoute><GarasiSaya /></PrivateRoute>} />
+          <Route path="/garasi" element={<PrivateRoute><GarasiPage /></PrivateRoute>} />
+          <Route path="/garasi-saya" element={<PrivateRoute><GarasiPage /></PrivateRoute>} />
+          <Route path="/garasi-partner" element={<PrivateRoute><GarasiPage /></PrivateRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />

@@ -103,9 +103,18 @@ export const kategoriAPI = {
 export const tipeAPI = {
   list: (params) => api.get('/tipes', { params }),
   get: (id) => api.get(`/tipes/${id}`),
+  kendaraans: (id) => api.get(`/tipes/${id}/kendaraans`),
   create: (data) => api.post('/tipes', data),
   update: (id, data) => api.put(`/tipes/${id}`, data),
   delete: (id) => api.delete(`/tipes/${id}`),
+};
+
+export const supirCaloAPI = {
+  list: (params) => api.get('/supir-calos', { params }),
+  get: (id) => api.get(`/supir-calos/${id}`),
+  create: (data) => api.post('/supir-calos', data),
+  update: (id, data) => api.put(`/supir-calos/${id}`, data),
+  delete: (id) => api.delete(`/supir-calos/${id}`),
 };
 
 export const laporanAPI = {

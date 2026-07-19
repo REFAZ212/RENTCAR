@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             TipeSeeder::class,
             KendaraanSeeder::class,
             CustomerSeeder::class,
+            SupirCaloSeeder::class,
             OrderSeeder::class,
             GarasiRequestSeeder::class,
             WhatsappLogSeeder::class,
