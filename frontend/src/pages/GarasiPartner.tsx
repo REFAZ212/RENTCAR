@@ -3,7 +3,7 @@ import { garasiPartnerAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 
-const emptyForm = { nama_garasi: '', nama_pemilik: '', alamat: '', no_hp: '', email: '', status_aktif: true, catatan: '' };
+const emptyForm = { nama_garasi: '', nama_pemilik: '', alamat: '', no_hp: '', email: '', status_aktif: true, is_own: false, catatan: '' };
 
 export default function GarasiPartner() {
   const toast = useToast();
@@ -34,7 +34,7 @@ export default function GarasiPartner() {
         await garasiPartnerAPI.update(editItem.id, form);
         toast.success('Garasi partner berhasil diperbarui');
       } else {
-        await garasiPartnerAPI.create({ ...form, is_own: false });
+        await garasiPartnerAPI.create(form);
         toast.success('Garasi partner berhasil ditambahkan');
       }
       setShowForm(false);
@@ -50,7 +50,7 @@ export default function GarasiPartner() {
   };
 
   const handleEdit = (item) => {
-    setForm({ nama_garasi: item.nama_garasi, nama_pemilik: item.nama_pemilik, alamat: item.alamat || '', no_hp: item.no_hp, email: item.email || '', status_aktif: item.status_aktif, catatan: item.catatan || '' });
+    setForm({ nama_garasi: item.nama_garasi, nama_pemilik: item.nama_pemilik, alamat: item.alamat || '', no_hp: item.no_hp, email: item.email || '', status_aktif: item.status_aktif, is_own: item.is_own || false, catatan: item.catatan || '' });
     setEditItem(item);
     setShowForm(true);
   };
@@ -129,7 +129,14 @@ export default function GarasiPartner() {
                 <textarea value={form.catatan} onChange={(e) => setField('catatan', e.target.value)} rows="2"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none" />
               </div>
-
+              <div className="flex items-center gap-3">
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={form.is_own} onChange={(e) => setField('is_own', e.target.checked)} className="sr-only peer" />
+                  <div className="w-9 h-5 bg-gray-200 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+                <span className="text-sm text-gray-700">Milik Sendiri</span>
+                <span className="text-xs text-gray-400">— Centang jika ini garasi milik perusahaan Anda</span>
+              </div>
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                 <button type="button" onClick={() => { setShowForm(false); setEditItem(null); }} className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">Batal</button>
                 <button type="submit" disabled={submitting}
@@ -161,17 +168,18 @@ export default function GarasiPartner() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600">No. HP</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Kendaraan</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">Milik</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan="6" className="p-12 text-center">
+                <tr><td colSpan="7" className="p-12 text-center">
                   <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                   <p className="text-sm text-gray-500">Memuat data...</p>
                 </td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan="6" className="p-12 text-center">
+                <tr><td colSpan="7" className="p-12 text-center">
                   <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
                   <p className="text-gray-500 font-medium">Tidak ada data garasi partner</p>
                   <p className="text-sm text-gray-400 mt-1">Mulai dengan menambahkan garasi partner baru</p>
@@ -189,6 +197,13 @@ export default function GarasiPartner() {
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${item.status_aktif ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                       {item.status_aktif ? 'Aktif' : 'Nonaktif'}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {item.is_own ? (
+                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">Sendiri</span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
