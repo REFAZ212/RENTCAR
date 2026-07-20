@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { kendaraanAPI, garasiPartnerAPI, kategoriAPI, tipeAPI } from '../services/api';
+import { kendaraanAPI, garasiPartnerAPI, kategoriAPI, tipeAPI, type Kendaraan, type GarasiPartner } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -25,30 +25,52 @@ function makeEmptyForm(garasiId) {
   return { garasi_partner_id: garasiId || '', kategori_id: '', tipe_id: '', nama_kendaraan: '', plat_nomor: '', merek: '', model: '', tahun: new Date().getFullYear(), warna: '', kapasitas_penumpang: 7, harga_sewa_per_hari: '', status: 'tersedia', catatan: '' };
 }
 
+interface GarasiWithKendaraan extends GarasiPartner {
+  kendaraans: Kendaraan[];
+  nama_garasi: string;
+}
+
+interface KendaraanForm {
+  garasi_partner_id: number | string;
+  kategori_id: string;
+  tipe_id: string;
+  nama_kendaraan: string;
+  plat_nomor: string;
+  merek: string;
+  model: string;
+  tahun: number | string;
+  warna: string;
+  kapasitas_penumpang: number | string;
+  harga_sewa_per_hari: number | string;
+  status: string;
+  catatan: string;
+}
+
 export default function GarasiSaya() {
   const toast = useToast();
-  const [garasi, setGarasi] = useState(null);
-  const [items, setItems] = useState([]);
-  const [kategoris, setKategoris] = useState([]);
-  const [tipes, setTipes] = useState([]);
+  const [garasi, setGarasi] = useState<GarasiWithKendaraan | null>(null);
+  const [items, setItems] = useState<Kendaraan[]>([]);
+  const [kategoris, setKategoris] = useState<any[]>([]);
+  const [tipes, setTipes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [showForm, setShowForm] = useState(false);
-  const [editItem, setEditItem] = useState(null);
-  const [form, setForm] = useState({});
-  const [fotoFile, setFotoFile] = useState(null);
-  const [fotoPreview, setFotoPreview] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [editItem, setEditItem] = useState<Kendaraan | null>(null);
+  const [form, setForm] = useState<KendaraanForm>({} as KendaraanForm);
+  const [fotoFile, setFotoFile] = useState<File | null>(null);
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<Kendaraan | null>(null);
   const [lastAdded, setLastAdded] = useState(false);
 
   const loadGarasi = useCallback(() => {
     return garasiPartnerAPI.garasiSaya()
       .then(({ data }) => {
-        setGarasi(data);
-        setItems(data?.kendaraans || []);
-        return data;
+        const d = data as unknown as GarasiWithKendaraan;
+        setGarasi(d);
+        setItems(d?.kendaraans || []);
+        return d;
       });
   }, []);
 
@@ -62,14 +84,14 @@ export default function GarasiSaya() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     kategoriAPI.list()
-      .then(({ data }) => setKategoris(data))
+      .then(({ data }) => setKategoris(data.data))
       .catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!form.kategori_id) { setTipes([]); return; }
     tipeAPI.list({ kategori_id: form.kategori_id })
-      .then(({ data }) => setTipes(data))
+      .then(({ data }) => setTipes(data.data))
       .catch(() => {});
   }, [form.kategori_id]);
 
@@ -106,9 +128,9 @@ export default function GarasiSaya() {
         }
       } else {
         if (editItem) {
-          await kendaraanAPI.update(editItem.id, form);
+          await kendaraanAPI.update(editItem.id, form as unknown as Record<string, unknown>);
         } else {
-          await kendaraanAPI.create(form);
+          await kendaraanAPI.create(form as unknown as Record<string, unknown>);
         }
       }
       toast.success(editItem ? 'Kendaraan berhasil diperbarui' : 'Kendaraan berhasil ditambahkan');
@@ -356,7 +378,7 @@ export default function GarasiSaya() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Catatan</label>
-                <textarea value={form.catatan} onChange={(e) => setField('catatan', e.target.value)} rows="2"
+                <textarea value={form.catatan} onChange={(e) => setField('catatan', e.target.value)} rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none" />
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
@@ -406,7 +428,7 @@ export default function GarasiSaya() {
             <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="p-12 text-center">
+                  <td colSpan={7} className="p-12 text-center">
                     <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18M3 11v6a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-6" />
                     </svg>

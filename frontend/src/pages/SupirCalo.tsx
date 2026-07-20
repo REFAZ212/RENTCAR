@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { supirCaloAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
@@ -44,7 +44,7 @@ function FileUpload({ label, accept, file, preview, onChange, existing }) {
 
 export default function SupirCalo() {
   const toast = useToast();
-  const [activeTab, setActiveTab] = useState('supir');
+  const [activeTab, setActiveTab] = useState<'supir' | 'calo'>('supir');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -138,7 +138,7 @@ export default function SupirCalo() {
   };
 
   const isSupir = activeTab === 'supir';
-  const tabs = [
+  const tabs: { key: 'supir' | 'calo'; label: string; icon: ReactNode }[] = [
     { key: 'supir', label: 'Supir', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18M3 11v6a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-6" /></svg> },
     { key: 'calo', label: 'Calo', icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg> },
   ];
@@ -200,7 +200,7 @@ export default function SupirCalo() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Alamat</label>
-                <textarea value={form.alamat} onChange={(e) => setField('alamat', e.target.value)} rows="2"
+                <textarea value={form.alamat} onChange={(e) => setField('alamat', e.target.value)} rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none" />
               </div>
               <div>
@@ -247,7 +247,7 @@ export default function SupirCalo() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Catatan</label>
-                <textarea value={form.catatan} onChange={(e) => setField('catatan', e.target.value)} rows="2"
+                <textarea value={form.catatan} onChange={(e) => setField('catatan', e.target.value)} rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none" />
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">

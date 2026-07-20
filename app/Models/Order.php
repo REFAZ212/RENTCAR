@@ -106,16 +106,26 @@ class Order extends Model
     }
 
     /**
-     * Batas waktu order ini seharusnya sudah dikembalikan (tanggal_selesai + jam_selesai).
-     * Null kalau data tanggal selesai belum lengkap.
+     * Batas waktu order ini seharusnya sudah dikembalikan.
+     * Dihitung dari tanggal_mulai + durasi_hari + jam_selesai,
+     * bukan dari tanggal_selesai langsung karena tanggal_selesai
+     * bisa salah input (mis. sama dengan tanggal_mulai).
      */
     public function batasWaktuKembali(): ?Carbon
     {
-        if (! $this->tanggal_selesai) {
+        if (! $this->tanggal_mulai || ! $this->durasi_hari) {
             return null;
         }
 
-        return OvertimeCalculator::batasWaktuDari($this->tanggal_selesai, $this->jam_selesai);
+        $batas = Carbon::parse($this->tanggal_mulai)->addDays($this->durasi_hari);
+
+        if ($this->jam_selesai) {
+            $batas->setTimeFromTimeString($this->jam_selesai);
+        } else {
+            $batas->setTime(23, 59);
+        }
+
+        return $batas;
     }
 
     /**

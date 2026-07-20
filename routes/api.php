@@ -26,6 +26,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
 
     Route::get('/dashboard', [DashboardController::class, 'index']);
+    Route::get('/dashboard/chart', [DashboardController::class, 'chart']);
 
     Route::get('/garasi-saya', [GarasiPartnerController::class, 'garasiSaya']);
     Route::apiResource('garasi-partners', GarasiPartnerController::class);

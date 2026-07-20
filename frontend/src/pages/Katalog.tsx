@@ -1,6 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { katalogAPI } from '../services/api';
+import { katalogAPI, type KategoriKendaraan, type TipeKendaraan } from '../services/api';
+
+interface KategoriKendaraanExt extends KategoriKendaraan {
+  slug: string;
+  kendaraans_count: number;
+}
+
+interface TipeKendaraanExt extends TipeKendaraan {
+  slug: string;
+  kendaraans_count: number;
+}
 
 const sortOptions = [
   { value: 'terbaru', label: 'Terbaru' },
@@ -20,39 +30,39 @@ function getFotoUrl(foto) {
 }
 
 export default function Katalog() {
-  const [items, setItems] = useState([]);
-  const [kategoris, setKategoris] = useState([]);
-  const [tipes, setTipes] = useState([]);
+  const [items, setItems] = useState<any[]>([]);
+  const [kategoris, setKategoris] = useState<KategoriKendaraanExt[]>([]);
+  const [tipes, setTipes] = useState<TipeKendaraanExt[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [kategoriSlug, setKategoriSlug] = useState('');
   const [tipeSlug, setTipeSlug] = useState('');
   const [sort, setSort] = useState('terbaru');
   const [page, setPage] = useState(1);
-  const [meta, setMeta] = useState(null);
+  const [meta, setMeta] = useState<{ total: number; last_page: number } | null>(null);
 
   useEffect(() => {
     katalogAPI.kategoris()
-      .then(({ data }) => setKategoris(data))
+      .then(({ data }) => setKategoris(data.data as KategoriKendaraanExt[]))
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    const params = {};
+    const params: Record<string, string> = {};
     if (kategoriSlug) params.kategori_slug = kategoriSlug;
     katalogAPI.tipes(params)
-      .then(({ data }) => setTipes(data))
+      .then(({ data }) => setTipes(data.data as TipeKendaraanExt[]))
       .catch(() => {});
   }, [kategoriSlug]);
 
   const load = useCallback(() => {
     setLoading(true);
-    const params = { page, sort };
+    const params: Record<string, string | number> = { page, sort };
     if (search) params.search = search;
     if (tipeSlug) params.tipe_slug = tipeSlug;
     if (kategoriSlug) params.kategori_slug = kategoriSlug;
     katalogAPI.list(params)
-      .then(({ data }) => { setItems(data.data); setMeta(data); })
+      .then(({ data }) => { setItems(data.data); setMeta(data.meta ?? null); })
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
   }, [search, tipeSlug, page, sort, kategoriSlug]);

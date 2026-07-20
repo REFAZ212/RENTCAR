@@ -21,24 +21,31 @@ const ranges = ['Harian', 'Mingguan', 'Bulanan'] as const;
 
 interface RevenueChartProps {
   data?: ChartPendapatanPoint[];
+  activeRange?: (typeof ranges)[number];
+  onRangeChange?: (range: (typeof ranges)[number]) => void;
 }
 
-export default function RevenueChart({ data }: RevenueChartProps) {
-  const [range, setRange] = useState<(typeof ranges)[number]>('Bulanan');
+export default function RevenueChart({ data, activeRange, onRangeChange }: RevenueChartProps) {
+  const [range, setRange] = useState<(typeof ranges)[number]>(activeRange ?? 'Bulanan');
+
+  const handleRange = (r: (typeof ranges)[number]) => {
+    setRange(r);
+    onRangeChange?.(r);
+  };
 
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="font-display text-lg font-semibold text-ink-900">Rentals & Revenue</h2>
-          <p className="mt-1 text-sm text-gray-500">Jumlah penyewaan dan pendapatan per bulan (dalam juta Rupiah)</p>
+          <p className="mt-1 text-sm text-gray-500">Jumlah penyewaan dan pendapatan {range === 'Harian' ? 'per hari' : range === 'Mingguan' ? 'per minggu' : 'per bulan'} (dalam juta Rupiah)</p>
         </div>
 
         <div className="flex items-center rounded-lg border border-gray-200 p-1">
           {ranges.map((r) => (
             <button
               key={r}
-              onClick={() => setRange(r)}
+              onClick={() => handleRange(r)}
               className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                 range === r ? 'bg-ink-900 text-white' : 'text-gray-500 hover:text-gray-700'
               }`}

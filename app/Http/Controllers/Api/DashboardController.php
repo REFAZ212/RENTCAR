@@ -59,6 +59,88 @@ class DashboardController extends Controller
             'stats' => $stats,
             'recent_orders' => $recent_orders,
             'recent_garasi_requests' => $recent_garasi_requests,
+            'chart_pendapatan' => $this->getChartPendapatan('bulanan'),
         ]);
+    }
+
+    public function chart(Request $request): JsonResponse
+    {
+        $periode = $request->query('periode', 'bulanan');
+        $allowed = ['harian', 'mingguan', 'bulanan'];
+
+        if (! in_array($periode, $allowed)) {
+            $periode = 'bulanan';
+        }
+
+        return response()->json($this->getChartPendapatan($periode));
+    }
+
+    private function getChartPendapatan(string $periode): array
+    {
+        $now = Carbon::now();
+
+        $config = match ($periode) {
+            'harian' => [
+                'start' => $now->copy()->subDays(29)->startOfDay(),
+                'sql' => '%Y-%m-%d',
+                'step' => 'day',
+            ],
+            'mingguan' => [
+                'start' => $now->copy()->subWeeks(11)->startOfWeek(),
+                'sql' => '%x-W%v',
+                'step' => 'week',
+            ],
+            default => [
+                'start' => $now->copy()->subMonths(11)->startOfMonth(),
+                'sql' => '%Y-%m',
+                'step' => 'month',
+            ],
+        };
+
+        $start = $config['start'];
+        $step = $config['step'];
+
+        $rows = Order::where('status_pembayaran', 'paid')
+            ->where('created_at', '>=', $start)
+            ->selectRaw('DATE_FORMAT(created_at, ?) AS period', [$config['sql']])
+            ->selectRaw('SUM(harga_total) AS total_pendapatan')
+            ->selectRaw('COUNT(*) AS jumlah_sewa')
+            ->groupBy('period')
+            ->orderBy('period')
+            ->get()
+            ->keyBy('period');
+
+        $filled = collect();
+        $cursor = $start->copy();
+
+        while ($cursor->lte($now)) {
+            $periodKey = match ($step) {
+                'day' => $cursor->format('Y-m-d'),
+                'week' => $cursor->format('o-\WW'),
+                default => $cursor->format('Y-m'),
+            };
+
+            $row = $rows->get($periodKey);
+
+            $label = match ($step) {
+                'day' => $cursor->format('d M'),
+                'week' => 'W'.$cursor->isoWeek,
+                default => $cursor->format('M Y'),
+            };
+
+            $filled->push([
+                'bulan' => $label,
+                'pendapatan' => $row ? round($row->total_pendapatan / 1_000_000, 2) : 0,
+                'jumlah_sewa' => $row ? (int) $row->jumlah_sewa : 0,
+            ]);
+
+            match ($step) {
+                'day' => $cursor->addDay(),
+                'week' => $cursor->addWeek(),
+                default => $cursor->addMonth(),
+            };
+        }
+
+        return $filled->toArray();
     }
 }

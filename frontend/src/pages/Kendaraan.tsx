@@ -1,59 +1,31 @@
 import { useState, useEffect, useCallback, useMemo, ChangeEvent, FormEvent } from 'react';
-import { kendaraanAPI, garasiPartnerAPI, kategoriAPI, tipeAPI } from '../services/api';
+import {
+  kendaraanAPI,
+  garasiPartnerAPI,
+  kategoriAPI,
+  tipeAPI,
+  type Kendaraan as ApiKendaraan,
+  type GarasiPartner as ApiGarasiPartner,
+  type KategoriKendaraan,
+  type TipeKendaraan,
+} from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 
-/* ------------------------------------------------------------------ */
-/* Types                                                               */
-/*                                                                      */
-/* NOTE: I don't have your actual `services/api` / model type          */
-/* definitions, so these are inferred from the JSX you shared. Swap    */
-/* them out for your real shared types (e.g. from `../types`) if you   */
-/* already have them, and remove the duplicates here.                  */
-/* ------------------------------------------------------------------ */
-
 export type StatusKendaraan = 'tersedia' | 'disewa' | 'maintenance';
 
-export interface GarasiPartner {
-  id: number | string;
+type Kendaraan = ApiKendaraan & {
+  garasi_partner?: { nama_partner: string };
+  kategori?: KategoriKendaraan;
+  tipe?: TipeKendaraan;
+};
+
+type GarasiPartnerLocal = ApiGarasiPartner & {
   nama_garasi: string;
-}
-
-export interface Kategori {
-  id: number | string;
-  nama_kategori: string;
-  aktif: boolean;
-}
-
-export interface Tipe {
-  id: number | string;
-  nama_tipe: string;
-  kategori_id: number | string;
-  aktif: boolean;
-}
-
-export interface Kendaraan {
-  id: number | string;
-  garasi_partner_id: number | string;
-  garasi_partner?: GarasiPartner;
-  kategori_id: number | string | null;
-  kategori?: Kategori;
-  tipe_id: number | string | null;
-  tipe?: Tipe;
-  nama_kendaraan: string;
-  plat_nomor: string;
-  merek: string;
-  model: string;
-  tahun: number;
-  warna: string;
-  kapasitas_penumpang: number;
-  harga_sewa_per_hari: number | string;
-  status: StatusKendaraan;
-  catatan?: string | null;
-  foto?: string | null;
-}
+};
 
 interface KendaraanFormState {
+  [key: string]: string | number;
   garasi_partner_id: string;
   kategori_id: string;
   tipe_id: string;
@@ -134,9 +106,9 @@ export default function Kendaraan() {
   const toast = useToast();
 
   const [items, setItems] = useState<Kendaraan[]>([]);
-  const [garasi, setGarasi] = useState<GarasiPartner[]>([]);
-  const [kategoris, setKategoris] = useState<Kategori[]>([]);
-  const [tipes, setTipes] = useState<Tipe[]>([]);
+  const [garasi, setGarasi] = useState<GarasiPartnerLocal[]>([]);
+  const [kategoris, setKategoris] = useState<KategoriKendaraan[]>([]);
+  const [tipes, setTipes] = useState<TipeKendaraan[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -170,7 +142,7 @@ export default function Kendaraan() {
     setLoading(true);
     kendaraanAPI
       .list({ search })
-      .then(({ data }: { data: { data: Kendaraan[] } }) => setItems(data.data))
+      .then(({ data }) => setItems(data.data as unknown as Kendaraan[]))
       .catch(() => toast.error('Gagal memuat data kendaraan'))
       .finally(() => setLoading(false));
   }, [search, toast]);
@@ -182,11 +154,11 @@ export default function Kendaraan() {
   useEffect(() => {
     garasiPartnerAPI
       .list({})
-      .then(({ data }: { data: { data: GarasiPartner[] } }) => setGarasi(data.data))
+      .then(({ data }) => setGarasi(data.data as unknown as GarasiPartnerLocal[]))
       .catch(() => {});
     kategoriAPI
       .list({})
-      .then(({ data }: { data: Kategori[] }) => setKategoris(data))
+      .then(({ data }) => setKategoris(data as unknown as KategoriKendaraan[]))
       .catch(() => {});
   }, []);
 
@@ -197,7 +169,7 @@ export default function Kendaraan() {
     }
     tipeAPI
       .list({ kategori_id: form.kategori_id })
-      .then(({ data }: { data: Tipe[] }) => setTipes(data))
+      .then(({ data }) => setTipes(data as unknown as TipeKendaraan[]))
       .catch(() => {});
   }, [form.kategori_id]);
 
@@ -239,15 +211,15 @@ export default function Kendaraan() {
         });
         fd.append('foto', fotoFile as File);
         if (editItem) {
-          await kendaraanAPI.update(editItem.id, fd);
+          await kendaraanAPI.update(Number(editItem.id), fd);
         } else {
           await kendaraanAPI.create(fd);
         }
       } else {
         if (editItem) {
-          await kendaraanAPI.update(editItem.id, form);
+          await kendaraanAPI.update(Number(editItem.id), form as unknown as Record<string, unknown>);
         } else {
-          await kendaraanAPI.create(form);
+          await kendaraanAPI.create(form as unknown as Record<string, unknown>);
         }
       }
       toast.success(editItem ? 'Kendaraan berhasil diperbarui' : 'Kendaraan berhasil ditambahkan');
@@ -289,7 +261,7 @@ export default function Kendaraan() {
       warna: item.warna,
       kapasitas_penumpang: item.kapasitas_penumpang,
       harga_sewa_per_hari: item.harga_sewa_per_hari,
-      status: item.status,
+      status: item.status as StatusKendaraan,
       catatan: item.catatan || '',
     });
     setFotoFile(null);
@@ -301,7 +273,7 @@ export default function Kendaraan() {
   const handleDelete = async () => {
     if (!confirmDelete) return;
     try {
-      await kendaraanAPI.delete(confirmDelete.id);
+      await kendaraanAPI.delete(Number(confirmDelete.id));
       toast.success('Kendaraan berhasil dihapus');
       load();
     } catch (err: any) {
@@ -311,14 +283,14 @@ export default function Kendaraan() {
   };
 
   const handleStatusChange = async (
-    id: Kendaraan['id'],
+    id: number,
     status: StatusKendaraan,
     catatan?: string
   ) => {
     try {
       const payload: { status: StatusKendaraan; catatan?: string } = { status };
       if (catatan !== undefined) payload.catatan = catatan;
-      await kendaraanAPI.update(id, payload);
+      await kendaraanAPI.update(Number(id), payload);
       toast.success(`Status kendaraan diubah menjadi "${statusLabels[status]}"`);
       load();
       return true;
@@ -915,6 +887,7 @@ export default function Kendaraan() {
               <tr className="border-b border-gray-100">
                 <th className="text-left px-4 py-3 font-medium text-xs text-gray-400 uppercase tracking-wide">Plat Nomor</th>
                 <th className="text-left px-4 py-3 font-medium text-xs text-gray-400 uppercase tracking-wide">Model</th>
+                <th className="text-left px-4 py-3 font-medium text-xs text-gray-400 uppercase tracking-wide">Kategori</th>
                 <th className="text-left px-4 py-3 font-medium text-xs text-gray-400 uppercase tracking-wide">Tipe</th>
                 <th className="text-left px-4 py-3 font-medium text-xs text-gray-400 uppercase tracking-wide">Lokasi</th>
                 <th className="text-left px-4 py-3 font-medium text-xs text-gray-400 uppercase tracking-wide">Tarif / Hari</th>
@@ -925,14 +898,14 @@ export default function Kendaraan() {
             <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center">
+                  <td colSpan={8} className="p-12 text-center">
                     <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                     <p className="text-sm text-gray-500">Memuat data...</p>
                   </td>
                 </tr>
               ) : filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center">
+                  <td colSpan={8} className="p-12 text-center">
                     <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18M3 11v6a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-6" />
                     </svg>
@@ -975,6 +948,7 @@ export default function Kendaraan() {
                         </div>
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-gray-600">{item.kategori?.nama_kategori || '-'}</td>
                     <td className="px-4 py-3 text-gray-600">{item.tipe?.nama_tipe || '-'}</td>
                     <td className="px-4 py-3 text-gray-600">{item.garasi_partner?.nama_garasi || '-'}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">{formatRupiah(item.harga_sewa_per_hari)}</td>

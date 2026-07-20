@@ -45,6 +45,11 @@ export interface Kendaraan {
   kategori_id?: number;
   tipe_id?: number;
   garasiPartner?: { nama_partner: string };
+  catatan?: string | null;
+  garasi_partner_id?: number;
+  kategori?: KategoriKendaraan;
+  tipe?: TipeKendaraan;
+  garasi_partner?: GarasiPartner;
 }
 
 export interface SupirCalo {
@@ -95,6 +100,7 @@ export interface Order {
 export interface GarasiPartner {
   id: number;
   nama_partner: string;
+  nama_garasi: string;
   no_hp?: string;
   alamat?: string;
   status?: string;
@@ -112,12 +118,14 @@ export interface KategoriKendaraan {
   id: number;
   nama_kategori: string;
   deskripsi?: string | null;
+  aktif: boolean;
 }
 
 export interface TipeKendaraan {
   id: number;
   nama_tipe: string;
   kategori_id: number;
+  aktif: boolean;
 }
 
 export interface KatalogItem extends Kendaraan {
@@ -214,8 +222,16 @@ export const authAPI = {
 /* ─────────────────────────────────────────────────────────────
  * DASHBOARD
  * ───────────────────────────────────────────────────────────── */
+export interface ChartPendapatanPoint {
+  bulan: string;
+  pendapatan: number;
+  jumlah_sewa: number;
+}
+
 export const dashboardAPI = {
   get: (): Promise<AxiosResponse<SingleResponse<DashboardSummary>>> => api.get('/dashboard'),
+  chart: (periode?: string): Promise<AxiosResponse<ChartPendapatanPoint[]>> =>
+    api.get('/dashboard/chart', { params: { periode } }),
 };
 
 /* ─────────────────────────────────────────────────────────────
@@ -246,11 +262,11 @@ export const customerAPI = {
  * ───────────────────────────────────────────────────────────── */
 export const supirCaloAPI = {
   list: (params?: QueryParams & { jenis?: 'supir' | 'calo' }): Promise<AxiosResponse<ListResponse<SupirCalo>>> =>
-    api.get('/supir-calo', { params }),
-  get: (id: number): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.get(`/supir-calo/${id}`),
-  create: (data: Payload): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.post('/supir-calo', data),
-  update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.put(`/supir-calo/${id}`, data),
-  delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/supir-calo/${id}`),
+    api.get('/supir-calos', { params }),
+  get: (id: number): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.get(`/supir-calos/${id}`),
+  create: (data: Payload): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.post('/supir-calos', data),
+  update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.put(`/supir-calos/${id}`, data),
+  delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/supir-calos/${id}`),
 };
 
 /* ─────────────────────────────────────────────────────────────

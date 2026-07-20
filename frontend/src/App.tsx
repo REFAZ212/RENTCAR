@@ -7,8 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Kendaraan from './pages/Kendaraan';
 import Customers from './pages/Customers';
 import Orders from './pages/Orders';
-import GarasiPartner from './pages/GarasiPartner';
-import GarasiSaya from './pages/GarasiSaya';
+import GarasiPage from './pages/GarasiPage';
 import KategoriTipe from './pages/KategoriTipe';
 import GpsPage from './pages/GpsPage';
 import Laporan from './pages/Laporan';
@@ -16,6 +15,7 @@ import Katalog from './pages/Katalog';
 import KendaraanDetail from './pages/KendaraanDetail';
 import NotFound from './pages/NotFound';
 import Pengaturan from './pages/Pengaturan';
+import SupirCalo from './pages/SupirCalo';
 
 function LoadingScreen() {
   return (
@@ -57,11 +57,11 @@ export default function App() {
           <Route path="/kendaraan" element={<PrivateRoute><Kendaraan /></PrivateRoute>} />
           <Route path="/kategori-tipe" element={<PrivateRoute><KategoriTipe /></PrivateRoute>} />
           <Route path="/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
+          <Route path="/supir-calo" element={<PrivateRoute><SupirCalo /></PrivateRoute>} />
           <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
           <Route path="/gps" element={<PrivateRoute><GpsPage /></PrivateRoute>} />
           <Route path="/laporan" element={<PrivateRoute><Laporan /></PrivateRoute>} />
-          <Route path="/garasi" element={<PrivateRoute><GarasiPartner /></PrivateRoute>} />
-          <Route path="/garasi-saya" element={<PrivateRoute><GarasiSaya /></PrivateRoute>} />
+          <Route path="/garasi" element={<PrivateRoute><GarasiPage /></PrivateRoute>} />
           <Route path="/pengaturan" element={<PrivateRoute><Pengaturan /></PrivateRoute>} />
 
           {/* 404 */}

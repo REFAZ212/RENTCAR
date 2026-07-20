@@ -520,7 +520,7 @@ export default function Orders() {
         fd.append('bukti_transfer', buktiBaruFile);
         await orderAPI.create(fd);
       } else {
-        await orderAPI.create(form);
+        await orderAPI.create(form as unknown as Record<string, unknown>);
       }
       toast.success('Order berhasil ditambahkan');
       setForm(emptyForm);
@@ -2337,7 +2337,7 @@ export default function Orders() {
                         <span className="text-xs uppercase tracking-wider text-ink-400">Periode</span>
                         <div className="px-2 py-1">
                           <span className="block text-ink-900">
-                            {fmtDate(item.tanggal_mulai)} - {fmtDate(item.tanggal_selesai)}
+                            {fmtDate(item.tanggal_mulai)} {fmtTime(item.jam_mulai) || '08:00'} → {fmtDate(item.tanggal_selesai)} {fmtTime(item.jam_selesai) || '17:00'} WIB
                           </span>
                           <p className="text-xs text-ink-400">{item.durasi_hari} hari</p>
                         </div>

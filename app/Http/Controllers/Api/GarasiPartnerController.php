@@ -67,10 +67,10 @@ class GarasiPartnerController extends Controller
     public function update(Request $request, GarasiPartner $garasiPartner): JsonResponse
     {
         $validated = $request->validate([
-            'nama_garasi' => 'required|string|max:255',
-            'nama_pemilik' => 'required|string|max:255',
-            'alamat' => 'required|string',
-            'no_hp' => 'required|string|max:255',
+            'nama_garasi' => 'sometimes|required|string|max:255',
+            'nama_pemilik' => 'sometimes|required|string|max:255',
+            'alamat' => 'sometimes|required|string',
+            'no_hp' => 'sometimes|required|string|max:255',
             'email' => 'nullable|email|unique:garasi_partners,email,'.$garasiPartner->id,
             'status_aktif' => 'boolean',
             'is_own' => 'boolean',
