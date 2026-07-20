@@ -278,7 +278,7 @@ function ProfilTab() {
 
   useEffect(() => {
     api
-      .get<ProfilForm>('/pengaturan/profil')
+      .get('/pengaturan/profil')
       .then(({ data }) => setForm(data))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -299,7 +299,7 @@ function ProfilTab() {
       payload.append('no_hp', form.no_hp);
       if (avatarFile) payload.append('avatar', avatarFile);
 
-      await api.post('/pengaturan/profil', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await api.post('/pengaturan/profil', payload);
       toast.success('Profil berhasil diperbarui');
     } catch (err) {
       console.error(err);
@@ -483,7 +483,7 @@ function BisnisTab() {
 
   useEffect(() => {
     api
-      .get<BisnisForm>('/pengaturan/bisnis')
+      .get('/pengaturan/bisnis')
       .then(({ data }) => setForm({ ...data, jam_operasional: data.jam_operasional?.length ? data.jam_operasional : HARI_DEFAULT }))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -507,7 +507,7 @@ function BisnisTab() {
       payload.append('jam_operasional', JSON.stringify(form.jam_operasional));
       if (logoFile) payload.append('logo', logoFile);
 
-      await api.post('/pengaturan/bisnis', payload, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await api.post('/pengaturan/bisnis', payload);
       toast.success('Informasi bisnis berhasil disimpan');
     } catch (err) {
       console.error(err);
@@ -642,7 +642,7 @@ function HargaTab() {
 
   useEffect(() => {
     api
-      .get<HargaForm>('/pengaturan/harga')
+      .get('/pengaturan/harga')
       .then(({ data }) => setForm(data))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -795,7 +795,7 @@ function NotifikasiTab() {
 
   useEffect(() => {
     api
-      .get<NotifikasiForm>('/pengaturan/notifikasi')
+      .get('/pengaturan/notifikasi')
       .then(({ data }) => setForm(data))
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -948,7 +948,7 @@ function SistemTab() {
 
   useEffect(() => {
     api
-      .get<SistemForm>('/pengaturan/sistem')
+      .get('/pengaturan/sistem')
       .then(({ data }) => setForm(data))
       .catch(() => {})
       .finally(() => setLoading(false));

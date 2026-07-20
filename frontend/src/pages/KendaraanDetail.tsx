@@ -79,8 +79,8 @@ export default function KendaraanDetail() {
     setLoading(true);
     setNotFound(false);
     katalogAPI
-      .get(id)
-      .then(({ data }: { data: KatalogKendaraan }) => setItem(data))
+      .get(Number(id))
+      .then(({ data }) => setItem(data.data as unknown as KatalogKendaraan))
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
   }, [id]);

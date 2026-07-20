@@ -453,11 +453,11 @@ const STATUS_ORDER_COLOR_VAR: Record<StatusOrder, string> = {
 
 function OrderStatusDonut({ order }: { order: RingkasanData['order'] }) {
   const chartData: { name: string; value: number; status: StatusOrder }[] = [
-    { name: statusOrderLabels.pending, value: order.pending, status: 'pending' },
-    { name: statusOrderLabels.confirmed, value: order.confirmed, status: 'confirmed' },
-    { name: statusOrderLabels.active, value: order.active, status: 'active' },
-    { name: statusOrderLabels.completed, value: order.selesai, status: 'completed' },
-    { name: statusOrderLabels.cancelled, value: order.dibatalkan, status: 'cancelled' },
+    { name: statusOrderLabels.pending, value: order.pending, status: 'pending' as StatusOrder },
+    { name: statusOrderLabels.confirmed, value: order.confirmed, status: 'confirmed' as StatusOrder },
+    { name: statusOrderLabels.active, value: order.active, status: 'active' as StatusOrder },
+    { name: statusOrderLabels.completed, value: order.selesai, status: 'completed' as StatusOrder },
+    { name: statusOrderLabels.cancelled, value: order.dibatalkan, status: 'cancelled' as StatusOrder },
   ].filter((d) => d.value > 0);
 
   if (chartData.length === 0) return <EmptyState label="Belum ada order" />;
@@ -513,7 +513,7 @@ function RingkasanTab({ params }: { params: DateParams }) {
     setLoading(true);
     laporanAPI
       .ringkasan(params)
-      .then(({ data }: { data: RingkasanData }) => setData(data))
+      .then((res) => setData(res.data as RingkasanData))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params]);
@@ -578,7 +578,7 @@ function PendapatanTab({ params }: { params: DateParams }) {
     setLoading(true);
     laporanAPI
       .pendapatan(params)
-      .then(({ data }: { data: PendapatanData }) => setData(data))
+      .then((res) => setData(res.data as PendapatanData))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params]);
@@ -682,7 +682,7 @@ function KendaraanTab({ params }: { params: DateParams }) {
     setLoading(true);
     laporanAPI
       .kendaraan(params)
-      .then(({ data }: { data: KendaraanData }) => setData(data))
+      .then((res) => setData(res.data as KendaraanData))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params]);
@@ -767,7 +767,7 @@ function CustomerTab({ params }: { params: DateParams }) {
     setLoading(true);
     laporanAPI
       .customer(params)
-      .then(({ data }: { data: CustomerData }) => setData(data))
+      .then((res) => setData(res.data as CustomerData))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params]);
@@ -828,7 +828,7 @@ function OrderTab({ params }: { params: DateParams }) {
     setLoading(true);
     laporanAPI
       .order(params)
-      .then(({ data }: { data: OrderData }) => setData(data))
+      .then((res) => setData(res.data as OrderData))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params]);

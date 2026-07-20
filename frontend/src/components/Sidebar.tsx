@@ -8,8 +8,8 @@ import {
   MapPin,
   FileBarChart,
   Warehouse,
-  Building2,
   Settings,
+  UserCheck,
   X,
 } from 'lucide-react';
 import logo from '../assets/logo.png';
@@ -20,10 +20,10 @@ const navItems = [
   { path: '/kendaraan', label: 'Kendaraan', icon: Car },
   { path: '/kategori-tipe', label: 'Kategori & Tipe', icon: Tags },
   { path: '/customers', label: 'Customers', icon: Users },
+  { path: '/supir-calo', label: 'Supir & Calo', icon: UserCheck },
   { path: '/gps', label: 'GPS', icon: MapPin },
   { path: '/laporan', label: 'Laporan', icon: FileBarChart },
-  { path: '/garasi-saya', label: 'Garasi Saya', icon: Warehouse },
-  { path: '/garasi', label: 'Garasi Partner', icon: Building2 },
+  { path: '/garasi', label: 'Garasi', icon: Warehouse },
 ];
 
 interface SidebarProps {

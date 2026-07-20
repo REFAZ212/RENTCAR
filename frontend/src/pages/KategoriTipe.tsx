@@ -56,7 +56,7 @@ export default function KategoriTipe() {
   const load = useCallback(() => {
     setLoading(true);
     kategoriAPI.list()
-      .then(({ data }) => setItems(data))
+      .then(({ data }) => setItems(data as unknown as any[]))
       .catch(() => toast.error('Gagal memuat data'))
       .finally(() => setLoading(false));
   }, [toast]);
@@ -86,7 +86,7 @@ export default function KategoriTipe() {
         const { data: newKategori } = await kategoriAPI.create(kategoriForm);
         const validTipes = tipeNames.filter((n) => n.trim());
         for (const nama of validTipes) {
-          await tipeAPI.create({ kategori_id: newKategori.id, nama_tipe: nama.trim(), aktif: true });
+          await tipeAPI.create({ kategori_id: newKategori.data.id, nama_tipe: nama.trim(), aktif: true });
         }
         toast.success(validTipes.length > 0
           ? `Kategori dan ${validTipes.length} tipe berhasil ditambahkan`
@@ -185,7 +185,7 @@ export default function KategoriTipe() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
-                <textarea value={kategoriForm.deskripsi} onChange={(e) => setKategoriField('deskripsi', e.target.value)} rows="2"
+                <textarea value={kategoriForm.deskripsi} onChange={(e) => setKategoriField('deskripsi', e.target.value)} rows={2}
                   placeholder="Deskripsi singkat tentang kategori ini..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none" />
               </div>
@@ -287,7 +287,7 @@ export default function KategoriTipe() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Deskripsi</label>
-                <textarea value={tipeForm.deskripsi} onChange={(e) => setTipeField('deskripsi', e.target.value)} rows="2"
+                <textarea value={tipeForm.deskripsi} onChange={(e) => setTipeField('deskripsi', e.target.value)} rows={2}
                   placeholder="Deskripsi singkat tentang tipe ini..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none" />
               </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CheckCircle2,
@@ -103,12 +103,23 @@ export default function Dashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [chartData, setChartData] = useState<ChartPendapatanPoint[]>([]);
+  const [activeRange, setActiveRange] = useState<'Harian' | 'Mingguan' | 'Bulanan'>('Bulanan');
+
+  const handleRangeChange = useCallback((range: 'Harian' | 'Mingguan' | 'Bulanan') => {
+    setActiveRange(range);
+    const map: Record<string, string> = { Harian: 'harian', Mingguan: 'mingguan', Bulanan: 'bulanan' };
+    dashboardAPI
+      .chart(map[range])
+      .then(({ data: res }) => setChartData(res as unknown as ChartPendapatanPoint[]))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     dashboardAPI
       .get()
       .then(({ data }) => {
-        setData(data);
+        setData(data as unknown as DashboardData);
         setLoading(false);
       })
       .catch((err) => {
@@ -116,6 +127,12 @@ export default function Dashboard() {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    if (data?.chart_pendapatan && chartData.length === 0) {
+      setChartData(data.chart_pendapatan);
+    }
+  }, [data, chartData.length]);
 
   if (loading) {
     return (
@@ -152,7 +169,7 @@ export default function Dashboard() {
     );
   }
 
-  const { stats, recent_orders, recent_garasi_requests, chart_pendapatan } = data;
+  const { stats, recent_orders, recent_garasi_requests } = data;
 
   const formatRupiah = (n?: number) => `Rp ${Number(n || 0).toLocaleString('id-ID')}`;
 
@@ -264,7 +281,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <RevenueChart data={chart_pendapatan} />
+      <RevenueChart data={chartData} activeRange={activeRange} onRangeChange={handleRangeChange} />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Orders */}

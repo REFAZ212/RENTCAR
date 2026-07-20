@@ -9,20 +9,22 @@
 Two independent frontends share the same Laravel API:
 
 - **Root (`/`)**: Laravel Blade app with Vite for asset bundling. The root route redirects to `http://localhost:5173` (the Vite dev server). Routes in `routes/web.php`.
-- **`frontend/`**: React 19 SPA (Vite + React Router DOM v7). This is the main UI. Has its own `package.json`, `vite.config.js`, and `node_modules/`.
+- **`frontend/`**: React 19 SPA (Vite + React Router DOM v7). This is the main UI. Has its own `package.json`, `vite.config.ts`, and `node_modules/`.
 
 **API**: `routes/api.php` — all routes under `/api`. Sanctum token auth (24h expiration, set in `config/sanctum.php`). Controllers in `app/Http/Controllers/Api/`. Domain models in `app/Models/`:
-`Customer`, `GarasiPartner`, `GarasiRequest`, `Kategori`, `Kendaraan`, `Order`, `Tipe`, `WhatsappLog`, `User`.
+`Customer`, `GarasiPartner`, `GarasiRequest`, `Kategori`, `Kendaraan`, `Order`, `SupirCalo`, `Tipe`, `WhatsappLog`, `User`.
 
 Public (unauthenticated) API routes: `POST /api/login` (throttled 10/min), `GET /api/katalog/*`.
 
 Public Blade routes (`routes/web.php`): `GET/POST /garasi/{token}` — token-based garage response form via `GarasiResponseController`.
 
-**Database**: `.env.example` defaults to SQLite, but the running `.env` may use MySQL (currently: MySQL `cvpilar`). Migrations in `database/migrations/`. A `database/database.sqlite` file exists but may not be the active DB.
+**Database**: `.env.example` defaults to MySQL (`DB_CONNECTION=mysql`, database `rentcar`). The running `.env` may differ (currently: MySQL `cvpilar`). Migrations in `database/migrations/`.
 
-**Frontend API layer** (`frontend/src/services/api.js`): axios with Bearer token from `localStorage`. Auto-redirects to `/login` on 401. File uploads use `FormData` (Content-Type header is stripped automatically).
+**Frontend API layer** (`frontend/src/services/api.ts`): axios with Bearer token from `localStorage`. Auto-redirects to `/login` on 401. File uploads use `FormData` (Content-Type header is stripped automatically). File updates use method spoofing: POST with `_method=PUT` (Laravel can't handle PUT + multipart).
 
-**Business logic service**: `app/Services/OvertimeCalculator.php` — calculates late-return penalties for vehicle orders (Rp 25,000/hour, second-precision).
+**Business logic**: `app/Services/OvertimeCalculator.php` — calculates late-return penalties (Rp 25,000/hour, second-precision, no grace period). `Order` model has computed accessors `jam_overtime_saat_ini` and `denda_overtime_saat_ini` that recalculate on every response for active orders. Final values stored in `jam_overtime`/`denda_overtime` columns when order is completed via `Order::selesaikanSewa()`.
+
+**Timezone**: `Asia/Jakarta` (set in `config/app.php`) — all overtime calculations are server-side.
 
 ## Commands
 
@@ -44,7 +46,7 @@ For the React SPA only:
 ```bash
 cd frontend && npm run dev
 ```
-Vite dev server proxies `/api` and `/storage` requests to `http://localhost:8000`.
+Vite dev server on port 5173, proxies `/api` to `http://127.0.0.1:8000`.
 
 ### Testing
 
@@ -70,7 +72,7 @@ php artisan test --filter=ExampleTest
 cd frontend && npm run lint
 ```
 
-**No TypeScript** — the frontend uses plain JSX.
+**TypeScript**: The frontend uses `.tsx`/`.ts` files but has **no `tsconfig.json`** — Vite processes TS via esbuild without type-checking. Running `tsc --noEmit` would fail.
 
 ### Build
 
@@ -82,7 +84,7 @@ cd frontend && npm run build  # React SPA build
 ## Key Conventions
 
 - **PHP 8.3+** required
-- **Tailwind CSS v4** used in both root and frontend (via `@tailwindcss/vite` plugin)
+- **Tailwind CSS v4** used in both root and frontend (via `@tailwindcss/vite` plugin) — CSS-first config, no `tailwind.config.js`
 - **Sanctum** for API auth (Bearer tokens stored in `localStorage`)
 - **Indonesian domain terminology** in models/routes: `garasi` (garage), `kendaraan` (vehicle)
 - **PHPUnit** always uses `:memory:` SQLite regardless of `.env` — no external DB needed for tests
@@ -98,4 +100,7 @@ cd frontend && npm run build  # React SPA build
 - `.npmrc` sets `ignore-scripts=true` — postinstall hooks (e.g. native builds) are skipped during `npm install`.
 - `.gitattributes` enforces LF line endings (`* text=auto eol=lf`).
 - `composer test` clears config cache before running tests — if you run `php artisan test` directly without clearing, cached config may cause unexpected behavior.
-- The `.env` DB settings may differ from `.env.example` — check the actual `.env` if database issues arise.
+- `inertiajs/inertia-laravel` is in `composer.json` require but **unused** — the project uses a standalone React SPA with Sanctum token auth, not Inertia.
+- The `README.md` is stock Laravel boilerplate and does not describe this project. Real docs are in `CARA_MENJALANKAN.md` (Indonesian).
+- Seeders create 3 users (Admin Utama, Petugas 1, Petugas 2) — all with password `password`.
+- Scheduled command `garasi:check-timeout` runs every minute, marking expired garage requests as `tidak_terjawab`.

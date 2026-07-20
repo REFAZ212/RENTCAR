@@ -1,26 +1,12 @@
 import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
-import { customerAPI } from '../services/api';
+import { customerAPI, type Customer, type ListResponse } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 
 /* ─────────────────────────────────────────────────────────────
  * TYPES
  * ───────────────────────────────────────────────────────────── */
-interface Customer {
-  id: number;
-  nama_lengkap: string;
-  no_hp: string;
-  email: string | null;
-  alamat: string | null;
-  no_ktp: string | null;
-  no_sim: string | null;
-  catatan: string | null;
-  foto_ktp: string | null;
-  foto_sim: string | null;
-  orders_count: number;
-}
-
 interface CustomerForm {
   nama_lengkap: string;
   no_hp: string;
@@ -29,10 +15,6 @@ interface CustomerForm {
   no_ktp: string;
   no_sim: string;
   catatan: string;
-}
-
-interface CustomerListResponse {
-  data: Customer[];
 }
 
 const emptyForm: CustomerForm = {
@@ -133,7 +115,7 @@ export default function Customers() {
     setLoading(true);
     customerAPI
       .list({ search })
-      .then(({ data }: { data: CustomerListResponse }) => setItems(data.data))
+      .then(({ data }: { data: ListResponse<Customer> }) => setItems(data.data))
       .catch(() => toast.error('Gagal memuat data customer'))
       .finally(() => setLoading(false));
   }, [search, toast]);
