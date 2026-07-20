@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
@@ -18,22 +19,22 @@ import Pengaturan from './pages/Pengaturan';
 
 function LoadingScreen() {
   return (
-    <div className="flex items-center justify-center h-screen bg-gray-100">
+    <div className="flex items-center justify-center h-screen bg-gray-50">
       <div className="flex flex-col items-center gap-3">
-        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
         <p className="text-sm text-gray-500">Memuat...</p>
       </div>
     </div>
   );
 }
 
-function PrivateRoute({ children }) {
+function PrivateRoute({ children }: PropsWithChildren) {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
   return user ? <Layout>{children}</Layout> : <Navigate to="/login" />;
 }
 
-function PublicRoute({ children }) {
+function PublicRoute({ children }: PropsWithChildren) {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
   return user ? <Navigate to="/" /> : children;
@@ -62,7 +63,6 @@ export default function App() {
           <Route path="/garasi" element={<PrivateRoute><GarasiPartner /></PrivateRoute>} />
           <Route path="/garasi-saya" element={<PrivateRoute><GarasiSaya /></PrivateRoute>} />
           <Route path="/pengaturan" element={<PrivateRoute><Pengaturan /></PrivateRoute>} />
-
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />
