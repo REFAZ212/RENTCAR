@@ -59,7 +59,6 @@ export interface SupirCalo {
   jenis: 'supir' | 'calo';
   status: string;
   tarif_per_hari?: number;
-  komisi?: number;
 }
 
 export interface Order {
@@ -265,7 +264,7 @@ export const supirCaloAPI = {
     api.get('/supir-calos', { params }),
   get: (id: number): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.get(`/supir-calos/${id}`),
   create: (data: Payload): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.post('/supir-calos', data),
-  update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.put(`/supir-calos/${id}`, data),
+  update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.post(`/supir-calos/${id}`, data),
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/supir-calos/${id}`),
 };
 

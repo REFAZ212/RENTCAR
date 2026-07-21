@@ -1,24 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { katalogAPI } from '../services/api';
+import { katalogAPI, type TipeKendaraan, type KategoriKendaraan, type GarasiPartner } from '../services/api';
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
-/*                                                                      */
-/* NOTE: I don't have your actual `services/api` / shared model types, */
-/* so this is inferred from the fields this component reads. If you    */
-/* already have a `Kendaraan` type (e.g. from Kendaraan.tsx), import   */
-/* and reuse that instead of duplicating it here.                      */
 /* ------------------------------------------------------------------ */
-
-interface GarasiPartnerRef {
-  nama_garasi: string;
-}
 
 interface KatalogKendaraan {
   id: number | string;
   nama_kendaraan: string;
-  tipe: string;
+  tipe?: TipeKendaraan;
   merek: string;
   model: string;
   tahun: number;
@@ -28,7 +19,8 @@ interface KatalogKendaraan {
   harga_sewa_per_hari: number | string;
   foto?: string | null;
   catatan?: string | null;
-  garasi_partner?: GarasiPartnerRef;
+  kategori?: KategoriKendaraan;
+  garasi_partner?: GarasiPartner;
 }
 
 interface SpecItem {
@@ -80,7 +72,7 @@ export default function KendaraanDetail() {
     setNotFound(false);
     katalogAPI
       .get(Number(id))
-      .then(({ data }) => setItem(data.data as unknown as KatalogKendaraan))
+      .then(({ data }) => setItem(data as unknown as KatalogKendaraan))
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
   }, [id]);
@@ -128,7 +120,7 @@ export default function KendaraanDetail() {
     {
       icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4',
       label: 'Tipe',
-      value: item.tipe?.toUpperCase(),
+      value: item.tipe?.nama_tipe?.toUpperCase() ?? '-',
     },
     {
       icon: 'M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18M3 11v6a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-6',
@@ -199,7 +191,7 @@ export default function KendaraanDetail() {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
               <span className="text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full uppercase">
-                {item.tipe}
+                {item.tipe?.nama_tipe}
               </span>
               <h1 className="text-2xl font-bold text-gray-900 mt-2">{item.nama_kendaraan}</h1>
               <p className="text-gray-500 mt-1">
