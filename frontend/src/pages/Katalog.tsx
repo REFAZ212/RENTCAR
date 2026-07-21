@@ -264,7 +264,7 @@ export default function Katalog() {
                       ) : item.status === 'disewa' ? (
                         <span className="text-xs font-medium text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full">Disewa</span>
                       ) : (
-                        <span className="text-xs font-medium text-orange-700 bg-orange-50 px-2.5 py-1 rounded-full">Maintenance</span>
+                        <span className="text-xs font-medium text-orange-700 bg-orange-50 px-2.5 py-1 rounded-full">Sedang Diservis</span>
                       )}
                     </div>
                   </div>

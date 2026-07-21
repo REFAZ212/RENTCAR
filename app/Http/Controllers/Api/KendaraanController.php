@@ -103,22 +103,25 @@ class KendaraanController extends Controller
         ]);
 
         if (isset($validated['status']) && $validated['status'] !== $kendaraan->status) {
-            $hasActiveOrder = $kendaraan->orders()
-                ->where('status_order', 'active')
-                ->exists();
 
-            if ($hasActiveOrder && $validated['status'] === 'tersedia') {
-                return response()->json([
-                    'message' => 'Tidak dapat mengubah status ke Tersedia karena kendaraan masih dalam status sewa aktif. Selesaikan atau batalkan order terlebih dahulu.',
-                ], 422);
-            }
+    $hasActiveOrder = $kendaraan->orders()
+        ->whereIn('status_order', [
+            'pending',
+            'confirmed',
+            'active'
+        ])
+        ->exists();
 
-            if ($validated['status'] === 'disewa') {
-                return response()->json([
-                    'message' => 'Status Disewa hanya dapat diatur melalui proses order. Gunakan menu Order untuk menyewakan kendaraan.',
-                ], 422);
-            }
-        }
+    // Kendaraan tidak boleh dijadikan tersedia jika masih dipakai
+    if (
+        $validated['status'] === 'tersedia'
+        && $hasActiveOrder
+    ) {
+        return response()->json([
+            'message' => 'Kendaraan masih memiliki order aktif.',
+        ], 422);
+    }
+}
 
         if ($request->hasFile('foto')) {
             if ($kendaraan->foto) {

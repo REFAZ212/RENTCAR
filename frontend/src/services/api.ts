@@ -118,14 +118,14 @@ export interface KategoriKendaraan {
   id: number;
   nama_kategori: string;
   deskripsi?: string | null;
-  aktif: boolean;
+  aktif?: boolean;
 }
 
 export interface TipeKendaraan {
   id: number;
   nama_tipe: string;
   kategori_id: number;
-  aktif: boolean;
+  aktif?: boolean;
 }
 
 export interface KatalogItem extends Kendaraan {
@@ -317,7 +317,7 @@ export const katalogAPI = {
  * KATEGORI & TIPE (admin — kelola master data)
  * ───────────────────────────────────────────────────────────── */
 export const kategoriAPI = {
-  list: (params?: QueryParams): Promise<AxiosResponse<ListResponse<KategoriKendaraan>>> => api.get('/kategoris', { params }),
+  list: (params?: QueryParams): Promise<AxiosResponse<KategoriKendaraan[]>> => api.get('/kategoris', { params }),
   get: (id: number): Promise<AxiosResponse<SingleResponse<KategoriKendaraan>>> => api.get(`/kategoris/${id}`),
   create: (data: Payload): Promise<AxiosResponse<SingleResponse<KategoriKendaraan>>> => api.post('/kategoris', data),
   update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<KategoriKendaraan>>> => api.put(`/kategoris/${id}`, data),
@@ -325,7 +325,7 @@ export const kategoriAPI = {
 };
 
 export const tipeAPI = {
-  list: (params?: QueryParams): Promise<AxiosResponse<ListResponse<TipeKendaraan>>> => api.get('/tipes', { params }),
+  list: (params?: QueryParams): Promise<AxiosResponse<TipeKendaraan[]>> => api.get('/tipes', { params }),
   get: (id: number): Promise<AxiosResponse<SingleResponse<TipeKendaraan>>> => api.get(`/tipes/${id}`),
   create: (data: Payload): Promise<AxiosResponse<SingleResponse<TipeKendaraan>>> => api.post('/tipes', data),
   update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<TipeKendaraan>>> => api.put(`/tipes/${id}`, data),
