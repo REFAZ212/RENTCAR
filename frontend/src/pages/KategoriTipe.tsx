@@ -1,10 +1,30 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { kategoriAPI, tipeAPI } from '../services/api';
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
+import { kategoriAPI, tipeAPI, kendaraanAPI, type Kendaraan } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 
 const emptyKategori = { nama_kategori: '', deskripsi: '', aktif: true };
 const emptyTipe = { kategori_id: '', nama_tipe: '', deskripsi: '', aktif: true };
+
+const vehicleStatusStyles: Record<string, string> = {
+  tersedia: 'bg-green-100 text-green-800',
+  disewa: 'bg-blue-100 text-blue-800',
+  maintenance: 'bg-yellow-100 text-yellow-800',
+};
+
+const vehicleStatusLabels: Record<string, string> = {
+  tersedia: 'Tersedia',
+  disewa: 'Disewa',
+  maintenance: 'Maintenance',
+};
+
+function formatRupiah(n: number | string) {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(Number(n || 0));
+}
 
 const TipeSuggestions = {
   Mobil: ['MPV', 'SUV', 'Sedan', 'Hatchback', 'Pickup', 'Minibus', 'Van', 'Truk'],
@@ -53,6 +73,10 @@ export default function KategoriTipe() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleteType, setDeleteType] = useState(null);
 
+  const [expandedTipeId, setExpandedTipeId] = useState<number | null>(null);
+  const [tipeKendaraans, setTipeKendaraans] = useState<Record<number, Kendaraan[]>>({});
+  const [loadingTipeKendaraans, setLoadingTipeKendaraans] = useState<Set<number>>(new Set());
+
   const load = useCallback(() => {
     setLoading(true);
     kategoriAPI.list()
@@ -71,6 +95,30 @@ export default function KategoriTipe() {
   });
 
   const toggleExpand = (id) => setExpandedId((prev) => (prev === id ? null : id));
+
+  const fetchTipeKendaraan = useCallback((tipeId: number) => {
+    setLoadingTipeKendaraans((s) => new Set(s).add(tipeId));
+    kendaraanAPI.list({ tipe_id: tipeId, per_page: 100 })
+      .then(({ data }: any) => {
+        const items = data?.data || data || [];
+        setTipeKendaraans((prev) => ({ ...prev, [tipeId]: items }));
+      })
+      .catch(() => toast.error('Gagal memuat kendaraan'))
+      .finally(() => setLoadingTipeKendaraans((s) => { const next = new Set(s); next.delete(tipeId); return next; }));
+  }, [toast]);
+
+  const toggleTipeExpand = useCallback((tipeId: number) => {
+    setExpandedTipeId((prev) => {
+      if (prev === tipeId) return null;
+      return tipeId;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (expandedTipeId && !tipeKendaraans[expandedTipeId]) {
+      fetchTipeKendaraan(expandedTipeId);
+    }
+  }, [expandedTipeId, tipeKendaraans, fetchTipeKendaraan]);
 
   const setKategoriField = (key, value) => setKategoriForm((prev) => ({ ...prev, [key]: value }));
   const setTipeField = (key, value) => setTipeForm((prev) => ({ ...prev, [key]: value }));
@@ -383,36 +431,115 @@ export default function KategoriTipe() {
                     <div className="bg-gray-50/70 border-t border-gray-100">
                       {kategori.tipes?.length > 0 ? (
                         <div className="divide-y divide-gray-100">
-                          {kategori.tipes.map((tipe) => (
-                            <div key={tipe.id} className="flex items-center gap-3 pl-14 pr-4 py-2.5 hover:bg-gray-100/50 transition-colors">
-                              <div className="w-7 h-7 bg-purple-50 rounded-md flex items-center justify-center shrink-0">
-                                <svg className="w-3.5 h-3.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                              </div>
+                          {kategori.tipes.map((tipe) => {
+                            const isTipeExpanded = expandedTipeId === tipe.id;
+                            const kendaraanList = tipeKendaraans[tipe.id] || [];
+                            const isLoadingKendaraan = loadingTipeKendaraans.has(tipe.id);
+                            return (
+                              <Fragment key={tipe.id}>
+                                <div
+                                  className={`flex items-center gap-3 pl-14 pr-4 py-2.5 hover:bg-gray-100/50 transition-colors cursor-pointer ${isTipeExpanded ? 'bg-purple-50/30' : ''}`}
+                                  onClick={() => toggleTipeExpand(tipe.id)}
+                                >
+                                  <svg className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform duration-200 ${isTipeExpanded ? 'rotate-90' : ''}`}
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
 
-                              <div className="flex-1 min-w-0">
-                                <span className="text-sm font-medium text-gray-900">{tipe.nama_tipe}</span>
-                              </div>
+                                  <div className="w-7 h-7 bg-purple-50 rounded-md flex items-center justify-center shrink-0">
+                                    <svg className="w-3.5 h-3.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                                  </div>
 
-                              <span className="text-xs text-gray-500 shrink-0">{tipe.kendaraans_count ?? 0} unit</span>
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-sm font-medium text-gray-900">{tipe.nama_tipe}</span>
+                                  </div>
 
-                              <span className={`px-2 py-0.5 text-xs font-medium rounded-full shrink-0 ${tipe.aktif ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
-                                {tipe.aktif ? 'Aktif' : 'Nonaktif'}
-                              </span>
+                                  <span className="text-xs text-gray-500 shrink-0">{tipe.kendaraans_count ?? 0} unit</span>
 
-                              <div className="flex items-center gap-1 shrink-0">
-                                <button onClick={() => {
-                                  setTipeForm({ kategori_id: tipe.kategori_id || kategori.id, nama_tipe: tipe.nama_tipe, deskripsi: tipe.deskripsi || '', aktif: tipe.aktif });
-                                  setEditTipe(tipe);
-                                  setShowTipeForm(true);
-                                }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                                </button>
-                                <button onClick={() => { setConfirmDelete(tipe); setDeleteType('tipe'); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full shrink-0 ${tipe.aktif ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'}`}>
+                                    {tipe.aktif ? 'Aktif' : 'Nonaktif'}
+                                  </span>
+
+                                  <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+                                    <button onClick={() => {
+                                      setTipeForm({ kategori_id: tipe.kategori_id || kategori.id, nama_tipe: tipe.nama_tipe, deskripsi: tipe.deskripsi || '', aktif: tipe.aktif });
+                                      setEditTipe(tipe);
+                                      setShowTipeForm(true);
+                                    }} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                    </button>
+                                    <button onClick={() => { setConfirmDelete(tipe); setDeleteType('tipe'); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {isTipeExpanded && (
+                                  <div className="bg-gray-50/70 border-t border-gray-100">
+                                    <div className="px-14 py-4">
+                                      {isLoadingKendaraan ? (
+                                        <div className="flex items-center gap-2 py-4">
+                                          <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                          <span className="text-sm text-gray-500">Memuat kendaraan...</span>
+                                        </div>
+                                      ) : kendaraanList.length === 0 ? (
+                                        <div className="py-4 text-center">
+                                          <p className="text-sm text-gray-400">Belum ada kendaraan dengan tipe ini</p>
+                                        </div>
+                                      ) : (
+                                        <div className="space-y-3">
+                                          <p className="text-sm font-medium text-gray-700">{kendaraanList.length} kendaraan</p>
+                                          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                                            <table className="w-full text-sm">
+                                              <thead className="bg-gray-100 border-b border-gray-200">
+                                                <tr>
+                                                  <th className="text-left px-4 py-2 font-medium text-gray-600">Foto</th>
+                                                  <th className="text-left px-4 py-2 font-medium text-gray-600">Kendaraan</th>
+                                                  <th className="text-left px-4 py-2 font-medium text-gray-600">Plat</th>
+                                                  <th className="text-left px-4 py-2 font-medium text-gray-600">Kategori</th>
+                                                  <th className="text-left px-4 py-2 font-medium text-gray-600">Harga/Hari</th>
+                                                  <th className="text-left px-4 py-2 font-medium text-gray-600">Status</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody className="divide-y divide-gray-100">
+                                                {kendaraanList.map((k) => (
+                                                  <tr key={k.id} className="hover:bg-gray-50/50 transition-colors">
+                                                    <td className="px-4 py-2.5">
+                                                      {k.foto ? (
+                                                        <img
+                                                          src={k.foto.startsWith('http') ? k.foto : `/storage/${k.foto}`}
+                                                          alt={k.nama_kendaraan}
+                                                          className="w-12 h-12 object-cover rounded-lg border border-gray-200"
+                                                        />
+                                                      ) : (
+                                                        <div className="w-12 h-12 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                                                          <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                        </div>
+                                                      )}
+                                                    </td>
+                                                    <td className="px-4 py-2.5">
+                                                      <div className="font-medium text-gray-900">{k.nama_kendaraan}</div>
+                                                      <div className="text-xs text-gray-500">{k.merek} {k.model} {k.tahun}</div>
+                                                    </td>
+                                                    <td className="px-4 py-2.5 font-mono text-sm text-gray-700">{k.plat_nomor}</td>
+                                                    <td className="px-4 py-2.5 text-gray-600">{k.kategori?.nama_kategori || '-'}</td>
+                                                    <td className="px-4 py-2.5 text-gray-700">{formatRupiah(k.harga_sewa_per_hari)}</td>
+                                                    <td className="px-4 py-2.5">
+                                                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${vehicleStatusStyles[k.status] || ''}`}>
+                                                        {vehicleStatusLabels[k.status] || k.status}
+                                                      </span>
+                                                    </td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </Fragment>
+                            );
+                          })}
                         </div>
                       ) : (
                         <p className="text-sm text-gray-400 pl-14 py-3">Belum ada tipe</p>

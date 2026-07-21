@@ -18,7 +18,6 @@ class SupirCaloSeeder extends Seeder
                 'alamat' => 'Jl. Cendrawasih No. 3, Bandung',
                 'status' => 'active',
                 'no_sim' => '3273011001',
-                'komisi' => 50000,
                 'tarif_per_hari' => 200000,
                 'catatan' => 'Supir senior, pengalaman 5 tahun',
             ],
@@ -29,7 +28,6 @@ class SupirCaloSeeder extends Seeder
                 'alamat' => 'Jl. Sudirman No. 18, Bandung',
                 'status' => 'active',
                 'no_sim' => '3273011002',
-                'komisi' => 45000,
                 'tarif_per_hari' => 175000,
             ],
             [
@@ -39,7 +37,6 @@ class SupirCaloSeeder extends Seeder
                 'alamat' => 'Jl. Buah Batu No. 22, Bandung',
                 'status' => 'active',
                 'no_sim' => '3273011003',
-                'komisi' => 40000,
                 'tarif_per_hari' => 150000,
             ],
             [
@@ -49,7 +46,6 @@ class SupirCaloSeeder extends Seeder
                 'alamat' => 'Jl. Gatot Subroto No. 7, Bandung',
                 'status' => 'inactive',
                 'no_sim' => '3273011004',
-                'komisi' => 40000,
                 'tarif_per_hari' => 150000,
                 'catatan' => 'Sedang cuti, efektif Agustus 2026',
             ],
@@ -61,7 +57,6 @@ class SupirCaloSeeder extends Seeder
                 'no_hp' => '081234567201',
                 'alamat' => 'Jl. Asia Afrika No. 10, Bandung',
                 'status' => 'active',
-                'komisi' => 75000,
                 'catatan' => 'Calo aktif, jaringan luas di Bandung Utara',
             ],
             [
@@ -70,7 +65,6 @@ class SupirCaloSeeder extends Seeder
                 'no_hp' => '081234567202',
                 'alamat' => 'Jl. Dago No. 33, Bandung',
                 'status' => 'active',
-                'komisi' => 60000,
             ],
             [
                 'jenis' => 'calo',
@@ -78,7 +72,6 @@ class SupirCaloSeeder extends Seeder
                 'no_hp' => '081234567203',
                 'alamat' => 'Jl. Riau No. 15, Bandung',
                 'status' => 'active',
-                'komisi' => 50000,
             ],
             [
                 'jenis' => 'calo',
@@ -86,7 +79,6 @@ class SupirCaloSeeder extends Seeder
                 'no_hp' => '081234567204',
                 'alamat' => 'Jl. Lebak Gede No. 8, Bandung',
                 'status' => 'inactive',
-                'komisi' => 55000,
                 'catatan' => 'Pindah domisili ke Jakarta',
             ],
         ];

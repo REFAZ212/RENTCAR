@@ -61,9 +61,7 @@ type FilterTab = 'semua' | StatusKendaraan;
 /* Constants                                                          */
 /* ------------------------------------------------------------------ */
 
-const statuses: StatusKendaraan[] = ['tersedia', 'disewa', 'maintenance'];
 
-// Badge status — disamakan tema (avail/rented/amber untuk maintenance/perhatian)
 const statusStyles: Record<StatusKendaraan, string> = {
   tersedia: 'bg-avail-50 text-avail-600',
   disewa: 'bg-rented-50 text-rented-500',
@@ -709,24 +707,7 @@ export default function Kendaraan() {
                     className={inputClass}
                   />
                 </div>
-                {editItem && (
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-ink-700">Status *</label>
-                    <select
-                      value={form.status}
-                      onChange={(e: ChangeEvent<HTMLSelectElement>) => setField('status', e.target.value as StatusKendaraan)}
-                      required
-                      className={inputClass}
-                    >
-                      {statuses.map((s) => (
-                        <option key={s} value={s}>
-                          {statusLabels[s]}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
+
               <div>
                 <label className="mb-1 block text-sm font-medium text-ink-700">Foto Kendaraan</label>
                 <div className="flex items-start gap-4">
