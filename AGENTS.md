@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**CVPILAR** — a garage/vehicle management system (Indonesian domain). Laravel 13.19 API backend + separate React 19 SPA frontend.
+**CVPILAR** — a garage/vehicle management system (Indonesian domain). Laravel 13.8 API backend + separate React 19 SPA frontend.
 
 ## Architecture
 
@@ -18,7 +18,7 @@ Public (unauthenticated) API routes: `POST /api/login` (throttled 10/min), `GET 
 
 Public Blade routes (`routes/web.php`): `GET/POST /garasi/{token}` — token-based garage response form via `GarasiResponseController`.
 
-**Database**: `.env.example` defaults to MySQL (`DB_CONNECTION=mysql`, database `rentcar`). The running `.env` may differ (currently: MySQL `cvpilar`). Migrations in `database/migrations/`.
+**Database**: `.env.example` defaults to MySQL (`DB_CONNECTION=mysql`, database `cvpilar`). Migrations in `database/migrations/`.
 
 **Frontend API layer** (`frontend/src/services/api.ts`): axios with Bearer token from `localStorage`. Auto-redirects to `/login` on 401. File uploads use `FormData` (Content-Type header is stripped automatically). File updates use method spoofing: POST with `_method=PUT` (Laravel can't handle PUT + multipart).
 

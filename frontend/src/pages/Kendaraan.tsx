@@ -707,6 +707,7 @@ export default function Kendaraan() {
                     className={inputClass}
                   />
                 </div>
+              </div>
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-ink-700">Foto Kendaraan</label>
