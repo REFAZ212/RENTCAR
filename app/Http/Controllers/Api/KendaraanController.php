@@ -86,18 +86,18 @@ class KendaraanController extends Controller
     public function update(Request $request, Kendaraan $kendaraan): JsonResponse
     {
         $validated = $request->validate([
-            'garasi_partner_id' => 'required|exists:garasi_partners,id',
+            'garasi_partner_id' => 'sometimes|required|exists:garasi_partners,id',
             'kategori_id' => 'nullable|exists:kategoris,id',
             'tipe_id' => 'nullable|exists:tipes,id',
-            'nama_kendaraan' => 'required|string|max:255',
-            'plat_nomor' => 'required|string|unique:kendaraans,plat_nomor,'.$kendaraan->id,
-            'merek' => 'required|string|max:255',
-            'model' => 'required|string|max:255',
-            'tahun' => 'required|integer|min:1990|max:'.(date('Y') + 1),
-            'warna' => 'required|string|max:255',
-            'kapasitas_penumpang' => 'required|integer|min:1|max:50',
-            'harga_sewa_per_hari' => 'required|numeric|min:0',
-            'status' => 'required|in:tersedia,disewa,maintenance',
+            'nama_kendaraan' => 'sometimes|required|string|max:255',
+            'plat_nomor' => 'sometimes|required|string|unique:kendaraans,plat_nomor,'.$kendaraan->id,
+            'merek' => 'sometimes|required|string|max:255',
+            'model' => 'sometimes|required|string|max:255',
+            'tahun' => 'sometimes|required|integer|min:1990|max:'.(date('Y') + 1),
+            'warna' => 'sometimes|required|string|max:255',
+            'kapasitas_penumpang' => 'sometimes|required|integer|min:1|max:50',
+            'harga_sewa_per_hari' => 'sometimes|required|numeric|min:0',
+            'status' => 'sometimes|required|in:tersedia,disewa,maintenance',
             'foto' => 'nullable|image|max:2048',
             'catatan' => 'nullable|string',
         ]);

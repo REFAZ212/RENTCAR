@@ -115,6 +115,8 @@ export default function Kendaraan() {
 
   const [search, setSearch] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('semua');
+  const [filterKategori, setFilterKategori] = useState('');
+  const [filterTipe, setFilterTipe] = useState('');
 
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Kendaraan | null>(null);
@@ -160,20 +162,12 @@ export default function Kendaraan() {
       .list({})
       .then(({ data }) => setKategoris(data as unknown as KategoriKendaraan[]))
       .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!form.kategori_id) {
-      setTipes([]);
-      return;
-    }
     tipeAPI
-      .list({ kategori_id: form.kategori_id })
+      .list({})
       .then(({ data }) => setTipes(data as unknown as TipeKendaraan[]))
       .catch(() => {});
-  }, [form.kategori_id]);
+  }, []);
 
-  // Close any open row action menu when clicking elsewhere.
   useEffect(() => {
     const close = () => setOpenMenuId(null);
     window.addEventListener('click', close);
@@ -193,8 +187,14 @@ export default function Kendaraan() {
   );
 
   const filteredItems = useMemo(
-    () => (activeTab === 'semua' ? items : items.filter((i) => i.status === activeTab)),
-    [items, activeTab]
+    () =>
+      items.filter(
+        (i) =>
+          (activeTab === 'semua' || i.status === activeTab) &&
+          (!filterKategori || i.kategori_id?.toString() === filterKategori) &&
+          (!filterTipe || i.tipe_id?.toString() === filterTipe)
+      ),
+    [items, activeTab, filterKategori, filterTipe]
   );
 
   /* ------------------------------ handlers ------------------------------ */
@@ -419,33 +419,71 @@ export default function Kendaraan() {
       </div>
 
       {/* Search + filter tabs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="relative max-w-md w-full">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Cari plat, model, tipe, atau lokasi..."
-            value={search}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition"
-          />
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 flex flex-col gap-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="relative max-w-md w-full">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Cari plat, model, tipe, atau lokasi..."
+              value={search}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition"
+            />
+          </div>
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 self-start md:self-auto">
+            {filterTabs.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  activeTab === tab.key
+                    ? 'bg-gray-900 text-white'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 self-start md:self-auto">
-          {filterTabs.map((tab) => (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+          <select
+            value={filterKategori}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+              setFilterKategori(e.target.value);
+              setFilterTipe('');
+            }}
+            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
+          >
+            <option value="">Semua Kategori</option>
+            {kategoris.filter((k) => k.aktif).map((k) => (
+              <option key={k.id} value={k.id}>{k.nama_kategori}</option>
+            ))}
+          </select>
+          <select
+            value={filterTipe}
+            onChange={(e: ChangeEvent<HTMLSelectElement>) => setFilterTipe(e.target.value)}
+            disabled={!filterKategori}
+            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white disabled:bg-gray-100 disabled:text-gray-400"
+          >
+            <option value="">{filterKategori ? 'Semua Tipe' : 'Pilih kategori dulu'}</option>
+            {tipes
+              .filter((t) => t.aktif && t.kategori_id?.toString() === filterKategori)
+              .map((t) => (
+                <option key={t.id} value={t.id}>{t.nama_tipe}</option>
+              ))}
+          </select>
+          {(filterKategori || filterTipe) && (
             <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`px-3.5 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                activeTab === tab.key
-                  ? 'bg-gray-900 text-white'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              onClick={() => { setFilterKategori(''); setFilterTipe(''); }}
+              className="text-xs text-gray-500 hover:text-gray-700 underline"
             >
-              {tab.label}
+              Reset filter
             </button>
-          ))}
+          )}
         </div>
       </div>
 
