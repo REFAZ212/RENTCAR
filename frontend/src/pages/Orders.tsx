@@ -756,14 +756,7 @@ export default function Orders() {
     if (!kendaraanSearch) return kendaraans;
     const q = kendaraanSearch.toLowerCase();
     return kendaraans.filter(
-      (k) =>
-        k.nama_kendaraan.toLowerCase().includes(q) ||
-        k.plat_nomor.toLowerCase().includes(q) ||
-        (k.merek && k.merek.toLowerCase().includes(q)) ||
-        (k.model && k.model.toLowerCase().includes(q)) ||
-        (k.warna && k.warna.toLowerCase().includes(q)) ||
-        (k.kategori?.nama_kategori && k.kategori.nama_kategori.toLowerCase().includes(q)) ||
-        (k.garasi_partner?.nama_garasi && k.garasi_partner.nama_garasi.toLowerCase().includes(q))
+      (k) => k.nama_kendaraan.toLowerCase().includes(q) || k.plat_nomor.toLowerCase().includes(q) || (k.warna && k.warna.toLowerCase().includes(q))
     );
   }, [kendaraans, kendaraanSearch]);
 
@@ -772,15 +765,7 @@ export default function Orders() {
       if (k.status !== 'tersedia' && editingOrder && k.id !== editingOrder.kendaraan_id) return false;
       if (!editKendaraanSearch) return true;
       const q = editKendaraanSearch.toLowerCase();
-      return (
-        k.nama_kendaraan.toLowerCase().includes(q) ||
-        k.plat_nomor.toLowerCase().includes(q) ||
-        (k.merek && k.merek.toLowerCase().includes(q)) ||
-        (k.model && k.model.toLowerCase().includes(q)) ||
-        (k.warna && k.warna.toLowerCase().includes(q)) ||
-        (k.kategori?.nama_kategori && k.kategori.nama_kategori.toLowerCase().includes(q)) ||
-        (k.garasi_partner?.nama_garasi && k.garasi_partner.nama_garasi.toLowerCase().includes(q))
-      );
+      return k.nama_kendaraan.toLowerCase().includes(q) || k.plat_nomor.toLowerCase().includes(q) || (k.warna && k.warna.toLowerCase().includes(q));
     });
   }, [allKendaraans, editKendaraanSearch, editingOrder]);
 
@@ -1886,6 +1871,7 @@ export default function Orders() {
                   {invoiceOrder.calo && (
                     <p className="text-xs text-ink-700">
                       Calo: {invoiceOrder.calo.nama}
+                      {invoiceOrder.calo.komisi ? ` (${formatRupiah(invoiceOrder.calo.komisi)})` : ''}
                     </p>
                   )}
                 </div>
