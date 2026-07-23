@@ -149,7 +149,13 @@ export default function Kendaraan() {
       .then(({ data }) => setItems(data.data as Kendaraan[]))
       .catch(() => toast.error('Gagal memuat data kendaraan'))
       .finally(() => setLoading(false));
-  }, [search, toast]);
+    // 'toast' sengaja tidak dimasukkan ke dependency array. Objek `toast` dari
+    // context berubah identitas setiap kali toast.success()/error() dipanggil,
+    // sehingga kalau dimasukkan ke sini, `load` akan dianggap "berubah" dan
+    // memicu useEffect di bawah untuk fetch ulang SEMUA data — persis setelah
+    // toast sukses muncul. Itu penyebab data terasa "refresh 2 kali".
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   useEffect(() => {
     load();
@@ -288,8 +294,17 @@ export default function Kendaraan() {
       const payload: { status: StatusKendaraan; catatan?: string } = { status };
       if (catatan !== undefined) payload.catatan = catatan;
       await kendaraanAPI.update(id, payload);
+      // Update state lokal pakai NILAI YANG KITA KIRIM SENDIRI, bukan dari
+      // response API. Ini lebih aman karena tidak bergantung pada bentuk
+      // response backend (misalnya kalau ternyata tidak dibungkus { data: {...} }
+      // seperti endpoint lain) — kalau request ini tidak melempar error,
+      // berarti perubahan sudah berhasil tersimpan di server.
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === id ? { ...item, status, ...(catatan !== undefined ? { catatan } : {}) } : item
+        )
+      );
       toast.success(`Status kendaraan diubah menjadi "${statusLabels[status]}"`);
-      load();
       return true;
     } catch (err) {
       console.error('Gagal mengubah status kendaraan:', err);
