@@ -11,7 +11,6 @@ const emptyForm = {
   alamat: '',
   status: 'active',
   no_sim: '',
-  komisi: '',
   tarif_per_hari: '',
   catatan: '',
 };
@@ -104,7 +103,6 @@ export default function SupirCalo() {
       alamat: item.alamat || '',
       status: item.status,
       no_sim: item.no_sim || '',
-      komisi: item.komisi || '',
       tarif_per_hari: item.tarif_per_hari || '',
       catatan: item.catatan || '',
     });
@@ -212,7 +210,7 @@ export default function SupirCalo() {
                 </select>
               </div>
 
-              {isSupir ? (
+              {isSupir && (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">No. SIM *</label>
@@ -225,10 +223,10 @@ export default function SupirCalo() {
                       placeholder="Tarif per hari untuk supir"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
                   </div>
-                  <div className="pt-2 border-t border-gray-100">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Foto Profil</h3>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Foto Profil</label>
                     <FileUpload
-                      label="Foto"
+                      name="foto"
                       accept="image/*"
                       file={fotoFile}
                       preview={fotoPreview}
@@ -237,12 +235,6 @@ export default function SupirCalo() {
                     />
                   </div>
                 </>
-              ) : (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Komisi (Rp)</label>
-                  <input type="number" value={form.komisi} onChange={(e) => setField('komisi', e.target.value)} min="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
-                </div>
               )}
 
               <div>
@@ -282,18 +274,17 @@ export default function SupirCalo() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
                 {isSupir && <th className="text-left px-4 py-3 font-medium text-gray-600">SIM</th>}
                 {isSupir && <th className="text-left px-4 py-3 font-medium text-gray-600">Tarif/Hari</th>}
-                {!isSupir && <th className="text-left px-4 py-3 font-medium text-gray-600">Komisi</th>}
                 <th className="text-right px-4 py-3 font-medium text-gray-600">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {loading ? (
-                <tr><td colSpan={isSupir ? 8 : 6} className="p-12 text-center">
+                <tr><td colSpan={isSupir ? 8 : 5} className="p-12 text-center">
                   <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                   <p className="text-sm text-gray-500">Memuat data...</p>
                 </td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={isSupir ? 8 : 6} className="p-12 text-center">
+                <tr><td colSpan={isSupir ? 8 : 5} className="p-12 text-center">
                   <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                   <p className="text-gray-500 font-medium">Tidak ada data {isSupir ? 'supir' : 'calo'}</p>
                   <p className="text-sm text-gray-400 mt-1">Mulai dengan menambahkan {isSupir ? 'supir' : 'calo'} baru</p>
@@ -323,7 +314,6 @@ export default function SupirCalo() {
                   </td>
                   {isSupir && <td className="px-4 py-3 font-mono text-sm text-gray-600">{item.no_sim || '-'}</td>}
                   {isSupir && <td className="px-4 py-3 text-gray-700">{item.tarif_per_hari ? formatRupiah(item.tarif_per_hari) : '-'}</td>}
-                  {!isSupir && <td className="px-4 py-3 text-gray-700">{item.komisi ? formatRupiah(item.komisi) : '-'}</td>}
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <button onClick={() => handleEdit(item)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">

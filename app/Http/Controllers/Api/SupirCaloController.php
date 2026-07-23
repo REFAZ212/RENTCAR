@@ -42,7 +42,6 @@ class SupirCaloController extends Controller
             'status' => 'nullable|in:active,inactive',
             'no_sim' => 'nullable|string',
             'foto' => 'nullable|image|max:2048',
-            'komisi' => 'nullable|numeric|min:0',
             'tarif_per_hari' => 'nullable|numeric|min:0',
             'catatan' => 'nullable|string',
         ]);
@@ -74,19 +73,18 @@ class SupirCaloController extends Controller
     public function update(Request $request, SupirCalo $supirCalo): JsonResponse
     {
         $validated = $request->validate([
-            'jenis' => 'required|in:supir,calo',
-            'nama' => 'required|string|max:255',
-            'no_hp' => 'required|string|max:255',
+            'jenis' => 'sometimes|required|in:supir,calo',
+            'nama' => 'sometimes|required|string|max:255',
+            'no_hp' => 'sometimes|required|string|max:255',
             'alamat' => 'nullable|string',
             'status' => 'nullable|in:active,inactive',
             'no_sim' => 'nullable|string',
             'foto' => 'nullable|image|max:2048',
-            'komisi' => 'nullable|numeric|min:0',
             'tarif_per_hari' => 'nullable|numeric|min:0',
             'catatan' => 'nullable|string',
         ]);
 
-        if ($validated['jenis'] === 'supir' && empty($validated['no_sim'])) {
+        if (($validated['jenis'] ?? $supirCalo->jenis) === 'supir' && empty($validated['no_sim'] ?? $supirCalo->no_sim)) {
             return response()->json(['message' => 'No. SIM wajib diisi untuk supir.'], 422);
         }
 

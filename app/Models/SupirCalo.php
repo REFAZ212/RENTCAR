@@ -19,13 +19,11 @@ class SupirCalo extends Model
         'status',
         'no_sim',
         'foto',
-        'komisi',
         'tarif_per_hari',
         'catatan',
     ];
 
     protected $casts = [
-        'komisi' => 'decimal:2',
         'tarif_per_hari' => 'decimal:2',
     ];
 
