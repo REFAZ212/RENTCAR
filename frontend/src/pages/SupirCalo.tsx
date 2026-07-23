@@ -11,8 +11,18 @@ const emptyForm = {
   alamat: '',
   status: 'active',
   no_sim: '',
+  komisi: '',
   tarif_per_hari: '',
   catatan: '',
+};
+
+// Ubah nomor HP lokal (0812..., +62812..., 62812...) menjadi format 62xxxx untuk link WhatsApp
+const formatPhoneForWa = (phone) => {
+  if (!phone) return '';
+  let digits = String(phone).replace(/[^0-9]/g, '');
+  if (digits.startsWith('0')) digits = `62${digits.slice(1)}`;
+  else if (!digits.startsWith('62')) digits = `62${digits}`;
+  return digits;
 };
 
 function ImagePreview({ src, alt, className = '' }) {
@@ -41,6 +51,54 @@ function FileUpload({ label, accept, file, preview, onChange, existing }) {
   );
 }
 
+// Ikon WhatsApp (inline, tidak pakai library luar)
+function WhatsAppIcon({ className = 'w-4 h-4' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.198-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.148.198 2.095 3.2 5.076 4.487.71.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+      <path d="M12.001 2C6.478 2 2 6.477 2 12c0 1.892.526 3.66 1.438 5.166L2 22l4.982-1.408A9.953 9.953 0 0012.001 22C17.523 22 22 17.523 22 12S17.523 2 12.001 2zm0 18.2a8.174 8.174 0 01-4.166-1.14l-.299-.177-3.207.906.885-3.13-.194-.31A8.178 8.178 0 013.8 12c0-4.522 3.679-8.2 8.201-8.2 4.521 0 8.2 3.678 8.2 8.2 0 4.522-3.679 8.2-8.2 8.2z" />
+    </svg>
+  );
+}
+
+function CopyIcon({ className = 'w-3.5 h-3.5' }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    </svg>
+  );
+}
+
+// Baris info dengan tombol salin (untuk No. HP / No. SIM)
+function CopyableField({ label, value, icon }) {
+  const toast = useToast();
+  if (!value) return null;
+  const handleCopy = async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} disalin`);
+    } catch {
+      toast.error(`Gagal menyalin ${label.toLowerCase()}`);
+    }
+  };
+  return (
+    <div className="flex items-center justify-between gap-2 text-sm">
+      <div className="flex items-center gap-1.5 text-gray-600 min-w-0">
+        {icon}
+        <span className="truncate">{value}</span>
+      </div>
+      <button
+        onClick={handleCopy}
+        title={`Salin ${label}`}
+        className="shrink-0 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+      >
+        <CopyIcon />
+      </button>
+    </div>
+  );
+}
+
 export default function SupirCalo() {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<'supir' | 'calo'>('supir');
@@ -54,6 +112,7 @@ export default function SupirCalo() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [fotoFile, setFotoFile] = useState(null);
   const [fotoPreview, setFotoPreview] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -103,6 +162,7 @@ export default function SupirCalo() {
       alamat: item.alamat || '',
       status: item.status,
       no_sim: item.no_sim || '',
+      komisi: item.komisi || '',
       tarif_per_hari: item.tarif_per_hari || '',
       catatan: item.catatan || '',
     });
@@ -210,7 +270,7 @@ export default function SupirCalo() {
                 </select>
               </div>
 
-              {isSupir && (
+              {isSupir ? (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">No. SIM *</label>
@@ -223,10 +283,29 @@ export default function SupirCalo() {
                       placeholder="Tarif per hari untuk supir"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
                   </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Foto Profil</label>
+                  <div className="pt-2 border-t border-gray-100">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Foto Profil</h3>
                     <FileUpload
-                      name="foto"
+                      label="Foto"
+                      accept="image/*"
+                      file={fotoFile}
+                      preview={fotoPreview}
+                      existing={editItem?.foto ? getFileUrl(editItem.foto) : null}
+                      onChange={(e) => { const f = e.target.files[0]; setFotoFile(f); setFotoPreview(f ? URL.createObjectURL(f) : null); }}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Komisi (Rp)</label>
+                    <input type="number" value={form.komisi} onChange={(e) => setField('komisi', e.target.value)} min="0"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
+                  </div>
+                  <div className="pt-2 border-t border-gray-100">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Foto Profil</h3>
+                    <FileUpload
+                      label="Foto"
                       accept="image/*"
                       file={fotoFile}
                       preview={fotoPreview}
@@ -255,6 +334,93 @@ export default function SupirCalo() {
         </div>
       )}
 
+      {/* Modal Detail */}
+      {detailItem && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setDetailItem(null)}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
+              <h2 className="text-lg font-semibold text-gray-900">Detail {isSupir ? 'Supir' : 'Calo'}</h2>
+              <button onClick={() => setDetailItem(null)} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
+                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-5">
+              <div className="flex items-center gap-4">
+                {detailItem.foto ? (
+                  <img src={getFileUrl(detailItem.foto)} alt={detailItem.nama} className="w-20 h-20 rounded-xl object-cover border border-gray-200" />
+                ) : (
+                  <div className="w-20 h-20 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center text-2xl font-bold shrink-0">
+                    {detailItem.nama.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="font-semibold text-gray-900 text-lg truncate">{detailItem.nama}</p>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${
+                    detailItem.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {detailItem.status === 'active' ? 'Aktif' : 'Nonaktif'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-3 bg-gray-50 rounded-lg p-4">
+                <CopyableField
+                  label="No. HP"
+                  value={detailItem.no_hp}
+                  icon={<svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>}
+                />
+                {isSupir && (
+                  <CopyableField
+                    label="No. SIM"
+                    value={detailItem.no_sim}
+                    icon={<svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>}
+                  />
+                )}
+                <div className="flex items-start gap-1.5 text-sm text-gray-600">
+                  <svg className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a2 2 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  <span>{detailItem.alamat || 'Alamat tidak diisi'}</span>
+                </div>
+                {isSupir ? (
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium text-gray-700">Tarif/Hari: </span>
+                    {detailItem.tarif_per_hari ? formatRupiah(detailItem.tarif_per_hari) : '-'}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium text-gray-700">Komisi: </span>
+                    {detailItem.komisi ? formatRupiah(detailItem.komisi) : '-'}
+                  </div>
+                )}
+                {detailItem.catatan && (
+                  <div className="text-sm text-gray-600 pt-2 border-t border-gray-200">
+                    <span className="font-medium text-gray-700">Catatan: </span>
+                    {detailItem.catatan}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2">
+                <a
+                  href={`https://wa.me/${formatPhoneForWa(detailItem.no_hp)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors"
+                >
+                  <WhatsAppIcon />
+                  Hubungi via WhatsApp
+                </a>
+                <button
+                  onClick={() => { setDetailItem(null); handleEdit(detailItem); }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Edit
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <ConfirmModal
         open={!!confirmDelete}
         title={`Hapus ${isSupir ? 'Supir' : 'Calo'}`}
@@ -263,73 +429,102 @@ export default function SupirCalo() {
         onCancel={() => setConfirmDelete(null)}
       />
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Nama</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">No. HP</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Alamat</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
-                {isSupir && <th className="text-left px-4 py-3 font-medium text-gray-600">SIM</th>}
-                {isSupir && <th className="text-left px-4 py-3 font-medium text-gray-600">Tarif/Hari</th>}
-                <th className="text-right px-4 py-3 font-medium text-gray-600">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {loading ? (
-                <tr><td colSpan={isSupir ? 8 : 5} className="p-12 text-center">
-                  <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">Memuat data...</p>
-                </td></tr>
-              ) : items.length === 0 ? (
-                <tr><td colSpan={isSupir ? 8 : 5} className="p-12 text-center">
-                  <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                  <p className="text-gray-500 font-medium">Tidak ada data {isSupir ? 'supir' : 'calo'}</p>
-                  <p className="text-sm text-gray-400 mt-1">Mulai dengan menambahkan {isSupir ? 'supir' : 'calo'} baru</p>
-                </td></tr>
-              ) : items.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      {item.foto ? (
-                        <img src={getFileUrl(item.foto)} alt={item.nama} className="w-8 h-8 rounded-full object-cover border border-gray-200" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
-                          {item.nama.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <span className="font-medium text-gray-900">{item.nama}</span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">{item.no_hp}</td>
-                  <td className="px-4 py-3 text-gray-600 max-w-[200px] truncate">{item.alamat || '-'}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      item.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {item.status === 'active' ? 'Aktif' : 'Nonaktif'}
-                    </span>
-                  </td>
-                  {isSupir && <td className="px-4 py-3 font-mono text-sm text-gray-600">{item.no_sim || '-'}</td>}
-                  {isSupir && <td className="px-4 py-3 text-gray-700">{item.tarif_per_hari ? formatRupiah(item.tarif_per_hari) : '-'}</td>}
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <button onClick={() => handleEdit(item)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                      </button>
-                      <button onClick={() => setConfirmDelete(item)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Grid Card */}
+      {loading ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-sm text-gray-500">Memuat data...</p>
         </div>
-      </div>
+      ) : items.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+          <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+          <p className="text-gray-500 font-medium">Tidak ada data {isSupir ? 'supir' : 'calo'}</p>
+          <p className="text-sm text-gray-400 mt-1">Mulai dengan menambahkan {isSupir ? 'supir' : 'calo'} baru</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md hover:border-blue-200 transition-all overflow-hidden flex flex-col cursor-pointer"
+              onClick={() => setDetailItem(item)}
+            >
+              <div className="p-4 pb-3 flex items-center gap-3">
+                {item.foto ? (
+                  <img src={getFileUrl(item.foto)} alt={item.nama} className="w-14 h-14 rounded-full object-cover border border-gray-200 shrink-0" />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-lg font-bold shrink-0">
+                    {item.nama.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-gray-900 truncate">{item.nama}</p>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${
+                    item.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {item.status === 'active' ? 'Aktif' : 'Nonaktif'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="px-4 space-y-1.5 flex-1">
+                <CopyableField
+                  label="No. HP"
+                  value={item.no_hp}
+                  icon={<svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>}
+                />
+                {isSupir && (
+                  <CopyableField
+                    label="No. SIM"
+                    value={item.no_sim}
+                    icon={<svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>}
+                  />
+                )}
+                <p className="text-sm text-gray-500 truncate">{item.alamat || 'Alamat tidak diisi'}</p>
+                <p className="text-sm text-gray-700 font-medium">
+                  {isSupir
+                    ? (item.tarif_per_hari ? `${formatRupiah(item.tarif_per_hari)} / hari` : '-')
+                    : (item.komisi ? `Komisi ${formatRupiah(item.komisi)}` : '-')}
+                </p>
+              </div>
+
+              <div className="p-4 pt-3 mt-3 border-t border-gray-100 flex items-center gap-2">
+                <a
+                  href={`https://wa.me/${formatPhoneForWa(item.no_hp)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  title="Hubungi via WhatsApp"
+                  className="flex items-center justify-center gap-1.5 flex-1 px-3 py-1.5 bg-green-50 text-green-700 text-xs font-medium rounded-lg hover:bg-green-100 transition-colors"
+                >
+                  <WhatsAppIcon className="w-3.5 h-3.5" />
+                  WA
+                </a>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setDetailItem(item); }}
+                  className="px-3 py-1.5 text-xs font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Detail
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleEdit(item); }}
+                  title="Edit"
+                  className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setConfirmDelete(item); }}
+                  title="Hapus"
+                  className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
