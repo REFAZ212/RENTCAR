@@ -33,8 +33,6 @@ const emptyPartnerForm = {
   catatan: '',
 };
 
-const vehicleStatuses = ['tersedia', 'disewa', 'maintenance'] as const;
-
 const vehicleStatusStyles: Record<string, string> = {
   tersedia: 'bg-avail-50 text-avail-500',
   disewa: 'bg-rented-50 text-rented-500',

@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**CVPILAR** — a garage/vehicle management system (Indonesian domain). Laravel 13.8 API backend + separate React 19 SPA frontend.
+**CVPILAR** — a garage/vehicle management system (Indonesian domain). Laravel 13.19 API backend + separate React 19 SPA frontend.
 
 ## Architecture
 
@@ -22,7 +22,11 @@ Public Blade routes (`routes/web.php`): `GET/POST /garasi/{token}` — token-bas
 
 **Frontend API layer** (`frontend/src/services/api.ts`): axios with Bearer token from `localStorage`. Auto-redirects to `/login` on 401. File uploads use `FormData` (Content-Type header is stripped automatically). File updates use method spoofing: POST with `_method=PUT` (Laravel can't handle PUT + multipart).
 
+**Export deps**: `phpoffice/phpspreadsheet` + `openspout/openspout` for Excel/CSV export in Laporan.
+
 **Business logic**: `app/Services/OvertimeCalculator.php` — calculates late-return penalties (Rp 25,000/hour, second-precision, no grace period). `Order` model has computed accessors `jam_overtime_saat_ini` and `denda_overtime_saat_ini` that recalculate on every response for active orders. Final values stored in `jam_overtime`/`denda_overtime` columns when order is completed via `Order::selesaikanSewa()`.
+
+Return deadline (`batasWaktuKembali()`) is calculated from `tanggal_mulai + durasi_hari + jam_selesai`, NOT from `tanggal_selesai` directly — `tanggal_selesai` can be entered as the same day as `tanggal_mulai`.
 
 **Timezone**: `Asia/Jakarta` (set in `config/app.php`) — all overtime calculations are server-side.
 
@@ -46,7 +50,7 @@ For the React SPA only:
 ```bash
 cd frontend && npm run dev
 ```
-Vite dev server on port 5173, proxies `/api` to `http://127.0.0.1:8000`.
+Vite dev server on port 5173, proxies `/api` and `/storage` to `http://127.0.0.1:8000`.
 
 ### Testing
 
@@ -72,7 +76,11 @@ php artisan test --filter=ExampleTest
 cd frontend && npm run lint
 ```
 
-**TypeScript**: The frontend uses `.tsx`/`.ts` files but has **no `tsconfig.json`** — Vite processes TS via esbuild without type-checking. Running `tsc --noEmit` would fail.
+**TypeScript**: `frontend/tsconfig.json` exists (`strict: false`, `noEmit: true`). Type-check via:
+```bash
+cd frontend && npx tsc --noEmit
+```
+Vite processes TS via esbuild for builds — TypeScript errors won't block the dev server or build, only `tsc --noEmit`.
 
 ### Build
 
@@ -90,6 +98,7 @@ cd frontend && npm run build  # React SPA build
 - **PHPUnit** always uses `:memory:` SQLite regardless of `.env` — no external DB needed for tests
 - **Root Vite config** ignores `storage/framework/views/` from file watching
 - **4-space indentation**, LF line endings enforced (`.editorconfig`, `.gitattributes`)
+- **Controller update validation** uses `sometimes|required` — partial updates are allowed (e.g. status-only changes don't need all fields)
 
 ## Gotchas
 
@@ -104,3 +113,5 @@ cd frontend && npm run build  # React SPA build
 - The `README.md` is stock Laravel boilerplate and does not describe this project. Real docs are in `CARA_MENJALANKAN.md` (Indonesian).
 - Seeders create 3 users (Admin Utama, Petugas 1, Petugas 2) — all with password `password`.
 - Scheduled command `garasi:check-timeout` runs every minute, marking expired garage requests as `tidak_terjawab`.
+- Several API controllers return raw arrays (not wrapped in `{ data: [...] }`). Frontend casts directly: `data as unknown as T[]` instead of `data.data`.
+- Frontend has no `typecheck` npm script — run `npx tsc --noEmit` manually if you need type verification.

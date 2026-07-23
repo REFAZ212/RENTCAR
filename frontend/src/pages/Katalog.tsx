@@ -43,7 +43,7 @@ export default function Katalog() {
 
   useEffect(() => {
     katalogAPI.kategoris()
-      .then(({ data }) => setKategoris(data.data as KategoriKendaraanExt[]))
+      .then(({ data }) => setKategoris((data as unknown as KategoriKendaraanExt[])))
       .catch(() => {});
   }, []);
 
@@ -51,7 +51,7 @@ export default function Katalog() {
     const params: Record<string, string> = {};
     if (kategoriSlug) params.kategori_slug = kategoriSlug;
     katalogAPI.tipes(params)
-      .then(({ data }) => setTipes(data.data as TipeKendaraanExt[]))
+      .then(({ data }) => setTipes(data as unknown as TipeKendaraanExt[]))
       .catch(() => {});
   }, [kategoriSlug]);
 
@@ -235,7 +235,7 @@ export default function Katalog() {
                     )}
                     <div className="absolute top-3 left-3">
                       <span className="px-2.5 py-1 bg-white/90 backdrop-blur-sm text-xs font-semibold text-gray-700 rounded-lg uppercase">
-                        {item.tipe}
+                        {item.tipe?.nama_tipe}
                       </span>
                     </div>
                   </div>

@@ -11,7 +11,6 @@ const emptyForm = {
   alamat: '',
   status: 'active',
   no_sim: '',
-  komisi: '',
   tarif_per_hari: '',
   catatan: '',
 };
@@ -162,7 +161,6 @@ export default function SupirCalo() {
       alamat: item.alamat || '',
       status: item.status,
       no_sim: item.no_sim || '',
-      komisi: item.komisi || '',
       tarif_per_hari: item.tarif_per_hari || '',
       catatan: item.catatan || '',
     });
@@ -270,7 +268,7 @@ export default function SupirCalo() {
                 </select>
               </div>
 
-              {isSupir ? (
+              {isSupir && (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">No. SIM *</label>
@@ -283,10 +281,10 @@ export default function SupirCalo() {
                       placeholder="Tarif per hari untuk supir"
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
                   </div>
-                  <div className="pt-2 border-t border-gray-100">
-                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Foto Profil</h3>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Foto Profil</label>
                     <FileUpload
-                      label="Foto"
+                      name="foto"
                       accept="image/*"
                       file={fotoFile}
                       preview={fotoPreview}
