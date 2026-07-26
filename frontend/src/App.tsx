@@ -1,3 +1,4 @@
+//private routes are wrapped in <Layout> component, public routes are not
 import type { PropsWithChildren } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -17,6 +18,19 @@ import NotFound from './pages/NotFound';
 import Pengaturan from './pages/Pengaturan';
 import SupirCalo from './pages/SupirCalo';
 
+//public route will redirect to / if user is logged in, private route will redirect to /login if user is not logged in
+
+import PublicLayout from './components/public/PublicLayout';
+import TentangKamiPage from './pages/public/TentangKamiPage';
+import KontakKamiPage from './pages/public/KontakKamiPage';
+import LayananPage from './pages/public/LayananPage';
+import LayananDetailPage from './pages/public/LayananDetailPage';
+import BeritaPage from './pages/public/BeritaPage';
+import ArtikelPage from './pages/public/ArtikelPage';
+import PromoPage from './pages/public/PromoPage';
+import KarirPage from './pages/public/KarirPage';
+
+
 function LoadingScreen() {
   return (
     <div className="flex items-center justify-center h-screen bg-gray-50">
@@ -31,13 +45,13 @@ function LoadingScreen() {
 function PrivateRoute({ children }: PropsWithChildren) {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
-  return user ? <Layout>{children}</Layout> : <Navigate to="/login" />;
+  return user ? <Layout>{children}</Layout> : <Navigate to="/admin/login" />;
 }
 
 function PublicRoute({ children }: PropsWithChildren) {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
-  return user ? <Navigate to="/" /> : children;
+  return user ? <Navigate to="/admin" /> : children;
 }
 
 export default function App() {
@@ -46,23 +60,34 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           {/* Public katalog routes — no auth */}
+          <Route path="/" element={<Katalog />} />
           <Route path="/katalog" element={<Katalog />} />
           <Route path="/katalog/:id" element={<KendaraanDetail />} />
 
+          {/* Public corporate pages — no auth */}
+          <Route path="/tentang" element={<PublicLayout><TentangKamiPage /></PublicLayout>} />
+          <Route path="/kontak" element={<PublicLayout><KontakKamiPage /></PublicLayout>} />
+          <Route path="/layanan" element={<PublicLayout><LayananPage /></PublicLayout>} />
+          <Route path="/layanan/:slug" element={<PublicLayout><LayananDetailPage /></PublicLayout>} />
+          <Route path="/berita" element={<PublicLayout><BeritaPage /></PublicLayout>} />
+          <Route path="/artikel" element={<PublicLayout><ArtikelPage /></PublicLayout>} />
+          <Route path="/promo" element={<PublicLayout><PromoPage /></PublicLayout>} />
+          <Route path="/karir" element={<PublicLayout><KarirPage /></PublicLayout>} />
+
           {/* Auth routes */}
-          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+          <Route path="/admin/login" element={<PublicRoute><Login /></PublicRoute>} />
 
           {/* Admin routes — auth required */}
-          <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/kendaraan" element={<PrivateRoute><Kendaraan /></PrivateRoute>} />
-          <Route path="/kategori-tipe" element={<PrivateRoute><KategoriTipe /></PrivateRoute>} />
-          <Route path="/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
-          <Route path="/supir-calo" element={<PrivateRoute><SupirCalo /></PrivateRoute>} />
-          <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
-          <Route path="/gps" element={<PrivateRoute><GpsPage /></PrivateRoute>} />
-          <Route path="/laporan" element={<PrivateRoute><Laporan /></PrivateRoute>} />
-          <Route path="/garasi" element={<PrivateRoute><GarasiPage /></PrivateRoute>} />
-          <Route path="/pengaturan" element={<PrivateRoute><Pengaturan /></PrivateRoute>} />
+          <Route path="/admin" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/admin/kendaraan" element={<PrivateRoute><Kendaraan /></PrivateRoute>} />
+          <Route path="/admin/kategori-tipe" element={<PrivateRoute><KategoriTipe /></PrivateRoute>} />
+          <Route path="/admin/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
+          <Route path="/admin/supir-calo" element={<PrivateRoute><SupirCalo /></PrivateRoute>} />
+          <Route path="/admin/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
+          <Route path="/admin/gps" element={<PrivateRoute><GpsPage /></PrivateRoute>} />
+          <Route path="/admin/laporan" element={<PrivateRoute><Laporan /></PrivateRoute>} />
+          <Route path="/admin/garasi" element={<PrivateRoute><GarasiPage /></PrivateRoute>} />
+          <Route path="/admin/pengaturan" element={<PrivateRoute><Pengaturan /></PrivateRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />
