@@ -13,8 +13,7 @@ class KatalogPublicController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Kendaraan::with(['garasiPartner', 'kategori', 'tipe'])
-            ->where('status', 'tersedia');
+        $query = Kendaraan::with(['garasiPartner', 'kategori', 'tipe']);
 
         if ($request->has('search') && $request->search) {
             $query->where(function ($q) use ($request) {
@@ -67,9 +66,7 @@ class KatalogPublicController extends Controller
     public function kategoris(): JsonResponse
     {
         $kategoris = Kategori::where('aktif', true)
-            ->withCount(['kendaraans' => function ($q) {
-                $q->where('status', 'tersedia');
-            }])
+            ->withCount('kendaraans')
             ->orderBy('nama_kategori')
             ->get();
 
@@ -79,9 +76,7 @@ class KatalogPublicController extends Controller
     public function tipes(Request $request): JsonResponse
     {
         $query = Tipe::where('aktif', true)
-            ->withCount(['kendaraans' => function ($q) {
-                $q->where('status', 'tersedia');
-            }]);
+            ->withCount('kendaraans');
 
         if ($request->has('kategori_slug') && $request->kategori_slug) {
             $query->whereHas('kategori', function ($q) use ($request) {
@@ -97,10 +92,6 @@ class KatalogPublicController extends Controller
     public function show(Kendaraan $kendaraan): JsonResponse
     {
         $kendaraan->load('garasiPartner', 'kategori', 'tipe');
-
-        if ($kendaraan->status !== 'tersedia') {
-            return response()->json(['message' => 'Kendaraan tidak tersedia'], 404);
-        }
 
         return response()->json($kendaraan);
     }

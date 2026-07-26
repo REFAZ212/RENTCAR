@@ -15,15 +15,15 @@ import {
 import logo from '../assets/logo.png';
 
 const navItems = [
-  { path: '/', label: 'Dashboard', icon: LayoutGrid },
-  { path: '/orders', label: 'Orders', icon: ClipboardList },
-  { path: '/kendaraan', label: 'Kendaraan', icon: Car },
-  { path: '/kategori-tipe', label: 'Kategori & Tipe', icon: Tags },
-  { path: '/customers', label: 'Customers', icon: Users },
-  { path: '/supir-calo', label: 'Supir & Calo', icon: UserCheck },
-  { path: '/gps', label: 'GPS', icon: MapPin },
-  { path: '/laporan', label: 'Laporan', icon: FileBarChart },
-  { path: '/garasi', label: 'Garasi', icon: Warehouse },
+  { path: '/admin', label: 'Dashboard', icon: LayoutGrid },
+  { path: '/admin/orders', label: 'Orders', icon: ClipboardList },
+  { path: '/admin/kendaraan', label: 'Kendaraan', icon: Car },
+  { path: '/admin/kategori-tipe', label: 'Kategori & Tipe', icon: Tags },
+  { path: '/admin/customers', label: 'Customers', icon: Users },
+  { path: '/admin/supir-calo', label: 'Supir & Calo', icon: UserCheck },
+  { path: '/admin/gps', label: 'GPS', icon: MapPin },
+  { path: '/admin/laporan', label: 'Laporan', icon: FileBarChart },
+  { path: '/admin/garasi', label: 'Garasi', icon: Warehouse },
 ];
 
 interface SidebarProps {
