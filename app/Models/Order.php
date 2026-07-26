@@ -8,11 +8,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Order extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     /**
      * @deprecated Pakai App\Services\OvertimeCalculator::RATE_PER_HOUR.
@@ -23,8 +25,11 @@ class Order extends Model
 
     protected $fillable = [
         'kode_order',
+        'source',
         'customer_id',
         'kendaraan_id',
+        'alamat_jemput',
+        'tujuan',
         'admin_id',
         'tanggal_mulai',
         'tanggal_selesai',
@@ -40,16 +45,16 @@ class Order extends Model
         'bukti_transfer',
         'bukti_pengiriman',
         'bukti_pengembalian',
-        'jam_overtime',
-        'denda_overtime',
         'supir_id',
         'calo_id',
         'catatan',
+        'tanggal_pengembalian_aktual',
     ];
 
     protected $casts = [
         'tanggal_mulai' => 'date',
         'tanggal_selesai' => 'date',
+        'tanggal_pengembalian_aktual' => 'datetime',
         'durasi_hari' => 'integer',
         'harga_per_hari' => 'decimal:2',
         'harga_total' => 'decimal:2',
@@ -71,6 +76,14 @@ class Order extends Model
         static::creating(function (Order $order) {
             if (empty($order->kode_order)) {
                 $order->kode_order = 'ORD-'.strtoupper(Str::random(8));
+            }
+        });
+
+        static::deleting(function (Order $order) {
+            foreach (['bukti_transfer', 'bukti_pengiriman', 'bukti_pengembalian'] as $field) {
+                if ($order->$field && Storage::disk('public')->exists($order->$field)) {
+                    Storage::disk('public')->delete($order->$field);
+                }
             }
         });
     }
@@ -103,6 +116,34 @@ class Order extends Model
     public function garasiRequests(): HasMany
     {
         return $this->hasMany(GarasiRequest::class);
+    }
+
+    public function pembayarans(): HasMany
+    {
+        return $this->hasMany(Pembayaran::class);
+    }
+
+    /**
+     * Peta transisi status_order yang diizinkan.
+     * Kunci = status asal, nilai = array status tujuan yang valid.
+     * Order yang sudah "terminal" (completed/cancelled) tidak boleh berubah.
+     */
+    private const ALLOWED_TRANSITIONS = [
+        'pending' => ['confirmed', 'active', 'cancelled'],
+        'confirmed' => ['active', 'cancelled'],
+        'active' => ['completed', 'cancelled'],
+    ];
+
+    /**
+     * Cek apakah transisi dari status saat ini ke $newStatus diperbolehkan.
+     */
+    public function canTransitionTo(string $newStatus): bool
+    {
+        if (! isset(self::ALLOWED_TRANSITIONS[$this->status_order])) {
+            return false;
+        }
+
+        return in_array($newStatus, self::ALLOWED_TRANSITIONS[$this->status_order]);
     }
 
     /**
@@ -144,12 +185,16 @@ class Order extends Model
             return 0;
         }
 
-        return OvertimeCalculator::hitungJamTerlambat($batas, now());
+        $s = Setting::getOvertimeSettings();
+
+        return OvertimeCalculator::hitungJamTerlambat($batas, now(), $s['grace']);
     }
 
     public function getDendaOvertimeSaatIniAttribute(): float
     {
-        return OvertimeCalculator::hitungDenda($this->jam_overtime_saat_ini);
+        $s = Setting::getOvertimeSettings();
+
+        return OvertimeCalculator::hitungDenda($this->jam_overtime_saat_ini, $s['rate']);
     }
 
     /**
@@ -170,12 +215,17 @@ class Order extends Model
      *   $order->bukti_pengembalian = $path;
      *   $order->selesaikanSewa();
      *   $order->save();
+     *
+     * @param  Carbon|null  $waktuAktual  Waktu kendaraan benar-benar dikembalikan.
+     *                                    null = fallback ke now() (backward-compat).
      */
-    public function selesaikanSewa(): void
+    public function selesaikanSewa(?Carbon $waktuAktual = null): void
     {
         $batas = $this->batasWaktuKembali();
+        $s = Setting::getOvertimeSettings();
+        $waktuAktual = $waktuAktual ?? now();
         $hasil = $batas
-            ? OvertimeCalculator::hitung($batas, now())
+            ? OvertimeCalculator::hitung($batas, $waktuAktual, $s['rate'], $s['grace'])
             : ['jam_overtime' => 0, 'denda_overtime' => 0];
 
         $hargaDasar = (float) $this->harga_per_hari * (int) $this->durasi_hari;
@@ -189,13 +239,14 @@ class Order extends Model
         $this->jam_overtime = $hasil['jam_overtime'];
         $this->denda_overtime = $hasil['denda_overtime'];
         $this->harga_total = $hargaDasar + ($supirTarif * (int) $this->durasi_hari) + $hasil['denda_overtime'];
+        $this->tanggal_pengembalian_aktual = $waktuAktual;
 
         if ($hasil['jam_overtime'] > 0) {
             $waktuSelesai = $batas->format('d/m/Y H:i');
             $this->catatan = trim(($this->catatan ? $this->catatan."\n" : '')
                 ."Kendaraan terlambat dikembalikan. Batas pengembalian: {$waktuSelesai} WIB. "
                 ."Dikenakan denda keterlambatan {$hasil['jam_overtime']} jam × "
-                .number_format(OvertimeCalculator::RATE_PER_HOUR, 0, ',', '.')
+                .number_format($s['rate'], 0, ',', '.')
                 .' = Rp '.number_format($hasil['denda_overtime'], 0, ',', '.').'.');
         }
     }

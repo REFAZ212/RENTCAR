@@ -1,5 +1,6 @@
 import { useState, useEffect, type ReactNode, type FormEvent } from 'react';
 import api, { isAxiosError } from './mockApi'; // ⬅️ SEMENTARA: ganti balik ke '../services/api' + 'axios' kalau backend sudah siap
+import { settingsAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 
 /**
@@ -268,6 +269,9 @@ function ProfilTab() {
   const [form, setForm] = useState<ProfilForm>({ nama: '', email: '', no_hp: '', avatar_url: null });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  useEffect(() => {
+    return () => { if (avatarPreview) URL.revokeObjectURL(avatarPreview); };
+  }, [avatarPreview]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -478,6 +482,9 @@ function BisnisTab() {
   });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  useEffect(() => {
+    return () => { if (logoPreview) URL.revokeObjectURL(logoPreview); };
+  }, [logoPreview]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -634,16 +641,27 @@ function HargaTab() {
     biaya_jemput_flat: 25000,
     biaya_dengan_driver_per_hari: 150000,
     minimal_dp_persen: 30,
-    denda_keterlambatan_per_jam: 20000,
-    toleransi_keterlambatan_menit: 30,
+    denda_keterlambatan_per_jam: 25000,
+    toleransi_keterlambatan_menit: 0,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    api
-      .get('/pengaturan/harga')
-      .then(({ data }) => setForm(data))
+    Promise.all([
+      api.get('/pengaturan/harga').catch(() => ({ data: {} })),
+      settingsAPI.get().catch(() => ({ data: {} })),
+    ])
+      .then(([hargaRes, settingsRes]) => {
+        const harga = hargaRes.data as Partial<HargaForm>;
+        const settings = settingsRes.data as { overtime_rate_per_hour?: number; grace_period_minutes?: number };
+        setForm((prev) => ({
+          ...prev,
+          ...harga,
+          ...(settings.overtime_rate_per_hour != null ? { denda_keterlambatan_per_jam: settings.overtime_rate_per_hour } : {}),
+          ...(settings.grace_period_minutes != null ? { toleransi_keterlambatan_menit: settings.grace_period_minutes } : {}),
+        }));
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -655,7 +673,18 @@ function HargaTab() {
     e.preventDefault();
     setSaving(true);
     try {
-      await api.put('/pengaturan/harga', form);
+      await Promise.all([
+        api.put('/pengaturan/harga', {
+          biaya_antar_per_km: form.biaya_antar_per_km,
+          biaya_jemput_flat: form.biaya_jemput_flat,
+          biaya_dengan_driver_per_hari: form.biaya_dengan_driver_per_hari,
+          minimal_dp_persen: form.minimal_dp_persen,
+        }),
+        settingsAPI.update({
+          overtime_rate_per_hour: form.denda_keterlambatan_per_jam,
+          grace_period_minutes: form.toleransi_keterlambatan_menit,
+        }),
+      ]);
       toast.success('Kebijakan harga berhasil disimpan');
     } catch (err) {
       console.error(err);

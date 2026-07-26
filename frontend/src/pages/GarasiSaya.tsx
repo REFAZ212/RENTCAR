@@ -59,6 +59,9 @@ export default function GarasiSaya() {
   const [form, setForm] = useState<KendaraanForm>({} as KendaraanForm);
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  useEffect(() => {
+    return () => { if (fotoPreview) URL.revokeObjectURL(fotoPreview); };
+  }, [fotoPreview]);
   const [confirmDelete, setConfirmDelete] = useState<Kendaraan | null>(null);
   const [lastAdded, setLastAdded] = useState(false);
 
