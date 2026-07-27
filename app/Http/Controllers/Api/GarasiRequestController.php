@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\GarasiRequest;
+use App\Models\Notification;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -38,7 +39,19 @@ class GarasiRequestController extends Controller
 
         $garasiRequest = GarasiRequest::create($validated);
 
-        return response()->json($garasiRequest->load(['order.customer', 'order.kendaraan', 'garasiPartner']), 201);
+        $garasiRequest->load(['order.customer', 'order.kendaraan', 'garasiPartner']);
+
+        Notification::create([
+            'type' => 'garasi_baru',
+            'title' => 'Permintaan Garasi Baru',
+            'message' => "Permintaan ke {$garasiRequest->garasiPartner->nama_garasi} untuk {$garasiRequest->order->kendaraan->nama_kendaraan}",
+            'data' => [
+                'garasi_request_id' => $garasiRequest->id,
+                'link' => '/garasi',
+            ],
+        ]);
+
+        return response()->json($garasiRequest, 201);
     }
 
     public function show(GarasiRequest $garasiRequest): JsonResponse
@@ -55,11 +68,33 @@ class GarasiRequestController extends Controller
             'catatan_garasi' => 'nullable|string',
         ]);
 
+        if (! $garasiRequest->canTransitionTo($validated['status_permintaan'])) {
+            return response()->json([
+                'message' => "Tidak dapat mengubah status dari '{$garasiRequest->status_permintaan}' ke '{$validated['status_permintaan']}'",
+            ], 422);
+        }
+
         if ($validated['status_permintaan'] !== 'pending') {
             $validated['waktu_respon'] = now();
         }
 
         $garasiRequest->update($validated);
+
+        if (in_array($validated['status_permintaan'], ['tersedia', 'tidak_terjawab'])) {
+            $statusLabel = $validated['status_permintaan'] === 'tersedia' ? 'tersedia' : 'tidak terjawab';
+            $garasiRequest->load(['order.kendaraan', 'garasiPartner']);
+
+            Notification::create([
+                'type' => 'garasi_respon',
+                'title' => "Garasi {$statusLabel}",
+                'message' => "{$garasiRequest->garasiPartner->nama_garasi}: {$garasiRequest->order->kendaraan->nama_kendaraan} — {$statusLabel}",
+                'data' => [
+                    'garasi_request_id' => $garasiRequest->id,
+                    'status' => $validated['status_permintaan'],
+                    'link' => '/garasi',
+                ],
+            ]);
+        }
 
         return response()->json($garasiRequest->load(['order.customer', 'order.kendaraan', 'garasiPartner']));
     }

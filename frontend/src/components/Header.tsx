@@ -1,6 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Menu, Search, Bell, ChevronDown, Plus, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Menu, Search, Bell, ChevronDown, Plus, LogOut, CheckCheck } from 'lucide-react';
+import { notificationAPI, type AppNotification } from '../services/api';
+
+const NOTIF_LINK_MAP: Record<string, string> = {
+  order_baru: '/orders',
+  garasi_baru: '/garasi',
+  garasi_respon: '/garasi',
+  garasi_timeout: '/garasi',
+};
+
+function getNotifLink(n: AppNotification): string | null {
+  if (n.data?.link && typeof n.data.link === 'string') return n.data.link;
+  return NOTIF_LINK_MAP[n.type] ?? null;
+}
 
 interface HeaderUser {
   name?: string;
@@ -70,8 +84,85 @@ function LogoutConfirm({
 }
 
 export default function Header({ user, onMenuClick, onLogout, onNewBooking }: HeaderProps) {
+  const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const res = await notificationAPI.unreadCount();
+      setUnreadCount(res.data.count);
+    } catch {
+      // silent
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [fetchUnreadCount]);
+
+  useEffect(() => {
+    if (!showNotifications) return;
+    setLoadingNotifications(true);
+    notificationAPI
+      .list({ per_page: 15 })
+      .then((res) => {
+        const items = Array.isArray(res.data) ? res.data : (res.data as unknown as { data: AppNotification[] }).data ?? [];
+        setNotifications(items);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingNotifications(false));
+  }, [showNotifications]);
+
+  useEffect(() => {
+    if (!showNotifications) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showNotifications]);
+
+  const handleMarkAsRead = async (id: number) => {
+    try {
+      await notificationAPI.markAsRead(id);
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read_at: new Date().toISOString() } : n)));
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch {
+      // silent
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationAPI.markAllAsRead();
+      setNotifications((prev) => prev.map((n) => ({ ...n, read_at: n.read_at ?? new Date().toISOString() })));
+      setUnreadCount(0);
+    } catch {
+      // silent
+    }
+  };
+
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'Baru saja';
+    if (diffMin < 60) return `${diffMin}m lalu`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}j lalu`;
+    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+  };
 
   return (
     <header className="sticky top-0 z-20 flex items-center justify-between border-b border-gray-200 bg-white/80 px-4 py-4 backdrop-blur-sm sm:px-6">
@@ -107,10 +198,73 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
           </button>
         )}
 
-        <button className="relative rounded-full border border-gray-200 p-2 text-gray-500 hover:bg-gray-50">
-          <Bell className="h-4 w-4" />
-          <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-brand-500" />
-        </button>
+        <div className="relative" ref={notifRef}>
+          <button
+            onClick={() => setShowNotifications((v) => !v)}
+            className="relative rounded-full border border-gray-200 p-2 text-gray-500 hover:bg-gray-50"
+          >
+            <Bell className="h-4 w-4" />
+            {unreadCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {showNotifications && (
+            <div className="absolute right-0 top-full z-30 mt-2 w-80 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl sm:w-96">
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <h3 className="text-sm font-semibold text-gray-800">Notifikasi</h3>
+                {unreadCount > 0 && (
+                  <button
+                    onClick={handleMarkAllAsRead}
+                    className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700"
+                  >
+                    <CheckCheck size={14} />
+                    Tandai semua sudah dibaca
+                  </button>
+                )}
+              </div>
+              <div className="max-h-96 overflow-y-auto">
+                {loadingNotifications ? (
+                  <div className="py-8 text-center text-sm text-gray-400">Memuat...</div>
+                ) : notifications.length === 0 ? (
+                  <div className="py-8 text-center text-sm text-gray-400">Tidak ada notifikasi</div>
+                ) : (
+                  notifications.map((n) => {
+                    const link = getNotifLink(n);
+                    return (
+                    <button
+                      key={n.id}
+                      onClick={() => {
+                        if (!n.read_at) handleMarkAsRead(n.id);
+                        if (link) {
+                          setShowNotifications(false);
+                          navigate(link);
+                        }
+                      }}
+                      className={`flex w-full items-start gap-3 px-4 py-3 text-left transition ${
+                        link ? 'cursor-pointer' : ''
+                      } hover:bg-gray-50 ${
+                        !n.read_at ? 'bg-brand-50/30' : ''
+                      }`}
+                    >
+                      <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${!n.read_at ? 'bg-brand-500' : 'bg-transparent'}`} />
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm ${!n.read_at ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
+                          {n.title}
+                        </p>
+                        <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{n.message}</p>
+                        <p className="mt-1 text-[11px] text-gray-400">{formatTime(n.created_at)}</p>
+                      </div>
+                    </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="relative">
           <button

@@ -43,3 +43,13 @@ export function formatHpWa(hp: string | null | undefined): string {
 export function todayJakarta(): string {
   return new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' });
 }
+
+/**
+ * Mendapatkan waktu sekarang dalam format YYYY-MM-DDTHH:MM
+ * menggunakan timezone Asia/Jakarta (WIB, UTC+7).
+ * Digunakan untuk datetime-local input default.
+ */
+export function nowWIB(): string {
+  const parts = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).split(' ');
+  return `${parts[0]}T${parts[1].slice(0, 5)}`;
+}

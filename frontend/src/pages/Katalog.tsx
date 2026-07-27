@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { katalogAPI, type KategoriKendaraan, type TipeKendaraan, type KatalogItem } from '../services/api';
+import { katalogAPI, type KategoriKendaraan, type TipeKendaraan, type KatalogItem, type OrderRequestPayload } from '../services/api';
 import { todayJakarta } from '../lib/format';
 
 interface KategoriWithCount extends KategoriKendaraan {
@@ -57,7 +57,10 @@ interface OrderForm {
   nama_lengkap: string;
   no_hp: string;
   tanggal_mulai: string;
-  durasi_hari: number;
+  tanggal_selesai: string;
+  jam_mulai: string;
+  jam_selesai: string;
+  opsi_supir: 'lepas_kunci' | 'dengan_supir';
   catatan: string;
 }
 
@@ -72,7 +75,10 @@ function PesanSekarangModal({
     nama_lengkap: '',
     no_hp: '',
     tanggal_mulai: '',
-    durasi_hari: 1,
+    tanggal_selesai: '',
+    jam_mulai: '',
+    jam_selesai: '',
+    opsi_supir: 'lepas_kunci',
     catatan: '',
   });
   const [submitting, setSubmitting] = useState(false);
@@ -93,9 +99,25 @@ function PesanSekarangModal({
 
   const today = useMemo(() => todayJakarta(), []);
 
+  const durasiHari = useMemo(() => {
+    if (!form.tanggal_mulai || !form.tanggal_selesai) return 0;
+
+    if (form.jam_mulai && form.jam_selesai) {
+      const mulai = new Date(form.tanggal_mulai + 'T' + form.jam_mulai + ':00');
+      const selesai = new Date(form.tanggal_selesai + 'T' + form.jam_selesai + ':00');
+      const diffHours = (selesai.getTime() - mulai.getTime()) / (1000 * 60 * 60);
+      return Math.max(1, Math.ceil(diffHours / 24));
+    }
+
+    const mulai = new Date(form.tanggal_mulai + 'T00:00:00');
+    const selesai = new Date(form.tanggal_selesai + 'T00:00:00');
+    const diffDays = Math.ceil((selesai.getTime() - mulai.getTime()) / (1000 * 60 * 60 * 24));
+    return Math.max(1, diffDays + 1);
+  }, [form.tanggal_mulai, form.tanggal_selesai, form.jam_mulai, form.jam_selesai]);
+
   const totalPreview = useMemo(() => {
-    return item.harga_sewa_per_hari * form.durasi_hari;
-  }, [item.harga_sewa_per_hari, form.durasi_hari]);
+    return item.harga_sewa_per_hari * durasiHari;
+  }, [item.harga_sewa_per_hari, durasiHari]);
 
   const handleChange = (field: keyof OrderForm, value: string | number) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -115,37 +137,66 @@ function PesanSekarangModal({
       setError('Tanggal mulai wajib dipilih');
       return;
     }
-    if (form.durasi_hari < 1) {
-      setError('Durasi minimal 1 hari');
+    if (!form.tanggal_selesai) {
+      setError('Tanggal selesai wajib dipilih');
+      return;
+    }
+    if (durasiHari < 1) {
+      setError('Tanggal selesai harus setelah tanggal mulai');
+      return;
+    }
+    if (form.jam_mulai && !form.jam_selesai) {
+      setError('Jam selesai wajib diisi jika jam mulai dipilih');
+      return;
+    }
+    if (!form.jam_mulai && form.jam_selesai) {
+      setError('Jam mulai wajib diisi jika jam selesai dipilih');
       return;
     }
 
     setSubmitting(true);
     setError('');
     try {
-      const { data } = await katalogAPI.orderRequest({
+      const payload: OrderRequestPayload = {
         nama_lengkap: form.nama_lengkap.trim(),
         no_hp: form.no_hp.trim(),
         kendaraan_id: item.id,
         tanggal_mulai: form.tanggal_mulai,
-        durasi_hari: form.durasi_hari,
-        catatan: form.catatan.trim() || undefined,
-      });
+        tanggal_selesai: form.tanggal_selesai,
+        opsi_supir: form.opsi_supir,
+      };
+      if (form.jam_mulai) payload.jam_mulai = form.jam_mulai;
+      if (form.jam_selesai) payload.jam_selesai = form.jam_selesai;
+      if (form.catatan.trim()) payload.catatan = form.catatan.trim();
+
+      const { data } = await katalogAPI.orderRequest(payload);
       setWaLink(data.wa_link);
       setSuccess(true);
     } catch (err: unknown) {
-      const msg =
-        err && typeof err === 'object' && 'response' in err
-          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
-          : 'Gagal mengirim pesanan. Silakan coba lagi.';
-      setError(msg ?? 'Gagal mengirim pesanan. Silakan coba lagi.');
+      let msg = 'Gagal mengirim pesanan. Silakan coba lagi.';
+      if (err && typeof err === 'object' && 'response' in err) {
+        const resp = (err as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }).response?.data;
+        if (resp?.errors) {
+          const firstKey = Object.keys(resp.errors)[0];
+          if (firstKey && Array.isArray(resp.errors[firstKey]) && resp.errors[firstKey].length > 0) {
+            msg = resp.errors[firstKey][0];
+          }
+        } else if (resp?.message) {
+          msg = resp.message;
+        }
+      }
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleKonsultasiAdmin = () => {
-    const pesan = `Halo, saya tertarik dengan *${item.nama_kendaraan}* (${item.merek} ${item.model} ${item.tahun}) seharga ${formatRupiah(item.harga_sewa_per_hari)}/hari.\n\nSaya ingin berkonsultasi lebih lanjut. Terima kasih.`;
+    const opsLabel = form.opsi_supir === 'dengan_supir' ? 'Dengan Supir' : 'Lepas Kunci';
+    const tglInfo = form.tanggal_mulai
+      ? `${form.tanggal_mulai}${form.tanggal_selesai ? ' s/d ' + form.tanggal_selesai : ''}${form.jam_mulai ? ' jam ' + form.jam_mulai : ''}`
+      : 'belum ditentukan';
+    const pesan = `Halo, saya tertarik dengan *${item.nama_kendaraan}* (${item.merek} ${item.model} ${item.tahun}) seharga ${formatRupiah(item.harga_sewa_per_hari)}/hari.\n\nTanggal: ${tglInfo}\nOpsi: ${opsLabel}\n\nSaya ingin berkonsultasi lebih lanjut. Terima kasih.`;
     window.open(`https://wa.me/62895361054272?text=${encodeURIComponent(pesan)}`, '_blank');
   };
 
@@ -287,22 +338,106 @@ function PesanSekarangModal({
                       type="date"
                       value={form.tanggal_mulai}
                       min={today}
-                      onChange={(e) => handleChange('tanggal_mulai', e.target.value)}
+                      onChange={(e) => {
+                        handleChange('tanggal_mulai', e.target.value);
+                        if (form.tanggal_selesai && e.target.value && form.tanggal_selesai <= e.target.value) {
+                          handleChange('tanggal_selesai', '');
+                        }
+                      }}
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Durasi (hari) <span className="text-red-500">*</span>
+                      Tanggal Selesai <span className="text-red-500">*</span>
                     </label>
                     <input
-                      type="number"
-                      value={form.durasi_hari}
-                      min={1}
-                      max={365}
-                      onChange={(e) => handleChange('durasi_hari', Math.max(1, parseInt(e.target.value) || 1))}
+                      type="date"
+                      value={form.tanggal_selesai}
+                      min={form.tanggal_mulai || today}
+                      onChange={(e) => handleChange('tanggal_selesai', e.target.value)}
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
                     />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Jam Mulai <span className="text-gray-400 font-normal">(opsional)</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={form.jam_mulai}
+                      onChange={(e) => handleChange('jam_mulai', e.target.value)}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Jam Selesai <span className="text-gray-400 font-normal">(opsional)</span>
+                    </label>
+                    <input
+                      type="time"
+                      value={form.jam_selesai}
+                      onChange={(e) => handleChange('jam_selesai', e.target.value)}
+                      disabled={!form.jam_mulai}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow disabled:bg-gray-50 disabled:text-gray-400"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Opsi Supir
+                  </label>
+                  <div className="flex gap-4">
+                    <label className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all flex-1 ${
+                      form.opsi_supir === 'lepas_kunci'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="opsi_supir"
+                        value="lepas_kunci"
+                        checked={form.opsi_supir === 'lepas_kunci'}
+                        onChange={() => handleChange('opsi_supir', 'lepas_kunci')}
+                        className="sr-only"
+                      />
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        form.opsi_supir === 'lepas_kunci' ? 'border-blue-500' : 'border-gray-300'
+                      }`}>
+                        {form.opsi_supir === 'lepas_kunci' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Lepas Kunci</div>
+                        <div className="text-xs text-gray-500">Tanpa supir</div>
+                      </div>
+                    </label>
+                    <label className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all flex-1 ${
+                      form.opsi_supir === 'dengan_supir'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="opsi_supir"
+                        value="dengan_supir"
+                        checked={form.opsi_supir === 'dengan_supir'}
+                        onChange={() => handleChange('opsi_supir', 'dengan_supir')}
+                        className="sr-only"
+                      />
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        form.opsi_supir === 'dengan_supir' ? 'border-blue-500' : 'border-gray-300'
+                      }`}>
+                        {form.opsi_supir === 'dengan_supir' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                      </div>
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">Dengan Supir</div>
+                        <div className="text-xs text-gray-500">Biaya diinfo admin</div>
+                      </div>
+                    </label>
                   </div>
                 </div>
 
@@ -311,7 +446,7 @@ function PesanSekarangModal({
                   <textarea
                     value={form.catatan}
                     onChange={(e) => handleChange('catatan', e.target.value)}
-                    placeholder="Contoh: butuh supir, antar ke hotel, dll"
+                    placeholder="Contoh: butuh antar ke hotel, dll"
                     rows={2}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow resize-none"
                   />
@@ -323,13 +458,23 @@ function PesanSekarangModal({
                     <span className="text-sm text-gray-600">Harga/hari</span>
                     <span className="text-sm font-medium text-gray-900">{formatRupiah(item.harga_sewa_per_hari)}</span>
                   </div>
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm text-gray-600">Durasi</span>
-                    <span className="text-sm font-medium text-gray-900">{form.durasi_hari} hari</span>
-                  </div>
+                  {durasiHari > 0 && (
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-gray-600">Durasi</span>
+                      <span className="text-sm font-medium text-gray-900">{durasiHari} hari</span>
+                    </div>
+                  )}
+                  {form.opsi_supir === 'dengan_supir' && (
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-sm text-gray-600">Supir</span>
+                      <span className="text-xs text-orange-600 font-medium">Biaya diinfo admin</span>
+                    </div>
+                  )}
                   <div className="border-t border-blue-200 pt-2 flex justify-between items-center">
                     <span className="text-sm font-semibold text-gray-900">Perkiraan Total</span>
-                    <span className="text-lg font-bold text-blue-600">{formatRupiah(totalPreview)}</span>
+                    <span className="text-lg font-bold text-blue-600">
+                      {durasiHari > 0 ? formatRupiah(totalPreview) : '-'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -399,13 +544,17 @@ function VehicleCardSkeleton() {
 function VehicleCard({
   item,
   onPesan,
+  availableForDates,
 }: {
   item: KatalogItem;
   onPesan: (item: KatalogItem) => void;
+  availableForDates?: boolean;
 }) {
   const fotoUrl = getFotoUrl(item.foto);
+  const isUnavailable = availableForDates === false;
 
   const handleCardClick = (e: React.MouseEvent) => {
+    if (isUnavailable) return;
     if ((e.target as HTMLElement).closest('button')) return;
     window.location.href = `/katalog/${item.id}`;
   };
@@ -413,7 +562,11 @@ function VehicleCard({
   return (
     <div
       onClick={handleCardClick}
-      className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-blue-200 transition-all duration-200 cursor-pointer"
+      className={`group bg-white rounded-xl border overflow-hidden transition-all duration-200 ${
+        isUnavailable
+          ? 'border-gray-200 opacity-70'
+          : 'border-gray-200 hover:shadow-lg hover:border-blue-200 cursor-pointer'
+      }`}
     >
       <div className="relative h-44 bg-gray-100 overflow-hidden">
         {fotoUrl ? (
@@ -421,7 +574,9 @@ function VehicleCard({
             src={fotoUrl}
             alt={`${item.merek ?? ''} ${item.model ?? ''}`}
             loading="lazy"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className={`w-full h-full object-cover transition-transform duration-300 ${
+              isUnavailable ? '' : 'group-hover:scale-105'
+            }`}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -435,9 +590,18 @@ function VehicleCard({
             {item.tipe.nama_tipe}
           </span>
         )}
+        {isUnavailable && (
+          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+            <span className="px-3 py-1.5 bg-orange-500 text-white text-xs font-bold rounded-full shadow-lg">
+              Tidak Tersedia
+            </span>
+          </div>
+        )}
       </div>
       <div className="p-4">
-        <h3 className="font-bold text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-1">
+        <h3 className={`font-bold text-gray-900 transition-colors line-clamp-1 ${
+          isUnavailable ? '' : 'group-hover:text-blue-600'
+        }`}>
           {item.nama_kendaraan}
         </h3>
         <p className="text-sm text-gray-500 mt-0.5">
@@ -468,21 +632,30 @@ function VehicleCard({
               <span className="text-lg font-bold text-blue-600">{formatRupiah(item.harga_sewa_per_hari)}</span>
               <span className="text-xs text-gray-500">/hari</span>
             </div>
-            <span className="text-xs font-medium text-green-700 bg-green-50 px-2.5 py-1 rounded-full">
-              Tersedia
+            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+              isUnavailable
+                ? 'text-orange-700 bg-orange-50'
+                : 'text-green-700 bg-green-50'
+            }`}>
+              {isUnavailable ? 'Tidak Tersedia' : 'Tersedia'}
             </span>
           </div>
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onPesan(item);
+              if (!isUnavailable) onPesan(item);
             }}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+            disabled={isUnavailable}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors ${
+              isUnavailable
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
             </svg>
-            Pesan Sekarang
+            {isUnavailable ? 'Tidak Tersedia' : 'Pesan Sekarang'}
           </button>
         </div>
       </div>
@@ -508,7 +681,14 @@ export default function Katalog() {
   const searchRef = useRef<HTMLInputElement>(null);
   const debouncedSearch = useDebounce(search, 300);
 
+  const [tanggalMulai, setTanggalMulai] = useState('');
+  const [durasiHari, setDurasiHari] = useState(1);
+  const debouncedTanggal = useDebounce(tanggalMulai, 400);
+  const debouncedDurasi = useDebounce(durasiHari, 400);
+
   const [modalItem, setModalItem] = useState<KatalogItem | null>(null);
+
+  const catalogToday = useMemo(() => todayJakarta(), []);
 
   useEffect(() => {
     katalogAPI
@@ -532,6 +712,10 @@ export default function Katalog() {
     if (debouncedSearch) params.search = debouncedSearch;
     if (tipeSlug) params.tipe_slug = tipeSlug;
     if (kategoriSlug) params.kategori_slug = kategoriSlug;
+    if (debouncedTanggal) {
+      params.tanggal_mulai = debouncedTanggal;
+      params.durasi_hari = debouncedDurasi;
+    }
     katalogAPI
       .list(params)
       .then(({ data }) => {
@@ -540,7 +724,7 @@ export default function Katalog() {
       })
       .catch(() => setItems([]))
       .finally(() => setLoading(false));
-  }, [debouncedSearch, tipeSlug, page, sort, kategoriSlug]);
+  }, [debouncedSearch, tipeSlug, page, sort, kategoriSlug, debouncedTanggal, debouncedDurasi]);
 
   useEffect(() => {
     load();
@@ -553,10 +737,47 @@ export default function Katalog() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, tipeSlug, sort]);
+  }, [debouncedSearch, tipeSlug, sort, debouncedTanggal, debouncedDurasi]);
 
   const totalPages = meta?.last_page ?? 1;
   const showPagination = meta && meta.last_page > 1;
+
+  const unavailableKategoriIds = useMemo(() => {
+    if (!debouncedTanggal) return new Set<number>();
+    const ids = new Set<number>();
+    items.forEach((item) => {
+      if (item.available_for_dates === false && item.kategori_id) {
+        ids.add(item.kategori_id);
+      }
+    });
+    return ids;
+  }, [items, debouncedTanggal]);
+
+  const unavailableTipeIds = useMemo(() => {
+    if (!debouncedTanggal) return new Set<number>();
+    const ids = new Set<number>();
+    items.forEach((item) => {
+      if (item.available_for_dates === false && item.tipe_id) {
+        ids.add(item.tipe_id);
+      }
+    });
+    return ids;
+  }, [items, debouncedTanggal]);
+
+  const serupaItems = useMemo(() => {
+    if (!debouncedTanggal) return [];
+    if (unavailableKategoriIds.size === 0 && unavailableTipeIds.size === 0) return [];
+    return items.filter(
+      (item) =>
+        item.available_for_dates !== false &&
+        (unavailableKategoriIds.has(item.kategori_id!) || unavailableTipeIds.has(item.tipe_id!))
+    ).slice(0, 8);
+  }, [items, debouncedTanggal, unavailableKategoriIds, unavailableTipeIds]);
+
+  const unavailableCount = useMemo(() => {
+    if (!debouncedTanggal) return 0;
+    return items.filter((item) => item.available_for_dates === false).length;
+  }, [items, debouncedTanggal]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -682,6 +903,54 @@ export default function Katalog() {
           </select>
         </div>
 
+        {/* Date Availability Filter */}
+        <div className="bg-white rounded-xl border border-gray-200 p-4 mb-6">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2 shrink-0">
+              <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="text-sm font-medium text-gray-700">Cek Ketersediaan:</span>
+            </div>
+            <input
+              type="date"
+              value={tanggalMulai}
+              min={catalogToday}
+              onChange={(e) => setTanggalMulai(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              aria-label="Tanggal mulai"
+            />
+            <div className="flex items-center gap-1.5">
+              <input
+                type="number"
+                value={durasiHari}
+                min={1}
+                max={365}
+                onChange={(e) => setDurasiHari(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                aria-label="Durasi hari"
+              />
+              <span className="text-sm text-gray-500">hari</span>
+            </div>
+            {tanggalMulai && (
+              <button
+                onClick={() => { setTanggalMulai(''); setDurasiHari(1); }}
+                className="text-sm text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Reset
+              </button>
+            )}
+          </div>
+          {tanggalMulai && (
+            <p className="text-xs text-gray-400 mt-2">
+              Menampilkan ketersediaan untuk tanggal {new Date(tanggalMulai + 'T00:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} selama {durasiHari} hari
+            </p>
+          )}
+        </div>
+
         {/* Kategori Tabs */}
         {kategoris.length > 0 && (
           <div className="flex gap-2 mb-4 overflow-x-auto pb-2" role="tablist" aria-label="Filter kategori">
@@ -769,7 +1038,12 @@ export default function Katalog() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
               {items.map((item) => (
-                <VehicleCard key={item.id} item={item} onPesan={setModalItem} />
+                <VehicleCard
+                  key={item.id}
+                  item={item}
+                  onPesan={setModalItem}
+                  availableForDates={item.available_for_dates}
+                />
               ))}
             </div>
 
@@ -798,6 +1072,37 @@ export default function Katalog() {
           </>
         )}
       </section>
+
+      {/* Kendaraan Serupa */}
+      {debouncedTanggal && unavailableCount > 0 && serupaItems.length > 0 && (
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-10">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-100 p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Kendaraan Serupa yang Tersedia</h3>
+                <p className="text-sm text-gray-500">
+                  {serupaItems.length} kendaraan tersedia untuk tanggal yang dipilih
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mt-5">
+              {serupaItems.map((item) => (
+                <VehicleCard
+                  key={item.id}
+                  item={item}
+                  onPesan={setModalItem}
+                  availableForDates={true}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* CTA */}
       <section className="bg-blue-600">

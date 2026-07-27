@@ -7,7 +7,10 @@ use App\Models\Customer;
 use App\Models\Kendaraan;
 use App\Models\Order;
 use App\Models\Pembayaran;
+use App\Models\Setting;
 use App\Models\SupirCalo;
+use App\Services\WatermarkService;
+use App\Services\WhatsAppService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,15 +25,16 @@ class OrderController extends Controller
         $query = Order::with(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo', 'pembayarans']);
 
         if ($request->search) {
-            $query->where(function ($q) use ($request) {
-                $q->where('kode_order', 'like', "%{$request->search}%")
-                    ->orWhereHas('customer', function ($cq) use ($request) {
-                        $cq->where('nama_lengkap', 'like', "%{$request->search}%");
-                    })
-                    ->orWhereHas('kendaraan', function ($kq) use ($request) {
-                        $kq->where('plat_nomor', 'like', "%{$request->search}%")
-                            ->orWhere('nama_kendaraan', 'like', "%{$request->search}%");
-                    });
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                whereLikeEscaped($q, 'kode_order', $search);
+                $q->orWhereHas('customer', function ($cq) use ($search) {
+                    whereLikeEscaped($cq, 'nama_lengkap', $search);
+                });
+                $q->orWhereHas('kendaraan', function ($kq) use ($search) {
+                    whereLikeEscaped($kq, 'plat_nomor', $search);
+                    $kq->orWhereRaw("nama_kendaraan LIKE ? ESCAPE '#'", ['%'.escapeLike($search).'%']);
+                });
             });
         }
 
@@ -76,9 +80,7 @@ class OrderController extends Controller
             'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
             'jam_mulai' => 'nullable|date_format:H:i',
             'jam_selesai' => 'nullable|date_format:H:i',
-            'tanggal_pengembalian_aktual' => 'nullable|date',
             'metode_pembayaran' => 'nullable|in:cash,transfer,qris,lainnya',
-            'status_order' => 'nullable|in:pending,confirmed,active,completed,cancelled',
             'status_pembayaran' => 'nullable|in:unpaid,partial,paid',
             'status_pengiriman' => 'nullable|in:belum_diambil,sudah_diantarkan,dalam_penyewaan,selesai',
             'bukti_transfer' => 'nullable|image|max:2048',
@@ -86,6 +88,7 @@ class OrderController extends Controller
             'bukti_pengembalian' => 'nullable|image|max:2048',
             'supir_id' => 'nullable|exists:supir_calos,id',
             'calo_id' => 'nullable|exists:supir_calos,id',
+            'komisi_calo' => 'nullable|numeric|min:0',
             'catatan' => 'nullable|string',
             'jumlah_bayar' => 'nullable|numeric|min:0',
         ]);
@@ -97,17 +100,28 @@ class OrderController extends Controller
             return response()->json(['message' => 'Dokumen identitas wajib diupload untuk customer baru.'], 422);
         }
 
+        // Order baru SELALU dimulai dari 'pending' — transisi status hanya
+        // boleh dilakukan via update().
+        $statusOrder = 'pending';
+
+        $foundSupir = null;
         if (! empty($validated['supir_id'])) {
-            $supir = SupirCalo::find($validated['supir_id']);
-            if ($supir && $supir->jenis !== 'supir') {
+            $foundSupir = SupirCalo::find($validated['supir_id']);
+            if ($foundSupir && $foundSupir->jenis !== 'supir') {
                 return response()->json(['message' => 'ID yang dipilih bukan supir.'], 422);
             }
         }
+        $foundCalo = null;
         if (! empty($validated['calo_id'])) {
-            $calo = SupirCalo::find($validated['calo_id']);
-            if ($calo && $calo->jenis !== 'calo') {
+            $foundCalo = SupirCalo::find($validated['calo_id']);
+            if ($foundCalo && $foundCalo->jenis !== 'calo') {
                 return response()->json(['message' => 'ID yang dipilih bukan calo.'], 422);
             }
+        }
+
+        $komisiCalo = $validated['komisi_calo'] ?? null;
+        if ($foundCalo && is_null($komisiCalo)) {
+            $komisiCalo = $foundCalo->komisi;
         }
 
         $statusPengiriman = $validated['status_pengiriman'] ?? 'belum_diambil';
@@ -117,16 +131,16 @@ class OrderController extends Controller
             ], 422);
         }
 
-        $statusOrder = $validated['status_order'] ?? 'pending';
-        if ($statusOrder === 'completed' && ! $request->hasFile('bukti_pengembalian')) {
-            return response()->json([
-                'message' => 'Bukti foto pengembalian kendaraan wajib diunggah saat menyelesaikan order.',
-            ], 422);
-        }
-
         $kendaraan = Kendaraan::findOrFail($validated['kendaraan_id']);
 
-        // ── Simpan file bukti di luar transaction (filesystem, bukan DB) ──
+        // M12: Validate jam_mulai > jam_selesai on same day (negative time window)
+        if (($validated['jam_mulai'] ?? null) && ($validated['jam_selesai'] ?? null)
+            && $validated['tanggal_mulai'] === $validated['tanggal_selesai']
+            && $validated['jam_mulai'] >= $validated['jam_selesai']) {
+            return response()->json(['message' => 'Jam selesai harus setelah jam mulai untuk tanggal yang sama.'], 422);
+        }
+
+        // ── Simpan file bukti + foto customer di luar transaction ──────
         $buktiPath = null;
         if ($request->hasFile('bukti_transfer')) {
             $buktiPath = $request->file('bukti_transfer')->store('bukti-transfer', 'public');
@@ -140,8 +154,48 @@ class OrderController extends Controller
             $buktiPengembalianPath = $request->file('bukti_pengembalian')->store('bukti-pengembalian', 'public');
         }
 
+        $customerFotoKtpPath = null;
+        $customerFotoSimPath = null;
+        $oldCustomerPhotos = [];
+        if ($request->hasFile('customer_foto_ktp')) {
+            $customerFotoKtpPath = $request->file('customer_foto_ktp')->store('customers', 'public');
+        }
+        if ($request->hasFile('customer_foto_sim')) {
+            $customerFotoSimPath = $request->file('customer_foto_sim')->store('customers', 'public');
+        }
+
+        // ── Watermark (dilakukan setelah file tersimpan, di luar transaksi) ──
+        $watermarkPaths = array_filter([$buktiPath, $buktiPengirimanPath, $buktiPengembalianPath]);
+        $identityPaths = array_filter([$customerFotoKtpPath, $customerFotoSimPath]);
+        try {
+            $watermark = app(WatermarkService::class);
+            foreach ($watermarkPaths as $path) {
+                $watermark->applyToStoragePath($path);
+            }
+            foreach ($identityPaths as $path) {
+                $watermark->applyToStoragePath($path, 'CVPILAR • Identitas');
+            }
+        } catch (\Throwable) {
+            // GD extension not available in test env — skip silently.
+        }
+        // Collect old customer photo paths for deferred deletion after transaction commits.
+        if (! empty($validated['customer_id'])) {
+            $existingCustomer = Customer::find($validated['customer_id']);
+            if ($existingCustomer) {
+                if ($customerFotoKtpPath && $existingCustomer->foto_ktp) {
+                    $oldCustomerPhotos[] = $existingCustomer->foto_ktp;
+                }
+                if (! empty($validated['customer_foto_ktp_delete']) && $existingCustomer->foto_ktp) {
+                    $oldCustomerPhotos[] = $existingCustomer->foto_ktp;
+                }
+                if ($customerFotoSimPath && $existingCustomer->foto_sim) {
+                    $oldCustomerPhotos[] = $existingCustomer->foto_sim;
+                }
+            }
+        }
+
         // ── Customer + Order dalam satu transaction ────────────────────
-        $order = DB::transaction(function () use ($request, $validated, $kendaraan, $statusOrder, $statusPengiriman, $buktiPath, $buktiPengirimanPath, $buktiPengembalianPath) {
+        $order = DB::transaction(function () use ($request, $validated, $kendaraan, $statusOrder, $statusPengiriman, $buktiPath, $buktiPengirimanPath, $buktiPengembalianPath, $customerFotoKtpPath, $customerFotoSimPath, $foundSupir, $komisiCalo) {
             if (! empty($validated['customer_id'])) {
                 $customer = Customer::findOrFail($validated['customer_id']);
                 $custUpdateData = [];
@@ -170,22 +224,13 @@ class OrderController extends Controller
                     $custUpdateData['no_ktp'] = $validated['customer_no_ktp'] ?: null;
                 }
                 if (! empty($validated['customer_foto_ktp_delete'])) {
-                    if ($customer->foto_ktp && Storage::disk('public')->exists($customer->foto_ktp)) {
-                        Storage::disk('public')->delete($customer->foto_ktp);
-                    }
                     $custUpdateData['foto_ktp'] = null;
                 }
-                if ($request->hasFile('customer_foto_ktp')) {
-                    if ($customer->foto_ktp && Storage::disk('public')->exists($customer->foto_ktp)) {
-                        Storage::disk('public')->delete($customer->foto_ktp);
-                    }
-                    $custUpdateData['foto_ktp'] = $request->file('customer_foto_ktp')->store('customers', 'public');
+                if ($customerFotoKtpPath) {
+                    $custUpdateData['foto_ktp'] = $customerFotoKtpPath;
                 }
-                if ($request->hasFile('customer_foto_sim')) {
-                    if ($customer->foto_sim && Storage::disk('public')->exists($customer->foto_sim)) {
-                        Storage::disk('public')->delete($customer->foto_sim);
-                    }
-                    $custUpdateData['foto_sim'] = $request->file('customer_foto_sim')->store('customers', 'public');
+                if ($customerFotoSimPath) {
+                    $custUpdateData['foto_sim'] = $customerFotoSimPath;
                 }
                 if ($custUpdateData) {
                     $customer->update($custUpdateData);
@@ -217,11 +262,11 @@ class OrderController extends Controller
                         'no_sim' => $validated['customer_no_sim'] ?? null,
                         'no_ktp' => $validated['customer_no_ktp'] ?? null,
                     ];
-                    if ($request->hasFile('customer_foto_ktp')) {
-                        $customerData['foto_ktp'] = $request->file('customer_foto_ktp')->store('customers', 'public');
+                    if ($customerFotoKtpPath) {
+                        $customerData['foto_ktp'] = $customerFotoKtpPath;
                     }
-                    if ($request->hasFile('customer_foto_sim')) {
-                        $customerData['foto_sim'] = $request->file('customer_foto_sim')->store('customers', 'public');
+                    if ($customerFotoSimPath) {
+                        $customerData['foto_sim'] = $customerFotoSimPath;
                     }
                     $customer = Customer::create($customerData);
                 }
@@ -261,9 +306,8 @@ class OrderController extends Controller
             }
 
             $supirTarif = 0;
-            if (! empty($validated['supir_id'])) {
-                $supir = SupirCalo::find($validated['supir_id']);
-                $supirTarif = (float) ($supir->tarif_per_hari ?? 0);
+            if ($foundSupir) {
+                $supirTarif = (float) ($foundSupir->tarif_per_hari ?? 0);
             }
 
             $order = Order::create([
@@ -288,21 +332,9 @@ class OrderController extends Controller
                 'harga_total' => ($durasi * $hargaPerHari) + ($supirTarif * $durasi),
                 'supir_id' => $validated['supir_id'] ?? null,
                 'calo_id' => $validated['calo_id'] ?? null,
+                'komisi_calo' => $komisiCalo,
                 'admin_id' => $request->user()->id,
             ]);
-
-            if ($statusOrder === 'active') {
-                $kendaraan->update(['status' => 'disewa']);
-            }
-
-            if ($statusOrder === 'completed') {
-                $validated['status_pengiriman'] = 'selesai';
-                $waktuAktual = isset($validated['tanggal_pengembalian_aktual'])
-                    ? Carbon::parse($validated['tanggal_pengembalian_aktual'])
-                    : now();
-                $order->selesaikanSewa($waktuAktual);
-                $order->save();
-            }
 
             // ── Validasi jumlah_bayar terhadap harga_total ──
             $statusPembayaran = $validated['status_pembayaran'] ?? 'unpaid';
@@ -337,6 +369,13 @@ class OrderController extends Controller
             return $order;
         });
 
+        // Delete old customer photos AFTER transaction commits — prevents data loss on rollback.
+        foreach ($oldCustomerPhotos as $oldPath) {
+            if (Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
+        }
+
         return response()->json($order->load(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo', 'pembayarans']), 201);
     }
 
@@ -368,6 +407,7 @@ class OrderController extends Controller
             'customer_no_sim' => 'sometimes|required|string|max:20',
             'customer_no_ktp' => 'nullable|string|max:30',
             'customer_foto_ktp' => 'nullable|image|max:2048',
+            'customer_foto_ktp_delete' => 'nullable|boolean',
             'customer_foto_sim' => 'nullable|image|max:2048',
             'kendaraan_id' => 'sometimes|required|exists:kendaraans,id',
             'alamat_jemput' => 'nullable|string|max:500',
@@ -386,6 +426,7 @@ class OrderController extends Controller
             'bukti_pengembalian' => 'nullable|image|max:2048',
             'supir_id' => 'nullable|exists:supir_calos,id',
             'calo_id' => 'nullable|exists:supir_calos,id',
+            'komisi_calo' => 'nullable|numeric|min:0',
             'catatan' => 'nullable|string',
             'jumlah_bayar' => 'nullable|numeric|min:0',
         ]);
@@ -393,12 +434,13 @@ class OrderController extends Controller
         // ── Validasi awal (SEBELUM customer handling) ──────────────────
         // Dipindahkan ke depan supaya kalau gagal, customer belum termodifikasi.
 
-        // Order terminal: data inti terkunci — hanya status/pembayaran/catatan/bukti yang boleh diubah.
+        // Order terminal: data inti terkunci — hanya status_order (dengan validasi transisi),
+        // status_pembayaran, metode bayar, bukti pembayaran, dan catatan yang boleh diubah.
         if (in_array($order->status_order, ['active', 'completed', 'cancelled'])) {
-            $lockedFields = ['customer_id', 'customer_name', 'customer_no_hp', 'customer_email', 'customer_alamat', 'customer_no_sim', 'customer_no_ktp', 'customer_foto_ktp', 'customer_foto_sim', 'kendaraan_id', 'tanggal_mulai', 'tanggal_selesai', 'jam_mulai', 'jam_selesai', 'alamat_jemput', 'tujuan', 'supir_id', 'calo_id', 'status_order'];
+            $lockedFields = ['customer_id', 'customer_name', 'customer_no_hp', 'customer_email', 'customer_alamat', 'customer_no_sim', 'customer_no_ktp', 'customer_foto_ktp', 'customer_foto_sim', 'kendaraan_id', 'tanggal_mulai', 'tanggal_selesai', 'jam_mulai', 'jam_selesai', 'alamat_jemput', 'tujuan', 'supir_id', 'calo_id'];
             $attemptedLocked = array_intersect_key($validated, array_flip($lockedFields));
-            if (! empty($attemptedLocked) || $request->hasFile('customer_foto_ktp') || $request->hasFile('customer_foto_sim') || $request->hasFile('bukti_pengiriman')) {
-                return response()->json(['message' => 'Order ini sudah final (aktif/selesai/dibatalkan). Hanya status pembayaran, metode bayar, bukti pembayaran, dan catatan yang bisa diperbarui.'], 422);
+            if (! empty($attemptedLocked) || $request->hasFile('customer_foto_ktp') || $request->hasFile('customer_foto_sim')) {
+                return response()->json(['message' => 'Order ini sudah final (aktif/selesai/dibatalkan). Hanya status, status pembayaran, metode bayar, bukti pembayaran, dan catatan yang bisa diperbarui.'], 422);
             }
         }
 
@@ -413,6 +455,11 @@ class OrderController extends Controller
             if ($calo && $calo->jenis !== 'calo') {
                 return response()->json(['message' => 'ID yang dipilih bukan calo.'], 422);
             }
+        }
+
+        if (isset($validated['calo_id']) && ! isset($validated['komisi_calo'])) {
+            $caloForKomisi = $validated['calo_id'] ? SupirCalo::find($validated['calo_id']) : null;
+            $validated['komisi_calo'] = $caloForKomisi?->komisi;
         }
 
         $newStatusPengiriman = $validated['status_pengiriman'] ?? $order->status_pengiriman;
@@ -441,6 +488,17 @@ class OrderController extends Controller
             ], 422);
         }
 
+        if ($newStatusOrder === 'completed') {
+            $order->load('pembayarans');
+            $totalBayar = $order->pembayarans->whereNull('deleted_at')->sum('jumlah');
+            $kurangBayar = (float) $order->harga_total - (float) $totalBayar;
+            if ($kurangBayar > 0 && ! $request->hasFile('bukti_pengembalian')) {
+                return response()->json([
+                    'message' => 'Order masih kurang bayar Rp '.number_format($kurangBayar, 0, ',', '.').'. Upload bukti pelunasan atau lunasi terlebih dahulu.',
+                ], 422);
+            }
+        }
+
         $oldKendaraanId = $order->kendaraan_id;
         $newKendaraanId = $validated['kendaraan_id'] ?? $oldKendaraanId;
         $effectiveTanggalMulai = $validated['tanggal_mulai'] ?? $order->tanggal_mulai->format('Y-m-d');
@@ -453,7 +511,10 @@ class OrderController extends Controller
         $statusSebelumUpdate = $order->status_order;
 
         // ── Simpan file bukti di luar transaction (filesystem, bukan DB) ──
+        // Old files are deleted AFTER the transaction commits to prevent data loss
+        // if the transaction rolls back.
         $updateData = collect($validated)->except(['bukti_transfer', 'bukti_pengiriman', 'bukti_pengembalian'])->toArray();
+        $filesToDelete = [];
 
         $newBuktiTransferPath = null;
         if ($request->hasFile('bukti_transfer')) {
@@ -464,20 +525,63 @@ class OrderController extends Controller
 
         if ($request->hasFile('bukti_pengiriman')) {
             if ($order->bukti_pengiriman) {
-                Storage::disk('public')->delete($order->bukti_pengiriman);
+                $filesToDelete[] = $order->bukti_pengiriman;
             }
             $updateData['bukti_pengiriman'] = $request->file('bukti_pengiriman')->store('bukti-pengiriman', 'public');
         }
 
         if ($request->hasFile('bukti_pengembalian')) {
             if ($order->bukti_pengembalian) {
-                Storage::disk('public')->delete($order->bukti_pengembalian);
+                $filesToDelete[] = $order->bukti_pengembalian;
             }
             $updateData['bukti_pengembalian'] = $request->file('bukti_pengembalian')->store('bukti-pengembalian', 'public');
         }
 
+        // M1+H1: Customer photo handling outside transaction — store new, collect old for deferred deletion.
+        $customerFotoKtpPath = null;
+        $customerFotoSimPath = null;
+        if ($request->hasFile('customer_foto_ktp')) {
+            $customerFotoKtpPath = $request->file('customer_foto_ktp')->store('customers', 'public');
+        }
+        if ($request->hasFile('customer_foto_sim')) {
+            $customerFotoSimPath = $request->file('customer_foto_sim')->store('customers', 'public');
+        }
+
+        // ── Watermark (dilakukan setelah file tersimpan, di luar transaksi) ──
+        $watermarkPaths = array_filter([$newBuktiTransferPath, $updateData['bukti_pengiriman'] ?? null, $updateData['bukti_pengembalian'] ?? null]);
+        $identityPaths = array_filter([$customerFotoKtpPath, $customerFotoSimPath]);
+        try {
+            $watermark = app(WatermarkService::class);
+            foreach ($watermarkPaths as $path) {
+                $watermark->applyToStoragePath($path);
+            }
+            foreach ($identityPaths as $path) {
+                $watermark->applyToStoragePath($path, 'CVPILAR • Identitas');
+            }
+        } catch (\Throwable) {
+            // GD extension not available in test env — skip silently.
+        }
+
+        // Collect old customer photo paths for deferred deletion.
+        if (! empty($validated['customer_id']) || ! empty($validated['customer_name'])) {
+            $existingCustomer = ! empty($validated['customer_id'])
+                ? Customer::find($validated['customer_id'])
+                : null;
+            if ($existingCustomer) {
+                if ($customerFotoKtpPath && $existingCustomer->foto_ktp) {
+                    $filesToDelete[] = $existingCustomer->foto_ktp;
+                }
+                if (! empty($validated['customer_foto_ktp_delete']) && $existingCustomer->foto_ktp) {
+                    $filesToDelete[] = $existingCustomer->foto_ktp;
+                }
+                if ($customerFotoSimPath && $existingCustomer->foto_sim) {
+                    $filesToDelete[] = $existingCustomer->foto_sim;
+                }
+            }
+        }
+
         // ── Customer + Order update dalam satu transaction ─────────────
-        DB::transaction(function () use ($request, $validated, $order, $updateData, $newKendaraanId, $oldKendaraanId, $statusSebelumUpdate, $effectiveTanggalMulai, $effectiveTanggalSelesai, $newBuktiTransferPath) {
+        DB::transaction(function () use ($request, $validated, $order, $updateData, $newKendaraanId, $oldKendaraanId, $statusSebelumUpdate, $effectiveTanggalMulai, $effectiveTanggalSelesai, $newBuktiTransferPath, $customerFotoKtpPath, $customerFotoSimPath) {
             if (! empty($validated['customer_id'])) {
                 $customer = Customer::find($validated['customer_id']);
                 if ($customer) {
@@ -506,11 +610,14 @@ class OrderController extends Controller
                     if (isset($validated['customer_no_ktp'])) {
                         $custUpdateData['no_ktp'] = $validated['customer_no_ktp'] ?: null;
                     }
-                    if ($request->hasFile('customer_foto_ktp')) {
-                        $custUpdateData['foto_ktp'] = $request->file('customer_foto_ktp')->store('customers', 'public');
+                    if (! empty($validated['customer_foto_ktp_delete'])) {
+                        $custUpdateData['foto_ktp'] = null;
                     }
-                    if ($request->hasFile('customer_foto_sim')) {
-                        $custUpdateData['foto_sim'] = $request->file('customer_foto_sim')->store('customers', 'public');
+                    if ($customerFotoKtpPath) {
+                        $custUpdateData['foto_ktp'] = $customerFotoKtpPath;
+                    }
+                    if ($customerFotoSimPath) {
+                        $custUpdateData['foto_sim'] = $customerFotoSimPath;
                     }
                     if ($custUpdateData) {
                         $customer->update($custUpdateData);
@@ -543,11 +650,11 @@ class OrderController extends Controller
                         'no_sim' => $validated['customer_no_sim'] ?? null,
                         'no_ktp' => $validated['customer_no_ktp'] ?? null,
                     ];
-                    if ($request->hasFile('customer_foto_ktp')) {
-                        $customerData['foto_ktp'] = $request->file('customer_foto_ktp')->store('customers', 'public');
+                    if ($customerFotoKtpPath) {
+                        $customerData['foto_ktp'] = $customerFotoKtpPath;
                     }
-                    if ($request->hasFile('customer_foto_sim')) {
-                        $customerData['foto_sim'] = $request->file('customer_foto_sim')->store('customers', 'public');
+                    if ($customerFotoSimPath) {
+                        $customerData['foto_sim'] = $customerFotoSimPath;
                     }
                     $customer = Customer::create($customerData);
                 }
@@ -623,38 +730,104 @@ class OrderController extends Controller
 
             $order->update($updateData);
 
-            // ── Validasi jumlah_bayar terhadap harga_total ──
-            if (isset($validated['status_pembayaran']) && in_array($validated['status_pembayaran'], ['partial', 'paid'])) {
-                $jumlahBayar = $validated['jumlah_bayar'] ?? 0;
-                $hargaTotal = (float) $order->harga_total;
-                if ($jumlahBayar <= 0) {
-                    throw ValidationException::withMessages([
-                        'jumlah_bayar' => ['Jumlah bayar harus lebih dari 0 saat status pembayaran '.$validated['status_pembayaran'].'.'],
-                    ]);
+            if (isset($validated['status_order']) && $validated['status_order'] !== $statusSebelumUpdate) {
+                $wa = app(WhatsAppService::class);
+                $nomorCustomer = $order->customer->no_hp ?? null;
+
+                if ($validated['status_order'] === 'confirmed' && $nomorCustomer && Setting::get('notif_booking_baru', '1') === '1') {
+                    $pesan = "Halo {$order->customer->nama_lengkap},\n\n"
+                        ."Order *{$order->kode_order}* telah Dikonfirmasi ✅\n"
+                        ."Kendaraan: {$order->kendaraan->nama_kendaraan}\n"
+                        ."Tanggal: *{$order->tanggal_mulai->format('d/m/Y')} - {$order->tanggal_selesai->format('d/m/Y')}*\n"
+                        .'Total: *Rp '.number_format((float) $order->harga_total, 0, ',', '.')."*\n\n"
+                        .'Terima kasih telah menggunakan layanan kami.';
+                    $wa->kirimPesan($nomorCustomer, $pesan);
                 }
-                if ($jumlahBayar > $hargaTotal) {
-                    throw ValidationException::withMessages([
-                        'jumlah_bayar' => ['Jumlah bayar ('.number_format($jumlahBayar, 0, ',', '.').') tidak boleh melebihi harga total ('.number_format($hargaTotal, 0, ',', '.').').'],
-                    ]);
+
+                if ($validated['status_order'] === 'active' && $nomorCustomer && Setting::get('notif_penugasan_driver', '1') === '1') {
+                    $pesan = "Halo {$order->customer->nama_lengkap},\n\n"
+                        ."Kendaraan *{$order->kendaraan->nama_kendaraan}* sedang dalam perjalanan 🚗\n"
+                        ."Status: *Sedang Disewakan*\n\n"
+                        .'Selamat menggunakan kendaraan kami!';
+                    $wa->kirimPesan($nomorCustomer, $pesan);
                 }
             }
 
-            // ── Catat pembayaran baru jika ada perubahan terkait pembayaran ──
+            if (isset($validated['supir_id']) && $validated['supir_id'] !== null && Setting::get('notif_penugasan_driver', '1') === '1') {
+                $supir = SupirCalo::find($validated['supir_id']);
+                if ($supir && $supir->no_hp) {
+                    $wa = app(WhatsAppService::class);
+                    $template = Setting::get('template_penugasan_driver', 'Halo {nama_driver}, ada tugas baru:\nAntar {customer} — {kendaraan} ({plat_nomor})\n{tanggal} pukul {jam}\n\nBalas SIAP jika bisa, atau TIDAK jika berhalangan.');
+                    $pesan = $wa->renderTemplate($template, [
+                        'nama_driver' => $supir->nama,
+                        'customer' => $order->customer->nama_lengkap,
+                        'kendaraan' => $order->kendaraan->nama_kendaraan,
+                        'plat_nomor' => $order->kendaraan->plat_nomor,
+                        'tanggal' => $order->tanggal_mulai->format('d/m/Y'),
+                        'jam' => $order->jam_selesai ?? '00:00',
+                    ]);
+                    $wa->kirimPesan($supir->no_hp, $pesan);
+                }
+            }
+
+            // ── H2+H3+H4: Validasi jumlah_bayar ──
+            // H2: Also validate when jumlah_bayar is present without explicit status_pembayaran.
+            $effectiveStatusPembayaran = $validated['status_pembayaran'] ?? $order->status_pembayaran;
+            $hasJumlahBayar = array_key_exists('jumlah_bayar', $validated) && $validated['jumlah_bayar'] > 0;
+
+            if (($hasJumlahBayar || in_array($effectiveStatusPembayaran, ['partial', 'paid']))) {
+                $jumlahBayar = $validated['jumlah_bayar'] ?? 0;
+                $hargaTotal = (float) $order->harga_total;
+
+                if ($hasJumlahBayar && in_array($effectiveStatusPembayaran, ['partial', 'paid'])) {
+                    if ($jumlahBayar <= 0) {
+                        throw ValidationException::withMessages([
+                            'jumlah_bayar' => ['Jumlah bayar harus lebih dari 0 saat status pembayaran '.$effectiveStatusPembayaran.'.'],
+                        ]);
+                    }
+                    // H3: Cumulative check — sum of existing payments + new amount <= harga_total
+                    $totalPaid = (float) $order->pembayarans()->whereNull('deleted_at')->sum('jumlah');
+                    if ($totalPaid + $jumlahBayar > $hargaTotal) {
+                        throw ValidationException::withMessages([
+                            'jumlah_bayar' => ['Total pembayaran ('
+                                .number_format($totalPaid + $jumlahBayar, 0, ',', '.')
+                               .') melebihi harga total ('.number_format($hargaTotal, 0, ',', '.').').'],
+                        ]);
+                    }
+                }
+            }
+
+            // ── H4: Catat pembayaran baru dengan idempotency check ──
+            $jumlahBayar = $validated['jumlah_bayar'] ?? 0;
+
             $paymentChanged = isset($validated['status_pembayaran'])
-                || $request->hasFile('bukti_transfer')
                 || array_key_exists('jumlah_bayar', $validated);
 
-            if ($paymentChanged && (($validated['status_pembayaran'] ?? $order->getOriginal('status_pembayaran')) !== 'unpaid')) {
+            // H4: Idempotency — don't create payment if total already covers harga_total
+            $totalPaid = (float) $order->pembayarans()->whereNull('deleted_at')->sum('jumlah');
+            $alreadyFullyPaid = $totalPaid >= (float) $order->harga_total;
+
+            if ($paymentChanged && $jumlahBayar > 0 && ! $alreadyFullyPaid && (($validated['status_pembayaran'] ?? $order->getOriginal('status_pembayaran')) !== 'unpaid')) {
                 $statusPembayaran = $validated['status_pembayaran'] ?? $order->status_pembayaran;
                 Pembayaran::create([
                     'order_id' => $order->id,
                     'admin_id' => $request->user()->id,
-                    'jumlah' => $validated['jumlah_bayar'] ?? 0,
+                    'jumlah' => $jumlahBayar,
                     'metode_pembayaran' => $validated['metode_pembayaran'] ?? $order->metode_pembayaran ?? 'cash',
                     'status' => $statusPembayaran === 'paid' ? 'pelunasan' : 'dp',
                     'bukti_transfer' => $newBuktiTransferPath ?? $order->bukti_transfer,
                     'catatan' => $validated['catatan'] ?? null,
                 ]);
+
+                if (Setting::get('notif_pembayaran_masuk', '1') === '1') {
+                    $wa = app(WhatsAppService::class);
+                    $pesan = "💰 *Pembayaran masuk!*\n"
+                        ."Order: *{$order->kode_order}*\n"
+                        ."Customer: {$order->customer->nama_lengkap}\n"
+                        .'Jumlah: *Rp '.number_format($jumlahBayar, 0, ',', '.')."*\n"
+                        .'Status: *'.($statusPembayaran === 'paid' ? 'Lunas' : 'DP').'*';
+                    $wa->kirimKeOwner($pesan);
+                }
             }
 
             // Refresh stale relationships — kendaraan may have changed
@@ -672,7 +845,13 @@ class OrderController extends Controller
 
                 match ($validated['status_order']) {
                     'active' => $currentKendaraan->update(['status' => 'disewa']),
-                    'completed', 'cancelled' => $currentKendaraan->update(['status' => 'tersedia']),
+                    'completed', 'cancelled' => $currentKendaraan->update([
+                        'status' => $currentKendaraan->activeOrders()
+                            ->where('id', '!=', $order->id)
+                            ->exists()
+                            ? 'disewa'
+                            : 'tersedia',
+                    ]),
                     default => null,
                 };
 
@@ -686,9 +865,25 @@ class OrderController extends Controller
                         : now();
                     $order->selesaikanSewa($waktuAktual);
                     $order->save();
+
+                    if (Setting::get('notif_kendaraan_terlambat', '1') === '1') {
+                        $wa = app(WhatsAppService::class);
+                        $pesan = "Halo {$order->customer->nama_lengkap},\n\n"
+                            ."Order *{$order->kode_order}* telah *SELESAI* ✅\n"
+                            ."Terima kasih telah menggunakan layanan kami.\n"
+                            .'Sampai jumpa di pemesanan berikutnya! 🙏';
+                        $wa->kirimPesan($order->customer->no_hp, $pesan);
+                    }
                 }
             }
         });
+
+        // Delete old files AFTER transaction commits — prevents data loss on rollback
+        foreach ($filesToDelete as $oldPath) {
+            if (Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
+        }
 
         return response()->json($order->load(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo', 'pembayarans']));
     }

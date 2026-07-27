@@ -6,11 +6,25 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 class GarasiRequest extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+
+    private const ALLOWED_TRANSITIONS = [
+        'pending' => ['tersedia', 'tidak_terjawab'],
+    ];
+
+    public function canTransitionTo(string $status): bool
+    {
+        if (! isset(self::ALLOWED_TRANSITIONS[$this->status_permintaan])) {
+            return false;
+        }
+
+        return in_array($status, self::ALLOWED_TRANSITIONS[$this->status_permintaan]);
+    }
 
     protected $fillable = [
         'order_id',

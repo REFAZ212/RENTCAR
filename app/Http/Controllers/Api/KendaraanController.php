@@ -12,30 +12,32 @@ class KendaraanController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Kendaraan::with(['garasiPartner', 'kategori', 'tipe']);
+        $query = Kendaraan::with(['garasiPartner', 'kategori', 'tipe'])
+            ->withCount('activeOrders');
 
         if ($request->search) {
-            $query->where(function ($q) use ($request) {
-                $q->where('nama_kendaraan', 'like', "%{$request->search}%")
-                    ->orWhere('plat_nomor', 'like', "%{$request->search}%")
-                    ->orWhere('merek', 'like', "%{$request->search}%")
-                    ->orWhere('model', 'like', "%{$request->search}%");
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                whereLikeEscaped($q, 'nama_kendaraan', $search);
+                $q->orWhereRaw("plat_nomor LIKE ? ESCAPE '#'", ['%'.escapeLike($search).'%']);
+                $q->orWhereRaw("merek LIKE ? ESCAPE '#'", ['%'.escapeLike($search).'%']);
+                $q->orWhereRaw("model LIKE ? ESCAPE '#'", ['%'.escapeLike($search).'%']);
             });
         }
 
-        if ($request->has('status')) {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
 
-        if ($request->has('tipe_id')) {
+        if ($request->filled('tipe_id')) {
             $query->where('tipe_id', $request->tipe_id);
         }
 
-        if ($request->has('kategori_id')) {
+        if ($request->filled('kategori_id')) {
             $query->where('kategori_id', $request->kategori_id);
         }
 
-        if ($request->has('garasi_partner_id')) {
+        if ($request->filled('garasi_partner_id')) {
             $query->where('garasi_partner_id', $request->garasi_partner_id);
         }
 
@@ -104,24 +106,24 @@ class KendaraanController extends Controller
 
         if (isset($validated['status']) && $validated['status'] !== $kendaraan->status) {
 
-    $hasActiveOrder = $kendaraan->orders()
-        ->whereIn('status_order', [
-            'pending',
-            'confirmed',
-            'active'
-        ])
-        ->exists();
+            $hasActiveOrder = $kendaraan->orders()
+                ->whereIn('status_order', [
+                    'pending',
+                    'confirmed',
+                    'active',
+                ])
+                ->exists();
 
-    // Kendaraan tidak boleh dijadikan tersedia jika masih dipakai
-    if (
-        $validated['status'] === 'tersedia'
-        && $hasActiveOrder
-    ) {
-        return response()->json([
-            'message' => 'Kendaraan masih memiliki order aktif.',
-        ], 422);
-    }
-}
+            // Kendaraan tidak boleh dijadikan tersedia/maintenance jika masih dipakai order
+            if (
+                in_array($validated['status'], ['tersedia', 'maintenance'])
+                && $hasActiveOrder
+            ) {
+                return response()->json([
+                    'message' => 'Kendaraan masih memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.',
+                ], 422);
+            }
+        }
 
         if ($request->hasFile('foto')) {
             if ($kendaraan->foto) {
@@ -137,13 +139,13 @@ class KendaraanController extends Controller
 
     public function destroy(Kendaraan $kendaraan): JsonResponse
     {
-        $hasActiveOrder = $kendaraan->orders()
-            ->whereIn('status_order', ['pending', 'confirmed', 'active'])
+        $hasAnyOrder = $kendaraan->orders()
+            ->whereIn('status_order', ['pending', 'confirmed', 'active', 'completed', 'cancelled'])
             ->exists();
 
-        if ($hasActiveOrder) {
+        if ($hasAnyOrder) {
             return response()->json([
-                'message' => 'Tidak bisa menghapus kendaraan yang memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.',
+                'message' => 'Tidak bisa menghapus kendaraan yang memiliki riwayat order. Selesaikan atau batalkan semua order terlebih dahulu.',
             ], 422);
         }
 

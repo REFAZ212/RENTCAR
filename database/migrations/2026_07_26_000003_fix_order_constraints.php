@@ -24,10 +24,11 @@ return new class extends Migration
 
         Schema::table('pembayarans', function (Blueprint $table) {
             $table->dropForeign(['order_id']);
-            $table->foreign('order_id')->references('id')->on('orders')->restrictOnDelete();
 
             // Hapus index duplikat — constrained() sudah membuat index
             $table->dropIndex(['order_id']);
+
+            $table->foreign('order_id')->references('id')->on('orders')->restrictOnDelete();
 
             // Tambah kolom admin_id untuk audit trail
             $table->foreignId('admin_id')->nullable()->after('order_id');

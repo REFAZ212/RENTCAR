@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Customer;
+use App\Models\GarasiPartner;
 use App\Models\GarasiRequest;
 use App\Models\Kendaraan;
 use App\Models\Order;
+use App\Models\SupirCalo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -25,6 +27,10 @@ class ReportController extends Controller
     {
         $start = $request->start_date ? Carbon::parse($request->start_date)->startOfDay() : Carbon::now()->startOfMonth();
         $end = $request->end_date ? Carbon::parse($request->end_date)->endOfDay() : Carbon::now()->endOfMonth();
+
+        if ($start->diffInDays($end) > 90) {
+            abort(422, 'Range tanggal maksimal 90 hari.');
+        }
 
         return [$start, $end];
     }
@@ -71,7 +77,7 @@ class ReportController extends Controller
             'keuangan' => [
                 'pendapatan' => $pendapatan,
                 'denda' => $denda,
-                'total_penerimaan' => $pendapatan + $denda,
+                'total_penerimaan' => $pendapatan,
                 'rata_rata_order' => $rataRataOrder,
             ],
             'kendaraan' => [
@@ -146,10 +152,10 @@ class ReportController extends Controller
             ->get();
 
         $pendapatanKategori = Order::selectRaw('
-                k.nama_kategori,
+                kn.nama_kategori,
                 COUNT(*) as total_order,
-                SUM(o.harga_total) as total_pendapatan,
-                ROUND(AVG(o.harga_total), 2) as rata_rata
+                SUM(orders.harga_total) as total_pendapatan,
+                ROUND(AVG(orders.harga_total), 2) as rata_rata
             ')
             ->join('kendaraans as k', 'k.id', '=', 'orders.kendaraan_id')
             ->join('kategoris as kn', 'kn.id', '=', 'k.kategori_id')
@@ -207,7 +213,7 @@ class ReportController extends Controller
                 SUM(CASE WHEN k.status = "disewa" THEN 1 ELSE 0 END) as disewa,
                 SUM(CASE WHEN k.status = "tersedia" THEN 1 ELSE 0 END) as tersedia
             ')
-            ->join('kategoris as kn', 'kn.id', '=', 'k.kategori_id')
+            ->join('kategoris as kn', 'kn.id', '=', 'kendaraans.kategori_id')
             ->groupBy('kn.nama_kategori')
             ->get();
 
@@ -295,6 +301,7 @@ class ReportController extends Controller
         $orderTerbaru = (clone $query)
             ->with(['customer', 'kendaraan.kategori', 'kendaraan.tipe', 'admin'])
             ->latest()
+            ->limit(100)
             ->get();
 
         return response()->json([
@@ -305,6 +312,106 @@ class ReportController extends Controller
             'order_terbaru' => $orderTerbaru,
             'start_date' => $start->toDateString(),
             'end_date' => $end->toDateString(),
+        ]);
+    }
+
+    public function bagiHasil(Request $request): JsonResponse
+    {
+        $request->validate([
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ]);
+
+        [$start, $end] = $this->parseDates($request);
+
+        $partners = GarasiPartner::where('is_own', false)->get();
+
+        $results = $partners->map(function ($partner) use ($start, $end) {
+            $orderQuery = Order::whereBetween('orders.created_at', [$start, $end])
+                ->where('status_pembayaran', 'paid')
+                ->whereHas('garasiRequests', function ($q) use ($partner) {
+                    $q->where('garasi_partner_id', $partner->id);
+                });
+
+            $totalPendapatan = (clone $orderQuery)->sum('harga_total');
+            $totalDenda = (clone $orderQuery)->sum('denda_overtime');
+            $totalOrder = (clone $orderQuery)->count();
+            $persentase = $partner->persentase_bagi_hasil ?? 0;
+            $bagiHasil = round(($totalPendapatan + $totalDenda) * $persentase / 100, 2);
+
+            return [
+                'partner_id' => $partner->id,
+                'nama_garasi' => $partner->nama_garasi,
+                'nama_pemilik' => $partner->nama_pemilik ?? '-',
+                'persentase' => $persentase,
+                'total_order' => $totalOrder,
+                'total_pendapatan' => $totalPendapatan,
+                'total_denda' => $totalDenda,
+                'total_bagi_hasil' => $bagiHasil,
+            ];
+        });
+
+        $grandTotalBagiHasil = $results->sum('total_bagi_hasil');
+        $grandTotalPendapatan = $results->sum('total_pendapatan');
+
+        return response()->json([
+            'data' => $results->values(),
+            'ringkasan' => [
+                'grand_total_pendapatan' => $grandTotalPendapatan,
+                'grand_total_bagi_hasil' => $grandTotalBagiHasil,
+                'jumlah_partner' => $partners->count(),
+            ],
+            'periode' => [
+                'start_date' => $start->toDateString(),
+                'end_date' => $end->toDateString(),
+            ],
+        ]);
+    }
+
+    public function komisiCalo(Request $request): JsonResponse
+    {
+        $request->validate([
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+        ]);
+
+        [$start, $end] = $this->parseDates($request);
+
+        $calos = SupirCalo::where('jenis', 'calo')->get();
+
+        $results = $calos->map(function ($calo) use ($start, $end) {
+            $orderQuery = Order::whereBetween('orders.created_at', [$start, $end])
+                ->where('calo_id', $calo->id)
+                ->where('status_pembayaran', 'paid');
+
+            $totalPendapatan = (clone $orderQuery)->sum('harga_total');
+            $totalKomisi = (clone $orderQuery)->sum('komisi_calo');
+            $totalOrder = (clone $orderQuery)->count();
+
+            return [
+                'calo_id' => $calo->id,
+                'nama' => $calo->nama,
+                'no_hp' => $calo->no_hp ?? '-',
+                'total_order' => $totalOrder,
+                'total_pendapatan' => $totalPendapatan,
+                'total_komisi' => $totalKomisi,
+            ];
+        });
+
+        $grandTotalKomisi = $results->sum('total_komisi');
+        $grandTotalPendapatan = $results->sum('total_pendapatan');
+
+        return response()->json([
+            'data' => $results->values(),
+            'ringkasan' => [
+                'grand_total_pendapatan' => $grandTotalPendapatan,
+                'grand_total_komisi' => $grandTotalKomisi,
+                'jumlah_calo' => $calos->count(),
+            ],
+            'periode' => [
+                'start_date' => $start->toDateString(),
+                'end_date' => $end->toDateString(),
+            ],
         ]);
     }
 
@@ -323,6 +430,7 @@ class ReportController extends Controller
         ]);
 
         [$start, $end] = $this->parseDates($request);
+
         $filename = sprintf('laporan-%s-%s-%s', $tab, $start->toDateString(), $end->toDateString());
 
         if ($tab === 'all') {
@@ -332,6 +440,8 @@ class ReportController extends Controller
                 'Kendaraan' => $this->sectionsKendaraan($start, $end),
                 'Customer' => $this->sectionsCustomer($start, $end),
                 'Order' => $this->sectionsOrder($start, $end),
+                'Bagi Hasil' => $this->sectionsBagiHasil($start, $end),
+                'Komisi Calo' => $this->sectionsKomisiCalo($start, $end),
             ];
             $spreadsheet = $this->buildMultiSheetSpreadsheet($sheets);
         } else {
@@ -341,6 +451,8 @@ class ReportController extends Controller
                 'kendaraan' => $this->sectionsKendaraan($start, $end),
                 'customer' => $this->sectionsCustomer($start, $end),
                 'order' => $this->sectionsOrder($start, $end),
+                'bagi-hasil' => $this->sectionsBagiHasil($start, $end),
+                'komisi-calo' => $this->sectionsKomisiCalo($start, $end),
                 default => abort(422, 'Tab laporan tidak dikenali'),
             };
             $spreadsheet = $this->buildSpreadsheet($sections);
@@ -423,9 +535,9 @@ class ReportController extends Controller
         $pendapatanKategori = Order::selectRaw('
                 kn.nama_kategori,
                 COUNT(*) as total_order,
-                SUM(o.harga_total) as total_pendapatan,
-                SUM(o.denda_overtime) as total_denda,
-                ROUND(AVG(o.harga_total), 2) as rata_rata
+                SUM(orders.harga_total) as total_pendapatan,
+                SUM(orders.denda_overtime) as total_denda,
+                ROUND(AVG(orders.harga_total), 2) as rata_rata
             ')
             ->join('kendaraans as k', 'k.id', '=', 'orders.kendaraan_id')
             ->join('kategoris as kn', 'kn.id', '=', 'k.kategori_id')
@@ -484,7 +596,7 @@ class ReportController extends Controller
                 SUM(CASE WHEN k.status = "disewa" THEN 1 ELSE 0 END) as disewa,
                 SUM(CASE WHEN k.status = "tersedia" THEN 1 ELSE 0 END) as tersedia
             ')
-            ->join('kategoris as kn', 'kn.id', '=', 'k.kategori_id')
+            ->join('kategoris as kn', 'kn.id', '=', 'kendaraans.kategori_id')
             ->groupBy('kn.nama_kategori')
             ->get();
 
@@ -573,6 +685,7 @@ class ReportController extends Controller
         $orders = Order::whereBetween('created_at', [$start, $end])
             ->with(['customer', 'kendaraan.kategori', 'kendaraan.tipe', 'admin'])
             ->latest()
+            ->limit(500)
             ->get();
 
         $totalOrder = $orders->count();
@@ -619,6 +732,98 @@ class ReportController extends Controller
                     $o->status_pengiriman,
                     $o->admin?->name ?? '-',
                 ])->toArray(),
+            ],
+        ];
+    }
+
+    private function sectionsBagiHasil(Carbon $start, Carbon $end): array
+    {
+        $partners = GarasiPartner::where('is_own', false)->get();
+
+        $rows = $partners->map(function ($partner) use ($start, $end) {
+            $orderQuery = Order::whereBetween('orders.created_at', [$start, $end])
+                ->where('status_pembayaran', 'paid')
+                ->whereHas('garasiRequests', function ($q) use ($partner) {
+                    $q->where('garasi_partner_id', $partner->id);
+                });
+
+            $totalPendapatan = (clone $orderQuery)->sum('harga_total');
+            $totalDenda = (clone $orderQuery)->sum('denda_overtime');
+            $totalOrder = (clone $orderQuery)->count();
+            $persentase = $partner->persentase_bagi_hasil ?? 0;
+            $bagiHasil = round(($totalPendapatan + $totalDenda) * $persentase / 100, 2);
+
+            return [
+                $partner->nama_garasi,
+                $partner->nama_pemilik ?? '-',
+                $persentase.'%',
+                $totalOrder,
+                $totalPendapatan,
+                $totalDenda,
+                $bagiHasil,
+            ];
+        })->toArray();
+
+        $grandTotalBagiHasil = collect($rows)->sum(6);
+        $grandTotalPendapatan = collect($rows)->sum(4);
+
+        return [
+            [
+                'title' => "Laporan Bagi Hasil Partner ({$start->toDateString()} s/d {$end->toDateString()})",
+                'headers' => ['Nama Garasi', 'Pemilik', 'Persentase', 'Total Order', 'Total Pendapatan', 'Total Denda', 'Bagi Hasil'],
+                'rows' => $rows,
+            ],
+            [
+                'title' => 'Ringkasan',
+                'headers' => ['Metrik', 'Nilai'],
+                'rows' => [
+                    ['Total Pendapatan', $grandTotalPendapatan],
+                    ['Total Bagi Hasil', $grandTotalBagiHasil],
+                    ['Jumlah Partner', $partners->count()],
+                ],
+            ],
+        ];
+    }
+
+    private function sectionsKomisiCalo(Carbon $start, Carbon $end): array
+    {
+        $calos = SupirCalo::where('jenis', 'calo')->get();
+
+        $rows = $calos->map(function ($calo) use ($start, $end) {
+            $orderQuery = Order::whereBetween('orders.created_at', [$start, $end])
+                ->where('calo_id', $calo->id)
+                ->where('status_pembayaran', 'paid');
+
+            $totalPendapatan = (clone $orderQuery)->sum('harga_total');
+            $totalKomisi = (clone $orderQuery)->sum('komisi_calo');
+            $totalOrder = (clone $orderQuery)->count();
+
+            return [
+                $calo->nama,
+                $calo->no_hp ?? '-',
+                $totalOrder,
+                $totalPendapatan,
+                $totalKomisi,
+            ];
+        })->toArray();
+
+        $grandTotalKomisi = collect($rows)->sum(4);
+        $grandTotalPendapatan = collect($rows)->sum(3);
+
+        return [
+            [
+                'title' => "Laporan Komisi Calo ({$start->toDateString()} s/d {$end->toDateString()})",
+                'headers' => ['Nama Calo', 'No. HP', 'Total Order', 'Total Pendapatan', 'Total Komisi'],
+                'rows' => $rows,
+            ],
+            [
+                'title' => 'Ringkasan',
+                'headers' => ['Metrik', 'Nilai'],
+                'rows' => [
+                    ['Total Pendapatan', $grandTotalPendapatan],
+                    ['Total Komisi', $grandTotalKomisi],
+                    ['Jumlah Calo', $calos->count()],
+                ],
             ],
         ];
     }

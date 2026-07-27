@@ -40,6 +40,8 @@ const vehicleStatusStyles: Record<string, string> = {
   maintenance: 'bg-maint-50 text-maint-500',
 };
 
+const vehicleStatuses = ['tersedia', 'disewa', 'maintenance'] as const;
+
 const vehicleStatusLabels: Record<string, string> = {
   tersedia: 'Tersedia',
   disewa: 'Disewa',

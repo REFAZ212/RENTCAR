@@ -50,13 +50,14 @@ class SupirCaloSeeder extends Seeder
                 'catatan' => 'Sedang cuti, efektif Agustus 2026',
             ],
 
-            // Calo
+            // Calo (semua wajib punya komisi)
             [
                 'jenis' => 'calo',
                 'nama' => 'Eka Putri',
                 'no_hp' => '081234567201',
                 'alamat' => 'Jl. Asia Afrika No. 10, Bandung',
                 'status' => 'active',
+                'komisi' => 50000,
                 'catatan' => 'Calo aktif, jaringan luas di Bandung Utara',
             ],
             [
@@ -65,6 +66,7 @@ class SupirCaloSeeder extends Seeder
                 'no_hp' => '081234567202',
                 'alamat' => 'Jl. Dago No. 33, Bandung',
                 'status' => 'active',
+                'komisi' => 40000,
             ],
             [
                 'jenis' => 'calo',
@@ -72,6 +74,7 @@ class SupirCaloSeeder extends Seeder
                 'no_hp' => '081234567203',
                 'alamat' => 'Jl. Riau No. 15, Bandung',
                 'status' => 'active',
+                'komisi' => 35000,
             ],
             [
                 'jenis' => 'calo',
@@ -79,6 +82,7 @@ class SupirCaloSeeder extends Seeder
                 'no_hp' => '081234567204',
                 'alamat' => 'Jl. Lebak Gede No. 8, Bandung',
                 'status' => 'inactive',
+                'komisi' => 45000,
                 'catatan' => 'Pindah domisili ke Jakarta',
             ],
         ];

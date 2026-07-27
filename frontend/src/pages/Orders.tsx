@@ -3,7 +3,7 @@ import { isAxiosError } from 'axios';
 import { orderAPI, customerAPI, kendaraanAPI, supirCaloAPI, settingsAPI, type Customer, type Kendaraan, type SupirCalo, type Order } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
-import { formatHpDisplay, todayJakarta } from '../lib/format';
+import { formatHpDisplay, todayJakarta, nowWIB } from '../lib/format';
 
 /**
  * ─────────────────────────────────────────────────────────────
@@ -344,6 +344,7 @@ export default function Orders() {
   const [search, setSearch] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const loadRequestId = useRef(0);
 
   const [showForm, setShowForm] = useState(false);
   const [createStep, setCreateStep] = useState(1);
@@ -356,11 +357,7 @@ export default function Orders() {
   const [completeFilePreview, setCompleteFilePreview] = useState<string | null>(null);
   const [completePaymentFile, setCompletePaymentFile] = useState<File | null>(null);
   const [completePaymentPreview, setCompletePaymentPreview] = useState<string | null>(null);
-  const [completeReturnTime, setCompleteReturnTime] = useState(() => {
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  });
+  const [completeReturnTime, setCompleteReturnTime] = useState(nowWIB());
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
   const [buktiBaruFile, setBuktiBaruFile] = useState<File | null>(null);
@@ -385,31 +382,31 @@ export default function Orders() {
   const [showEditCustomerSuggestions, setShowEditCustomerSuggestions] = useState(false);
   const customerSearchRef = useRef<HTMLDivElement>(null);
   const editCustomerSearchRef = useRef<HTMLDivElement>(null);
+  const editKendaraanListRef = useRef<HTMLDivElement>(null);
 
   const [custFotoKtpFile, setCustFotoKtpFile] = useState<File | null>(null);
   const [custFotoKtpPreview, setCustFotoKtpPreview] = useState<string | null>(null);
   const [custFotoKtpDelete, setCustFotoKtpDelete] = useState(false);
   const [editCustFotoKtpFile, setEditCustFotoKtpFile] = useState<File | null>(null);
   const [editCustFotoKtpPreview, setEditCustFotoKtpPreview] = useState<string | null>(null);
+  const [editCustFotoKtpDelete, setEditCustFotoKtpDelete] = useState(false);
 
-  // Revoke semua blob preview URL saat komponen di-unmount, biar tidak numpuk di memori.
-  useEffect(() => {
-    return () => {
-      if (buktiBaruPreview) URL.revokeObjectURL(buktiBaruPreview);
-      if (editBuktiNewPreview) URL.revokeObjectURL(editBuktiNewPreview);
-      if (editBuktiPengirimanNewPreview) URL.revokeObjectURL(editBuktiPengirimanNewPreview);
-      if (completeFilePreview) URL.revokeObjectURL(completeFilePreview);
-      if (custFotoKtpPreview) URL.revokeObjectURL(custFotoKtpPreview);
-      if (editCustFotoKtpPreview) URL.revokeObjectURL(editCustFotoKtpPreview);
-      if (completePaymentPreview) URL.revokeObjectURL(completePaymentPreview);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // M5: Revoke each blob preview URL before replacing it to prevent memory leaks.
 
   // Ambil pengaturan dari backend (tarif denda overtime, dll.)
   useEffect(() => {
     settingsAPI.get().then(({ data }) => setOvertimeRate(data.overtime_rate_per_hour)).catch(() => {});
   }, []);
+
+  // Auto-scroll ke kendaraan yang dipilih saat modal edit/konfirmasi dibuka
+  useEffect(() => {
+    if (!showEditForm || !editForm.kendaraan_id) return;
+    const timer = setTimeout(() => {
+      const el = editKendaraanListRef.current?.querySelector('[data-selected="true"]');
+      el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [showEditForm, editForm.kendaraan_id]);
 
   // Click outside to close customer suggestions
   useEffect(() => {
@@ -447,6 +444,7 @@ export default function Orders() {
   }, [search]);
 
   const load = useCallback(() => {
+    const requestId = ++loadRequestId.current;
     setLoading(true);
     const params: Record<string, string> = { search: debouncedSearch };
 
@@ -461,11 +459,12 @@ export default function Orders() {
     orderAPI
       .list(params)
       .then(({ data }: { data: ListResponse<Order> }) => {
+        if (requestId !== loadRequestId.current) return; // M2: ignore stale response
         const result = statusFilter === 'overdue' ? data.data.filter((o) => o.jam_overtime_saat_ini > 0) : data.data;
         setItems(result);
       })
-      .catch(() => toast.error('Gagal memuat data order'))
-      .finally(() => setLoading(false));
+      .catch(() => { if (requestId === loadRequestId.current) toast.error('Gagal memuat data order'); })
+      .finally(() => { if (requestId === loadRequestId.current) setLoading(false); });
   }, [debouncedSearch, statusFilter, toast]);
 
   useEffect(() => {
@@ -476,19 +475,19 @@ export default function Orders() {
     customerAPI
       .list()
       .then(({ data }: { data: ListResponse<Customer> }) => setCustomers(data.data))
-      .catch(() => {});
+      .catch(() => toast.error('Gagal memuat data customer'));
     kendaraanAPI
       .list()
       .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
-      .catch(() => {});
+      .catch(() => toast.error('Gagal memuat data kendaraan'));
     supirCaloAPI
       .list({ jenis: 'supir' })
       .then(({ data }: { data: ListResponse<SupirCalo> }) => setSupirs(data.data))
-      .catch(() => {});
+      .catch(() => toast.error('Gagal memuat data supir'));
     supirCaloAPI
       .list({ jenis: 'calo' })
       .then(({ data }: { data: ListResponse<SupirCalo> }) => setCalos(data.data))
-      .catch(() => {});
+      .catch(() => toast.error('Gagal memuat data calo'));
   }, []);
 
   // Ringkasan cepat dari data yang sedang ditampilkan (mengikuti filter aktif).
@@ -604,8 +603,6 @@ export default function Orders() {
       if (form.customer_name) {
         payload.customer_name = form.customer_name;
       }
-      // Order manual dengan data lengkap → langsung dikonfirmasi
-      payload.status_order = 'confirmed';
       const needFormData = buktiBaruFile || custFotoKtpFile;
       if (custFotoKtpDelete) payload.customer_foto_ktp_delete = true;
       if (needFormData) {
@@ -666,7 +663,8 @@ export default function Orders() {
   const setField = <K extends keyof OrderForm>(key: K, value: OrderForm[K]) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleKendaraanSelect = (id: number) => {
-    const k = [...kendaraans, ...allKendaraans].find((x) => x.id === id);
+    const allK = new Map([...kendaraans, ...allKendaraans].map((x) => [x.id, x]));
+    const k = allK.get(id);
     setForm((prev) => ({ ...prev, kendaraan_id: String(id), harga_per_hari: k?.harga_sewa_per_hari ? String(k.harga_sewa_per_hari) : '' }));
   };
 
@@ -685,7 +683,7 @@ export default function Orders() {
   const supirTarifCreate = selectedSupirCreate ? Number(selectedSupirCreate.tarif_per_hari || 0) : 0;
   const hargaTotal = durasiHari * (Number(form.harga_per_hari) || 0) + supirTarifCreate * durasiHari;
 
-  const isFormIncomplete = !form.customer_name.trim() || !form.customer_no_hp || !form.customer_no_sim || !form.customer_alamat.trim() || !form.kendaraan_id || !form.tanggal_mulai || !form.tanggal_selesai || !form.tujuan.trim() || (!form.customer_id && !custFotoKtpFile);
+  const isFormIncomplete = !form.customer_name.trim() || !form.customer_no_hp || !form.customer_no_sim || !form.customer_alamat.trim() || !form.kendaraan_id || !form.tanggal_mulai || !form.tanggal_selesai || !form.tujuan.trim() || !form.harga_per_hari || (!form.customer_id && !custFotoKtpFile);
 
   /**
    * Buka modal edit. Dipakai baik untuk edit biasa (pensil) maupun aksi cepat
@@ -724,6 +722,9 @@ export default function Orders() {
     setEditBuktiPengirimanFile(null);
     setEditBuktiPengirimanPreview(item.bukti_pengiriman ? `/storage/${item.bukti_pengiriman}` : null);
     setEditBuktiPengirimanNewPreview(null);
+    setEditCustFotoKtpFile(null);
+    setEditCustFotoKtpPreview(item.customer?.foto_ktp ? `/storage/${item.customer.foto_ktp}` : null);
+    setEditCustFotoKtpDelete(false);
     setNewPaymentAmount('');
     setShowEditForm(true);
   };
@@ -745,6 +746,7 @@ export default function Orders() {
     if (editCustFotoKtpPreview) URL.revokeObjectURL(editCustFotoKtpPreview);
     setEditCustFotoKtpFile(null);
     setEditCustFotoKtpPreview(null);
+    setEditCustFotoKtpDelete(false);
     setIsSewakan(false);
     setIsKonfirmasi(false);
     setNewPaymentAmount('');
@@ -793,6 +795,10 @@ export default function Orders() {
       if (editForm.tanggal_selesai < editForm.tanggal_mulai) { toast.error('Tanggal selesai harus setelah atau sama dengan tanggal mulai'); return; }
       if (!editForm.tujuan?.trim()) { toast.error('Tujuan wajib diisi'); return; }
     }
+    // L8: Basic validation for konfirmasi/sewakan mode — ensure required fields exist
+    if (isKonfirmasi || isSewakan) {
+      if (!editForm.kendaraan_id) { toast.error('Pilih kendaraan terlebih dahulu'); return; }
+    }
 
     const butuhBuktiPengiriman = editForm.status_pengiriman
       ? statusPengirimanButuhBukti.includes(editForm.status_pengiriman as StatusPengiriman)
@@ -829,18 +835,31 @@ export default function Orders() {
 
       // Sertakan jumlah_bayar jika form pembayaran baru diisi
       if (newPaymentAmount && isLockedOrder && !isFullyLocked) {
-        payload.jumlah_bayar = Number(newPaymentAmount);
+        const amount = Number(newPaymentAmount);
+        if (isNaN(amount) || amount <= 0) { // M3: catch NaN from empty string
+          toast.error('Jumlah pembayaran harus lebih dari 0');
+          return;
+        }
+        const totalPaid = editingOrder.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
+        const sisa = Number(editingOrder.harga_total) - totalPaid;
+        if (amount > sisa) {
+          toast.error(`Jumlah pembayaran maksimal Rp ${sisa.toLocaleString('id-ID')}`);
+          return;
+        }
+        payload.jumlah_bayar = amount;
       }
 
       let res;
       const hasFile = editBuktiFile || editBuktiPengirimanFile || editCustFotoKtpFile;
-      if (hasFile) {
+      const needsFormData = hasFile || editCustFotoKtpDelete;
+      if (needsFormData) {
         const fd = new FormData();
         fd.append('_method', 'PUT');
         Object.entries(payload).forEach(([k, v]) => fd.append(k, String(v)));
         if (editBuktiFile) fd.append('bukti_transfer', editBuktiFile);
         if (editBuktiPengirimanFile) fd.append('bukti_pengiriman', editBuktiPengirimanFile);
         if (editCustFotoKtpFile) fd.append('customer_foto_ktp', editCustFotoKtpFile);
+        if (editCustFotoKtpDelete) fd.append('customer_foto_ktp_delete', '1');
         res = await orderAPI.updateWithFile(editingOrder.id, fd);
       } else {
         res = await orderAPI.update(editingOrder.id, payload);
@@ -886,6 +905,12 @@ export default function Orders() {
       fd.append('bukti_pengembalian', completeFile);
       fd.append('tanggal_pengembalian_aktual', completeReturnTime.replace('T', ' ') + ':00');
       if (completePaymentFile) fd.append('bukti_transfer', completePaymentFile);
+      // H5: Record remaining balance so payment log is complete for laporan keuangan.
+      const totalPaid = confirmComplete.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
+      const remaining = Number(confirmComplete.harga_total) - totalPaid;
+      if (remaining > 0) {
+        fd.append('jumlah_bayar', String(remaining));
+      }
       fd.append('_method', 'PUT');
       await orderAPI.updateWithFile(confirmComplete.id, fd);
       toast.success('Order berhasil diselesaikan');
@@ -911,9 +936,7 @@ export default function Orders() {
     if (completePaymentPreview) URL.revokeObjectURL(completePaymentPreview);
     setCompletePaymentFile(null);
     setCompletePaymentPreview(null);
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-    setCompleteReturnTime(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`);
+    setCompleteReturnTime(nowWIB());
   };
 
   const filteredKendaraanCreate = useMemo(() => {
@@ -1836,16 +1859,37 @@ export default function Orders() {
                         </div>
                       ) : (
                         <>
-                          {editCustFotoKtpPreview && (
-                            <div className="mb-2">
-                              <img src={editCustFotoKtpPreview} alt="Dokumen Identitas" className="h-20 w-28 rounded-lg border border-ink-200 object-cover" />
-                            </div>
-                          )}
-                          <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-ink-200 px-3 py-6 text-center transition-colors hover:border-brand-400 hover:bg-brand-50/50">
-                            <svg className="h-5 w-5 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                            <span className="text-xs text-ink-400">{editCustFotoKtpFile ? editCustFotoKtpFile.name : 'KTP / Paspor / SIM'}</span>
-                            <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; setEditCustFotoKtpFile(f); setEditCustFotoKtpPreview(f ? URL.createObjectURL(f) : null); }} />
-                          </label>
+                          {editCustFotoKtpFile ? (
+                            <ImagePreview
+                              src={editCustFotoKtpPreview}
+                              onRemove={() => {
+                                if (editCustFotoKtpPreview) URL.revokeObjectURL(editCustFotoKtpPreview);
+                                setEditCustFotoKtpFile(null);
+                                setEditCustFotoKtpPreview(editingOrder.customer?.foto_ktp ? `/storage/${editingOrder.customer.foto_ktp}` : null);
+                              }}
+                            />
+                          ) : editCustFotoKtpPreview && !editCustFotoKtpDelete ? (
+                            <ImagePreview
+                              src={editCustFotoKtpPreview}
+                              onRemove={() => {
+                                setEditCustFotoKtpPreview(null);
+                                setEditCustFotoKtpDelete(true);
+                              }}
+                            />
+                          ) : null}
+                          <UploadBox
+                            label="KTP / Paspor / SIM"
+                            hint="JPG, PNG, maks 2MB"
+                            fileName={editCustFotoKtpFile?.name}
+                            icon={<svg className="h-5 w-5 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+                            onFile={(f) => {
+                              if (!f) return;
+                              if (editCustFotoKtpPreview && editCustFotoKtpFile) URL.revokeObjectURL(editCustFotoKtpPreview);
+                              setEditCustFotoKtpFile(f);
+                              setEditCustFotoKtpPreview(URL.createObjectURL(f));
+                              setEditCustFotoKtpDelete(false);
+                            }}
+                          />
                         </>
                       )}
                     </div>
@@ -1916,7 +1960,7 @@ export default function Orders() {
                 {filteredKendaraanEdit.length === 0 ? (
                   <p className="py-4 text-center text-sm italic text-ink-400">Tidak ada kendaraan yang cocok</p>
                 ) : (
-                  <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+                  <div ref={editKendaraanListRef} className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
                     {filteredKendaraanEdit.map((k) => {
                       const selected = editForm.kendaraan_id === String(k.id);
                       const isCurrentVehicle = editingOrder && k.id === editingOrder.kendaraan_id;
@@ -1924,6 +1968,7 @@ export default function Orders() {
                       return (
                         <div
                           key={k.id}
+                          data-selected={selected ? 'true' : undefined}
                           onClick={() => available && handleEditKendaraanSelect(k.id)}
                           className={`w-44 shrink-0 rounded-xl border-2 transition-all ${
                             !available

@@ -53,4 +53,9 @@ class Kendaraan extends Model
     {
         return $this->hasMany(Order::class);
     }
+
+    public function activeOrders(): HasMany
+    {
+        return $this->hasMany(Order::class)->whereIn('status_order', ['pending', 'confirmed', 'active']);
+    }
 }

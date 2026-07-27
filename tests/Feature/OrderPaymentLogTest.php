@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\Kendaraan;
 use App\Models\Order;
 use App\Models\Pembayaran;
+use App\Models\SupirCalo;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Schema;
@@ -46,6 +47,7 @@ class OrderPaymentLogTest extends TestCase
             $t->string('foto_ktp')->nullable();
             $t->string('foto_sim')->nullable();
             $t->timestamps();
+            $t->softDeletes();
         });
         Schema::create('garasi_partners', function ($t) {
             $t->id();
@@ -70,6 +72,7 @@ class OrderPaymentLogTest extends TestCase
         Schema::create('orders', function ($t) {
             $t->id();
             $t->string('kode_order')->unique();
+            $t->string('source')->default('admin');
             $t->foreignId('customer_id');
             $t->foreignId('kendaraan_id');
             $t->foreignId('admin_id');
@@ -92,6 +95,7 @@ class OrderPaymentLogTest extends TestCase
             $t->string('jam_selesai')->nullable();
             $t->foreignId('supir_id')->nullable();
             $t->foreignId('calo_id')->nullable();
+            $t->decimal('komisi_calo', 12, 2)->nullable();
             $t->decimal('denda_overtime', 14, 2)->default(0);
             $t->integer('jam_overtime')->default(0);
             $t->timestamp('tanggal_pengembalian_aktual')->nullable();
@@ -121,12 +125,25 @@ class OrderPaymentLogTest extends TestCase
             $t->text('catatan_admin')->nullable();
             $t->text('catatan_garasi')->nullable();
             $t->timestamps();
+            $t->softDeletes();
         });
         Schema::create('settings', function ($t) {
             $t->id();
             $t->string('key')->unique();
             $t->text('value')->nullable();
             $t->timestamps();
+        });
+        Schema::create('supir_calos', function ($t) {
+            $t->id();
+            $t->string('nama');
+            $t->string('no_hp');
+            $t->string('jenis');
+            $t->string('status')->default('aktif');
+            $t->decimal('tarif_per_hari', 12, 2)->default(0);
+            $t->decimal('komisi', 12, 2)->default(0);
+            $t->text('catatan')->nullable();
+            $t->timestamps();
+            $t->softDeletes();
         });
 
         $this->admin = User::create(['name' => 'Admin', 'email' => 'admin@test.com', 'password' => 'password']);
@@ -746,5 +763,260 @@ class OrderPaymentLogTest extends TestCase
         ]);
 
         $response->assertStatus(201);
+    }
+
+    public function test_search_escapes_like_wildcards(): void
+    {
+        $this->actingAs($this->admin);
+
+        Order::create([
+            'kode_order' => 'ORD-100%-TEST',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-08-03',
+            'durasi_hari' => 2,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1000000,
+        ]);
+
+        Order::create([
+            'kode_order' => 'ORD-200-ALPHA',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-08-03',
+            'durasi_hari' => 2,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1000000,
+        ]);
+
+        $response = $this->getJson('/api/orders?search='.urlencode('100%'));
+        $response->assertOk();
+        $orders = $response->json('data');
+        $this->assertCount(1, $orders);
+        $this->assertEquals('ORD-100%-TEST', $orders[0]['kode_order']);
+    }
+
+    public function test_search_escapes_like_underscore(): void
+    {
+        $this->actingAs($this->admin);
+
+        Order::create([
+            'kode_order' => 'ORD-TEST_123',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-08-03',
+            'durasi_hari' => 2,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1000000,
+        ]);
+
+        Order::create([
+            'kode_order' => 'ORD-TESTX123',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-08-03',
+            'durasi_hari' => 2,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1000000,
+        ]);
+
+        $response = $this->getJson('/api/orders?search='.urlencode('TEST_123'));
+        $response->assertOk();
+        $orders = $response->json('data');
+        $this->assertCount(1, $orders);
+        $this->assertEquals('ORD-TEST_123', $orders[0]['kode_order']);
+    }
+
+    // ── Fase 8: HIGH severity bug fixes ──
+
+    public function test_store_forces_status_order_to_pending(): void
+    {
+        $response = $this->actingAs($this->admin)->postJson('/api/orders', [
+            'customer_id' => $this->customer->id,
+            'customer_no_hp' => '6281234567890',
+            'customer_alamat' => 'Jakarta',
+            'customer_no_sim' => 'SIM123',
+            'kendaraan_id' => $this->kendaraan->id,
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-08-04',
+            'tujuan' => 'Bandung',
+            'status_order' => 'completed',
+        ]);
+
+        $response->assertStatus(201);
+        $order = Order::where('customer_id', $this->customer->id)->first();
+        $this->assertSame('pending', $order->status_order);
+    }
+
+    public function test_updating_bukti_transfer_without_jumlah_bayar_does_not_create_ghost_pembayaran(): void
+    {
+        Storage::fake('public');
+
+        $order = Order::create([
+            'kode_order' => 'ORD-H3T0001',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-08-04',
+            'durasi_hari' => 3,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1500000,
+            'status_order' => 'active',
+            'status_pembayaran' => 'paid',
+        ]);
+
+        $this->assertCount(0, $order->pembayarans);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'bukti_transfer' => UploadedFile::fake()->image('bukti_baru.jpg'),
+        ]);
+
+        $response->assertOk();
+        $order->refresh();
+        $this->assertCount(0, $order->pembayarans);
+    }
+
+    public function test_selesaikan_sewa_with_deleted_supir_does_not_crash(): void
+    {
+        $supir = SupirCalo::create([
+            'nama' => 'Supir Test',
+            'no_hp' => '628111222333',
+            'jenis' => 'supir',
+            'tarif_per_hari' => 100000,
+        ]);
+
+        $order = Order::create([
+            'kode_order' => 'ORD-H5T0001',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-08-03',
+            'durasi_hari' => 2,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1000000 + (100000 * 2),
+            'status_order' => 'active',
+            'supir_id' => $supir->id,
+        ]);
+
+        $supir->forceDelete();
+
+        $order->selesaikanSewa();
+        $order->save();
+
+        // The supir record is deleted, so supirTarif defaults to 0.
+        // harga_total = harga_per_hari * durasi_hari + 0 + denda (0 if on time)
+        $this->assertSame(0.0, (float) $order->harga_total - ($order->harga_per_hari * $order->durasi_hari));
+    }
+
+    public function test_vehicle_stays_disewa_when_other_active_orders_exist(): void
+    {
+        $order1 = Order::create([
+            'kode_order' => 'ORD-H1T0001',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-08-03',
+            'durasi_hari' => 2,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1000000,
+            'status_order' => 'active',
+            'status_pembayaran' => 'paid',
+        ]);
+
+        $order2 = Order::create([
+            'kode_order' => 'ORD-H1T0002',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-08-10',
+            'tanggal_selesai' => '2026-08-15',
+            'durasi_hari' => 5,
+            'harga_per_hari' => 500000,
+            'harga_total' => 2500000,
+            'status_order' => 'confirmed',
+            'status_pembayaran' => 'unpaid',
+        ]);
+
+        $this->kendaraan->update(['status' => 'disewa']);
+
+        Storage::fake('public');
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order1->id}", [
+            'status_order' => 'completed',
+            'bukti_pengembalian' => UploadedFile::fake()->image('pengembalian.jpg'),
+            'tanggal_pengembalian_aktual' => '2026-08-02 10:00:00',
+        ]);
+
+        $response->assertOk();
+        $this->kendaraan->refresh();
+        $this->assertSame('disewa', $this->kendaraan->status);
+    }
+
+    public function test_vehicle_set_to_tersedia_when_no_other_active_orders(): void
+    {
+        $order = Order::create([
+            'kode_order' => 'ORD-H1T0003',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-08-03',
+            'durasi_hari' => 2,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1000000,
+            'status_order' => 'active',
+            'status_pembayaran' => 'paid',
+        ]);
+
+        $this->kendaraan->update(['status' => 'disewa']);
+
+        Storage::fake('public');
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_order' => 'completed',
+            'bukti_pengembalian' => UploadedFile::fake()->image('pengembalian.jpg'),
+            'tanggal_pengembalian_aktual' => '2026-08-02 10:00:00',
+        ]);
+
+        $response->assertOk();
+        $this->kendaraan->refresh();
+        $this->assertSame('tersedia', $this->kendaraan->status);
+    }
+
+    public function test_soft_deleted_order_preserves_file_references(): void
+    {
+        $order = Order::create([
+            'kode_order' => 'ORD-H6T0001',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-08-03',
+            'durasi_hari' => 2,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1000000,
+            'status_order' => 'pending',
+            'bukti_transfer' => 'bukti-transfer/test.jpg',
+            'bukti_pengiriman' => 'bukti-pengiriman/test.jpg',
+        ]);
+
+        $order->delete();
+
+        $this->assertSoftDeleted('orders', ['id' => $order->id]);
+
+        $order->refresh();
+        $this->assertSame('bukti-transfer/test.jpg', $order->bukti_transfer);
+        $this->assertSame('bukti-pengiriman/test.jpg', $order->bukti_pengiriman);
     }
 }

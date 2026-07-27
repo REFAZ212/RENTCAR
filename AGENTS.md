@@ -24,7 +24,7 @@ Public Blade routes (`routes/web.php`): `GET/POST /garasi/{token}` — token-bas
 
 **Export deps**: `phpoffice/phpspreadsheet` + `openspout/openspout` for Excel/CSV export in Laporan.
 
-**Business logic**: `app/Services/OvertimeCalculator.php` — calculates late-return penalties (Rp 25,000/hour, second-precision, no grace period). `Order` model has computed accessors `jam_overtime_saat_ini` and `denda_overtime_saat_ini` that recalculate on every response for active orders. Final values stored in `jam_overtime`/`denda_overtime` columns when order is completed via `Order::selesaikanSewa()`.
+**Business logic**: `app/Services/OvertimeCalculator.php` — calculates late-return penalties (second-precision, ceil to full hour blocks). Rate and grace period are **database-configurable** via `settings` table (`overtime_rate_per_hour`, `grace_period_minutes`); defaults are 25000 and 0. `Order` model has computed accessors `jam_overtime_saat_ini` and `denda_overtime_saat_ini` that recalculate on every response for active orders. Final values stored in `jam_overtime`/`denda_overtime` columns when order is completed via `Order::selesaikanSewa()`.
 
 Return deadline (`batasWaktuKembali()`) is calculated from `tanggal_mulai + durasi_hari + jam_selesai`, NOT from `tanggal_selesai` directly — `tanggal_selesai` can be entered as the same day as `tanggal_mulai`.
 

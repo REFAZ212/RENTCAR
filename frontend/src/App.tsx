@@ -34,6 +34,14 @@ function PrivateRoute({ children }: PropsWithChildren) {
   return user ? <Layout>{children}</Layout> : <Navigate to="/login" />;
 }
 
+function RoleRoute({ children, allowedRoles }: PropsWithChildren & { allowedRoles: string[] }) {
+  const { user } = useAuth();
+  if (!user || !allowedRoles.includes(user.role ?? '')) {
+    return <Navigate to="/" />;
+  }
+  return <>{children}</>;
+}
+
 function PublicRoute({ children }: PropsWithChildren) {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
@@ -60,9 +68,9 @@ export default function App() {
           <Route path="/supir-calo" element={<PrivateRoute><SupirCalo /></PrivateRoute>} />
           <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
           <Route path="/gps" element={<PrivateRoute><GpsPage /></PrivateRoute>} />
-          <Route path="/laporan" element={<PrivateRoute><Laporan /></PrivateRoute>} />
+          <Route path="/laporan" element={<PrivateRoute><RoleRoute allowedRoles={['admin']}><Laporan /></RoleRoute></PrivateRoute>} />
           <Route path="/garasi" element={<PrivateRoute><GarasiPage /></PrivateRoute>} />
-          <Route path="/pengaturan" element={<PrivateRoute><Pengaturan /></PrivateRoute>} />
+          <Route path="/pengaturan" element={<PrivateRoute><RoleRoute allowedRoles={['admin']}><Pengaturan /></RoleRoute></PrivateRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />

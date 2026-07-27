@@ -1,28 +1,8 @@
 import { useState, useEffect, type ReactNode, type FormEvent } from 'react';
-import api, { isAxiosError } from './mockApi'; // ⬅️ SEMENTARA: ganti balik ke '../services/api' + 'axios' kalau backend sudah siap
+import { isAxiosError } from 'axios';
+import api from '../services/api';
 import { settingsAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-
-/**
- * ─────────────────────────────────────────────────────────────
- * Halaman Pengaturan — 5 tab
- * Tema warna disamakan dengan Dashboard/Laporan (ink / brand / avail / maint / rented)
- *
- * CATATAN INTEGRASI (FRONTEND-ONLY MODE):
- * File ini sedang memakai `./mockApi` sebagai pengganti sementara
- * '../services/api' karena backend '/pengaturan/*' belum tersedia.
- * mockApi.ts meniru bentuk axios (get/post/put) dengan delay dan
- * data in-memory, jadi seluruh UI di bawah — loading state, toast,
- * validasi password, dsb — bisa dites end-to-end tanpa backend.
- *
- * Begitu backend jadi: cukup ganti baris import di atas jadi
- *   import api from '../services/api';
- *   import { isAxiosError } from 'axios';
- * TIDAK ADA baris lain di file ini yang perlu diubah, selama
- * kontrak endpoint backend sama dengan yang didokumentasikan
- * di dalam mockApi.ts.
- * ─────────────────────────────────────────────────────────────
- */
 
 const tabs = [
   { key: 'profil', label: 'Profil & Keamanan', icon: 'M12 12a4 4 0 100-8 4 4 0 000 8zm0 0c-4 0-7 2-7 4.5V19h14v-2.5C19 14 16 12 12 12z' },

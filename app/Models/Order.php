@@ -47,8 +47,12 @@ class Order extends Model
         'bukti_pengembalian',
         'supir_id',
         'calo_id',
+        'opsi_supir',
+        'komisi_calo',
         'catatan',
         'tanggal_pengembalian_aktual',
+        'jam_overtime',
+        'denda_overtime',
     ];
 
     protected $casts = [
@@ -58,6 +62,7 @@ class Order extends Model
         'durasi_hari' => 'integer',
         'harga_per_hari' => 'decimal:2',
         'harga_total' => 'decimal:2',
+        'komisi_calo' => 'decimal:2',
         'jam_overtime' => 'integer',
         'denda_overtime' => 'decimal:2',
     ];
@@ -79,7 +84,7 @@ class Order extends Model
             }
         });
 
-        static::deleting(function (Order $order) {
+        static::forceDeleting(function (Order $order) {
             foreach (['bukti_transfer', 'bukti_pengiriman', 'bukti_pengembalian'] as $field) {
                 if ($order->$field && Storage::disk('public')->exists($order->$field)) {
                     Storage::disk('public')->delete($order->$field);
@@ -181,6 +186,11 @@ class Order extends Model
     {
         $batas = $this->batasWaktuKembali();
 
+        // For completed/cancelled orders, return the stored final value
+        if (in_array($this->status_order, ['completed', 'cancelled'])) {
+            return (int) $this->getOriginal('jam_overtime', 0);
+        }
+
         if ($this->status_order !== 'active' || ! $batas) {
             return 0;
         }
@@ -192,6 +202,11 @@ class Order extends Model
 
     public function getDendaOvertimeSaatIniAttribute(): float
     {
+        // For completed/cancelled orders, return the stored final value
+        if (in_array($this->status_order, ['completed', 'cancelled'])) {
+            return (float) $this->getOriginal('denda_overtime', 0);
+        }
+
         $s = Setting::getOvertimeSettings();
 
         return OvertimeCalculator::hitungDenda($this->jam_overtime_saat_ini, $s['rate']);
@@ -233,7 +248,7 @@ class Order extends Model
         $supirTarif = 0;
         if ($this->supir_id) {
             $supir = SupirCalo::find($this->supir_id);
-            $supirTarif = (float) ($supir->tarif_per_hari ?? 0);
+            $supirTarif = (float) ($supir?->tarif_per_hari ?? 0);
         }
 
         $this->jam_overtime = $hasil['jam_overtime'];
@@ -243,11 +258,15 @@ class Order extends Model
 
         if ($hasil['jam_overtime'] > 0) {
             $waktuSelesai = $batas->format('d/m/Y H:i');
-            $this->catatan = trim(($this->catatan ? $this->catatan."\n" : '')
-                ."Kendaraan terlambat dikembalikan. Batas pengembalian: {$waktuSelesai} WIB. "
+            $overtimeNote = "Kendaraan terlambat dikembalikan. Batas pengembalian: {$waktuSelesai} WIB. "
                 ."Dikenakan denda keterlambatan {$hasil['jam_overtime']} jam × "
                 .number_format($s['rate'], 0, ',', '.')
-                .' = Rp '.number_format($hasil['denda_overtime'], 0, ',', '.').'.');
+                .' = Rp '.number_format($hasil['denda_overtime'], 0, ',', '.').'.';
+            // Idempotent: don't append if the note is already present (e.g. called twice).
+            $existingNotes = $this->catatan ?? '';
+            if (strpos($existingNotes, 'Dikenakan denda keterlambatan') === false) {
+                $this->catatan = trim(($existingNotes ? $existingNotes."\n" : '').$overtimeNote);
+            }
         }
     }
 }

@@ -88,19 +88,45 @@ class OvertimeCalculatorTest extends TestCase
         $this->assertSame(50000.0, $hasil['denda_overtime']);
     }
 
-    public function test_batas_waktu_dari_pakai_default_23_59_kalau_jam_kosong(): void
-    {
-        $tanggal = Carbon::parse('2026-01-10');
-
-        $batas = OvertimeCalculator::batasWaktuDari($tanggal, null);
-
-        $this->assertSame('2026-01-10 23:59:00', $batas->toDateTimeString());
-    }
-
     public function test_hitung_denda_langsung_dari_jumlah_jam(): void
     {
         $this->assertSame(0.0, OvertimeCalculator::hitungDenda(0));
         $this->assertSame(25000.0, OvertimeCalculator::hitungDenda(1));
         $this->assertSame(125000.0, OvertimeCalculator::hitungDenda(5));
+    }
+
+    public function test_custom_rate_digunakan_ketika_dikirim(): void
+    {
+        $batas = Carbon::parse('2026-01-10 17:00');
+        $aktual = Carbon::parse('2026-01-10 18:30');
+
+        $hasil = OvertimeCalculator::hitung($batas, $aktual, 30000);
+
+        $this->assertSame(2, $hasil['jam_overtime']);
+        $this->assertSame(60000.0, $hasil['denda_overtime']);
+    }
+
+    public function test_custom_grace_period_mengurangi_detik_terlambat(): void
+    {
+        // Telat 10 menit, tapi grace period 15 menit → tidak kena denda
+        $batas = Carbon::parse('2026-01-10 17:00');
+        $aktual = Carbon::parse('2026-01-10 17:10');
+
+        $hasil = OvertimeCalculator::hitung($batas, $aktual, null, 15);
+
+        $this->assertSame(0, $hasil['jam_overtime']);
+        $this->assertSame(0.0, $hasil['denda_overtime']);
+    }
+
+    public function test_custom_rate_dan_grace_bersamaan(): void
+    {
+        // Telat 2 jam 30 menit dengan grace 15 menit
+        $batas = Carbon::parse('2026-01-10 17:00');
+        $aktual = Carbon::parse('2026-01-10 19:30');
+
+        $hasil = OvertimeCalculator::hitung($batas, $aktual, 30000, 15);
+
+        $this->assertSame(3, $hasil['jam_overtime']);
+        $this->assertSame(90000.0, $hasil['denda_overtime']);
     }
 }

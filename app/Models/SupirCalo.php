@@ -20,11 +20,13 @@ class SupirCalo extends Model
         'no_sim',
         'foto',
         'tarif_per_hari',
+        'komisi',
         'catatan',
     ];
 
     protected $casts = [
         'tarif_per_hari' => 'decimal:2',
+        'komisi' => 'decimal:2',
     ];
 
     public function scopeJenis(Builder $query, string $jenis): Builder
@@ -40,10 +42,5 @@ class SupirCalo extends Model
     public function ordersAsCalo(): HasMany
     {
         return $this->hasMany(Order::class, 'calo_id');
-    }
-
-    public function orders(): HasMany
-    {
-        return $this->hasMany(Order::class);
     }
 }
