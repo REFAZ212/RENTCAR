@@ -12,6 +12,8 @@ class KendaraanController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', Kendaraan::class);
+
         $query = Kendaraan::with(['garasiPartner', 'kategori', 'tipe'])
             ->withCount('activeOrders');
 
@@ -48,6 +50,8 @@ class KendaraanController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', Kendaraan::class);
+
         $validated = $request->validate([
             'garasi_partner_id' => 'required|exists:garasi_partners,id',
             'kategori_id' => 'nullable|exists:kategoris,id',
@@ -78,6 +82,8 @@ class KendaraanController extends Controller
 
     public function show(Kendaraan $kendaraan): JsonResponse
     {
+        $this->authorize('view', $kendaraan);
+
         $kendaraan->load(['garasiPartner', 'kategori', 'tipe', 'orders' => function ($q) {
             $q->with('customer')->latest()->limit(5);
         }]);
@@ -87,6 +93,8 @@ class KendaraanController extends Controller
 
     public function update(Request $request, Kendaraan $kendaraan): JsonResponse
     {
+        $this->authorize('update', $kendaraan);
+
         $validated = $request->validate([
             'garasi_partner_id' => 'sometimes|required|exists:garasi_partners,id',
             'kategori_id' => 'nullable|exists:kategoris,id',
@@ -139,6 +147,8 @@ class KendaraanController extends Controller
 
     public function destroy(Kendaraan $kendaraan): JsonResponse
     {
+        $this->authorize('delete', $kendaraan);
+
         $hasAnyOrder = $kendaraan->orders()
             ->whereIn('status_order', ['pending', 'confirmed', 'active', 'completed', 'cancelled'])
             ->exists();

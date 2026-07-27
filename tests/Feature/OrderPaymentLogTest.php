@@ -32,8 +32,12 @@ class OrderPaymentLogTest extends TestCase
             $t->id();
             $t->string('name');
             $t->string('email')->unique();
+            $t->string('phone')->nullable();
+            $t->string('role')->default('petugas');
+            $t->string('avatar')->nullable();
+            $t->timestamp('email_verified_at')->nullable();
             $t->string('password');
-            $t->boolean('is_admin')->default(true);
+            $t->rememberToken();
             $t->timestamps();
         });
         Schema::create('customers', function ($t) {
@@ -146,7 +150,7 @@ class OrderPaymentLogTest extends TestCase
             $t->softDeletes();
         });
 
-        $this->admin = User::create(['name' => 'Admin', 'email' => 'admin@test.com', 'password' => 'password']);
+        $this->admin = User::create(['name' => 'Admin', 'email' => 'admin@test.com', 'password' => 'password', 'role' => 'admin_utama']);
         $this->customer = Customer::create(['nama_lengkap' => 'Budi', 'no_hp' => '6281234567890', 'no_sim' => 'SIM123']);
         $this->kendaraan = Kendaraan::create([
             'nama_kendaraan' => 'Avanza',
@@ -427,7 +431,7 @@ class OrderPaymentLogTest extends TestCase
             'tanggal_mulai' => '2026-08-01',
             'tanggal_selesai' => '2026-08-04',
             'tujuan' => 'Bandung',
-            'status_pembayaran' => 'paid',
+            'status_pembayaran' => 'partial',
             'metode_pembayaran' => 'transfer',
             'jumlah_bayar' => 1500000,
             'bukti_transfer' => UploadedFile::fake()->image('bukti.jpg'),

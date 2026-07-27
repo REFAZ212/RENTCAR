@@ -13,6 +13,8 @@ class SupirCaloController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', SupirCalo::class);
+
         $query = SupirCalo::query();
 
         if ($request->jenis) {
@@ -36,6 +38,8 @@ class SupirCaloController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', SupirCalo::class);
+
         $validated = $request->validate([
             'jenis' => 'required|in:supir,calo',
             'nama' => 'required|string|max:255',
@@ -68,6 +72,8 @@ class SupirCaloController extends Controller
 
     public function show(SupirCalo $supirCalo): JsonResponse
     {
+        $this->authorize('view', $supirCalo);
+
         $supirCalo->load(['ordersAsSupir' => function ($q) {
             $q->with('kendaraan')->latest()->limit(10);
         }, 'ordersAsCalo' => function ($q) {
@@ -79,6 +85,8 @@ class SupirCaloController extends Controller
 
     public function update(Request $request, SupirCalo $supirCalo): JsonResponse
     {
+        $this->authorize('update', $supirCalo);
+
         $validated = $request->validate([
             'jenis' => 'sometimes|required|in:supir,calo',
             'nama' => 'sometimes|required|string|max:255',
@@ -114,6 +122,8 @@ class SupirCaloController extends Controller
 
     public function destroy(SupirCalo $supirCalo): JsonResponse
     {
+        $this->authorize('delete', $supirCalo);
+
         $hasActiveOrder = Order::where(function ($q) use ($supirCalo) {
             $q->where('supir_id', $supirCalo->id)
                 ->orWhere('calo_id', $supirCalo->id);

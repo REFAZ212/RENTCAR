@@ -161,7 +161,7 @@ class KatalogOrderRequestController extends Controller
                 'tanggal' => $tanggalMulai->format('d/m/Y'),
                 'status' => 'Baru Masuk',
             ]);
-            $wa->kirimKeOwner("[BOOKING BARU] {$pesan}");
+            $wa->kirimKeOwnerAsync("[BOOKING BARU] {$pesan}");
         }
 
         $waMessage = $this->buildWALink(
