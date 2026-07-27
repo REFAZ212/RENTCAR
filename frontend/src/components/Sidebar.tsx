@@ -13,7 +13,18 @@ import {
   X,
 } from 'lucide-react';
 import logo from '../assets/logo.png';
+import { useAuth } from '../contexts/AuthContext';
 
+const allNavItems = [
+  { path: '/', label: 'Dashboard', icon: LayoutGrid, roles: ['admin', 'petugas'] },
+  { path: '/orders', label: 'Orders', icon: ClipboardList, roles: ['admin', 'petugas'] },
+  { path: '/kendaraan', label: 'Kendaraan', icon: Car, roles: ['admin', 'petugas'] },
+  { path: '/kategori-tipe', label: 'Kategori & Tipe', icon: Tags, roles: ['admin'] },
+  { path: '/customers', label: 'Customers', icon: Users, roles: ['admin', 'petugas'] },
+  { path: '/supir-calo', label: 'Supir & Calo', icon: UserCheck, roles: ['admin'] },
+  { path: '/gps', label: 'GPS', icon: MapPin, roles: ['admin'] },
+  { path: '/laporan', label: 'Laporan', icon: FileBarChart, roles: ['admin'] },
+  { path: '/garasi', label: 'Garasi', icon: Warehouse, roles: ['admin'] },
 const navItems = [
   { path: '/admin', label: 'Dashboard', icon: LayoutGrid },
   { path: '/admin/orders', label: 'Orders', icon: ClipboardList },
@@ -33,8 +44,11 @@ interface SidebarProps {
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const location = useLocation();
+  const { user } = useAuth();
 
   const isActive = (path: string) => location.pathname === path;
+
+  const navItems = allNavItems.filter(item => item.roles.includes(user?.role ?? ''));
 
   return (
     <>
@@ -107,30 +121,32 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
         {/* Footer */}
         <div className="border-t border-ink-800 p-3 shrink-0">
-          <Link
-            to="/pengaturan"
-            onClick={onClose}
-            className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-              isActive('/pengaturan')
-                ? 'bg-ink-800 text-brand-400'
-                : 'text-ink-200 hover:bg-ink-800 hover:text-white'
-            }`}
-          >
-            {isActive('/pengaturan') && (
-              <div className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r bg-brand-500" />
-            )}
-
-            <Settings
-              size={18}
-              className={
+          {user?.role === 'admin' && (
+            <Link
+              to="/pengaturan"
+              onClick={onClose}
+              className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive('/pengaturan')
-                  ? 'text-brand-400'
-                  : 'text-ink-400'
-              }
-            />
+                  ? 'bg-ink-800 text-brand-400'
+                  : 'text-ink-200 hover:bg-ink-800 hover:text-white'
+              }`}
+            >
+              {isActive('/pengaturan') && (
+                <div className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r bg-brand-500" />
+              )}
 
-            Pengaturan
-          </Link>
+              <Settings
+                size={18}
+                className={
+                  isActive('/pengaturan')
+                    ? 'text-brand-400'
+                    : 'text-ink-400'
+                }
+              />
+
+              Pengaturan
+            </Link>
+          )}
         </div>
       </aside>
     </>

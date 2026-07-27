@@ -14,20 +14,21 @@ class WhatsappLogSeeder extends Seeder
         $requests = GarasiRequest::all();
 
         $logs = [
-            // Logs for Request 1 (Pending - Honda HR-V)
+            // Request 1 (Order 1, HR-V, pending)
             [
                 'garasi_request_id' => $requests[0]->id,
                 'nomor_tujuan' => '081234567893',
-                'pesan' => 'Halo Bp/Ibu Siti, kami dari CV Pilar ingin menanyakan ketersediaan Honda HR-V untuk disewa 3 hari mulai 15 Juli 2026. Mohon konfirmasi. Terima kasih.',
+                'pesan' => 'Halo Bp/Ibu Siti, kami dari CV Pilar ingin menanyakan ketersediaan Honda HR-V untuk disewa 3 hari. Mohon konfirmasi. Terima kasih.',
                 'status_kirim' => 'terkirim',
                 'response' => null,
                 'created_at' => Carbon::now()->subDays(2),
             ],
-            // Logs for Request 2 (Tersedia - Avanza)
+
+            // Request 2 (Order 2, Avanza, tersedia)
             [
                 'garasi_request_id' => $requests[1]->id,
                 'nomor_tujuan' => '081234567892',
-                'pesan' => 'Selamat pagi, mohon info ketersediaan Toyota Avanza Veloz untuk 5-7 Juli 2026.',
+                'pesan' => 'Selamat pagi, mohon info ketersediaan Toyota Avanza Veloz untuk '.Carbon::now()->subDays(10)->format('d M').'-'.Carbon::now()->subDays(7)->format('d M Y').'.',
                 'status_kirim' => 'terkirim',
                 'response' => null,
                 'created_at' => Carbon::now()->subDays(12),
@@ -40,20 +41,22 @@ class WhatsappLogSeeder extends Seeder
                 'response' => '{"status": "sent"}',
                 'created_at' => Carbon::now()->subDays(12)->addHours(2),
             ],
-            // Logs for Request 3 (Pending - Fortuner)
+
+            // Request 3 (Order 3, Fortuner, pending)
             [
                 'garasi_request_id' => $requests[2]->id,
                 'nomor_tujuan' => '081234567892',
-                'pesan' => 'Halo, Fortuner VRZ tersedia tidak untuk 18-19 Juli 2026? Urgent.',
+                'pesan' => 'Halo, Fortuner VRZ tersedia tidak untuk '.Carbon::now()->addDays(3)->format('d M').'-'.Carbon::now()->addDays(5)->format('d M Y').'? Urgent.',
                 'status_kirim' => 'terkirim',
                 'response' => null,
                 'created_at' => Carbon::now()->subHours(6),
             ],
-            // Logs for Request 4 (Tersedia - Innova)
+
+            // Request 4 (Order 4, Innova, tersedia)
             [
                 'garasi_request_id' => $requests[3]->id,
                 'nomor_tujuan' => '081234567893',
-                'pesan' => 'Selamat pagi, kami butuh Toyota Innova Reborn untuk 16-18 Juli 2026. Apakah ready?',
+                'pesan' => 'Selamat pagi, kami butuh Toyota Innova Reborn untuk '.Carbon::now()->addDay()->format('d M').'-'.Carbon::now()->addDays(4)->format('d M Y').'. Apakah ready?',
                 'status_kirim' => 'terkirim',
                 'response' => null,
                 'created_at' => Carbon::now()->subDay(),
@@ -66,11 +69,12 @@ class WhatsappLogSeeder extends Seeder
                 'response' => '{"status": "sent"}',
                 'created_at' => Carbon::now()->subDay()->addHours(1),
             ],
-            // Logs for Request 5 (Tidak Terjawab - Xenia)
+
+            // Request 5 (Order 5, Xenia, tidak_terjawab)
             [
                 'garasi_request_id' => $requests[4]->id,
                 'nomor_tujuan' => '081234567894',
-                'pesan' => 'Mohon info ketersediaan Daihatsu Xenia untuk 10-11 Juli 2026.',
+                'pesan' => 'Mohon info ketersediaan Daihatsu Xenia untuk '.Carbon::now()->subDays(5)->format('d M').'-'.Carbon::now()->subDays(3)->format('d M Y').'.',
                 'status_kirim' => 'terkirim',
                 'response' => null,
                 'created_at' => Carbon::now()->subDays(6),
@@ -83,11 +87,12 @@ class WhatsappLogSeeder extends Seeder
                 'response' => '{"error": "no_response"}',
                 'created_at' => Carbon::now()->subDays(5),
             ],
-            // Logs for Request 6 (Tersedia - Vios)
+
+            // Request 6 (Order 6, Vios, tersedia)
             [
                 'garasi_request_id' => $requests[5]->id,
                 'nomor_tujuan' => '081234567893',
-                'pesan' => 'Halo, Toyota Vios tersedia tidak untuk 30 Juni - 2 Juli 2026?',
+                'pesan' => 'Halo, Toyota Vios tersedia tidak untuk '.Carbon::now()->subDays(15)->format('d M').'-'.Carbon::now()->subDays(12)->format('d M Y').'?',
                 'status_kirim' => 'terkirim',
                 'response' => null,
                 'created_at' => Carbon::now()->subDays(17),
@@ -100,11 +105,12 @@ class WhatsappLogSeeder extends Seeder
                 'response' => '{"status": "sent"}',
                 'created_at' => Carbon::now()->subDays(17)->addHours(3),
             ],
-            // Logs for Request 7 (Pending - Colt Diesel)
+
+            // Request 7 (Order 7, Colt Diesel, pending)
             [
                 'garasi_request_id' => $requests[6]->id,
                 'nomor_tujuan' => '081234567894',
-                'pesan' => 'Kami butuh Mitsubishi Colt Diesel untuk acara pernikahan, 15-21 Juli 2026. Kapasitas 16 penumpang. Mohon konfirmasi.',
+                'pesan' => 'Kami butuh Mitsubishi Colt Diesel untuk acara pernikahan, '.Carbon::now()->format('d M').'-'.Carbon::now()->addDays(7)->format('d M Y').'. Kapasitas 16 penumpang. Mohon konfirmasi.',
                 'status_kirim' => 'terkirim',
                 'response' => null,
                 'created_at' => Carbon::now()->subHours(3),

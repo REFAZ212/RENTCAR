@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\GarasiRequest;
+use App\Models\Notification;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
@@ -24,6 +25,16 @@ class GarasiCheckTimeout extends Command
 
         if ($expired > 0) {
             $this->info("{$expired} permintaan ditandai sebagai tidak_terjawab (timeout).");
+
+            Notification::create([
+                'type' => 'garasi_timeout',
+                'title' => 'Permintaan Garasi Timeout',
+                'message' => "{$expired} permintaan garasi melebihi batas waktu dan ditandai tidak terjawab",
+                'data' => [
+                    'count' => $expired,
+                    'link' => '/garasi',
+                ],
+            ]);
         } else {
             $this->info('Tidak ada permintaan yang timeout.');
         }

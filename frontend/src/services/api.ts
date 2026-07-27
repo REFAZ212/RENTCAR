@@ -28,6 +28,15 @@ export interface Customer {
   foto_ktp: string | null;
   foto_sim: string | null;
   orders_count?: number;
+  latestOrder?: {
+    id: number;
+    kode_order: string;
+    source: string;
+    status_order: string;
+    harga_total: number;
+    tanggal_mulai: string;
+    kendaraan?: { nama_kendaraan: string };
+  } | null;
 }
 
 export interface Kendaraan {
@@ -45,6 +54,7 @@ export interface Kendaraan {
   kategori_id?: number;
   tipe_id?: number;
   garasiPartner?: { nama_partner: string };
+  active_orders_count?: number;
   catatan?: string | null;
   garasi_partner_id?: number;
   kategori?: KategoriKendaraan;
@@ -59,13 +69,28 @@ export interface SupirCalo {
   jenis: 'supir' | 'calo';
   status: string;
   tarif_per_hari?: number;
+  komisi?: number;
+}
+
+export interface Pembayaran {
+  id: number;
+  order_id: number;
+  jumlah: number;
+  metode_pembayaran: 'cash' | 'transfer' | 'qris' | 'lainnya';
+  status: 'dp' | 'pelunasan';
+  bukti_transfer: string | null;
+  catatan: string | null;
+  created_at: string;
 }
 
 export interface Order {
   id: number;
   kode_order: string;
+  source: string;
   customer_id: number;
   kendaraan_id: number;
+  alamat_jemput: string | null;
+  tujuan: string | null;
   tanggal_mulai: string;
   tanggal_selesai: string;
   jam_mulai: string | null;
@@ -92,6 +117,7 @@ export interface Order {
   supir?: SupirCalo;
   calo?: SupirCalo;
   admin?: { name: string };
+  pembayarans?: Pembayaran[];
   created_at?: string;
   updated_at?: string;
 }
@@ -130,6 +156,7 @@ export interface TipeKendaraan {
 export interface KatalogItem extends Kendaraan {
   kategori?: KategoriKendaraan;
   tipe?: TipeKendaraan;
+  available_for_dates?: boolean;
 }
 
 export interface DashboardSummary {
@@ -264,7 +291,7 @@ export const supirCaloAPI = {
     api.get('/supir-calos', { params }),
   get: (id: number): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.get(`/supir-calos/${id}`),
   create: (data: Payload): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.post('/supir-calos', data),
-  update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.post(`/supir-calos/${id}`, data),
+  update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.put(`/supir-calos/${id}`, data),
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/supir-calos/${id}`),
 };
 
@@ -273,12 +300,12 @@ export const supirCaloAPI = {
  * ───────────────────────────────────────────────────────────── */
 export const orderAPI = {
   list: (params?: QueryParams): Promise<AxiosResponse<ListResponse<Order>>> => api.get('/orders', { params }),
-  get: (id: number): Promise<AxiosResponse<SingleResponse<Order>>> => api.get(`/orders/${id}`),
-  create: (data: Payload): Promise<AxiosResponse<SingleResponse<Order>>> => api.post('/orders', data),
-  update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<Order>>> => api.put(`/orders/${id}`, data),
+  get: (id: number): Promise<AxiosResponse<Order>> => api.get(`/orders/${id}`),
+  create: (data: Payload): Promise<AxiosResponse<Order>> => api.post('/orders', data),
+  update: (id: number, data: Payload): Promise<AxiosResponse<Order>> => api.put(`/orders/${id}`, data),
   // Laravel tidak bisa terima PUT + multipart/form-data langsung dari browser,
   // makanya pakai POST dengan field _method=PUT (method spoofing) saat ada file.
-  updateWithFile: (id: number, data: FormData): Promise<AxiosResponse<SingleResponse<Order>>> => api.post(`/orders/${id}`, data),
+  updateWithFile: (id: number, data: FormData): Promise<AxiosResponse<Order>> => api.post(`/orders/${id}`, data),
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/orders/${id}`),
 };
 
@@ -305,11 +332,29 @@ export const garasiRequestAPI = {
 /* ─────────────────────────────────────────────────────────────
  * KATALOG PUBLIK (tanpa login — landing page / halaman katalog)
  * ───────────────────────────────────────────────────────────── */
+export interface OrderRequestPayload {
+  nama_lengkap: string;
+  no_hp: string;
+  kendaraan_id: number;
+  tanggal_mulai: string;
+  tanggal_selesai: string;
+  jam_mulai?: string;
+  jam_selesai?: string;
+  opsi_supir?: 'dengan_supir' | 'lepas_kunci';
+  catatan?: string;
+}
+
+export interface OrderRequestResponse {
+  order: Order;
+  wa_link: string;
+}
+
 export const katalogAPI = {
   list: (params?: QueryParams): Promise<AxiosResponse<ListResponse<KatalogItem>>> => api.get('/katalog', { params }),
   kategoris: (): Promise<AxiosResponse<ListResponse<KategoriKendaraan>>> => api.get('/katalog/kategoris'),
   tipes: (params?: QueryParams): Promise<AxiosResponse<ListResponse<TipeKendaraan>>> => api.get('/katalog/tipes', { params }),
-  get: (id: number): Promise<AxiosResponse<SingleResponse<KatalogItem>>> => api.get(`/katalog/${id}`),
+  get: (id: number, params?: QueryParams): Promise<AxiosResponse<SingleResponse<KatalogItem>>> => api.get(`/katalog/${id}`, { params }),
+  orderRequest: (data: OrderRequestPayload): Promise<AxiosResponse<OrderRequestResponse>> => api.post('/katalog/order-request', data),
 };
 
 /* ─────────────────────────────────────────────────────────────
@@ -345,32 +390,54 @@ export const laporanAPI = {
   kendaraan: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/kendaraan', { params }),
   customer: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/customer', { params }),
   order: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/order', { params }),
+  bagiHasil: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/bagi-hasil', { params }),
+  komisiCalo: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/komisi-calo', { params }),
   export: (type: string, format: 'csv' | 'xlsx', params: LaporanParams): Promise<AxiosResponse<Blob>> =>
     api.get(`/laporan/export/${type}/${format}`, { params, responseType: 'blob' }),
 };
 
 /* ─────────────────────────────────────────────────────────────
- * PENGATURAN
- * ─────────────────────────────────────────────────────────────
- * Catatan: Pengaturan.tsx yang sudah dibuat sebelumnya memanggil
- * endpoint langsung lewat `api.get/post/put(...)` (default export),
- * bukan lewat wrapper ini. Wrapper ini disediakan sebagai opsi kalau
- * mau dirapikan — tidak wajib dipakai, Pengaturan.tsx tetap jalan
- * tanpa perubahan karena sudah pakai `api` default export langsung.
+ * NOTIFICATIONS (admin — lonceng notifikasi)
  * ───────────────────────────────────────────────────────────── */
-export const pengaturanAPI = {
-  getProfil: (): Promise<AxiosResponse<unknown>> => api.get('/pengaturan/profil'),
-  updateProfil: (data: Payload): Promise<AxiosResponse<unknown>> =>
-    api.post('/pengaturan/profil', data),
-  updatePassword: (data: Payload): Promise<AxiosResponse<unknown>> => api.put('/pengaturan/password', data),
-  getBisnis: (): Promise<AxiosResponse<unknown>> => api.get('/pengaturan/bisnis'),
-  updateBisnis: (data: Payload): Promise<AxiosResponse<unknown>> => api.post('/pengaturan/bisnis', data),
-  getHarga: (): Promise<AxiosResponse<unknown>> => api.get('/pengaturan/harga'),
-  updateHarga: (data: Payload): Promise<AxiosResponse<unknown>> => api.put('/pengaturan/harga', data),
-  getNotifikasi: (): Promise<AxiosResponse<unknown>> => api.get('/pengaturan/notifikasi'),
-  updateNotifikasi: (data: Payload): Promise<AxiosResponse<unknown>> => api.put('/pengaturan/notifikasi', data),
-  testNotifikasi: (nomor: string): Promise<AxiosResponse<unknown>> => api.post('/pengaturan/notifikasi/test', { nomor }),
-  getSistem: (): Promise<AxiosResponse<unknown>> => api.get('/pengaturan/sistem'),
-  updateSistem: (data: Payload): Promise<AxiosResponse<unknown>> => api.put('/pengaturan/sistem', data),
-  backup: (): Promise<AxiosResponse<Blob>> => api.get('/pengaturan/backup', { responseType: 'blob' }),
+export interface AppNotification {
+  id: number;
+  type: string;
+  title: string;
+  message: string;
+  data?: {
+    order_id?: number;
+    kode_order?: string;
+    customer_name?: string;
+    kendaraan_name?: string;
+    durasi_hari?: number;
+    harga_total?: number;
+    [key: string]: unknown;
+  };
+  read_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const notificationAPI = {
+  list: (params?: QueryParams): Promise<AxiosResponse<ListResponse<AppNotification>>> =>
+    api.get('/notifications', { params }),
+  unreadCount: (): Promise<AxiosResponse<{ count: number }>> =>
+    api.get('/notifications/unread-count'),
+  markAsRead: (id: number): Promise<AxiosResponse<{ message: string }>> =>
+    api.patch(`/notifications/${id}/read`),
+  markAllAsRead: (): Promise<AxiosResponse<{ message: string }>> =>
+    api.patch('/notifications/read-all'),
+};
+
+/* ─────────────────────────────────────────────────────────────
+ * SETTINGS (konfigurasi bisnis dari backend — single source of truth)
+ * ───────────────────────────────────────────────────────────── */
+export interface AppSettings {
+  overtime_rate_per_hour: number;
+  grace_period_minutes: number;
+}
+
+export const settingsAPI = {
+  get: (): Promise<AxiosResponse<AppSettings>> => api.get('/settings'),
+  update: (data: Partial<AppSettings>): Promise<AxiosResponse<{ message: string }>> => api.patch('/settings', data),
 };

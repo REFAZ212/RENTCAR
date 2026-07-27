@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { garasiPartnerAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
+import { formatHpDisplay } from '../lib/format';
 
 const emptyForm = { nama_garasi: '', nama_pemilik: '', alamat: '', no_hp: '', email: '', status_aktif: true, is_own: false, catatan: '' };
 
@@ -191,7 +192,7 @@ export default function GarasiPartner() {
                     <div className="text-xs text-gray-500">{item.email || '-'}</div>
                   </td>
                   <td className="px-4 py-3 text-gray-700">{item.nama_pemilik}</td>
-                  <td className="px-4 py-3 text-gray-700">{item.no_hp}</td>
+                  <td className="px-4 py-3 text-gray-700">{formatHpDisplay(item.no_hp)}</td>
                   <td className="px-4 py-3 text-gray-700">{item.kendaraans_count} unit</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${item.status_aktif ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>

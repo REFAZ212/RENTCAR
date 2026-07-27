@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\GarasiCheckTimeout;
+use App\Console\Commands\OrderReminderH1;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
@@ -9,3 +10,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command(GarasiCheckTimeout::class)->everyMinute();
+Schedule::command(OrderReminderH1::class)->dailyAt('08:00');

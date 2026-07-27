@@ -21,6 +21,7 @@ import {
 } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
+import { formatHpDisplay } from '../lib/format';
 
 const emptyPartnerForm = {
   nama_garasi: '',
@@ -38,6 +39,8 @@ const vehicleStatusStyles: Record<string, string> = {
   disewa: 'bg-rented-50 text-rented-500',
   maintenance: 'bg-maint-50 text-maint-500',
 };
+
+const vehicleStatuses = ['tersedia', 'disewa', 'maintenance'] as const;
 
 const vehicleStatusLabels: Record<string, string> = {
   tersedia: 'Tersedia',
@@ -76,6 +79,9 @@ function GarasiPartnerTab() {
   const [tipes, setTipes] = useState<any[]>([]);
   const [kendaraanFotoFile, setKendaraanFotoFile] = useState<File | null>(null);
   const [kendaraanFotoPreview, setKendaraanFotoPreview] = useState<string | null>(null);
+  useEffect(() => {
+    return () => { if (kendaraanFotoPreview) URL.revokeObjectURL(kendaraanFotoPreview); };
+  }, [kendaraanFotoPreview]);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [expandedKendaraans, setExpandedKendaraans] = useState<Record<number, Kendaraan[]>>({});
   const [loadingKendaraans, setLoadingKendaraans] = useState<Set<number>>(new Set());
@@ -561,7 +567,7 @@ function GarasiPartnerTab() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-700">{item.nama_pemilik}</td>
-                    <td className="px-4 py-3 text-gray-700">{item.no_hp}</td>
+                    <td className="px-4 py-3 text-gray-700">{formatHpDisplay(item.no_hp)}</td>
                     <td className="px-4 py-3 text-gray-700">{item.kendaraans_count} unit</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 text-xs font-medium rounded-full ${item.status_aktif ? 'bg-avail-50 text-avail-500' : 'bg-maint-50 text-maint-500'}`}>
@@ -721,6 +727,9 @@ function GarasiSayaTab() {
   const [form, setForm] = useState<Record<string, any>>({});
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  useEffect(() => {
+    return () => { if (fotoPreview) URL.revokeObjectURL(fotoPreview); };
+  }, [fotoPreview]);
   const [confirmDelete, setConfirmDelete] = useState<Kendaraan | null>(null);
   const [lastAdded, setLastAdded] = useState(false);
   const [editingName, setEditingName] = useState(false);

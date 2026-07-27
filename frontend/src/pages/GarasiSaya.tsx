@@ -59,6 +59,9 @@ export default function GarasiSaya() {
   const [form, setForm] = useState<KendaraanForm>({} as KendaraanForm);
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  useEffect(() => {
+    return () => { if (fotoPreview) URL.revokeObjectURL(fotoPreview); };
+  }, [fotoPreview]);
   const [confirmDelete, setConfirmDelete] = useState<Kendaraan | null>(null);
   const [lastAdded, setLastAdded] = useState(false);
 
@@ -82,14 +85,14 @@ export default function GarasiSaya() {
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
     kategoriAPI.list()
-      .then(({ data }) => setKategoris(data.data))
+      .then(({ data }) => setKategoris(data))
       .catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!form.kategori_id) { setTipes([]); return; }
     tipeAPI.list({ kategori_id: form.kategori_id })
-      .then(({ data }) => setTipes(data.data))
+      .then(({ data }) => setTipes(data))
       .catch(() => {});
   }, [form.kategori_id]);
 

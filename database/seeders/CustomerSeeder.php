@@ -41,6 +41,7 @@ class CustomerSeeder extends Seeder
                 'email' => 'siti.nurhaliza@email.com',
                 'alamat' => 'Jl. Melati No. 20, Bandung',
                 'no_ktp' => '3273011234560004',
+                'no_sim' => '327301123470',
             ],
             [
                 'nama_lengkap' => 'Bambang Supriyadi',
@@ -63,6 +64,7 @@ class CustomerSeeder extends Seeder
                 'no_hp' => '085678901240',
                 'alamat' => 'Jl. Mawar No. 15, Bandung',
                 'no_ktp' => '3273011234560007',
+                'no_sim' => '327301123471',
             ],
             [
                 'nama_lengkap' => 'Rina Wulandari',
@@ -86,6 +88,7 @@ class CustomerSeeder extends Seeder
                 'email' => 'maya.sari@email.com',
                 'alamat' => 'Jl. Thamrin No. 11, Bandung',
                 'no_ktp' => '3273011234560010',
+                'no_sim' => '327301123472',
             ],
         ];
 

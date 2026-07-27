@@ -48,6 +48,14 @@ function PrivateRoute({ children }: PropsWithChildren) {
   return user ? <Layout>{children}</Layout> : <Navigate to="/admin/login" />;
 }
 
+function RoleRoute({ children, allowedRoles }: PropsWithChildren & { allowedRoles: string[] }) {
+  const { user } = useAuth();
+  if (!user || !allowedRoles.includes(user.role ?? '')) {
+    return <Navigate to="/" />;
+  }
+  return <>{children}</>;
+}
+
 function PublicRoute({ children }: PropsWithChildren) {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
@@ -78,6 +86,16 @@ export default function App() {
           <Route path="/admin/login" element={<PublicRoute><Login /></PublicRoute>} />
 
           {/* Admin routes — auth required */}
+          <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
+          <Route path="/kendaraan" element={<PrivateRoute><Kendaraan /></PrivateRoute>} />
+          <Route path="/kategori-tipe" element={<PrivateRoute><KategoriTipe /></PrivateRoute>} />
+          <Route path="/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
+          <Route path="/supir-calo" element={<PrivateRoute><SupirCalo /></PrivateRoute>} />
+          <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
+          <Route path="/gps" element={<PrivateRoute><GpsPage /></PrivateRoute>} />
+          <Route path="/laporan" element={<PrivateRoute><RoleRoute allowedRoles={['admin']}><Laporan /></RoleRoute></PrivateRoute>} />
+          <Route path="/garasi" element={<PrivateRoute><GarasiPage /></PrivateRoute>} />
+          <Route path="/pengaturan" element={<PrivateRoute><RoleRoute allowedRoles={['admin']}><Pengaturan /></RoleRoute></PrivateRoute>} />
           <Route path="/admin" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/admin/kendaraan" element={<PrivateRoute><Kendaraan /></PrivateRoute>} />
           <Route path="/admin/kategori-tipe" element={<PrivateRoute><KategoriTipe /></PrivateRoute>} />

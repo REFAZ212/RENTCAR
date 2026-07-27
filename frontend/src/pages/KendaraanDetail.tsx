@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { katalogAPI, type TipeKendaraan, type KategoriKendaraan, type GarasiPartner } from '../services/api';
-
-/* ------------------------------------------------------------------ */
-/* Types                                                               */
-/* ------------------------------------------------------------------ */
 
 interface KatalogKendaraan {
   id: number | string;
@@ -22,6 +18,7 @@ interface KatalogKendaraan {
   catatan?: string | null;
   kategori?: KategoriKendaraan;
   garasi_partner?: GarasiPartner;
+  available_for_dates?: boolean;
 }
 
 interface SpecItem {
@@ -30,38 +27,94 @@ interface SpecItem {
   value: string | number;
 }
 
-/* ------------------------------------------------------------------ */
-/* Helpers                                                             */
-/* ------------------------------------------------------------------ */
-
-function formatRupiah(n: number | string): string {
-  return new Intl.NumberFormat('id-ID', {
+const formatRupiah = (n: number | string): string =>
+  new Intl.NumberFormat('id-ID', {
     style: 'currency',
     currency: 'IDR',
     maximumFractionDigits: 0,
   }).format(Number(n));
-}
 
-function getFotoUrl(foto?: string | null): string | null {
+const getFotoUrl = (foto?: string | null): string | null => {
   if (!foto) return null;
   if (foto.startsWith('http')) return foto;
   return `/storage/${foto}`;
-}
+};
 
-function buildWALink(item: KatalogKendaraan, adminPhone = '62895361054272'): string {
+const buildWALink = (item: KatalogKendaraan, adminPhone = '62895361054272'): string => {
   const pesan = `Halo, saya tertarik untuk menyewa:\n\n${item.nama_kendaraan} (${item.merek} ${item.model} ${item.tahun})\nPlat: ${item.plat_nomor}\nHarga: ${formatRupiah(item.harga_sewa_per_hari)}/hari\n\nTanggal: -\nDurasi: - hari\n\nMohon info ketersediaan dan cara pemesanannya. Terima kasih.`;
   return `https://wa.me/${adminPhone}?text=${encodeURIComponent(pesan)}`;
+};
+
+function DetailSkeleton() {
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 py-10">
+        <div className="skeleton h-6 w-32 mb-6 rounded" />
+        <div className="skeleton h-80 w-full rounded-xl mb-6" />
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="space-y-3">
+              <div className="skeleton h-6 w-24 rounded-full" />
+              <div className="skeleton h-8 w-64 rounded" />
+              <div className="skeleton h-5 w-40 rounded" />
+            </div>
+            <div className="text-right space-y-2">
+              <div className="skeleton h-8 w-32 rounded" />
+              <div className="skeleton h-4 w-16 rounded ml-auto" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-100">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="skeleton h-9 w-9 rounded-lg" />
+                <div className="space-y-1">
+                  <div className="skeleton h-3 w-12 rounded" />
+                  <div className="skeleton h-4 w-20 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="skeleton h-32 w-full rounded-2xl" />
+      </div>
+    </div>
+  );
 }
 
-/* ------------------------------------------------------------------ */
-/* Component                                                           */
-/* ------------------------------------------------------------------ */
+function NotFoundView() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <h2 className="text-xl font-bold text-gray-700 mb-2">Kendaraan Tidak Ditemukan</h2>
+        <p className="text-gray-500 mb-4">Kendaraan mungkin sudah tidak tersedia</p>
+        <Link
+          to="/katalog"
+          className="px-5 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors inline-block"
+        >
+          Kembali ke Katalog
+        </Link>
+      </div>
+    </div>
+  );
+}
 
 export default function KendaraanDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const [item, setItem] = useState<KatalogKendaraan | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  const tanggalMulai = searchParams.get('tanggal_mulai') || '';
+  const durasiHari = searchParams.get('durasi_hari') || '';
 
   useEffect(() => {
     if (!id) {
@@ -71,12 +124,17 @@ export default function KendaraanDetail() {
     }
     setLoading(true);
     setNotFound(false);
+
+    const params: Record<string, string> = {};
+    if (tanggalMulai) params.tanggal_mulai = tanggalMulai;
+    if (durasiHari) params.durasi_hari = durasiHari;
+
     katalogAPI
-      .get(Number(id))
+      .get(Number(id), Object.keys(params).length > 0 ? params : undefined)
       .then(({ data }) => setItem(data as unknown as KatalogKendaraan))
       .catch(() => setNotFound(true))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, tanggalMulai, durasiHari]);
 
   if (loading) {
     return (
@@ -146,7 +204,7 @@ export default function KendaraanDetail() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Top bar */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
+      <nav className="bg-white border-b border-gray-200 sticky top-0 z-40" aria-label="Navigasi detail kendaraan">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
           <Link to="/katalog#semua-armada" className="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-600 transition-colors">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,11 +230,15 @@ export default function KendaraanDetail() {
         </div>
       </nav>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
         {/* Foto */}
-        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
+        <article className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-6">
           {fotoUrl ? (
-            <img src={fotoUrl} alt={item.nama_kendaraan} className="w-full h-72 sm:h-96 object-cover" />
+            <img
+              src={fotoUrl}
+              alt={`${item.merek} ${item.model}`}
+              className="w-full h-72 sm:h-96 object-cover"
+            />
           ) : (
             <div className="w-full h-72 sm:h-96 bg-gray-100 flex items-center justify-center">
               <svg className="w-20 h-20 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -189,10 +251,10 @@ export default function KendaraanDetail() {
               </svg>
             </div>
           )}
-        </div>
+        </article>
 
         {/* Info */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
+        <section className="bg-white rounded-2xl border border-gray-200 p-6 mb-6" aria-label="Detail kendaraan">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -212,7 +274,7 @@ export default function KendaraanDetail() {
                 {item.merek} {item.model} &middot; {item.tahun}
               </p>
             </div>
-            <div className="text-right">
+            <div className="text-right shrink-0">
               <div className="text-2xl font-bold text-blue-600">{formatRupiah(item.harga_sewa_per_hari)}</div>
               <div className="text-sm text-gray-500">per hari</div>
             </div>
@@ -238,13 +300,8 @@ export default function KendaraanDetail() {
           {/* Garasi */}
           {item.garasi_partner && (
             <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2 text-sm text-gray-600">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                />
+              <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
               Garasi: <span className="font-medium text-gray-900">{item.garasi_partner.nama_garasi}</span>
@@ -258,7 +315,30 @@ export default function KendaraanDetail() {
               <p className="text-sm text-gray-700 whitespace-pre-line">{item.catatan}</p>
             </div>
           )}
-        </div>
+        </section>
+
+        {/* Unavailable Banner */}
+        {tanggalMulai && item.available_for_dates === false && (
+          <div className="bg-orange-50 border border-orange-200 rounded-2xl p-5 mb-6 flex items-start gap-3">
+            <div className="w-9 h-9 bg-orange-100 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
+              <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-orange-800">Kendaraan tidak tersedia untuk tanggal ini</p>
+              <p className="text-xs text-orange-600 mt-1">
+                Kendaraan ini sudah memiliki order pada tanggal yang Anda pilih. Silakan pilih tanggal lain atau lihat kendaraan serupa.
+              </p>
+              <Link
+                to="/katalog"
+                className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 hover:text-orange-800 mt-2 underline underline-offset-2"
+              >
+                Lihat katalog lengkap
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* CTA */}
         {item.status === 'tersedia' ? (

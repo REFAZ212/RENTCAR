@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { isAxiosError } from 'axios';
-import { orderAPI, customerAPI, kendaraanAPI, supirCaloAPI } from '../services/api';
+import { orderAPI, customerAPI, kendaraanAPI, supirCaloAPI, settingsAPI, type Customer, type Kendaraan, type SupirCalo, type Order } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
+import { formatHpDisplay, todayJakarta, nowWIB } from '../lib/format';
 
 /**
  * ─────────────────────────────────────────────────────────────
@@ -25,15 +26,14 @@ type StatusPengiriman = 'belum_diambil' | 'sudah_diantarkan' | 'dalam_penyewaan'
 type MetodePembayaran = 'cash' | 'transfer' | 'qris' | 'lainnya';
 type StatusFilter = '' | StatusOrder | 'overdue';
 
-const statusOrderOptions: StatusOrder[] = ['pending', 'confirmed', 'active', 'completed', 'cancelled'];
 const statusPembayaranOptions: StatusPembayaran[] = ['unpaid', 'partial', 'paid'];
 
 // Status pengiriman yang mewajibkan bukti foto kendaraan diunggah.
 const statusPengirimanButuhBukti: StatusPengiriman[] = ['sudah_diantarkan', 'dalam_penyewaan'];
 
-// Tarif denda keterlambatan per jam. Harus selalu sama dengan
-// App\Models\Order::OVERTIME_RATE_PER_HOUR di backend.
-const OVERTIME_RATE_PER_HOUR = 25000;
+// Tarif denda keterlambatan per jam — diambil dari backend supaya
+// selalu konsisten (single source of truth di OvertimeCalculator).
+const DEFAULT_OVERTIME_RATE = 25000;
 
 const statusOrderLabels: Record<StatusOrder, string> = {
   pending: 'Menunggu',
@@ -79,84 +79,32 @@ const statusColors: Record<string, string> = {
   selesai: 'bg-ink-200 text-ink-700',
 };
 
+const formatJam = (jam: number): string => {
+  const hari = Math.floor(jam / 24);
+  const sisaJam = jam % 24;
+  if (hari === 0) return `${sisaJam} jam`;
+  if (sisaJam === 0) return `${hari} hari`;
+  return `${hari} hari ${sisaJam} jam`;
+};
+
 const inputClass =
   'w-full rounded-lg border border-ink-200 px-3 py-2 text-sm text-ink-900 outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500';
 
 /* ─────────────────────────────────────────────────────────────
- * TYPES — ENTITAS
+ * TYPES — ENTITAS (di-import dari api.ts sebagai single source of truth)
  * ───────────────────────────────────────────────────────────── */
-interface Customer {
-  id: number;
-  nama_lengkap: string;
-  no_hp: string;
-  email?: string | null;
-  alamat?: string | null;
-  no_ktp?: string | null;
-  no_sim?: string | null;
-}
-
-interface Kendaraan {
-  id: number;
-  nama_kendaraan: string;
-  plat_nomor: string;
-  warna: string;
-  foto: string | null;
-  harga_sewa_per_hari: number;
-  status: string;
-  merek?: string;
-  model?: string;
-  tahun?: number;
-  kapasitas_penumpang?: number;
-  garasiPartner?: { nama_partner: string };
-}
-
-interface SupirCalo {
-  id: number;
-  nama: string;
-  no_hp: string;
-  status: string;
-  tarif_per_hari?: number;
-  komisi?: number;
-}
-
-interface Order {
-  id: number;
-  kode_order: string;
-  customer_id: number;
-  kendaraan_id: number;
-  tanggal_mulai: string;
-  tanggal_selesai: string;
-  jam_mulai: string | null;
-  jam_selesai: string | null;
-  harga_per_hari: number;
-  harga_total: number;
-  durasi_hari: number;
-  metode_pembayaran: MetodePembayaran | null;
-  status_order: StatusOrder;
-  status_pembayaran: StatusPembayaran;
-  status_pengiriman: StatusPengiriman;
-  supir_id: number | null;
-  calo_id: number | null;
-  catatan: string | null;
-  bukti_transfer: string | null;
-  bukti_pengiriman: string | null;
-  bukti_pengembalian: string | null;
-  jam_overtime: number;
-  denda_overtime: number;
-  jam_overtime_saat_ini: number;
-  denda_overtime_saat_ini: number;
-  customer?: Customer;
-  kendaraan?: Kendaraan;
-  supir?: SupirCalo;
-  calo?: SupirCalo;
-  admin?: { name: string };
-  created_at?: string;
-  updated_at?: string;
-}
 
 interface OrderForm {
   customer_id: string;
+  customer_name: string;
+  customer_no_hp: string;
+  customer_email: string;
+  customer_alamat: string;
+  customer_no_ktp: string;
+  customer_no_sim: string;
   kendaraan_id: string;
+  alamat_jemput: string;
+  tujuan: string;
   tanggal_mulai: string;
   tanggal_selesai: string;
   jam_mulai: string;
@@ -186,14 +134,22 @@ interface ListResponse<T> {
 
 const emptyForm: OrderForm = {
   customer_id: '',
+  customer_name: '',
+  customer_no_hp: '',
+  customer_email: '',
+  customer_alamat: '',
+  customer_no_ktp: '',
+  customer_no_sim: '',
   kendaraan_id: '',
+  alamat_jemput: '',
+  tujuan: '',
   tanggal_mulai: '',
   tanggal_selesai: '',
   jam_mulai: '08:00',
   jam_selesai: '17:00',
   harga_per_hari: '',
   metode_pembayaran: 'cash',
-  status_order: 'confirmed',
+  status_order: 'pending',
   status_pembayaran: 'unpaid',
   status_pengiriman: 'belum_diambil',
   supir_id: '',
@@ -381,14 +337,17 @@ export default function Orders() {
   const [calos, setCalos] = useState<SupirCalo[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [overtimeRate, setOvertimeRate] = useState(DEFAULT_OVERTIME_RATE);
 
   // ── Filter (disatukan) ────────────────────────────────────
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
   const [search, setSearch] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const loadRequestId = useRef(0);
 
   const [showForm, setShowForm] = useState(false);
+  const [createStep, setCreateStep] = useState(1);
   const [form, setForm] = useState<OrderForm>(emptyForm);
   const [kendaraanSearch, setKendaraanSearch] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<Order | null>(null);
@@ -398,12 +357,14 @@ export default function Orders() {
   const [completeFilePreview, setCompleteFilePreview] = useState<string | null>(null);
   const [completePaymentFile, setCompletePaymentFile] = useState<File | null>(null);
   const [completePaymentPreview, setCompletePaymentPreview] = useState<string | null>(null);
+  const [completeReturnTime, setCompleteReturnTime] = useState(nowWIB());
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
   const [buktiBaruFile, setBuktiBaruFile] = useState<File | null>(null);
   const [buktiBaruPreview, setBuktiBaruPreview] = useState<string | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
   const [isSewakan, setIsSewakan] = useState(false);
+  const [isKonfirmasi, setIsKonfirmasi] = useState(false);
   const [editKendaraanSearch, setEditKendaraanSearch] = useState('');
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [editForm, setEditForm] = useState<OrderEditForm>({});
@@ -413,17 +374,66 @@ export default function Orders() {
   const [editBuktiPengirimanFile, setEditBuktiPengirimanFile] = useState<File | null>(null);
   const [editBuktiPengirimanPreview, setEditBuktiPengirimanPreview] = useState<string | null>(null);
   const [editBuktiPengirimanNewPreview, setEditBuktiPengirimanNewPreview] = useState<string | null>(null);
+  const [newPaymentAmount, setNewPaymentAmount] = useState<string>('');
 
-  // Revoke semua blob preview URL saat komponen di-unmount, biar tidak numpuk di memori.
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+  const [editCustomerSearch, setEditCustomerSearch] = useState('');
+  const [showEditCustomerSuggestions, setShowEditCustomerSuggestions] = useState(false);
+  const customerSearchRef = useRef<HTMLDivElement>(null);
+  const editCustomerSearchRef = useRef<HTMLDivElement>(null);
+  const editKendaraanListRef = useRef<HTMLDivElement>(null);
+
+  const [custFotoKtpFile, setCustFotoKtpFile] = useState<File | null>(null);
+  const [custFotoKtpPreview, setCustFotoKtpPreview] = useState<string | null>(null);
+  const [custFotoKtpDelete, setCustFotoKtpDelete] = useState(false);
+  const [editCustFotoKtpFile, setEditCustFotoKtpFile] = useState<File | null>(null);
+  const [editCustFotoKtpPreview, setEditCustFotoKtpPreview] = useState<string | null>(null);
+  const [editCustFotoKtpDelete, setEditCustFotoKtpDelete] = useState(false);
+
+  // M5: Revoke each blob preview URL before replacing it to prevent memory leaks.
+
+  // Ambil pengaturan dari backend (tarif denda overtime, dll.)
   useEffect(() => {
-    return () => {
-      if (buktiBaruPreview) URL.revokeObjectURL(buktiBaruPreview);
-      if (editBuktiNewPreview) URL.revokeObjectURL(editBuktiNewPreview);
-      if (editBuktiPengirimanNewPreview) URL.revokeObjectURL(editBuktiPengirimanNewPreview);
-      if (completeFilePreview) URL.revokeObjectURL(completeFilePreview);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    settingsAPI.get().then(({ data }) => setOvertimeRate(data.overtime_rate_per_hour)).catch(() => {});
   }, []);
+
+  // Auto-scroll ke kendaraan yang dipilih saat modal edit/konfirmasi dibuka
+  useEffect(() => {
+    if (!showEditForm || !editForm.kendaraan_id) return;
+    const timer = setTimeout(() => {
+      const el = editKendaraanListRef.current?.querySelector('[data-selected="true"]');
+      el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [showEditForm, editForm.kendaraan_id]);
+
+  // Click outside to close customer suggestions
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (customerSearchRef.current && !customerSearchRef.current.contains(e.target as Node)) {
+        setShowCustomerSuggestions(false);
+      }
+      if (editCustomerSearchRef.current && !editCustomerSearchRef.current.contains(e.target as Node)) {
+        setShowEditCustomerSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const filteredCustomers = useMemo(() => {
+    if (!customerSearch) return [];
+    const q = customerSearch.toLowerCase();
+    return customers.filter((c) => c.nama_lengkap.toLowerCase().includes(q)).slice(0, 8);
+  }, [customerSearch, customers]);
+
+  const filteredEditCustomers = useMemo(() => {
+    if (!editCustomerSearch) return [];
+    const q = editCustomerSearch.toLowerCase();
+    return customers.filter((c) => c.nama_lengkap.toLowerCase().includes(q)).slice(0, 8);
+  }, [editCustomerSearch, customers]);
+
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -434,6 +444,7 @@ export default function Orders() {
   }, [search]);
 
   const load = useCallback(() => {
+    const requestId = ++loadRequestId.current;
     setLoading(true);
     const params: Record<string, string> = { search: debouncedSearch };
 
@@ -448,11 +459,12 @@ export default function Orders() {
     orderAPI
       .list(params)
       .then(({ data }: { data: ListResponse<Order> }) => {
+        if (requestId !== loadRequestId.current) return; // M2: ignore stale response
         const result = statusFilter === 'overdue' ? data.data.filter((o) => o.jam_overtime_saat_ini > 0) : data.data;
         setItems(result);
       })
-      .catch(() => toast.error('Gagal memuat data order'))
-      .finally(() => setLoading(false));
+      .catch(() => { if (requestId === loadRequestId.current) toast.error('Gagal memuat data order'); })
+      .finally(() => { if (requestId === loadRequestId.current) setLoading(false); });
   }, [debouncedSearch, statusFilter, toast]);
 
   useEffect(() => {
@@ -463,23 +475,19 @@ export default function Orders() {
     customerAPI
       .list()
       .then(({ data }: { data: ListResponse<Customer> }) => setCustomers(data.data))
-      .catch(() => {});
-    kendaraanAPI
-      .list({ status: 'tersedia' })
-      .then(({ data }: { data: ListResponse<Kendaraan> }) => setKendaraans(data.data))
-      .catch(() => {});
+      .catch(() => toast.error('Gagal memuat data customer'));
     kendaraanAPI
       .list()
-      .then(({ data }: { data: ListResponse<Kendaraan> }) => setAllKendaraans(data.data))
-      .catch(() => {});
+      .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
+      .catch(() => toast.error('Gagal memuat data kendaraan'));
     supirCaloAPI
       .list({ jenis: 'supir' })
       .then(({ data }: { data: ListResponse<SupirCalo> }) => setSupirs(data.data))
-      .catch(() => {});
+      .catch(() => toast.error('Gagal memuat data supir'));
     supirCaloAPI
       .list({ jenis: 'calo' })
       .then(({ data }: { data: ListResponse<SupirCalo> }) => setCalos(data.data))
-      .catch(() => {});
+      .catch(() => toast.error('Gagal memuat data calo'));
   }, []);
 
   // Ringkasan cepat dari data yang sedang ditampilkan (mengikuti filter aktif).
@@ -496,36 +504,125 @@ export default function Orders() {
   // Order yang sedang aktif TAPI sudah lewat batas waktu pengembalian.
   const overdueItems = useMemo(() => items.filter((i) => i.status_order === 'active' && i.jam_overtime_saat_ini > 0), [items]);
   const [alertDismissed, setAlertDismissed] = useState(false);
+  const prevOverdueCountRef = useRef(overdueItems.length);
   useEffect(() => {
-    setAlertDismissed(false);
-  }, [items]);
+    // Reset alert hanya jika jumlah overdue BERUBAH (order baru terlambat
+    // atau order terlambat terselesaikan), bukan setiap kali items di-poll.
+    if (overdueItems.length !== prevOverdueCountRef.current) {
+      setAlertDismissed(false);
+      prevOverdueCountRef.current = overdueItems.length;
+    }
+  }, [overdueItems]);
 
   const closeCreateModal = () => {
     setShowForm(false);
+    setCreateStep(1);
     setKendaraanSearch('');
+    setCustomerSearch('');
     if (buktiBaruPreview) URL.revokeObjectURL(buktiBaruPreview);
     setBuktiBaruFile(null);
     setBuktiBaruPreview(null);
+    if (custFotoKtpPreview) URL.revokeObjectURL(custFotoKtpPreview);
+    setCustFotoKtpFile(null);
+    setCustFotoKtpPreview(null);
+    setCustFotoKtpDelete(false);
+  };
+
+  const validateStep1 = (): string | null => {
+    if (!form.customer_name.trim()) return 'Nama customer wajib diisi';
+    if (!form.customer_no_hp) return 'No. HP wajib diisi';
+    if (!form.customer_no_sim) return 'No. Identitas (SIM) wajib diisi';
+    if (!form.customer_alamat.trim()) return 'Alamat wajib diisi';
+    if (!form.customer_id && !custFotoKtpFile) return 'Dokumen identitas wajib diupload untuk customer baru';
+    return null;
+  };
+
+  const validateStep2 = (): string | null => {
+    if (!form.kendaraan_id) return 'Pilih kendaraan terlebih dahulu';
+    return null;
+  };
+
+  const validateStep3 = (): string | null => {
+    if (!form.tanggal_mulai) return 'Tanggal mulai wajib diisi';
+    if (!form.tanggal_selesai) return 'Tanggal selesai wajib diisi';
+    if (!form.tujuan.trim()) return 'Tujuan wajib diisi';
+    const today = todayJakarta();
+    if (form.tanggal_mulai < today) return 'Tanggal mulai tidak boleh di masa lalu';
+    if (form.tanggal_selesai < form.tanggal_mulai) return 'Tanggal selesai harus setelah atau sama dengan tanggal mulai';
+    return null;
+  };
+
+  const validateCurrentStep = (): boolean => {
+    let error: string | null = null;
+    if (createStep === 1) error = validateStep1();
+    else if (createStep === 2) error = validateStep2();
+    else if (createStep === 3) error = validateStep3();
+    if (error) {
+      toast.error(error);
+      return false;
+    }
+    return true;
+  };
+
+  const handleNextStep = () => {
+    if (validateCurrentStep()) {
+      setCreateStep((s) => Math.min(s + 1, 3));
+    }
+  };
+
+  const handlePrevStep = () => {
+    setCreateStep((s) => Math.max(s - 1, 1));
   };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!form.customer_name.trim()) { toast.error('Nama customer wajib diisi'); return; }
+    if (!form.customer_no_hp) { toast.error('No. HP wajib diisi'); return; }
+    if (!form.customer_no_sim) { toast.error('No. Identitas (SIM) wajib diisi'); return; }
+    if (!form.customer_alamat.trim()) { toast.error('Alamat wajib diisi'); return; }
+    if (!form.kendaraan_id) { toast.error('Pilih kendaraan terlebih dahulu'); return; }
+    if (!form.tanggal_mulai) { toast.error('Tanggal mulai wajib diisi'); return; }
+    if (!form.tanggal_selesai) { toast.error('Tanggal selesai wajib diisi'); return; }
+    if (!form.tujuan.trim()) { toast.error('Tujuan wajib diisi'); return; }
+    if (!form.customer_id && !custFotoKtpFile) {
+      toast.error('Dokumen identitas wajib diupload untuk customer baru');
+      return;
+    }
+    const today = todayJakarta();
+    if (form.tanggal_mulai < today) { toast.error('Tanggal mulai tidak boleh di masa lalu'); return; }
+    if (form.tanggal_selesai < form.tanggal_mulai) { toast.error('Tanggal selesai harus setelah atau sama dengan tanggal mulai'); return; }
     setSubmitting(true);
     try {
-      if (buktiBaruFile) {
+      const payload: Record<string, unknown> = {};
+      Object.entries(form).forEach(([k, v]) => {
+        if (v !== '' && v !== null && v !== undefined) {
+          if (k === 'customer_id' && !v) return;
+          payload[k] = v;
+        }
+      });
+      if (form.customer_name) {
+        payload.customer_name = form.customer_name;
+      }
+      const needFormData = buktiBaruFile || custFotoKtpFile;
+      if (custFotoKtpDelete) payload.customer_foto_ktp_delete = true;
+      if (needFormData) {
         const fd = new FormData();
-        Object.entries(form).forEach(([k, v]) => {
-          if (v !== '' && v !== null && v !== undefined) fd.append(k, v);
-        });
-        fd.append('bukti_transfer', buktiBaruFile);
+        Object.entries(payload).forEach(([k, v]) => fd.append(k, String(v)));
+        if (buktiBaruFile) fd.append('bukti_transfer', buktiBaruFile);
+        if (custFotoKtpFile) fd.append('customer_foto_ktp', custFotoKtpFile);
         await orderAPI.create(fd);
       } else {
-        await orderAPI.create(form as unknown as Record<string, unknown>);
+        await orderAPI.create(payload);
       }
       toast.success('Order berhasil ditambahkan');
       setForm(emptyForm);
+      setCustomerSearch('');
       closeCreateModal();
       load();
+      kendaraanAPI
+        .list()
+        .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
+        .catch(() => {});
     } catch (err) {
       let msg = 'Gagal membuat order';
       if (isAxiosError(err)) {
@@ -566,16 +663,17 @@ export default function Orders() {
   const setField = <K extends keyof OrderForm>(key: K, value: OrderForm[K]) => setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleKendaraanSelect = (id: number) => {
-    const k = [...kendaraans, ...allKendaraans].find((x) => x.id === id);
+    const allK = new Map([...kendaraans, ...allKendaraans].map((x) => [x.id, x]));
+    const k = allK.get(id);
     setForm((prev) => ({ ...prev, kendaraan_id: String(id), harga_per_hari: k?.harga_sewa_per_hari ? String(k.harga_sewa_per_hari) : '' }));
   };
 
   const durasiHari = (() => {
     if (form.tanggal_mulai && form.tanggal_selesai) {
-      const mulai = new Date(`${form.tanggal_mulai}T${form.jam_mulai || '00:00'}`);
-      const selesai = new Date(`${form.tanggal_selesai}T${form.jam_selesai || '23:59'}`);
+      const mulai = new Date(`${form.tanggal_mulai}T00:00:00`);
+      const selesai = new Date(`${form.tanggal_selesai}T00:00:00`);
       const diffMs = selesai.getTime() - mulai.getTime();
-      const diff = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      const diff = Math.round(diffMs / (1000 * 60 * 60 * 24));
       return Math.max(diff, 1);
     }
     return 0;
@@ -585,26 +683,37 @@ export default function Orders() {
   const supirTarifCreate = selectedSupirCreate ? Number(selectedSupirCreate.tarif_per_hari || 0) : 0;
   const hargaTotal = durasiHari * (Number(form.harga_per_hari) || 0) + supirTarifCreate * durasiHari;
 
+  const isFormIncomplete = !form.customer_name.trim() || !form.customer_no_hp || !form.customer_no_sim || !form.customer_alamat.trim() || !form.kendaraan_id || !form.tanggal_mulai || !form.tanggal_selesai || !form.tujuan.trim() || !form.harga_per_hari || (!form.customer_id && !custFotoKtpFile);
+
   /**
    * Buka modal edit. Dipakai baik untuk edit biasa (pensil) maupun aksi cepat
    * "Sewakan" (dulu 2 blok kode terpisah yang isinya nyaris identik).
    */
-  const openEditModal = (item: Order, { sewakan = false }: { sewakan?: boolean } = {}) => {
+  const openEditModal = (item: Order, { sewakan = false, konfirmasi = false }: { sewakan?: boolean; konfirmasi?: boolean } = {}) => {
     setIsSewakan(sewakan);
+    setIsKonfirmasi(konfirmasi);
     setEditingOrder(item);
     setEditForm({
       customer_id: String(item.customer_id),
+      customer_name: item.customer?.nama_lengkap || '',
+      customer_no_hp: item.customer?.no_hp || '',
+      customer_email: item.customer?.email || '',
+      customer_alamat: item.customer?.alamat || '',
+      customer_no_ktp: item.customer?.no_ktp || '',
+      customer_no_sim: item.customer?.no_sim || '',
       kendaraan_id: String(item.kendaraan_id),
       tanggal_mulai: fmtDate(item.tanggal_mulai),
       tanggal_selesai: fmtDate(item.tanggal_selesai),
       jam_mulai: fmtTime(item.jam_mulai) || '08:00',
       jam_selesai: fmtTime(item.jam_selesai) || '17:00',
-      status_order: sewakan ? 'active' : item.status_order,
+      status_order: konfirmasi ? 'confirmed' : sewakan ? 'active' : item.status_order,
       status_pembayaran: item.status_pembayaran,
       metode_pembayaran: item.metode_pembayaran || 'cash',
-      status_pengiriman: sewakan ? 'dalam_penyewaan' : item.status_pengiriman,
+      status_pengiriman: sewakan ? 'sudah_diantarkan' : item.status_pengiriman,
       supir_id: item.supir_id ? String(item.supir_id) : '',
       calo_id: item.calo_id ? String(item.calo_id) : '',
+      alamat_jemput: item.alamat_jemput || '',
+      tujuan: item.tujuan || '',
       catatan: item.catatan || '',
     });
     setEditBuktiFile(null);
@@ -613,6 +722,10 @@ export default function Orders() {
     setEditBuktiPengirimanFile(null);
     setEditBuktiPengirimanPreview(item.bukti_pengiriman ? `/storage/${item.bukti_pengiriman}` : null);
     setEditBuktiPengirimanNewPreview(null);
+    setEditCustFotoKtpFile(null);
+    setEditCustFotoKtpPreview(item.customer?.foto_ktp ? `/storage/${item.customer.foto_ktp}` : null);
+    setEditCustFotoKtpDelete(false);
+    setNewPaymentAmount('');
     setShowEditForm(true);
   };
 
@@ -621,6 +734,7 @@ export default function Orders() {
     setEditingOrder(null);
     setEditForm({});
     setEditKendaraanSearch('');
+    setEditCustomerSearch('');
     if (editBuktiNewPreview) URL.revokeObjectURL(editBuktiNewPreview);
     setEditBuktiFile(null);
     setEditBuktiPreview(null);
@@ -629,6 +743,13 @@ export default function Orders() {
     setEditBuktiPengirimanFile(null);
     setEditBuktiPengirimanPreview(null);
     setEditBuktiPengirimanNewPreview(null);
+    if (editCustFotoKtpPreview) URL.revokeObjectURL(editCustFotoKtpPreview);
+    setEditCustFotoKtpFile(null);
+    setEditCustFotoKtpPreview(null);
+    setEditCustFotoKtpDelete(false);
+    setIsSewakan(false);
+    setIsKonfirmasi(false);
+    setNewPaymentAmount('');
   };
 
   const setEditField = <K extends keyof OrderForm>(key: K, value: OrderForm[K]) => setEditForm((prev) => ({ ...prev, [key]: value }));
@@ -641,10 +762,10 @@ export default function Orders() {
 
   const editDurasi = (() => {
     if (editForm.tanggal_mulai && editForm.tanggal_selesai) {
-      const mulai = new Date(`${editForm.tanggal_mulai}T${editForm.jam_mulai || '00:00'}`);
-      const selesai = new Date(`${editForm.tanggal_selesai}T${editForm.jam_selesai || '23:59'}`);
+      const mulai = new Date(`${editForm.tanggal_mulai}T00:00:00`);
+      const selesai = new Date(`${editForm.tanggal_selesai}T00:00:00`);
       const diffMs = selesai.getTime() - mulai.getTime();
-      const diff = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      const diff = Math.round(diffMs / (1000 * 60 * 60 * 24));
       return Math.max(diff, 1);
     }
     return 0;
@@ -654,10 +775,30 @@ export default function Orders() {
   const supirTarifEdit = selectedSupirEdit ? Number(selectedSupirEdit.tarif_per_hari || 0) : 0;
   const editTotal = editDurasi * editHargaPerHari + supirTarifEdit * editDurasi;
 
+  // Order aktif: data inti terkunci, hanya status/pembayaran/catatan/bukti yang boleh diubah
+  const isLockedOrder = (editingOrder?.status_order === 'active' || editingOrder?.status_order === 'completed' || editingOrder?.status_order === 'cancelled') && !isSewakan && !isKonfirmasi;
+  const isFullyLocked = (editingOrder?.status_order === 'completed' || editingOrder?.status_order === 'cancelled') && !isSewakan && !isKonfirmasi;
+
   const handleEditKendaraanSelect = (id: number) => setEditForm((prev) => ({ ...prev, kendaraan_id: String(id) }));
 
   const handleEditSubmit = async (e: FormEvent) => {
     e.preventDefault();
+
+    if (!isSewakan && !isKonfirmasi && !isLockedOrder) {
+      if (!editForm.customer_name?.trim()) { toast.error('Nama customer wajib diisi'); return; }
+      if (!editForm.customer_no_hp) { toast.error('No. HP wajib diisi'); return; }
+      if (!editForm.customer_no_sim) { toast.error('No. Identitas (SIM) wajib diisi'); return; }
+      if (!editForm.customer_alamat?.trim()) { toast.error('Alamat wajib diisi'); return; }
+      if (!editForm.kendaraan_id) { toast.error('Pilih kendaraan terlebih dahulu'); return; }
+      if (!editForm.tanggal_mulai) { toast.error('Tanggal mulai wajib diisi'); return; }
+      if (!editForm.tanggal_selesai) { toast.error('Tanggal selesai wajib diisi'); return; }
+      if (editForm.tanggal_selesai < editForm.tanggal_mulai) { toast.error('Tanggal selesai harus setelah atau sama dengan tanggal mulai'); return; }
+      if (!editForm.tujuan?.trim()) { toast.error('Tujuan wajib diisi'); return; }
+    }
+    // L8: Basic validation for konfirmasi/sewakan mode — ensure required fields exist
+    if (isKonfirmasi || isSewakan) {
+      if (!editForm.kendaraan_id) { toast.error('Pilih kendaraan terlebih dahulu'); return; }
+    }
 
     const butuhBuktiPengiriman = editForm.status_pengiriman
       ? statusPengirimanButuhBukti.includes(editForm.status_pengiriman as StatusPengiriman)
@@ -671,27 +812,65 @@ export default function Orders() {
 
     setSubmitting(true);
     try {
+      // Field yang boleh "dikosongkan" secara sengaja oleh admin (mis. melepas
+      // supir/calo yang sebelumnya terpasang, atau menghapus isi catatan).
+      // Field-field ini HARUS selalu ikut terkirim walau nilainya '' — kalau
+      // di-filter seperti field lain, backend tidak akan pernah tahu field ini
+      // sedang sengaja dikosongkan, dan nilai lama di database tidak akan
+      // pernah ter-clear.
+      const clearableFields: (keyof OrderForm)[] = ['supir_id', 'calo_id', 'catatan'];
+
+      const payload: Record<string, unknown> = {};
+      Object.entries(editForm).forEach(([k, v]) => {
+        if (k === 'status_order' && !isSewakan && !isKonfirmasi) return;
+        if (v !== '' && v !== null && v !== undefined) {
+          payload[k] = v;
+        } else if (clearableFields.includes(k as keyof OrderForm)) {
+          payload[k] = '';
+        }
+      });
+      if (editForm.customer_name) {
+        payload.customer_name = editForm.customer_name;
+      }
+
+      // Sertakan jumlah_bayar jika form pembayaran baru diisi
+      if (newPaymentAmount && isLockedOrder && !isFullyLocked) {
+        const amount = Number(newPaymentAmount);
+        if (isNaN(amount) || amount <= 0) { // M3: catch NaN from empty string
+          toast.error('Jumlah pembayaran harus lebih dari 0');
+          return;
+        }
+        const totalPaid = editingOrder.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
+        const sisa = Number(editingOrder.harga_total) - totalPaid;
+        if (amount > sisa) {
+          toast.error(`Jumlah pembayaran maksimal Rp ${sisa.toLocaleString('id-ID')}`);
+          return;
+        }
+        payload.jumlah_bayar = amount;
+      }
+
       let res;
-      const hasFile = editBuktiFile || editBuktiPengirimanFile;
-      if (hasFile) {
+      const hasFile = editBuktiFile || editBuktiPengirimanFile || editCustFotoKtpFile;
+      const needsFormData = hasFile || editCustFotoKtpDelete;
+      if (needsFormData) {
         const fd = new FormData();
         fd.append('_method', 'PUT');
-        Object.entries(editForm).forEach(([k, v]) => {
-          if (v !== '' && v !== null && v !== undefined) fd.append(k, v as string);
-        });
+        Object.entries(payload).forEach(([k, v]) => fd.append(k, String(v)));
         if (editBuktiFile) fd.append('bukti_transfer', editBuktiFile);
         if (editBuktiPengirimanFile) fd.append('bukti_pengiriman', editBuktiPengirimanFile);
+        if (editCustFotoKtpFile) fd.append('customer_foto_ktp', editCustFotoKtpFile);
+        if (editCustFotoKtpDelete) fd.append('customer_foto_ktp_delete', '1');
         res = await orderAPI.updateWithFile(editingOrder.id, fd);
       } else {
-        res = await orderAPI.update(editingOrder.id, editForm);
+        res = await orderAPI.update(editingOrder.id, payload);
       }
       setItems((prev) => prev.map((item) => (item.id === editingOrder.id ? { ...item, ...res.data } : item)));
       toast.success('Order berhasil diperbarui');
       closeEditModal();
       load();
       kendaraanAPI
-        .list({ status: 'tersedia' })
-        .then(({ data }: { data: ListResponse<Kendaraan> }) => setKendaraans(data.data))
+        .list()
+        .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
         .catch(() => {});
     } catch (err) {
       let msg = 'Gagal memperbarui order';
@@ -724,15 +903,22 @@ export default function Orders() {
       fd.append('status_pengiriman', 'selesai');
       fd.append('status_pembayaran', 'paid');
       fd.append('bukti_pengembalian', completeFile);
+      fd.append('tanggal_pengembalian_aktual', completeReturnTime.replace('T', ' ') + ':00');
       if (completePaymentFile) fd.append('bukti_transfer', completePaymentFile);
+      // H5: Record remaining balance so payment log is complete for laporan keuangan.
+      const totalPaid = confirmComplete.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
+      const remaining = Number(confirmComplete.harga_total) - totalPaid;
+      if (remaining > 0) {
+        fd.append('jumlah_bayar', String(remaining));
+      }
       fd.append('_method', 'PUT');
       await orderAPI.updateWithFile(confirmComplete.id, fd);
       toast.success('Order berhasil diselesaikan');
       closeCompleteModal();
       load();
       kendaraanAPI
-        .list({ status: 'tersedia' })
-        .then(({ data }: { data: ListResponse<Kendaraan> }) => setKendaraans(data.data))
+        .list()
+        .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
         .catch(() => {});
     } catch (err) {
       const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
@@ -750,6 +936,7 @@ export default function Orders() {
     if (completePaymentPreview) URL.revokeObjectURL(completePaymentPreview);
     setCompletePaymentFile(null);
     setCompletePaymentPreview(null);
+    setCompleteReturnTime(nowWIB());
   };
 
   const filteredKendaraanCreate = useMemo(() => {
@@ -760,9 +947,11 @@ export default function Orders() {
     );
   }, [kendaraans, kendaraanSearch]);
 
+  const isVehicleAvailable = (k: Kendaraan) => k.status === 'tersedia' && !k.active_orders_count;
+
   const filteredKendaraanEdit = useMemo(() => {
     return allKendaraans.filter((k) => {
-      if (k.status !== 'tersedia' && editingOrder && k.id !== editingOrder.kendaraan_id) return false;
+      if (!isVehicleAvailable(k) && editingOrder && k.id !== editingOrder.kendaraan_id) return false;
       if (!editKendaraanSearch) return true;
       const q = editKendaraanSearch.toLowerCase();
       return k.nama_kendaraan.toLowerCase().includes(q) || k.plat_nomor.toLowerCase().includes(q) || (k.warna && k.warna.toLowerCase().includes(q));
@@ -828,7 +1017,7 @@ export default function Orders() {
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="whitespace-nowrap font-medium text-maint-600">
-                        {item.jam_overtime_saat_ini} jam · {formatRupiah(item.denda_overtime_saat_ini)}
+                        {formatJam(item.jam_overtime_saat_ini)} · {formatRupiah(item.denda_overtime_saat_ini)}
                       </span>
                       <button
                         onClick={() => setConfirmComplete(item)}
@@ -890,48 +1079,156 @@ export default function Orders() {
                 <CloseIcon />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="space-y-4 p-6">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Customer *</label>
-                  <select value={form.customer_id} onChange={(e) => setField('customer_id', e.target.value)} required className={inputClass}>
-                    <option value="">Pilih Customer</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nama_lengkap} — {c.no_hp}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Supir</label>
-                  <select value={form.supir_id} onChange={(e) => setField('supir_id', e.target.value)} className={inputClass}>
-                    <option value="">Pilih Supir (opsional)</option>
-                    {supirs
-                      .filter((s) => s.status === 'active')
-                      .map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.nama} — {s.no_hp}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Calo</label>
-                  <select value={form.calo_id} onChange={(e) => setField('calo_id', e.target.value)} className={inputClass}>
-                    <option value="">Pilih Calo (opsional)</option>
-                    {calos
-                      .filter((c) => c.status === 'active')
-                      .map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.nama} — {c.no_hp}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              </div>
 
-              <div>
+            {/* Step Indicator */}
+            <div className="border-b border-ink-200 bg-gray-50 px-6 py-3">
+              <div className="flex items-center justify-between">
+                {[
+                  { step: 1, label: 'Data Customer' },
+                  { step: 2, label: 'Pilih Kendaraan' },
+                  { step: 3, label: 'Jadwal & Pembayaran' },
+                ].map((s, idx) => (
+                  <div key={s.step} className="flex items-center">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+                          createStep > s.step
+                            ? 'bg-avail-500 text-white'
+                            : createStep === s.step
+                              ? 'bg-brand-500 text-white'
+                              : 'bg-ink-200 text-ink-500'
+                        }`}
+                      >
+                        {createStep > s.step ? (
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
+                        ) : (
+                          s.step
+                        )}
+                      </div>
+                      <span className={`hidden text-xs font-medium sm:inline ${createStep >= s.step ? 'text-ink-900' : 'text-ink-400'}`}>
+                        {s.label}
+                      </span>
+                    </div>
+                    {idx < 2 && (
+                      <div className={`mx-3 h-px w-8 sm:w-16 ${createStep > s.step ? 'bg-avail-400' : 'bg-ink-200'}`} />
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-5 p-6">
+              {/* Step 1: Data Customer */}
+              {createStep === 1 && (
+                <div>
+                  <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                    Data Customer
+                  </h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-ink-700">Nama Customer *</label>
+                  <div className="relative" ref={customerSearchRef}>
+                    <input
+                      type="text"
+                      value={form.customer_id ? form.customer_name : customerSearch}
+                      onChange={(e) => {
+                        if (custFotoKtpPreview && custFotoKtpPreview.startsWith('blob:')) URL.revokeObjectURL(custFotoKtpPreview);
+                        setCustFotoKtpFile(null);
+                        setCustFotoKtpPreview(null);
+                        setCustFotoKtpDelete(false);
+                        setForm((prev) => ({ ...prev, customer_id: '', customer_name: e.target.value, customer_no_hp: '', customer_email: '', customer_alamat: '', customer_no_ktp: '', customer_no_sim: '' }));
+                        setCustomerSearch(e.target.value);
+                        setShowCustomerSuggestions(true);
+                      }}
+                      onFocus={() => { if (customerSearch) setShowCustomerSuggestions(true); }}
+                      placeholder="Ketik nama customer..."
+                      required={!form.customer_id}
+                      className={inputClass}
+                    />
+                    {showCustomerSuggestions && filteredCustomers.length > 0 && (
+                      <div className="absolute z-20 mt-1 w-full rounded-lg border border-ink-200 bg-white py-1 shadow-lg">
+                        {filteredCustomers.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setForm((prev) => ({ ...prev, customer_id: String(c.id), customer_name: c.nama_lengkap, customer_no_hp: c.no_hp, customer_email: c.email || '', customer_alamat: c.alamat || '', customer_no_ktp: c.no_ktp || '', customer_no_sim: c.no_sim || '' }));
+                              setCustomerSearch('');
+                              setShowCustomerSuggestions(false);
+                            }}
+                            className="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-gray-50"
+                          >
+                            <span className="font-medium text-ink-900">{c.nama_lengkap}</span>
+                            <span className="text-xs text-ink-400">{formatHpDisplay(c.no_hp)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {form.customer_id ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (custFotoKtpPreview && custFotoKtpPreview.startsWith('blob:')) URL.revokeObjectURL(custFotoKtpPreview);
+                        setCustFotoKtpFile(null);
+                        setCustFotoKtpPreview(null);
+                        setCustFotoKtpDelete(false);
+                        setForm((prev) => ({ ...prev, customer_id: '', customer_name: '', customer_no_hp: '', customer_email: '', customer_alamat: '', customer_no_ktp: '', customer_no_sim: '' }));
+                      }}
+                      className="mt-1.5 inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700"
+                    >
+                      <CloseIcon className="h-3 w-3" /> Ganti customer
+                    </button>
+                  ) : form.customer_name ? (
+                    <p className="mt-1.5 text-xs text-amber-600">Customer baru akan dibuat otomatis</p>
+                  ) : null}
+                </div>
+                <div>
+                      <label className="mb-1 block text-sm font-medium text-ink-700">No. HP *</label>
+                      <input type="text" value={form.customer_no_hp} onChange={(e) => setField('customer_no_hp', e.target.value)} required className={inputClass} placeholder="08xxx" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-ink-700">No. KTP</label>
+                      <input type="text" value={form.customer_no_ktp} onChange={(e) => setField('customer_no_ktp', e.target.value)} className={inputClass} placeholder="opsional" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-ink-700">No. SIM *</label>
+                      <input type="text" value={form.customer_no_sim} onChange={(e) => setField('customer_no_sim', e.target.value)} required className={inputClass} placeholder="Wajib diisi" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-ink-700">Email</label>
+                      <input type="email" value={form.customer_email} onChange={(e) => setField('customer_email', e.target.value)} className={inputClass} placeholder="opsional" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="mb-1 block text-sm font-medium text-ink-700">Alamat *</label>
+                      <input type="text" value={form.customer_alamat} onChange={(e) => setField('customer_alamat', e.target.value)} required className={inputClass} placeholder="Wajib diisi" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="mb-1 block text-sm font-medium text-ink-700">Dokumen Identitas * <span className="font-normal text-ink-400">(wajib untuk customer baru)</span></label>
+                      <p className="mb-2 text-xs text-ink-400">Upload salah satu: KTP, Paspor, atau SIM</p>
+                      {custFotoKtpPreview && (
+                        <div className="mb-2">
+                          <img src={custFotoKtpPreview} alt="Dokumen Identitas" className="h-20 w-28 rounded-lg border border-ink-200 object-cover" />
+                        </div>
+                      )}
+                      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-ink-200 px-3 py-6 text-center transition-colors hover:border-brand-400 hover:bg-brand-50/50">
+                        <svg className="h-5 w-5 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        <span className="text-xs text-ink-400">{custFotoKtpFile ? custFotoKtpFile.name : 'KTP / Paspor / SIM'}</span>
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; setCustFotoKtpFile(f); setCustFotoKtpPreview(f ? URL.createObjectURL(f) : null); }} />
+                      </label>
+                    </div>
+              </div>
+                </div>
+              )}
+
+              {/* Step 2: Pilih Kendaraan */}
+              {createStep === 2 && (
+                <div>
+                <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18M3 11v6a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-6" /></svg>
+                  Pilih Kendaraan
+                </h3>
                 <label className="mb-1 block text-sm font-medium text-ink-700">Kendaraan *</label>
                 {kendaraans.length === 0 ? (
                   <p className="text-sm italic text-ink-400">Tidak ada kendaraan tersedia</p>
@@ -970,23 +1267,28 @@ export default function Orders() {
                       <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
                         {filteredKendaraanCreate.map((k) => {
                           const selected = form.kendaraan_id === String(k.id);
+                          const available = isVehicleAvailable(k);
                           return (
                             <div
                               key={k.id}
-                              onClick={() => handleKendaraanSelect(k.id)}
-                              className={`w-44 shrink-0 cursor-pointer rounded-xl border-2 transition-all ${
-                                selected ? 'border-brand-500 bg-brand-50/50 ring-2 ring-brand-100' : 'border-ink-200 hover:border-brand-300 hover:shadow-sm'
+                              onClick={() => available && handleKendaraanSelect(k.id)}
+                              className={`w-44 shrink-0 rounded-xl border-2 transition-all ${
+                                !available
+                                  ? 'cursor-not-allowed border-ink-100 bg-gray-50 opacity-70'
+                                  : selected
+                                    ? 'cursor-pointer border-brand-500 bg-brand-50/50 ring-2 ring-brand-100'
+                                    : 'cursor-pointer border-ink-200 hover:border-brand-300 hover:shadow-sm'
                               }`}
                             >
-                              <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-t-[10px] bg-gray-50">
+                              <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-t-[10px] bg-gray-50">
                                 {k.foto ? (
                                   <img
                                     src={k.foto.startsWith('http') ? k.foto : `/storage/${k.foto}`}
                                     alt={k.nama_kendaraan}
-                                    className="h-full w-full object-cover"
+                                    className={`h-full w-full object-cover ${!available ? 'grayscale blur-[1px]' : ''}`}
                                   />
                                 ) : (
-                                  <svg className="h-10 w-10 text-ink-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className={`h-10 w-10 text-ink-200 ${!available ? 'grayscale' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
@@ -995,15 +1297,20 @@ export default function Orders() {
                                     />
                                   </svg>
                                 )}
+                                {!available && (
+                                  <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-red-500/90 px-2.5 py-0.5 text-[10px] font-semibold text-white shadow">
+                                    {k.status === 'maintenance' ? 'Maintenance' : 'Sedang Disewa'}
+                                  </span>
+                                )}
                               </div>
                               <div className="space-y-1 p-3">
-                                <p className="truncate text-sm font-semibold leading-tight text-ink-900">{k.nama_kendaraan}</p>
+                                <p className={`truncate text-sm font-semibold leading-tight ${!available ? 'text-ink-400' : 'text-ink-900'}`}>{k.nama_kendaraan}</p>
                                 <p className="font-mono text-xs text-ink-400">{k.plat_nomor}</p>
                                 <div className="flex items-center gap-1.5">
                                   <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-ink-200" style={{ backgroundColor: k.warna }} />
                                   <span className="truncate text-xs text-ink-400">{k.warna}</span>
                                 </div>
-                                <p className="text-xs font-bold text-brand-600">{formatRupiah(k.harga_sewa_per_hari)}/hari</p>
+                                <p className={`text-xs font-bold ${!available ? 'text-ink-300' : 'text-brand-600'}`}>{formatRupiah(k.harga_sewa_per_hari)}/hari</p>
                               </div>
                             </div>
                           );
@@ -1012,15 +1319,55 @@ export default function Orders() {
                     )}
                   </>
                 )}
-              </div>
+                {form.kendaraan_id && (
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-ink-700">Supir</label>
+                      <select value={form.supir_id} onChange={(e) => setField('supir_id', e.target.value)} className={inputClass}>
+                        <option value="">Pilih Supir (opsional)</option>
+                        {supirs
+                          .filter((s) => s.status === 'active')
+                          .map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.nama} — {formatHpDisplay(s.no_hp)}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-ink-700">Calo</label>
+                      <select value={form.calo_id} onChange={(e) => setField('calo_id', e.target.value)} className={inputClass}>
+                        <option value="">Pilih Calo (opsional)</option>
+                        {calos
+                          .filter((c) => c.status === 'active')
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.nama} — {formatHpDisplay(c.no_hp)}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+                </div>
+              )}
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {/* Step 3: Jadwal & Pembayaran */}
+              {createStep === 3 && (
+                <>
+                <div>
+                <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  Jadwal & Pembayaran
+                </h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-ink-700">Tanggal Mulai *</label>
                   <input
                     type="date"
                     value={form.tanggal_mulai}
                     onChange={(e) => setField('tanggal_mulai', e.target.value)}
+                    min={todayJakarta()}
                     required
                     className={inputClass}
                   />
@@ -1035,6 +1382,7 @@ export default function Orders() {
                     type="date"
                     value={form.tanggal_selesai}
                     onChange={(e) => setField('tanggal_selesai', e.target.value)}
+                    min={form.tanggal_mulai || todayJakarta()}
                     required
                     className={inputClass}
                   />
@@ -1077,6 +1425,7 @@ export default function Orders() {
                     ))}
                   </select>
                 </div>
+                </div>
               </div>
 
               {form.tanggal_mulai && form.tanggal_selesai && form.harga_per_hari ? (
@@ -1111,6 +1460,17 @@ export default function Orders() {
                   </div>
                 </div>
               ) : null}
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-ink-700">Alamat Jemput</label>
+                  <input type="text" value={form.alamat_jemput} onChange={(e) => setField('alamat_jemput', e.target.value)} className={inputClass} placeholder="Lokasi pengambilan kendaraan" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-ink-700">Tujuan *</label>
+                  <input type="text" value={form.tujuan} onChange={(e) => setField('tujuan', e.target.value)} required className={inputClass} placeholder="Tujuan penggunaan kendaraan" />
+                </div>
+              </div>
 
               <div>
                 <label className="mb-1 block text-sm font-medium text-ink-700">Catatan</label>
@@ -1151,23 +1511,51 @@ export default function Orders() {
                   />
                 )}
               </div>
+                </>
+              )}
 
-              <div className="flex justify-end gap-3 border-t border-ink-200 pt-4">
-                <button
-                  type="button"
-                  onClick={closeCreateModal}
-                  className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-gray-50"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
-                >
-                  {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-                  Buat Order
-                </button>
+              {/* Navigation Buttons */}
+              <div className="flex justify-between gap-3 border-t border-ink-200 pt-4">
+                <div>
+                  {createStep > 1 && (
+                    <button
+                      type="button"
+                      onClick={handlePrevStep}
+                      className="flex items-center gap-2 rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-gray-50"
+                    >
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                      Kembali
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={closeCreateModal}
+                    className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-gray-50"
+                  >
+                    Batal
+                  </button>
+                  {createStep < 3 ? (
+                    <button
+                      type="button"
+                      onClick={handleNextStep}
+                      className="flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600"
+                    >
+                      Selanjutnya
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      disabled={submitting || isFormIncomplete}
+                      className="flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                      Buat Order
+                    </button>
+                  )}
+                </div>
               </div>
             </form>
           </div>
@@ -1180,26 +1568,333 @@ export default function Orders() {
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-200 bg-white p-6">
               <div>
-                <h2 className="text-lg font-semibold text-ink-900">{isSewakan ? 'Form Penyewaan' : 'Edit Order'}</h2>
+                <h2 className="text-lg font-semibold text-ink-900">{isKonfirmasi ? 'Konfirmasi Order' : isSewakan ? 'Kirim Kendaraan' : 'Edit Order'}</h2>
                 <p className="font-mono text-sm text-ink-400">{editingOrder.kode_order}</p>
               </div>
               <button onClick={closeEditModal} className="rounded-lg p-1 transition-colors hover:bg-gray-50" aria-label="Tutup">
                 <CloseIcon />
               </button>
             </div>
-            <form onSubmit={handleEditSubmit} className="space-y-4 p-6">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Customer</label>
-                  <select value={editForm.customer_id || ''} onChange={(e) => setEditField('customer_id', e.target.value)} required className={inputClass}>
-                    <option value="">Pilih Customer</option>
-                    {customers.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nama_lengkap} — {c.no_hp}
-                      </option>
-                    ))}
-                  </select>
+            <form onSubmit={handleEditSubmit} className="space-y-5 p-6">
+              {isLockedOrder && (
+                <div className={`flex items-start gap-2 rounded-lg px-4 py-3 text-sm ${isFullyLocked ? 'border border-ink-200 bg-ink-50 text-ink-600' : 'border border-amber-200 bg-amber-50 text-amber-800'}`}>
+                  <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M4.93 19h14.14a1 1 0 00.87-1.5L12.87 4.5a1 1 0 00-1.74 0L4.06 17.5A1 1 0 004.93 19z" /></svg>
+                  <span>{isFullyLocked ? 'Order sudah final. Semua data bersifat read-only.' : 'Order aktif — data inti (customer, kendaraan, tanggal, harga) tidak bisa diubah. Hanya status pembayaran, metode bayar, bukti pembayaran, dan catatan yang bisa diperbarui.'}</span>
                 </div>
+              )}
+              {isSewakan && (
+                <div className="space-y-4 rounded-xl border border-ink-100 bg-ink-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Ringkasan Pesanan</p>
+                  <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+                    <div>
+                      <span className="text-ink-400">Customer</span>
+                      <p className="font-medium text-ink-900">{editingOrder.customer?.nama_lengkap || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-ink-400">No. HP</span>
+                      <p className="font-medium text-ink-900">{formatHpDisplay(editingOrder.customer?.no_hp) || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-ink-400">Kendaraan</span>
+                      <p className="font-medium text-ink-900">{editingOrder.kendaraan?.nama_kendaraan || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-ink-400">Plat Nomor</span>
+                      <p className="font-medium font-mono text-ink-900">{editingOrder.kendaraan?.plat_nomor || '-'}</p>
+                    </div>
+                    <div>
+                      <span className="text-ink-400">Tanggal Mulai</span>
+                      <p className="font-medium text-ink-900">{editingOrder.tanggal_mulai} {editingOrder.jam_mulai || '08:00'}</p>
+                    </div>
+                    <div>
+                      <span className="text-ink-400">Tanggal Selesai</span>
+                      <p className="font-medium text-ink-900">{editingOrder.tanggal_selesai} {editingOrder.jam_selesai || '17:00'}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {!isSewakan && isLockedOrder && (
+                <div className="space-y-5">
+                  <div className="space-y-3 rounded-xl border border-ink-100 bg-ink-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Data Customer</p>
+                    <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+                      <div><span className="text-ink-400">Nama</span><p className="font-medium text-ink-900">{editingOrder.customer?.nama_lengkap || '-'}</p></div>
+                      <div><span className="text-ink-400">No. HP</span><p className="font-medium text-ink-900">{formatHpDisplay(editingOrder.customer?.no_hp) || '-'}</p></div>
+                      {editingOrder.customer?.no_ktp && <div><span className="text-ink-400">No. KTP</span><p className="font-mono text-ink-900">{editingOrder.customer.no_ktp}</p></div>}
+                      {editingOrder.customer?.no_sim && <div><span className="text-ink-400">No. SIM</span><p className="font-mono text-ink-900">{editingOrder.customer.no_sim}</p></div>}
+                      {editingOrder.customer?.email && <div><span className="text-ink-400">Email</span><p className="text-ink-900">{editingOrder.customer.email}</p></div>}
+                      {editingOrder.customer?.alamat && <div className="md:col-span-2"><span className="text-ink-400">Alamat</span><p className="text-ink-900">{editingOrder.customer.alamat}</p></div>}
+                    </div>
+                  </div>
+                  <div className="space-y-3 rounded-xl border border-ink-100 bg-ink-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Kendaraan</p>
+                    <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+                      <div><span className="text-ink-400">Kendaraan</span><p className="font-medium text-ink-900">{editingOrder.kendaraan?.nama_kendaraan || '-'}</p></div>
+                      <div><span className="text-ink-400">Plat Nomor</span><p className="font-mono text-ink-900">{editingOrder.kendaraan?.plat_nomor || '-'}</p></div>
+                    </div>
+                  </div>
+                  <div className="space-y-3 rounded-xl border border-ink-100 bg-ink-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Jadwal & Lokasi</p>
+                    <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+                      <div><span className="text-ink-400">Tanggal Mulai</span><p className="font-medium text-ink-900">{editingOrder.tanggal_mulai} {editingOrder.jam_mulai || '08:00'} WIB</p></div>
+                      <div><span className="text-ink-400">Tanggal Selesai</span><p className="font-medium text-ink-900">{editingOrder.tanggal_selesai} {editingOrder.jam_selesai || '17:00'} WIB</p></div>
+                      {editingOrder.alamat_jemput && <div className="md:col-span-2"><span className="text-ink-400">Alamat Jemput</span><p className="text-ink-900">{editingOrder.alamat_jemput}</p></div>}
+                      {editingOrder.tujuan && <div className="md:col-span-2"><span className="text-ink-400">Tujuan</span><p className="text-ink-900">{editingOrder.tujuan}</p></div>}
+                    </div>
+                    {(editingOrder.supir || editingOrder.calo) && (
+                      <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
+                        {editingOrder.supir && <div><span className="text-ink-400">Supir</span><p className="font-medium text-ink-900">{editingOrder.supir.nama} · {formatHpDisplay(editingOrder.supir.no_hp)}</p></div>}
+                        {editingOrder.calo && <div><span className="text-ink-400">Calo</span><p className="font-medium text-ink-900">{editingOrder.calo.nama} · {formatHpDisplay(editingOrder.calo.no_hp)}</p></div>}
+                      </div>
+                    )}
+                  </div>
+                  {isFullyLocked ? (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-ink-700">Status Pembayaran</label>
+                        <p className={`${inputClass} border-ink-200 bg-ink-50`}>{statusPembayaranLabels[editingOrder.status_pembayaran] || '-'}</p>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-ink-700">Metode Bayar</label>
+                        <p className={`${inputClass} border-ink-200 bg-ink-50`}>{editingOrder.metode_pembayaran ? metodePembayaranLabels[editingOrder.metode_pembayaran as MetodePembayaran] || editingOrder.metode_pembayaran : '-'}</p>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+
+              {/* ── Riwayat Pembayaran (locked orders) ── */}
+              {!isSewakan && isLockedOrder && editingOrder.pembayarans && editingOrder.pembayarans.length > 0 && (
+                <div className="space-y-3 rounded-xl border border-ink-100 bg-ink-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-400">Riwayat Pembayaran</p>
+                  <div className="space-y-3">
+                    {editingOrder.pembayarans.map((p) => (
+                      <div key={p.id} className="flex items-start gap-3 rounded-lg border border-ink-200 bg-white p-3">
+                        <div className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${p.status === 'pelunasan' ? 'bg-emerald-500' : 'bg-amber-500'}`}>
+                          {p.status === 'pelunasan' ? 'L' : 'D'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                            <span className="font-semibold text-ink-900">{p.status === 'pelunasan' ? 'Pelunasan' : 'DP'}</span>
+                            <span className="text-ink-400">·</span>
+                            <span className="text-ink-600">{metodePembayaranLabels[p.metode_pembayaran] || p.metode_pembayaran}</span>
+                            <span className="text-ink-400">·</span>
+                            <span className="font-medium text-ink-900">Rp {Number(p.jumlah).toLocaleString('id-ID')}</span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-ink-400">{new Date(p.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+                          {p.catatan && <p className="mt-1 text-xs text-ink-500 italic">{p.catatan}</p>}
+                        </div>
+                        {p.bukti_transfer && (
+                          <img src={`/storage/${p.bukti_transfer}`} alt="Bukti" className="h-12 w-16 shrink-0 rounded border border-ink-200 object-cover" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  {editingOrder && (() => {
+                    const totalPaid = editingOrder.pembayarans!.reduce((sum, p) => sum + Number(p.jumlah), 0);
+                    const sisa = Number(editingOrder.harga_total) - totalPaid;
+                    return (
+                      <div className="mt-2 border-t border-ink-200 pt-2">
+                        <div className="flex items-center justify-between text-xs text-ink-500">
+                          <span>Total dibayar</span>
+                          <span className="font-semibold text-ink-800">Rp {totalPaid.toLocaleString('id-ID')}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs text-ink-500">
+                          <span>Harga total</span>
+                          <span>Rp {Number(editingOrder.harga_total).toLocaleString('id-ID')}</span>
+                        </div>
+                        {sisa > 0 && (
+                          <div className="flex items-center justify-between text-xs font-medium text-maint-600">
+                            <span>Sisa bayar</span>
+                            <span>Rp {sisa.toLocaleString('id-ID')}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* ── Form Pembayaran Baru (active orders only, hide when paid) ── */}
+              {!isSewakan && !isKonfirmasi && isLockedOrder && !isFullyLocked && editingOrder?.status_pembayaran !== 'paid' && (
+                <div className="space-y-3 rounded-xl border border-brand-200 bg-brand-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-brand-600">Catat Pembayaran Baru</p>
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-ink-700">Status Pembayaran</label>
+                      <select value={editForm.status_pembayaran || 'partial'} onChange={(e) => setEditField('status_pembayaran', e.target.value as StatusPembayaran)} className={inputClass}>
+                        {statusPembayaranOptions.filter((s) => s !== 'unpaid').map((s) => (<option key={s} value={s}>{statusPembayaranLabels[s]}</option>))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-ink-700">Metode Bayar</label>
+                      <select value={editForm.metode_pembayaran || 'transfer'} onChange={(e) => setEditField('metode_pembayaran', e.target.value as MetodePembayaran)} className={inputClass}>
+                        {(Object.keys(metodePembayaranLabels) as MetodePembayaran[]).map((m) => (<option key={m} value={m}>{metodePembayaranLabels[m]}</option>))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-ink-700">Jumlah Bayar (Rp)</label>
+                      <input type="number" min="0" value={newPaymentAmount} onChange={(e) => setNewPaymentAmount(e.target.value)} className={inputClass} placeholder="0" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-ink-700">Bukti Pembayaran</label>
+                    {editBuktiFile && (
+                      <ImagePreview
+                        src={editBuktiNewPreview}
+                        onRemove={() => {
+                          if (editBuktiNewPreview) URL.revokeObjectURL(editBuktiNewPreview);
+                          setEditBuktiFile(null);
+                          setEditBuktiNewPreview(null);
+                        }}
+                      />
+                    )}
+                    <UploadBox
+                      label="Upload bukti pembayaran"
+                      hint="JPG, PNG, maks 2MB"
+                      fileName={editBuktiFile?.name}
+                      icon={
+                        <svg className="h-5 w-5 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      }
+                      onFile={(f) => {
+                        if (!f) return;
+                        if (editBuktiNewPreview) URL.revokeObjectURL(editBuktiNewPreview);
+                        setEditBuktiFile(f);
+                        setEditBuktiNewPreview(URL.createObjectURL(f));
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+              {!isSewakan && !isLockedOrder && (<>
+              <div>
+                <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  Data Customer
+                </h3>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <label className="mb-1 block text-sm font-medium text-ink-700">Nama Customer *</label>
+                  <div className="relative" ref={editCustomerSearchRef}>
+                    <input
+                      type="text"
+                      value={editForm.customer_id ? (editForm.customer_name || '') : editCustomerSearch}
+                      onChange={(e) => {
+                        setEditForm((prev) => ({ ...prev, customer_id: '', customer_name: e.target.value, customer_no_hp: '', customer_email: '', customer_alamat: '', customer_no_ktp: '', customer_no_sim: '' }));
+                        setEditCustomerSearch(e.target.value);
+                        setShowEditCustomerSuggestions(true);
+                      }}
+                      onFocus={() => { if (editCustomerSearch) setShowEditCustomerSuggestions(true); }}
+                      placeholder="Ketik nama customer..."
+                      className={inputClass}
+                    />
+                    {showEditCustomerSuggestions && filteredEditCustomers.length > 0 && (
+                      <div className="absolute z-20 mt-1 w-full rounded-lg border border-ink-200 bg-white py-1 shadow-lg">
+                        {filteredEditCustomers.map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setEditForm((prev) => ({ ...prev, customer_id: String(c.id), customer_name: c.nama_lengkap, customer_no_hp: c.no_hp, customer_email: c.email || '', customer_alamat: c.alamat || '', customer_no_ktp: c.no_ktp || '', customer_no_sim: c.no_sim || '' }));
+                              setEditCustomerSearch('');
+                              setShowEditCustomerSuggestions(false);
+                            }}
+                            className="flex w-full items-center justify-between px-3 py-2 text-left text-sm transition hover:bg-gray-50"
+                          >
+                            <span className="font-medium text-ink-900">{c.nama_lengkap}</span>
+                            <span className="text-xs text-ink-400">{formatHpDisplay(c.no_hp)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {editForm.customer_id ? (
+                    <button
+                      type="button"
+                      onClick={() => setEditForm((prev) => ({ ...prev, customer_id: '', customer_name: '', customer_no_hp: '', customer_email: '', customer_alamat: '', customer_no_ktp: '', customer_no_sim: '' }))}
+                      className="mt-1.5 inline-flex items-center gap-1 text-xs text-brand-600 hover:text-brand-700"
+                    >
+                      <CloseIcon className="h-3 w-3" /> Ganti customer
+                    </button>
+                  ) : editForm.customer_name ? (
+                    <p className="mt-1.5 text-xs text-amber-600">Customer baru akan dibuat otomatis</p>
+                  ) : null}
+                </div>
+                {(editForm.customer_id || editForm.customer_name) && (
+                  <>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-ink-700">No. HP *</label>
+                      <input type="text" value={editForm.customer_no_hp || ''} onChange={(e) => setEditField('customer_no_hp', e.target.value)} className={inputClass} placeholder="08xxx" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-ink-700">No. KTP</label>
+                      <input type="text" value={editForm.customer_no_ktp || ''} onChange={(e) => setEditField('customer_no_ktp', e.target.value)} className={inputClass} placeholder="opsional" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-ink-700">No. SIM *</label>
+                      <input type="text" value={editForm.customer_no_sim || ''} onChange={(e) => setEditField('customer_no_sim', e.target.value)} className={inputClass} placeholder="Wajib diisi" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-ink-700">Email</label>
+                      <input type="email" value={editForm.customer_email || ''} onChange={(e) => setEditField('customer_email', e.target.value)} className={inputClass} placeholder="opsional" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="mb-1 block text-sm font-medium text-ink-700">Alamat *</label>
+                      <input type="text" value={editForm.customer_alamat || ''} onChange={(e) => setEditField('customer_alamat', e.target.value)} className={inputClass} placeholder="Wajib diisi" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="mb-1 block text-sm font-medium text-ink-700">Dokumen Identitas</label>
+                      {isSewakan || isKonfirmasi ? (
+                        <div className="flex gap-3">
+                          {editingOrder.customer?.foto_ktp ? (
+                            <div>
+                              <p className="mb-1 text-xs text-ink-400">Dokumen Identitas</p>
+                              <img src={`/storage/${editingOrder.customer.foto_ktp}`} alt="Dokumen Identitas" className="h-20 w-28 rounded-lg border border-ink-200 object-cover" />
+                            </div>
+                          ) : (
+                            <p className="text-xs italic text-ink-400">Dokumen tidak diunggah</p>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          {editCustFotoKtpFile ? (
+                            <ImagePreview
+                              src={editCustFotoKtpPreview}
+                              onRemove={() => {
+                                if (editCustFotoKtpPreview) URL.revokeObjectURL(editCustFotoKtpPreview);
+                                setEditCustFotoKtpFile(null);
+                                setEditCustFotoKtpPreview(editingOrder.customer?.foto_ktp ? `/storage/${editingOrder.customer.foto_ktp}` : null);
+                              }}
+                            />
+                          ) : editCustFotoKtpPreview && !editCustFotoKtpDelete ? (
+                            <ImagePreview
+                              src={editCustFotoKtpPreview}
+                              onRemove={() => {
+                                setEditCustFotoKtpPreview(null);
+                                setEditCustFotoKtpDelete(true);
+                              }}
+                            />
+                          ) : null}
+                          <UploadBox
+                            label="KTP / Paspor / SIM"
+                            hint="JPG, PNG, maks 2MB"
+                            fileName={editCustFotoKtpFile?.name}
+                            icon={<svg className="h-5 w-5 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+                            onFile={(f) => {
+                              if (!f) return;
+                              if (editCustFotoKtpPreview && editCustFotoKtpFile) URL.revokeObjectURL(editCustFotoKtpPreview);
+                              setEditCustFotoKtpFile(f);
+                              setEditCustFotoKtpPreview(URL.createObjectURL(f));
+                              setEditCustFotoKtpDelete(false);
+                            }}
+                          />
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
                 <div>
                   <label className="mb-1 block text-sm font-medium text-ink-700">Supir</label>
                   <select value={editForm.supir_id || ''} onChange={(e) => setEditField('supir_id', e.target.value)} className={inputClass}>
@@ -1208,7 +1903,7 @@ export default function Orders() {
                       .filter((s) => s.status === 'active')
                       .map((s) => (
                         <option key={s.id} value={s.id}>
-                          {s.nama} — {s.no_hp}
+                          {s.nama} — {formatHpDisplay(s.no_hp)}
                         </option>
                       ))}
                   </select>
@@ -1221,14 +1916,19 @@ export default function Orders() {
                       .filter((c) => c.status === 'active')
                       .map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.nama} — {c.no_hp}
+                          {c.nama} — {formatHpDisplay(c.no_hp)}
                         </option>
                       ))}
                   </select>
                 </div>
               </div>
+              </div>
 
               <div>
+                <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18M3 11v6a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-6" /></svg>
+                  Pilih Kendaraan
+                </h3>
                 <label className="mb-1 block text-sm font-medium text-ink-700">Kendaraan</label>
                 <div className="relative mb-2">
                   <svg
@@ -1260,26 +1960,33 @@ export default function Orders() {
                 {filteredKendaraanEdit.length === 0 ? (
                   <p className="py-4 text-center text-sm italic text-ink-400">Tidak ada kendaraan yang cocok</p>
                 ) : (
-                  <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+                  <div ref={editKendaraanListRef} className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
                     {filteredKendaraanEdit.map((k) => {
                       const selected = editForm.kendaraan_id === String(k.id);
+                      const isCurrentVehicle = editingOrder && k.id === editingOrder.kendaraan_id;
+                      const available = isVehicleAvailable(k) || isCurrentVehicle;
                       return (
                         <div
                           key={k.id}
-                          onClick={() => handleEditKendaraanSelect(k.id)}
-                          className={`w-44 shrink-0 cursor-pointer rounded-xl border-2 transition-all ${
-                            selected ? 'border-brand-500 bg-brand-50/50 ring-2 ring-brand-100' : 'border-ink-200 hover:border-brand-300 hover:shadow-sm'
+                          data-selected={selected ? 'true' : undefined}
+                          onClick={() => available && handleEditKendaraanSelect(k.id)}
+                          className={`w-44 shrink-0 rounded-xl border-2 transition-all ${
+                            !available
+                              ? 'cursor-not-allowed border-ink-100 bg-gray-50 opacity-70'
+                              : selected
+                                ? 'cursor-pointer border-brand-500 bg-brand-50/50 ring-2 ring-brand-100'
+                                : 'cursor-pointer border-ink-200 hover:border-brand-300 hover:shadow-sm'
                           }`}
                         >
-                          <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-t-[10px] bg-gray-50">
+                          <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-t-[10px] bg-gray-50">
                             {k.foto ? (
                               <img
                                 src={k.foto.startsWith('http') ? k.foto : `/storage/${k.foto}`}
                                 alt={k.nama_kendaraan}
-                                className="h-full w-full object-cover"
+                                className={`h-full w-full object-cover ${!available ? 'grayscale blur-[1px]' : ''}`}
                               />
                             ) : (
-                              <svg className="h-10 w-10 text-ink-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className={`h-10 w-10 text-ink-200 ${!available ? 'grayscale' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
@@ -1288,15 +1995,20 @@ export default function Orders() {
                                 />
                               </svg>
                             )}
+                            {!available && (
+                              <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-red-500/90 px-2.5 py-0.5 text-[10px] font-semibold text-white shadow">
+                                {k.status === 'maintenance' ? 'Maintenance' : 'Sedang Disewa'}
+                              </span>
+                            )}
                           </div>
                           <div className="space-y-1 p-3">
-                            <p className="truncate text-sm font-semibold leading-tight text-ink-900">{k.nama_kendaraan}</p>
+                            <p className={`truncate text-sm font-semibold leading-tight ${!available ? 'text-ink-400' : 'text-ink-900'}`}>{k.nama_kendaraan}</p>
                             <p className="font-mono text-xs text-ink-400">{k.plat_nomor}</p>
                             <div className="flex items-center gap-1.5">
                               <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-ink-200" style={{ backgroundColor: k.warna }} />
                               <span className="truncate text-xs text-ink-400">{k.warna}</span>
                             </div>
-                            <p className="text-xs font-bold text-brand-600">{formatRupiah(k.harga_sewa_per_hari)}/hari</p>
+                            <p className={`text-xs font-bold ${!available ? 'text-ink-300' : 'text-brand-600'}`}>{formatRupiah(k.harga_sewa_per_hari)}/hari</p>
                           </div>
                         </div>
                       );
@@ -1305,15 +2017,21 @@ export default function Orders() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Tanggal Mulai</label>
+              <div>
+                <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-400">
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                  Jadwal & Pembayaran
+                </h3>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-ink-700">Tanggal Mulai</label>
                   <input
                     type="date"
                     value={editForm.tanggal_mulai || ''}
                     onChange={(e) => setEditField('tanggal_mulai', e.target.value)}
+                    disabled={isLockedOrder}
                     required
-                    className={inputClass}
+                    className={`${inputClass} ${isLockedOrder ? 'cursor-not-allowed bg-gray-50 text-ink-400' : ''}`}
                   />
                 </div>
                 <div>
@@ -1322,7 +2040,8 @@ export default function Orders() {
                     type="time"
                     value={editForm.jam_mulai || '08:00'}
                     onChange={(e) => setEditField('jam_mulai', e.target.value)}
-                    className={inputClass}
+                    disabled={isLockedOrder}
+                    className={`${inputClass} ${isLockedOrder ? 'cursor-not-allowed bg-gray-50 text-ink-400' : ''}`}
                   />
                 </div>
                 <div>
@@ -1331,8 +2050,9 @@ export default function Orders() {
                     type="date"
                     value={editForm.tanggal_selesai || ''}
                     onChange={(e) => setEditField('tanggal_selesai', e.target.value)}
+                    disabled={isLockedOrder}
                     required
-                    className={inputClass}
+                    className={`${inputClass} ${isLockedOrder ? 'cursor-not-allowed bg-gray-50 text-ink-400' : ''}`}
                   />
                 </div>
                 <div>
@@ -1341,7 +2061,8 @@ export default function Orders() {
                     type="time"
                     value={editForm.jam_selesai || '17:00'}
                     onChange={(e) => setEditField('jam_selesai', e.target.value)}
-                    className={inputClass}
+                    disabled={isLockedOrder}
+                    className={`${inputClass} ${isLockedOrder ? 'cursor-not-allowed bg-gray-50 text-ink-400' : ''}`}
                   />
                 </div>
                 <div>
@@ -1354,6 +2075,7 @@ export default function Orders() {
                   />
                   <p className="mt-0.5 text-xs text-ink-400">Otomatis dari harga kendaraan</p>
                 </div>
+                {!isSewakan && !isKonfirmasi && (
                 <div>
                   <label className="mb-1 block text-sm font-medium text-ink-700">Status Pembayaran</label>
                   <select
@@ -1368,6 +2090,8 @@ export default function Orders() {
                     ))}
                   </select>
                 </div>
+                )}
+                {!isSewakan && !isKonfirmasi && (
                 <div>
                   <label className="mb-1 block text-sm font-medium text-ink-700">Metode Bayar</label>
                   <select
@@ -1382,20 +2106,8 @@ export default function Orders() {
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Status Order</label>
-                  <select
-                    value={editForm.status_order || ''}
-                    onChange={(e) => setEditField('status_order', e.target.value as StatusOrder)}
-                    className={inputClass}
-                  >
-                    {statusOrderOptions.map((s) => (
-                      <option key={s} value={s}>
-                        {statusOrderLabels[s]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                )}
+                {!isSewakan && !isKonfirmasi && (
                 <div>
                   <label className="mb-1 block text-sm font-medium text-ink-700">Status Pengiriman</label>
                   <select
@@ -1413,7 +2125,10 @@ export default function Orders() {
                     <p className="mt-1 text-xs text-amber-600">Status ini wajib disertai bukti foto pengiriman di bawah.</p>
                   )}
                 </div>
+                )}
               </div>
+              </div>
+              </>)}
 
               {editForm.tanggal_mulai && editForm.tanggal_selesai && editHargaPerHari > 0 ? (
                 <div className="space-y-3 rounded-xl border border-brand-100 bg-brand-50 p-4">
@@ -1448,19 +2163,45 @@ export default function Orders() {
                 </div>
               ) : null}
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-ink-700">Catatan</label>
-                <textarea
-                  value={editForm.catatan || ''}
-                  onChange={(e) => setEditField('catatan', e.target.value)}
-                  rows={2}
-                  className={`${inputClass} resize-none`}
-                />
+              {!isLockedOrder && (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-ink-700">Alamat Jemput</label>
+                  <input type="text" value={editForm.alamat_jemput || ''} onChange={(e) => setEditField('alamat_jemput', e.target.value)} className={inputClass} placeholder="Lokasi pengambilan kendaraan" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-ink-700">Tujuan *</label>
+                  <input type="text" value={editForm.tujuan || ''} onChange={(e) => setEditField('tujuan', e.target.value)} className={inputClass} placeholder="Tujuan penggunaan kendaraan" />
+                </div>
               </div>
+              )}
 
               <div>
+                <label className="mb-1 block text-sm font-medium text-ink-700">Catatan</label>
+                {isFullyLocked ? (
+                  <p className={`${inputClass} border-ink-200 bg-ink-50 whitespace-pre-wrap`}>{editForm.catatan || <span className="italic text-ink-400">Tidak ada catatan</span>}</p>
+                ) : (
+                  <textarea
+                    value={editForm.catatan || ''}
+                    onChange={(e) => setEditField('catatan', e.target.value)}
+                    rows={2}
+                    className={`${inputClass} resize-none`}
+                  />
+                )}
+              </div>
+
+              {!isSewakan && !isKonfirmasi && (isFullyLocked || !isLockedOrder) && (
+              <div>
                 <label className="mb-1 block text-sm font-medium text-ink-700">Bukti Pembayaran</label>
-                {editBuktiPreview && !editBuktiFile && (
+                {isFullyLocked ? (
+                  editingOrder.bukti_transfer ? (
+                    <img src={`/storage/${editingOrder.bukti_transfer}`} alt="Bukti Pembayaran" className="h-24 w-32 rounded-lg border border-ink-200 object-cover" />
+                  ) : (
+                    <p className="text-sm italic text-ink-400">Tidak ada bukti pembayaran</p>
+                  )
+                ) : (
+                  <>
+                    {editBuktiPreview && !editBuktiFile && (
                   <ImagePreview
                     src={editBuktiPreview}
                     onRemove={() => {
@@ -1501,9 +2242,12 @@ export default function Orders() {
                     setEditBuktiNewPreview(URL.createObjectURL(f));
                   }}
                 />
+                    </>
+                  )}
               </div>
+              )}
 
-              {editForm.status_pengiriman && statusPengirimanButuhBukti.includes(editForm.status_pengiriman as StatusPengiriman) && (
+              {!isLockedOrder && (isSewakan || (editForm.status_pengiriman && statusPengirimanButuhBukti.includes(editForm.status_pengiriman as StatusPengiriman))) && (
                 <div>
                   <label className="mb-1 block text-sm font-medium text-ink-700">
                     Bukti Foto Pengiriman <span className="text-maint-500">*</span>
@@ -1554,21 +2298,33 @@ export default function Orders() {
               )}
 
               <div className="flex justify-end gap-3 border-t border-ink-200 pt-4">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-gray-50"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
-                >
-                  {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-                  {isSewakan ? 'Sewakan' : 'Simpan Perubahan'}
-                </button>
+                {isFullyLocked ? (
+                  <button
+                    type="button"
+                    onClick={closeEditModal}
+                    className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-gray-50"
+                  >
+                    Tutup
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={closeEditModal}
+                      className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-gray-50"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
+                    >
+                      {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                      {isKonfirmasi ? 'Konfirmasi & Simpan' : isSewakan ? 'Kirim Kendaraan' : 'Simpan Perubahan'}
+                    </button>
+                  </>
+                )}
               </div>
             </form>
           </div>
@@ -1599,6 +2355,11 @@ export default function Orders() {
                 <span className={`rounded-full px-3 py-1 text-sm font-semibold ${statusColors[detailOrder.status_pengiriman]}`}>
                   {statusPengirimanLabels[detailOrder.status_pengiriman]}
                 </span>
+                {detailOrder.source === 'katalog' && (
+                  <span className="rounded-full bg-brand-100 px-3 py-1 text-sm font-semibold text-brand-600">
+                    Pesanan Katalog
+                  </span>
+                )}
               </div>
 
               <div className="space-y-1 rounded-xl bg-gray-50 p-4">
@@ -1609,7 +2370,7 @@ export default function Orders() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-ink-400">No. HP</span>
-                  <span className="text-ink-900">{detailOrder.customer?.no_hp}</span>
+                  <span className="text-ink-900">{formatHpDisplay(detailOrder.customer?.no_hp)}</span>
                 </div>
                 {detailOrder.customer?.email && (
                   <div className="flex justify-between text-sm">
@@ -1650,7 +2411,7 @@ export default function Orders() {
                     <div className="flex justify-between text-sm">
                       <span className="text-ink-400">Supir</span>
                       <span className="text-ink-900">
-                        {detailOrder.supir.nama} — {detailOrder.supir.no_hp}
+                        {detailOrder.supir.nama} — {formatHpDisplay(detailOrder.supir.no_hp)}
                       </span>
                     </div>
                   )}
@@ -1658,7 +2419,7 @@ export default function Orders() {
                     <div className="flex justify-between text-sm">
                       <span className="text-ink-400">Calo</span>
                       <span className="text-ink-900">
-                        {detailOrder.calo.nama} — {detailOrder.calo.no_hp}
+                        {detailOrder.calo.nama} — {formatHpDisplay(detailOrder.calo.no_hp)}
                       </span>
                     </div>
                   )}
@@ -1685,7 +2446,7 @@ export default function Orders() {
                     <div>
                       <p className="text-sm font-medium text-maint-600">Denda Overtime</p>
                       <p className="text-xs text-maint-500">
-                        {detailOrder.jam_overtime} jam × {formatRupiah(OVERTIME_RATE_PER_HOUR)}/jam
+                        {formatJam(detailOrder.jam_overtime)} × {formatRupiah(overtimeRate)}/jam
                       </p>
                     </div>
                     <p className="shrink-0 text-sm font-semibold text-maint-600">{formatRupiah(detailOrder.denda_overtime)}</p>
@@ -1696,7 +2457,7 @@ export default function Orders() {
                     <div>
                       <p className="text-sm font-medium text-maint-600">Overtime saat ini</p>
                       <p className="text-xs text-maint-500">
-                        {detailOrder.jam_overtime_saat_ini} jam × {formatRupiah(OVERTIME_RATE_PER_HOUR)}/jam
+                        {formatJam(detailOrder.jam_overtime_saat_ini)} × {formatRupiah(overtimeRate)}/jam
                       </p>
                     </div>
                     <p className="shrink-0 text-sm font-semibold text-maint-600">{formatRupiah(detailOrder.denda_overtime_saat_ini)}</p>
@@ -1714,6 +2475,23 @@ export default function Orders() {
                   </span>
                 </div>
               </div>
+
+              {(detailOrder.alamat_jemput || detailOrder.tujuan) && (
+                <div className="grid grid-cols-1 gap-3 rounded-xl bg-gray-50 p-4 sm:grid-cols-2">
+                  {detailOrder.alamat_jemput && (
+                    <div>
+                      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-400">Alamat Jemput</h3>
+                      <p className="text-sm text-ink-700">{detailOrder.alamat_jemput}</p>
+                    </div>
+                  )}
+                  {detailOrder.tujuan && (
+                    <div>
+                      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-ink-400">Tujuan</h3>
+                      <p className="text-sm text-ink-700">{detailOrder.tujuan}</p>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {detailOrder.catatan && (
                 <div className="rounded-xl bg-gray-50 p-4">
@@ -1854,7 +2632,7 @@ export default function Orders() {
               <div className="rounded-xl bg-gray-50 p-3 text-sm">
                 <p className="mb-1 text-xs text-ink-400">Disewa oleh</p>
                 <p className="font-medium text-ink-900">{invoiceOrder.customer?.nama_lengkap}</p>
-                <p className="text-xs text-ink-700">{invoiceOrder.customer?.no_hp}</p>
+                <p className="text-xs text-ink-700">{formatHpDisplay(invoiceOrder.customer?.no_hp)}</p>
                 {invoiceOrder.customer?.alamat && <p className="text-xs text-ink-400">{invoiceOrder.customer.alamat}</p>}
               </div>
 
@@ -1905,10 +2683,18 @@ export default function Orders() {
                   </span>
                   <span className="text-ink-900">{formatRupiah(invoiceOrder.durasi_hari * invoiceOrder.harga_per_hari)}</span>
                 </div>
+                {invoiceOrder.supir && invoiceOrder.supir.tarif_per_hari ? (
+                  <div className="flex justify-between">
+                    <span className="text-ink-700">
+                      Supir {invoiceOrder.durasi_hari} hari × {formatRupiah(invoiceOrder.supir.tarif_per_hari)}/hari
+                    </span>
+                    <span className="text-ink-900">{formatRupiah(invoiceOrder.durasi_hari * invoiceOrder.supir.tarif_per_hari)}</span>
+                  </div>
+                ) : null}
                 {invoiceOrder.jam_overtime > 0 && (
                   <div className="flex justify-between">
                     <span className="text-maint-600">
-                      Denda keterlambatan {invoiceOrder.jam_overtime} jam × {formatRupiah(OVERTIME_RATE_PER_HOUR)}
+                      Denda keterlambatan {formatJam(invoiceOrder.jam_overtime)} × {formatRupiah(overtimeRate)}
                     </span>
                     <span className="font-medium text-maint-600">{formatRupiah(invoiceOrder.denda_overtime)}</span>
                   </div>
@@ -1984,33 +2770,65 @@ export default function Orders() {
                     {confirmComplete?.kendaraan?.nama_kendaraan} ({confirmComplete?.kendaraan?.plat_nomor})
                   </span>
                 </div>
-                <div className="flex items-center justify-between rounded-lg bg-brand-50 p-2.5">
-                  <span className="font-medium text-brand-600">Total</span>
-                  <span className="text-lg font-bold text-brand-600">
-                    {formatRupiah(
-                      Number(confirmComplete?.harga_total || 0) +
-                        (confirmComplete && confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime
-                          ? Number(confirmComplete.denda_overtime_saat_ini || 0)
-                          : 0)
-                    )}
-                  </span>
-                </div>
-                {confirmComplete && confirmComplete.jam_overtime_saat_ini > 0 && (
-                  <div className="flex items-center gap-2 rounded-lg border border-maint-500/30 bg-maint-50 p-2.5">
-                    <svg className="h-4 w-4 flex-shrink-0 text-maint-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
-                      />
-                    </svg>
-                    <span className="text-xs text-maint-600">
-                      Melewati batas waktu <strong>{confirmComplete.jam_overtime_saat_ini} jam</strong> → denda{' '}
-                      <strong>{formatRupiah(confirmComplete.denda_overtime_saat_ini)}</strong> akan ditambahkan ke total
+              </div>
+
+              {confirmComplete && (
+                <div className="space-y-3 rounded-xl border border-brand-100 bg-brand-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-brand-400">Rincian Biaya</p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-ink-900">Sewa Kendaraan</p>
+                      <p className="text-xs text-ink-400">
+                        {confirmComplete.durasi_hari} hari × {formatRupiah(confirmComplete.harga_per_hari)}/hari
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-sm font-semibold text-ink-900">{formatRupiah(confirmComplete.durasi_hari * confirmComplete.harga_per_hari)}</p>
+                  </div>
+                  {confirmComplete.supir && (
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-ink-900">Biaya Supir</p>
+                        <p className="text-xs text-ink-400">{confirmComplete.supir.nama}</p>
+                      </div>
+                      <p className="shrink-0 text-sm font-semibold text-ink-900">-</p>
+                    </div>
+                  )}
+                  {confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime && (
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-maint-600">Denda Overtime</p>
+                        <p className="text-xs text-maint-500">
+                          {formatJam(confirmComplete.jam_overtime_saat_ini)} × {formatRupiah(overtimeRate)}/jam
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-sm font-semibold text-maint-600">{formatRupiah(confirmComplete.denda_overtime_saat_ini)}</p>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between border-t border-brand-100 pt-2">
+                    <span className="text-sm font-semibold text-ink-900">Total</span>
+                    <span className="text-lg font-bold text-brand-600">
+                      {formatRupiah(
+                        Number(confirmComplete.harga_total || 0) +
+                          (confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime
+                            ? Number(confirmComplete.denda_overtime_saat_ini || 0)
+                            : 0)
+                      )}
                     </span>
                   </div>
-                )}
+                </div>
+              )}
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-ink-700">
+                  Waktu Pengembalian Aktual <span className="text-maint-500">*</span>
+                </label>
+                <p className="mb-1.5 text-xs text-ink-400">Kapan kendaraan benar-benar tiba (dipakai untuk hitung denda)</p>
+                <input
+                  type="datetime-local"
+                  value={completeReturnTime}
+                  onChange={(e) => setCompleteReturnTime(e.target.value)}
+                  className="block w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 shadow-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none"
+                />
               </div>
 
               <div>
@@ -2165,6 +2983,11 @@ export default function Orders() {
                         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusColors[item.status_order]}`}>
                           {statusOrderLabels[item.status_order]}
                         </span>
+                        {item.source === 'katalog' && (
+                          <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-600">
+                            Pesanan Katalog
+                          </span>
+                        )}
                         {isActive && (
                           <span className="flex items-center gap-1 text-xs font-medium text-avail-600">
                             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-avail-500" />
@@ -2181,7 +3004,7 @@ export default function Orders() {
                                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
                               />
                             </svg>
-                            Overtime {item.jam_overtime_saat_ini} jam ({formatRupiah(item.denda_overtime_saat_ini)})
+                            Overtime {formatJam(item.jam_overtime_saat_ini)} ({formatRupiah(item.denda_overtime_saat_ini)})
                           </span>
                         )}
                       </div>
@@ -2205,14 +3028,7 @@ export default function Orders() {
                         {item.status_order === 'pending' && (
                           <>
                             <button
-                              onClick={() =>
-                                setConfirmAction({
-                                  title: 'Konfirmasi Order',
-                                  message: `Konfirmasi order "${item.kode_order}" dari ${item.customer?.nama_lengkap}?`,
-                                  danger: false,
-                                  onConfirm: () => handleInlineUpdate(item.id, 'status_order', 'confirmed'),
-                                })
-                              }
+                              onClick={() => openEditModal(item, { konfirmasi: true })}
                               className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-brand-600"
                             >
                               Konfirmasi
@@ -2241,7 +3057,7 @@ export default function Orders() {
                               <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                               </svg>
-                              Sewakan
+                              Kirim Kendaraan
                             </button>
                             <button
                               onClick={() =>
@@ -2258,7 +3074,26 @@ export default function Orders() {
                             </button>
                           </>
                         )}
-                        {isActive && (
+                        {isActive && item.status_pengiriman === 'sudah_diantarkan' && item.bukti_pengiriman && (
+                          <button
+                            onClick={() =>
+                              setConfirmAction({
+                                title: 'Mulai Sewa',
+                                message: `Mulai penyewaan "${item.kode_order}" dari ${item.customer?.nama_lengkap}?`,
+                                danger: false,
+                                onConfirm: () => handleInlineUpdate(item.id, 'status_pengiriman', 'dalam_penyewaan'),
+                              })
+                            }
+                            className="flex items-center gap-1 rounded-lg bg-avail-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-avail-600"
+                          >
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Mulai Sewa
+                          </button>
+                        )}
+                        {isActive && item.status_pengiriman !== 'sudah_diantarkan' && (
                           <button
                             onClick={() => setConfirmComplete(item)}
                             className="flex items-center gap-1 rounded-lg bg-avail-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-avail-500"
@@ -2288,7 +3123,7 @@ export default function Orders() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span className="text-xs font-medium text-maint-600">
-                          Kendaraan terlambat dikembalikan <strong>{item.jam_overtime_saat_ini} jam</strong> — denda{' '}
+                          Kendaraan terlambat dikembalikan <strong>{formatJam(item.jam_overtime_saat_ini)}</strong> — denda{' '}
                           <strong>{formatRupiah(item.denda_overtime_saat_ini)}</strong>
                         </span>
                       </div>
@@ -2300,7 +3135,7 @@ export default function Orders() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span className="text-xs font-medium text-amber-700">
-                          Terlambat {item.jam_overtime} jam — denda {formatRupiah(item.denda_overtime)}
+                          Terlambat {formatJam(item.jam_overtime)} — denda {formatRupiah(item.denda_overtime)}
                         </span>
                         <button onClick={() => setInvoiceOrder(item)} className="ml-auto text-xs font-medium text-amber-700 underline hover:text-amber-900">
                           Lihat Invoice
@@ -2311,16 +3146,30 @@ export default function Orders() {
                     <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
                       <div className="space-y-0.5">
                         <span className="text-xs uppercase tracking-wider text-ink-400">Customer</span>
-                        <div className="px-2 py-1">
-                          <span className="block truncate font-medium text-ink-900">{item.customer?.nama_lengkap}</span>
-                          <p className="truncate text-xs text-ink-400">{item.customer?.no_hp}</p>
+                        <div className="flex items-center gap-2 px-2 py-1">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-xs font-bold text-brand-600">
+                            {item.customer?.nama_lengkap?.charAt(0) || '?'}
+                          </div>
+                          <div className="min-w-0">
+                            <span className="block truncate font-medium text-ink-900">{item.customer?.nama_lengkap}</span>
+                            <p className="truncate text-xs text-ink-400">{formatHpDisplay(item.customer?.no_hp)}</p>
+                          </div>
                         </div>
                       </div>
                       <div className="space-y-0.5">
                         <span className="text-xs uppercase tracking-wider text-ink-400">Kendaraan</span>
-                        <div className="px-2 py-1">
-                          <span className="block truncate font-medium text-ink-900">{item.kendaraan?.nama_kendaraan}</span>
-                          <p className="truncate text-xs text-ink-400">{item.kendaraan?.plat_nomor}</p>
+                        <div className="flex items-center gap-2 px-2 py-1">
+                          {item.kendaraan?.foto ? (
+                            <img src={`/storage/${item.kendaraan.foto}`} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+                          ) : (
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ink-100 text-ink-400">
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18" /></svg>
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <span className="block truncate font-medium text-ink-900">{item.kendaraan?.nama_kendaraan}</span>
+                            <p className="truncate text-xs text-ink-400">{item.kendaraan?.plat_nomor}</p>
+                          </div>
                         </div>
                       </div>
                       {(item.supir || item.calo) && (
@@ -2357,6 +3206,24 @@ export default function Orders() {
                         </div>
                       </div>
                     </div>
+
+                    {(item.alamat_jemput || item.tujuan) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-500">
+                        {item.alamat_jemput && (
+                          <span className="flex items-center gap-1.5">
+                            <svg className="h-3.5 w-3.5 shrink-0 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            {item.alamat_jemput}
+                          </span>
+                        )}
+                        {item.alamat_jemput && item.tujuan && <span className="text-ink-300">→</span>}
+                        {item.tujuan && (
+                          <span className="flex items-center gap-1.5">
+                            <svg className="h-3.5 w-3.5 shrink-0 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><circle cx="12" cy="11" r="3" /></svg>
+                            {item.tujuan}
+                          </span>
+                        )}
+                      </div>
+                    )}
 
                     <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-ink-200 pt-3">
                       <div className="flex items-center gap-1.5">

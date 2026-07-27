@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { supirCaloAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
+import { formatHpDisplay, formatHpWa } from '../lib/format';
 
 const formatRupiah = (n) => `Rp ${Number(n || 0).toLocaleString('id-ID')}`;
 
@@ -14,15 +15,6 @@ const emptyForm = {
   komisi: '',
   tarif_per_hari: '',
   catatan: '',
-};
-
-// Ubah nomor HP lokal (0812..., +62812..., 62812...) menjadi format 62xxxx untuk link WhatsApp
-const formatPhoneForWa = (phone) => {
-  if (!phone) return '';
-  let digits = String(phone).replace(/[^0-9]/g, '');
-  if (digits.startsWith('0')) digits = `62${digits.slice(1)}`;
-  else if (!digits.startsWith('62')) digits = `62${digits}`;
-  return digits;
 };
 
 function ImagePreview({ src, alt, className = '' }) {
@@ -146,6 +138,9 @@ export default function SupirCalo() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [fotoFile, setFotoFile] = useState(null);
   const [fotoPreview, setFotoPreview] = useState(null);
+  useEffect(() => {
+    return () => { if (fotoPreview) URL.revokeObjectURL(fotoPreview); };
+  }, [fotoPreview]);
   const [detailItem, setDetailItem] = useState(null);
 
   const load = useCallback(() => {
@@ -332,8 +327,8 @@ export default function SupirCalo() {
               ) : (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Komisi (Rp)</label>
-                    <input type="number" value={form.komisi} onChange={(e) => setField('komisi', e.target.value)} min="0"
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Komisi (Rp) *</label>
+                    <input type="number" value={form.komisi} onChange={(e) => setField('komisi', e.target.value)} min="0" required
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
                   </div>
                   <div className="pt-2 border-t border-gray-100">
@@ -400,7 +395,7 @@ export default function SupirCalo() {
               <div className="space-y-3 bg-gray-50 rounded-lg p-4">
                 <CopyableField
                   label="No. HP"
-                  value={detailItem.no_hp}
+                  value={formatHpDisplay(detailItem.no_hp)}
                   icon={<svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>}
                 />
                 {isSupir && (
@@ -435,7 +430,7 @@ export default function SupirCalo() {
 
               <div className="flex gap-2">
                 <a
-                  href={`https://wa.me/${formatPhoneForWa(detailItem.no_hp)}`}
+                  href={`https://wa.me/${formatHpWa(detailItem.no_hp)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-lg hover:bg-green-600 transition-colors"
@@ -504,7 +499,7 @@ export default function SupirCalo() {
               <div className="px-4 space-y-1.5 flex-1">
                 <CopyableField
                   label="No. HP"
-                  value={item.no_hp}
+                  value={formatHpDisplay(item.no_hp)}
                   icon={<svg className="w-3.5 h-3.5 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>}
                 />
                 {isSupir && (
@@ -524,7 +519,7 @@ export default function SupirCalo() {
 
               <div className="p-4 pt-3 mt-3 border-t border-gray-100 flex items-center gap-2">
                 <a
-                  href={`https://wa.me/${formatPhoneForWa(item.no_hp)}`}
+                  href={`https://wa.me/${formatHpWa(item.no_hp)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}

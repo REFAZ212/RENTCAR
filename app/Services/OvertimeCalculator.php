@@ -9,11 +9,15 @@ use Carbon\Carbon;
  *
  * ATURAN BISNIS:
  * Setiap kelipatan jam mulai dari lewat batas waktu — walaupun cuma lewat
- * beberapa menit — dianggap 1 blok dan dikenakan tarif penuh Rp 25.000.
+ * beberapa menit — dianggap 1 blok dan dikenakan tarif penuh.
  * Artinya:
- *   - Terlambat 1 menit  s/d 60 menit  → 1 jam  → Rp 25.000
- *   - Terlambat 61 menit s/d 120 menit → 2 jam  → Rp 50.000
+ *   - Terlambat 1 menit  s/d 60 menit  → 1 jam  → tarif penuh
+ *   - Terlambat 61 menit s/d 120 menit → 2 jam  → 2× tarif
  *   - Tidak terlambat sama sekali      → 0 jam  → Rp 0
+ *
+ * Tarif & grace period sekarang diambil dari database (tabel settings)
+ * via Setting::getOvertimeSettings(). Konstanta di bawah hanya fallback
+ * untuk test/unit yang tidak punya akses DB.
  *
  * Dipakai bersama oleh:
  *   - App\Models\Order (accessor real-time untuk order yang masih "active")
@@ -23,15 +27,12 @@ use Carbon\Carbon;
 class OvertimeCalculator
 {
     /**
-     * Tarif denda per blok jam keterlambatan.
+     * Fallback tarif — dipakai hanya saat caller tidak mengirim parameter.
      */
     public const RATE_PER_HOUR = 25000;
 
     /**
-     * Jam berapa dianggap "batas toleransi tanpa denda" (dalam menit).
-     * 0 = tidak ada toleransi sama sekali; telat 1 menit pun sudah kena 1 blok.
-     * Diekspos sebagai konstanta supaya gampang diubah kalau suatu saat
-     * bisnisnya butuh masa toleransi (mis. 15 menit gratis).
+     * Fallback grace period (menit).
      */
     public const GRACE_PERIOD_MINUTES = 0;
 
@@ -43,18 +44,21 @@ class OvertimeCalculator
      * diffInMinutes(), telat 1–59 detik akan dibulatkan Carbon menjadi
      * "0 menit" dan lolos tanpa denda — itu bug yang salah dan sudah
      * diperbaiki di sini. Telat walau 1 detik tetap dianggap masuk 1 blok
-     * jam penuh (kena Rp 25.000).
+     * jam penuh.
      *
      * @param  Carbon  $batasWaktu  Tanggal + jam selesai sewa yang dijanjikan
      * @param  Carbon  $waktuAktual  Waktu pengembalian aktual (atau "sekarang" untuk overtime berjalan)
+     * @param  int  $rate  Tarif denda per jam (null = pakai konstanta fallback)
+     * @param  int  $grace  Grace period dalam menit (null = pakai konstanta fallback)
      */
-    public static function hitungJamTerlambat(Carbon $batasWaktu, Carbon $waktuAktual): int
+    public static function hitungJamTerlambat(Carbon $batasWaktu, Carbon $waktuAktual, ?int $grace = null): int
     {
         if ($waktuAktual->lessThanOrEqualTo($batasWaktu)) {
             return 0;
         }
 
-        $detikTerlambat = $batasWaktu->diffInSeconds($waktuAktual) - (self::GRACE_PERIOD_MINUTES * 60);
+        $graceMinutes = $grace ?? self::GRACE_PERIOD_MINUTES;
+        $detikTerlambat = $batasWaktu->diffInSeconds($waktuAktual) - ($graceMinutes * 60);
 
         if ($detikTerlambat <= 0) {
             return 0;
@@ -65,35 +69,29 @@ class OvertimeCalculator
 
     /**
      * Konversi jumlah jam terlambat menjadi nominal denda (Rupiah).
+     *
+     * @param  int  $jamTerlambat  Jumlah blok jam keterlambatan
+     * @param  int  $rate  Tarif per jam (null = pakai konstanta fallback)
      */
-    public static function hitungDenda(int $jamTerlambat): float
+    public static function hitungDenda(int $jamTerlambat, ?int $rate = null): float
     {
-        return max(0, $jamTerlambat) * self::RATE_PER_HOUR;
+        return max(0, $jamTerlambat) * ($rate ?? self::RATE_PER_HOUR);
     }
 
     /**
      * Helper sekali panggil: kembalikan jam terlambat + denda sekaligus.
      *
+     * @param  int  $rate  Tarif per jam (null = pakai konstanta fallback)
+     * @param  int  $grace  Grace period dalam menit (null = pakai konstanta fallback)
      * @return array{jam_overtime: int, denda_overtime: float}
      */
-    public static function hitung(Carbon $batasWaktu, Carbon $waktuAktual): array
+    public static function hitung(Carbon $batasWaktu, Carbon $waktuAktual, ?int $rate = null, ?int $grace = null): array
     {
-        $jam = self::hitungJamTerlambat($batasWaktu, $waktuAktual);
+        $jam = self::hitungJamTerlambat($batasWaktu, $waktuAktual, $grace);
 
         return [
             'jam_overtime' => $jam,
-            'denda_overtime' => self::hitungDenda($jam),
+            'denda_overtime' => self::hitungDenda($jam, $rate),
         ];
-    }
-
-    /**
-     * Bangun objek Carbon "batas waktu seharusnya kembali" dari kolom
-     * tanggal_selesai (date) + jam_selesai (time string "HH:mm" / "HH:mm:ss").
-     * Kalau jam_selesai kosong, dianggap akhir hari (23:59) — konsisten
-     * dengan asumsi yang dulu dipakai di frontend.
-     */
-    public static function batasWaktuDari(Carbon $tanggalSelesai, ?string $jamSelesai): Carbon
-    {
-        return Carbon::parse($tanggalSelesai->toDateString().' '.($jamSelesai ?: '23:59'));
     }
 }

@@ -14,7 +14,15 @@ class UserSeeder extends Seeder
             'name' => 'Admin Utama',
             'email' => 'admin@cvpilar.com',
             'phone' => '0895361054272',
-            'role' => 'admin',
+            'role' => 'admin_utama',
+            'password' => Hash::make('password'),
+        ]);
+
+        User::create([
+            'name' => 'Admin Operasional',
+            'email' => 'opsional@cvpilar.com',
+            'phone' => '081234567890',
+            'role' => 'admin_operasional',
             'password' => Hash::make('password'),
         ]);
 
@@ -22,14 +30,6 @@ class UserSeeder extends Seeder
             'name' => 'Petugas 1',
             'email' => 'petugas@cvpilar.com',
             'phone' => '081234567891',
-            'role' => 'petugas',
-            'password' => Hash::make('password'),
-        ]);
-
-        User::create([
-            'name' => 'Petugas 2',
-            'email' => 'petugas2@cvpilar.com',
-            'phone' => '081234567892',
             'role' => 'petugas',
             'password' => Hash::make('password'),
         ]);

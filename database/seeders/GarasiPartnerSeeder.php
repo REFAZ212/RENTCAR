@@ -28,6 +28,8 @@ class GarasiPartnerSeeder extends Seeder
             'email' => 'makmurjaya@email.com',
             'status_aktif' => true,
             'is_own' => false,
+            'metode_bagi_hasil' => 'persentase',
+            'persentase_bagi_hasil' => 60.00,
             'catatan' => 'Garasi partner kedua',
         ]);
 
@@ -39,6 +41,8 @@ class GarasiPartnerSeeder extends Seeder
             'email' => 'sentosa@email.com',
             'status_aktif' => true,
             'is_own' => false,
+            'metode_bagi_hasil' => 'persentase',
+            'persentase_bagi_hasil' => 55.00,
         ]);
 
         GarasiPartner::create([
@@ -49,6 +53,8 @@ class GarasiPartnerSeeder extends Seeder
             'email' => 'prima@email.com',
             'status_aktif' => true,
             'is_own' => false,
+            'metode_bagi_hasil' => 'persentase',
+            'persentase_bagi_hasil' => 65.00,
             'catatan' => 'Fokus pada kendaraan premium',
         ]);
 

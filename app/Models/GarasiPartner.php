@@ -18,12 +18,15 @@ class GarasiPartner extends Model
         'email',
         'status_aktif',
         'is_own',
+        'metode_bagi_hasil',
+        'persentase_bagi_hasil',
         'catatan',
     ];
 
     protected $casts = [
         'status_aktif' => 'boolean',
         'is_own' => 'boolean',
+        'persentase_bagi_hasil' => 'decimal:2',
     ];
 
     public function kendaraans(): HasMany
