@@ -25,6 +25,16 @@ const allNavItems = [
   { path: '/gps', label: 'GPS', icon: MapPin, roles: ['admin'] },
   { path: '/laporan', label: 'Laporan', icon: FileBarChart, roles: ['admin'] },
   { path: '/garasi', label: 'Garasi', icon: Warehouse, roles: ['admin'] },
+const navItems = [
+  { path: '/admin', label: 'Dashboard', icon: LayoutGrid },
+  { path: '/admin/orders', label: 'Orders', icon: ClipboardList },
+  { path: '/admin/kendaraan', label: 'Kendaraan', icon: Car },
+  { path: '/admin/kategori-tipe', label: 'Kategori & Tipe', icon: Tags },
+  { path: '/admin/customers', label: 'Customers', icon: Users },
+  { path: '/admin/supir-calo', label: 'Supir & Calo', icon: UserCheck },
+  { path: '/admin/gps', label: 'GPS', icon: MapPin },
+  { path: '/admin/laporan', label: 'Laporan', icon: FileBarChart },
+  { path: '/admin/garasi', label: 'Garasi', icon: Warehouse },
 ];
 
 interface SidebarProps {

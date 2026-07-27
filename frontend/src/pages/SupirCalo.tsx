@@ -62,18 +62,42 @@ function CopyIcon({ className = 'w-3.5 h-3.5' }) {
 }
 
 // Baris info dengan tombol salin (untuk No. HP / No. SIM)
+// Catatan: tidak memakai toast global agar tidak memicu reflow/getar pada layar.
+// Umpan balik cukup berupa tooltip kecil lokal yang muncul & hilang sendiri.
 function CopyableField({ label, value, icon }) {
-  const toast = useToast();
+  const [status, setStatus] = useState<null | 'copied' | 'error'>(null);
+
+  useEffect(() => {
+    if (!status) return;
+    const t = window.setTimeout(() => setStatus(null), 1400);
+    return () => window.clearTimeout(t);
+  }, [status]);
+
   if (!value) return null;
+
   const handleCopy = async (e) => {
+    e.preventDefault();
     e.stopPropagation();
     try {
-      await navigator.clipboard.writeText(value);
-      toast.success(`${label} disalin`);
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        // Fallback untuk browser/koneksi yang tidak mendukung Clipboard API
+        const ta = document.createElement('textarea');
+        ta.value = value;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      setStatus('copied');
     } catch {
-      toast.error(`Gagal menyalin ${label.toLowerCase()}`);
+      setStatus('error');
     }
   };
+
   return (
     <div className="flex items-center justify-between gap-2 text-sm">
       <div className="flex items-center gap-1.5 text-gray-600 min-w-0">
@@ -81,11 +105,21 @@ function CopyableField({ label, value, icon }) {
         <span className="truncate">{value}</span>
       </div>
       <button
+        type="button"
         onClick={handleCopy}
         title={`Salin ${label}`}
-        className="shrink-0 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+        className="relative shrink-0 p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
       >
         <CopyIcon />
+        <span
+          role="status"
+          aria-live="polite"
+          className={`pointer-events-none absolute top-full right-0 mt-1 whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-medium text-white shadow-sm transition-opacity duration-150 z-20 ${
+            status === 'copied' ? 'opacity-100 bg-gray-900' : status === 'error' ? 'opacity-100 bg-red-600' : 'opacity-0'
+          }`}
+        >
+          {status === 'error' ? 'Gagal menyalin' : `${label} disalin`}
+        </span>
       </button>
     </div>
   );
