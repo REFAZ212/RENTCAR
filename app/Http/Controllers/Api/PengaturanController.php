@@ -72,8 +72,9 @@ class PengaturanController extends Controller
         }
 
         $user->update(['password' => $validated['password_baru']]);
+        $user->tokens()->delete();
 
-        return response()->json(['message' => 'Password berhasil diubah.']);
+        return response()->json(['message' => 'Password berhasil diubah. Semua sesi aktif telah logout.']);
     }
 
     public function getBisnis(): JsonResponse
@@ -149,8 +150,14 @@ class PengaturanController extends Controller
 
     public function getNotifikasi(): JsonResponse
     {
+        $fonnteToken = Setting::get('fonnte_token', '');
+        $maskedToken = ! empty($fonnteToken)
+            ? str_repeat('*', max(0, strlen($fonnteToken) - 4)).substr($fonnteToken, -4)
+            : '';
+
         return response()->json([
-            'fonnte_token' => Setting::get('fonnte_token', ''),
+            'fonnte_token' => $maskedToken,
+            'fonnte_token_configured' => ! empty($fonnteToken),
             'nomor_wa_owner' => Setting::get('nomor_wa_owner', ''),
             'notif_booking_baru' => Setting::get('notif_booking_baru', '1') === '1',
             'notif_penugasan_driver' => Setting::get('notif_penugasan_driver', '1') === '1',
@@ -255,6 +262,11 @@ class PengaturanController extends Controller
             'settings', 'kategoris', 'tipes', 'supir_calos',
         ];
 
+        $sensitiveColumns = [
+            'users' => ['password'],
+            'settings' => [],
+        ];
+
         $dump = "-- Backup CVPILAR {$timestamp}\n-- =============================\n\n";
 
         foreach ($tables as $table) {
@@ -273,10 +285,19 @@ class PengaturanController extends Controller
             }
 
             $columns = array_keys((array) $rows->first());
+            $excludeCols = $sensitiveColumns[$table] ?? [];
+            $columns = array_values(array_diff($columns, $excludeCols));
             $columnList = '`'.implode('`, `', $columns).'`';
 
             foreach ($rows as $row) {
-                $values = array_map(fn ($v) => $v === null ? 'NULL' : "'".addslashes((string) $v)."'", (array) $row);
+                $rowData = (array) $row;
+                $rowData = array_intersect_key($rowData, array_flip($columns));
+
+                if ($table === 'settings' && ($rowData['key'] ?? '') === 'fonnte_token') {
+                    $rowData['value'] = '';
+                }
+
+                $values = array_map(fn ($v) => $v === null ? 'NULL' : "'".addslashes((string) $v)."'", $rowData);
                 $dump .= "INSERT INTO `{$table}` ({$columnList}) VALUES (".implode(', ', $values).");\n";
             }
             $dump .= "\n";

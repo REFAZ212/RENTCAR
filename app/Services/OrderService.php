@@ -177,6 +177,7 @@ class OrderService
                 'calo_id' => $validated['calo_id'] ?? null,
                 'komisi_calo' => $komisiCalo,
                 'admin_id' => $request->user()->id,
+                'tanggal_jatuh_tempo' => $validated['tanggal_jatuh_tempo'] ?? null,
             ]);
 
             $this->validateAndRecordPayment($order, $request->user()->id, $validated);
@@ -241,6 +242,12 @@ class OrderService
                 throw ValidationException::withMessages([
                     'status_order' => ["Transisi status dari '{$order->status_order}' ke '{$validated['status_order']}' tidak diizinkan."],
                 ]);
+            }
+
+            if ($validated['status_order'] === 'cancelled') {
+                $biaya = $order->hitungBiayaPembatalan();
+                $validated['biaya_pembatalan'] = $biaya['biaya'];
+                $validated['alasan_pembatalan'] = $validated['alasan_pembatalan'] ?? null;
             }
         }
 
@@ -636,14 +643,70 @@ class OrderService
             $waktuAktual = isset($validated['tanggal_pengembalian_aktual'])
                 ? Carbon::parse($validated['tanggal_pengembalian_aktual'])
                 : now();
+
+            $earlyReturn = $order->hitungEarlyReturn($waktuAktual);
+            if ($earlyReturn['refund'] > 0) {
+                $order->total_refund = $earlyReturn['refund'];
+                $order->harga_total = $earlyReturn['harga_baru'];
+            }
+
             $order->selesaikanSewa($waktuAktual);
             $order->save();
 
+            if ($earlyReturn['refund'] > 0) {
+                Pembayaran::create([
+                    'order_id' => $order->id,
+                    'admin_id' => $request->user()->id,
+                    'jumlah' => $earlyReturn['refund'],
+                    'metode_pembayaran' => $order->metode_pembayaran ?? 'cash',
+                    'status' => 'refund',
+                    'catatan' => "Refund pengembalian awal: {$earlyReturn['keterangan']}",
+                ]);
+            }
+
             if (Setting::get('notif_kendaraan_terlambat', '1') === '1') {
                 $pesan = "Halo {$order->customer->nama_lengkap},\n\n"
-                    ."Order *{$order->kode_order}* telah *SELESAI* ✅\n"
-                    ."Terima kasih telah menggunakan layanan kami.\n"
+                    ."Order *{$order->kode_order}* telah *SELESAI* ✅\n";
+                if ($earlyReturn['refund'] > 0) {
+                    $pesan .= "Pengembalian awal: {$earlyReturn['durasi_aktual']} hari (dari {$order->durasi_hari} hari)\n"
+                        .'Refund: *Rp '.number_format($earlyReturn['refund'], 0, ',', '.')."*\n";
+                }
+                $pesan .= "Terima kasih telah menggunakan layanan kami.\n"
                     .'Sampai jumpa di pemesanan berikutnya! 🙏';
+                $wa->kirimPesanAsync($order->customer->no_hp, $pesan);
+            }
+        }
+
+        if ($newStatus === 'cancelled' && $statusSebelumUpdate !== 'cancelled') {
+            $biayaPembatalan = (float) ($validated['biaya_pembatalan'] ?? $order->biaya_pembatalan ?? 0);
+            $totalBayar = (float) $order->pembayarans()->whereNull('deleted_at')->where('status', '!=', 'refund')->sum('jumlah');
+            $refund = max(0, $totalBayar - $biayaPembatalan);
+
+            if ($refund > 0) {
+                $order->total_refund = $refund;
+                Pembayaran::create([
+                    'order_id' => $order->id,
+                    'admin_id' => $request->user()->id,
+                    'jumlah' => $refund,
+                    'metode_pembayaran' => $order->metode_pembayaran ?? 'cash',
+                    'status' => 'refund',
+                    'catatan' => 'Refund pembatalan: dibayar Rp '.number_format($totalBayar, 0, ',', '.').' - biaya pembatalan Rp '.number_format($biayaPembatalan, 0, ',', '.'),
+                ]);
+            }
+
+            if (Setting::get('notif_booking_baru', '1') === '1' && $order->customer->no_hp) {
+                $pesan = "Halo {$order->customer->nama_lengkap},\n\n"
+                    ."Order *{$order->kode_order}* telah *DIBATALKAN* ❌\n";
+                if ($biayaPembatalan > 0) {
+                    $pesan .= 'Biaya pembatalan: Rp '.number_format($biayaPembatalan, 0, ',', '.')."\n";
+                }
+                if ($refund > 0) {
+                    $pesan .= 'Refund: *Rp '.number_format($refund, 0, ',', '.')."*\n";
+                }
+                $pesan .= ($validated['alasan_pembatalan'] ?? $order->alasan_pembatalan)
+                    ? 'Alasan: '.($validated['alasan_pembatalan'] ?? $order->alasan_pembatalan)."\n"
+                    : '';
+                $pesan .= "\nTerima kasih.";
                 $wa->kirimPesanAsync($order->customer->no_hp, $pesan);
             }
         }

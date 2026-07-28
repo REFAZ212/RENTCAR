@@ -17,7 +17,7 @@ class KatalogPublicController extends Controller
     {
         $query = Kendaraan::query()
             ->with(['garasiPartner', 'kategori', 'tipe'])
-            ->where('status', 'tersedia');
+            ->withCount('activeOrders');
 
         if ($request->filled('search')) {
             $search = $request->input('search');
@@ -63,6 +63,16 @@ class KatalogPublicController extends Controller
 
         $items = $kendaraan->items();
 
+        // Add estimated return date for rented vehicles
+        foreach ($items as $k) {
+            if ($k->status === 'disewa') {
+                $activeOrder = $k->activeOrders()->latest('tanggal_selesai')->first();
+                $k->estimated_return_date = $activeOrder?->tanggal_selesai?->format('Y-m-d');
+            } else {
+                $k->estimated_return_date = null;
+            }
+        }
+
         if ($request->filled('tanggal_mulai') && $request->filled('durasi_hari')) {
             $tanggalMulai = Carbon::parse($request->input('tanggal_mulai'));
             $durasi = max(1, (int) $request->input('durasi_hari'));
@@ -101,7 +111,7 @@ class KatalogPublicController extends Controller
     public function kategoris(): JsonResponse
     {
         $kategoris = Kategori::where('aktif', true)
-            ->withCount(['kendaraans' => fn ($q) => $q->where('status', 'tersedia')])
+            ->withCount('kendaraans')
             ->orderBy('nama_kategori')
             ->get();
 
@@ -111,7 +121,7 @@ class KatalogPublicController extends Controller
     public function tipes(Request $request): JsonResponse
     {
         $query = Tipe::where('aktif', true)
-            ->withCount(['kendaraans' => fn ($q) => $q->where('status', 'tersedia')]);
+            ->withCount('kendaraans');
 
         if ($request->filled('kategori_slug')) {
             $query->whereHas('kategori', function ($q) use ($request) {
@@ -125,9 +135,13 @@ class KatalogPublicController extends Controller
     public function show(Request $request, Kendaraan $kendaraan): JsonResponse
     {
         $kendaraan->load('garasiPartner', 'kategori', 'tipe');
+        $kendaraan->loadCount('activeOrders');
 
-        if ($kendaraan->status !== 'tersedia') {
-            return response()->json(['message' => 'Kendaraan tidak tersedia'], 404);
+        if ($kendaraan->status === 'disewa') {
+            $activeOrder = $kendaraan->activeOrders()->latest('tanggal_selesai')->first();
+            $kendaraan->estimated_return_date = $activeOrder?->tanggal_selesai?->format('Y-m-d');
+        } else {
+            $kendaraan->estimated_return_date = null;
         }
 
         if ($request->filled('tanggal_mulai') && $request->filled('durasi_hari')) {

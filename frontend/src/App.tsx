@@ -20,6 +20,9 @@ const KendaraanDetail = lazy(() => import('./pages/KendaraanDetail'));
 const Pengaturan = lazy(() => import('./pages/Pengaturan'));
 const GpsPage = lazy(() => import('./pages/GpsPage'));
 const ActivityLog = lazy(() => import('./pages/ActivityLog'));
+const Inspeksi = lazy(() => import('./pages/Inspeksi'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
+const CustomerDetail = lazy(() => import('./pages/CustomerDetail'));
 
 //public route will redirect to / if user is logged in, private route will redirect to /login if user is not logged in
 
@@ -96,12 +99,15 @@ export default function App() {
           <Route path="/kendaraan" element={<PrivateRoute><Kendaraan /></PrivateRoute>} />
           <Route path="/kategori-tipe" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><KategoriTipe /></RoleRoute></PrivateRoute>} />
           <Route path="/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
+          <Route path="/customers/:id" element={<PrivateRoute><CustomerDetail /></PrivateRoute>} />
           <Route path="/supir-calo" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><SupirCalo /></RoleRoute></PrivateRoute>} />
           <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
           <Route path="/gps" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><GpsPage /></RoleRoute></PrivateRoute>} />
           <Route path="/laporan" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><Laporan /></RoleRoute></PrivateRoute>} />
           <Route path="/garasi" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><GarasiPage /></RoleRoute></PrivateRoute>} />
+          <Route path="/inspeksi" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><Inspeksi /></RoleRoute></PrivateRoute>} />
           <Route path="/pengaturan" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama']}><Pengaturan /></RoleRoute></PrivateRoute>} />
+          <Route path="/users" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama']}><UserManagement /></RoleRoute></PrivateRoute>} />
           <Route path="/activity-log" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama']}><ActivityLog /></RoleRoute></PrivateRoute>} />
 
           {/* 404 */}

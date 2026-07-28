@@ -80,8 +80,10 @@ class CustomerController extends Controller
         $this->authorize('view', $customer);
 
         $customer->load(['orders' => function ($q) {
-            $q->with('kendaraan')->latest()->limit(10);
+            $q->with('kendaraan')->latest();
         }]);
+
+        $customer->orders_count = $customer->orders()->count();
 
         return response()->json($customer);
     }
