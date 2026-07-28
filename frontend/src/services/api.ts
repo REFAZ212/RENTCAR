@@ -28,6 +28,7 @@ export interface Customer {
   foto_ktp: string | null;
   foto_sim: string | null;
   orders_count?: number;
+  orders?: Order[];
   latestOrder?: {
     id: number;
     kode_order: string;
@@ -77,7 +78,7 @@ export interface Pembayaran {
   order_id: number;
   jumlah: number;
   metode_pembayaran: 'cash' | 'transfer' | 'qris' | 'lainnya';
-  status: 'dp' | 'pelunasan';
+  status: 'dp' | 'pelunasan' | 'refund';
   bukti_transfer: string | null;
   catatan: string | null;
   created_at: string;
@@ -105,6 +106,7 @@ export interface Order {
   supir_id: number | null;
   calo_id: number | null;
   catatan: string | null;
+  alasan_pembatalan: string | null;
   bukti_transfer: string | null;
   bukti_pengiriman: string | null;
   bukti_pengembalian: string | null;
@@ -112,6 +114,9 @@ export interface Order {
   denda_overtime: number;
   jam_overtime_saat_ini: number;
   denda_overtime_saat_ini: number;
+  tanggal_jatuh_tempo: string | null;
+  biaya_pembatalan: number | null;
+  total_refund: number | null;
   customer?: Customer;
   kendaraan?: Kendaraan;
   supir?: SupirCalo;
@@ -157,6 +162,8 @@ export interface KatalogItem extends Kendaraan {
   kategori?: KategoriKendaraan;
   tipe?: TipeKendaraan;
   available_for_dates?: boolean;
+  active_orders_count?: number;
+  estimated_return_date?: string | null;
 }
 
 export interface DashboardSummary {
@@ -463,4 +470,63 @@ export interface ActivityLog {
 export const activityLogAPI = {
   list: (params?: QueryParams): Promise<AxiosResponse<ListResponse<ActivityLog>>> =>
     api.get('/activity-log', { params }),
+};
+
+/* ─────────────────────────────────────────────────────────────
+ * USERS (admin manajemen user)
+ * ───────────────────────────────────────────────────────────── */
+export interface AppUser {
+  id: number;
+  name: string;
+  email: string;
+  phone: string | null;
+  role: 'admin_utama' | 'admin_operasional' | 'petugas';
+  avatar: string | null;
+  created_at: string;
+}
+
+export const userAPI = {
+  list: (params?: QueryParams): Promise<AxiosResponse<ListResponse<AppUser>>> => api.get('/users', { params }),
+  get: (id: number): Promise<AxiosResponse<SingleResponse<AppUser>>> => api.get(`/users/${id}`),
+  create: (data: Payload): Promise<AxiosResponse<SingleResponse<AppUser>>> => api.post('/users', data),
+  update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<AppUser>>> => api.put(`/users/${id}`, data),
+  delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/users/${id}`),
+};
+
+/* ─────────────────────────────────────────────────────────────
+ * INSPEKSI KENDARAAN (pickup / return)
+ * ───────────────────────────────────────────────────────────── */
+export interface InspeksiKendaraan {
+  id: number;
+  order_id: number;
+  jenis: 'pickup' | 'return';
+  odometer: number | null;
+  fuel_level: 'full' | '3/4' | '1/2' | '1/4' | 'kosong';
+  kondisi_body: 'baik' | 'lecet_ringan' | 'lecet_parah' | 'penyok' | 'retak';
+  kondisi_interior: 'baik' | 'kotor_ringan' | 'kotor_banyak' | 'rusak';
+  kondisi_ban: 'baik' | 'tipis' | 'gundul' | 'kosong';
+  kondisi_ac: 'baik' | 'tidak_baik';
+  kondisi_lampu: 'baik' | 'tidak_baik';
+  ada_damagenya: boolean;
+  deskripsi_kondisi: string | null;
+  catatan: string | null;
+  foto: string | null;
+  inspeksi_oleh: string | null;
+  admin_id: number | null;
+  admin?: { id: number; name: string };
+  order?: Order;
+  created_at: string;
+  updated_at: string;
+}
+
+export const inspeksiAPI = {
+  list: (params?: QueryParams): Promise<AxiosResponse<ListResponse<InspeksiKendaraan>>> => api.get('/inspeksi-kendaraans', { params }),
+  get: (id: number): Promise<AxiosResponse<InspeksiKendaraan>> => api.get(`/inspeksi-kendaraans/${id}`),
+  create: (data: FormData): Promise<AxiosResponse<InspeksiKendaraan>> => api.post('/inspeksi-kendaraans', data),
+  update: (id: number, data: FormData): Promise<AxiosResponse<InspeksiKendaraan>> => {
+    data.append('_method', 'PUT');
+    return api.post(`/inspeksi-kendaraans/${id}`, data);
+  },
+  delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/inspeksi-kendaraans/${id}`),
+  byOrder: (orderId: number): Promise<AxiosResponse<InspeksiKendaraan[]>> => api.get(`/orders/${orderId}/inspeksi`),
 };

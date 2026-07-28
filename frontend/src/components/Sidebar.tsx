@@ -12,6 +12,8 @@ import {
   UserCheck,
   X,
   History,
+  ClipboardCheck,
+  Shield,
 } from 'lucide-react';
 import logo from '../assets/logo.png';
 import { useAuth } from '../contexts/AuthContext';
@@ -45,6 +47,7 @@ const navGroups: NavGroup[] = [
     items: [
       { path: '/kendaraan', label: 'Kendaraan', icon: Car, roles: ROLES_ALL },
       { path: '/kategori-tipe', label: 'Kategori & Tipe', icon: Tags, roles: ROLES_ADMIN },
+      { path: '/inspeksi', label: 'Inspeksi', icon: ClipboardCheck, roles: ROLES_ADMIN },
     ],
   },
   {
@@ -60,6 +63,7 @@ const navGroups: NavGroup[] = [
     items: [
       { path: '/laporan', label: 'Laporan', icon: FileBarChart, roles: ROLES_ADMIN },
       { path: '/pengaturan', label: 'Pengaturan', icon: Settings, roles: ['admin_utama'] },
+      { path: '/users', label: 'Users', icon: Shield, roles: ['admin_utama'] },
       { path: '/activity-log', label: 'Aktivitas', icon: History, roles: ['admin_utama'] },
     ],
   },

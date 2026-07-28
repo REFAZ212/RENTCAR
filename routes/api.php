@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\GarasiPartnerController;
 use App\Http\Controllers\Api\GarasiRequestController;
+use App\Http\Controllers\Api\InspeksiKendaraanController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\KatalogOrderRequestController;
 use App\Http\Controllers\Api\KatalogPublicController;
@@ -47,6 +48,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('tipes', TipeController::class);
     Route::get('/tipes/{tipe}/kendaraans', [TipeController::class, 'kendaraans']);
     Route::apiResource('supir-calos', SupirCaloController::class)->middleware('throttle:60,1');
+    Route::apiResource('inspeksi-kendaraans', InspeksiKendaraanController::class)->middleware('throttle:60,1');
+    Route::get('/orders/{order}/inspeksi', [InspeksiKendaraanController::class, 'byOrder']);
 
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);

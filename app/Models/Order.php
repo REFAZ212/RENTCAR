@@ -59,21 +59,28 @@ class Order extends Model
         'opsi_supir',
         'komisi_calo',
         'catatan',
+        'alasan_pembatalan',
         'tanggal_pengembalian_aktual',
+        'tanggal_jatuh_tempo',
         'jam_overtime',
         'denda_overtime',
+        'biaya_pembatalan',
+        'total_refund',
     ];
 
     protected $casts = [
         'tanggal_mulai' => 'date',
         'tanggal_selesai' => 'date',
         'tanggal_pengembalian_aktual' => 'datetime',
+        'tanggal_jatuh_tempo' => 'date',
         'durasi_hari' => 'integer',
         'harga_per_hari' => 'decimal:2',
         'harga_total' => 'decimal:2',
         'komisi_calo' => 'decimal:2',
         'jam_overtime' => 'integer',
         'denda_overtime' => 'decimal:2',
+        'biaya_pembatalan' => 'decimal:2',
+        'total_refund' => 'decimal:2',
     ];
 
     /**
@@ -135,6 +142,11 @@ class Order extends Model
     public function pembayarans(): HasMany
     {
         return $this->hasMany(Pembayaran::class);
+    }
+
+    public function inspeksis(): HasMany
+    {
+        return $this->hasMany(InspeksiKendaraan::class);
     }
 
     /**
@@ -277,5 +289,108 @@ class Order extends Model
                 $this->catatan = trim(($existingNotes ? $existingNotes."\n" : '').$overtimeNote);
             }
         }
+    }
+
+    /**
+     * Hitung biaya pembatalan berdasarkan timing pembatalan.
+     *
+     * Kebijakan:
+     * - > 7 hari sebelum mulai: GRATIS (0%)
+     * - 3-7 hari sebelum mulai: 25% dari harga_total
+     * - 1-3 hari sebelum mulai: 50% dari harga_total
+     * - Hari H atau sudah aktif: 100% dari harga_total (tidak ada refund)
+     *
+     * @return array{biaya: float, persentase: int, keterangan: string}
+     */
+    public function hitungBiayaPembatalan(): array
+    {
+        $hargaTotal = (float) $this->harga_total;
+
+        if ($this->status_order === 'active') {
+            return [
+                'biaya' => $hargaTotal,
+                'persentase' => 100,
+                'keterangan' => 'Order sudah aktif, tidak ada refund.',
+            ];
+        }
+
+        $tanggalMulai = Carbon::parse($this->tanggal_mulai);
+        $hariSebelumMulai = (int) now()->startOfDay()->diffInDays($tanggalMulai->startOfDay(), false);
+
+        if ($hariSebelumMulai > 7) {
+            return [
+                'biaya' => 0,
+                'persentase' => 0,
+                'keterangan' => 'Pembatalan gratis (> 7 hari sebelum mulai).',
+            ];
+        }
+
+        if ($hariSebelumMulai > 3) {
+            $biaya = $hargaTotal * 0.25;
+
+            return [
+                'biaya' => $biaya,
+                'persentase' => 25,
+                'keterangan' => 'Denda pembatalan 25% (3-7 hari sebelum mulai): Rp '.number_format($biaya, 0, ',', '.'),
+            ];
+        }
+
+        if ($hariSebelumMulai > 0) {
+            $biaya = $hargaTotal * 0.50;
+
+            return [
+                'biaya' => $biaya,
+                'persentase' => 50,
+                'keterangan' => 'Denda pembatalan 50% (1-3 hari sebelum mulai): Rp '.number_format($biaya, 0, ',', '.'),
+            ];
+        }
+
+        return [
+            'biaya' => $hargaTotal,
+            'persentase' => 100,
+            'keterangan' => 'Pembatalan hari H atau sudah lewat jadwal, tidak ada refund.',
+        ];
+    }
+
+    /**
+     * Hitung refund untuk pengembalian awal (early return).
+     * Harga dihitung ulang berdasarkan hari aktual penggunaan.
+     *
+     * @return array{harga_baru: float, refund: float, durasi_aktual: int, keterangan: string}
+     */
+    public function hitungEarlyReturn(?Carbon $tanggalKembali = null): array
+    {
+        $tanggalMulai = Carbon::parse($this->tanggal_mulai);
+        $tanggalKembali = $tanggalKembali ?? now();
+        $durasiAktual = max(1, (int) $tanggalMulai->startOfDay()->diffInDays($tanggalKembali->startOfDay()) + 1);
+        $durasiOriginal = (int) $this->durasi_hari;
+
+        if ($durasiAktual >= $durasiOriginal) {
+            return [
+                'harga_baru' => (float) $this->harga_total,
+                'refund' => 0,
+                'durasi_aktual' => $durasiAktual,
+                'keterangan' => 'Tidak ada pengembalian awal.',
+            ];
+        }
+
+        $hargaBaru = (float) $this->harga_per_hari * $durasiAktual;
+
+        $supirTarif = 0;
+        if ($this->supir_id) {
+            $supir = SupirCalo::find($this->supir_id);
+            $supirTarif = (float) ($supir?->tarif_per_hari ?? 0);
+            $hargaBaru += $supirTarif * $durasiAktual;
+        }
+
+        $hargaBaru += (float) $this->denda_overtime;
+        $refund = max(0, (float) $this->harga_total - $hargaBaru);
+
+        return [
+            'harga_baru' => $hargaBaru,
+            'refund' => $refund,
+            'durasi_aktual' => $durasiAktual,
+            'keterangan' => "Pengembalian {$durasiAktual} hari (dari {$durasiOriginal} hari). Refund: Rp ".number_format($refund, 0, ',', '.'),
+        ];
     }
 }
