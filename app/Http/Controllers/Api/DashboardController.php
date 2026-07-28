@@ -11,6 +11,7 @@ use App\Models\Order;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -100,9 +101,22 @@ class DashboardController extends Controller
         $start = $config['start'];
         $step = $config['step'];
 
+        $driver = DB::getDriverName();
+        $sqlFormat = $config['sql'];
+        $dateExpr = match (true) {
+            in_array($driver, ['mysql', 'mariadb']) => "DATE_FORMAT(created_at, '{$sqlFormat}')",
+            $driver === 'sqlite' => match ($sqlFormat) {
+                '%Y-%m-%d' => "strftime('%Y-%m-%d', created_at)",
+                '%Y-%m' => "strftime('%Y-%m', created_at)",
+                '%x-W%v' => "strftime('%Y-W%W', created_at)",
+                default => "strftime('%Y-%m', created_at)",
+            },
+            default => "DATE_FORMAT(created_at, '{$sqlFormat}')",
+        };
+
         $rows = Order::where('status_pembayaran', 'paid')
             ->where('created_at', '>=', $start)
-            ->selectRaw('DATE_FORMAT(created_at, ?) AS period', [$config['sql']])
+            ->selectRaw("{$dateExpr} AS period")
             ->selectRaw('SUM(harga_total) AS total_pendapatan')
             ->selectRaw('COUNT(*) AS jumlah_sewa')
             ->groupBy('period')

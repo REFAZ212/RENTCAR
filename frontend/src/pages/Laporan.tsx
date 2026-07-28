@@ -17,6 +17,7 @@ import {
 } from 'recharts';
 import { laporanAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { formatHpDisplay, formatRupiah, formatRupiahShort } from '../lib/format';
 
 /**
  * ─────────────────────────────────────────────────────────────
@@ -118,6 +119,16 @@ const tabs = [
     label: 'Order',
     icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 7h6m-6 4h6',
   },
+  {
+    key: 'bagi-hasil',
+    label: 'Bagi Hasil',
+    icon: 'M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z',
+  },
+  {
+    key: 'komisi-calo',
+    label: 'Komisi Calo',
+    icon: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a4 4 0 10-4-4',
+  },
 ] as const;
 
 type TabKey = (typeof tabs)[number]['key'];
@@ -137,23 +148,17 @@ const ICONS = {
 } as const;
 
 const defaultStart = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+  const parts = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).split(' ');
+  const datePart = parts[0]; // YYYY-MM-DD
+  return `${datePart.substring(0, 7)}-01`;
 };
 
 const defaultEnd = () => {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const parts = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).split(' ');
+  return parts[0]; // YYYY-MM-DD
 };
 
-const formatRupiah = (n: number | string | null | undefined) =>
-  `Rp ${Number(n || 0).toLocaleString('id-ID')}`;
 
-const formatRupiahShort = (n: number) => {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}Jt`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}Rb`;
-  return String(n);
-};
 
 interface DateParams {
   start_date: string;
@@ -267,6 +272,36 @@ interface OrderData {
     status_pengiriman: { status_pengiriman: StatusPengiriman; total: number }[];
   };
   order_terbaru: OrderTerbaruRow[];
+}
+
+interface BagiHasilRow {
+  partner_id: number;
+  nama_garasi: string;
+  nama_pemilik: string;
+  persentase: number;
+  total_order: number;
+  total_pendapatan: number;
+  total_denda: number;
+  total_bagi_hasil: number;
+}
+
+interface BagiHasilData {
+  data: BagiHasilRow[];
+  ringkasan: { grand_total_pendapatan: number; grand_total_bagi_hasil: number; jumlah_partner: number };
+}
+
+interface KomisiCaloRow {
+  calo_id: number;
+  nama: string;
+  no_hp: string;
+  total_order: number;
+  total_pendapatan: number;
+  total_komisi: number;
+}
+
+interface KomisiCaloData {
+  data: KomisiCaloRow[];
+  ringkasan: { grand_total_pendapatan: number; grand_total_komisi: number; jumlah_calo: number };
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -803,7 +838,7 @@ function CustomerTab({ params }: { params: DateParams }) {
                 <tr key={c.id} className="transition-colors hover:bg-canvas">
                   <td className="px-5 py-3 text-ink-400">{i + 1}</td>
                   <td className="px-5 py-3 font-medium text-ink-900">{c.nama_lengkap}</td>
-                  <td className="px-5 py-3 text-ink-700">{c.no_hp}</td>
+                  <td className="px-5 py-3 text-ink-700">{formatHpDisplay(c.no_hp)}</td>
                   <td className="px-5 py-3 text-right text-ink-900">{c.orders_count}</td>
                   <td className="px-5 py-3 text-right font-mono text-ink-900">{formatRupiah(c.orders_sum_harga_total)}</td>
                 </tr>
@@ -954,6 +989,164 @@ function OrderTab({ params }: { params: DateParams }) {
 }
 
 /* ─────────────────────────────────────────────────────────────
+ * TAB — Bagi Hasil Partner
+ * ───────────────────────────────────────────────────────────── */
+function BagiHasilTab({ params }: { params: DateParams }) {
+  const [data, setData] = useState<BagiHasilData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    laporanAPI
+      .bagiHasil(params)
+      .then((res) => setData(res.data as BagiHasilData))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [params]);
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <SkeletonCard key={i} />
+        ))}
+      </div>
+    );
+  }
+  if (!data) return null;
+
+  const { data: rows, ringkasan } = data;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Jumlah Partner" value={ringkasan.jumlah_partner} icon={ICONS.users} iconBg={ICON_BG.brand} />
+        <StatCard label="Total Pendapatan" value={formatRupiah(ringkasan.grand_total_pendapatan)} mono icon={ICONS.money} iconBg={ICON_BG.avail} />
+        <StatCard label="Total Bagi Hasil" value={formatRupiah(ringkasan.grand_total_bagi_hasil)} mono icon={ICONS.wallet} iconBg={ICON_BG.brandDark} />
+        <StatCard
+          label="Rasio Bagi Hasil"
+          value={ringkasan.grand_total_pendapatan > 0 ? `${((ringkasan.grand_total_bagi_hasil / ringkasan.grand_total_pendapatan) * 100).toFixed(1)}%` : '0%'}
+          icon={ICONS.trend}
+          iconBg={ICON_BG.rented}
+        />
+      </div>
+
+      <SectionCard title="Detail Bagi Hasil per Partner">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-canvas">
+              <tr>
+                <th className="px-5 py-3 text-left font-medium text-ink-400">#</th>
+                <th className="px-5 py-3 text-left font-medium text-ink-400">Nama Garasi</th>
+                <th className="px-5 py-3 text-left font-medium text-ink-400">Pemilik</th>
+                <th className="px-5 py-3 text-center font-medium text-ink-400">Persentase</th>
+                <th className="px-5 py-3 text-right font-medium text-ink-400">Order</th>
+                <th className="px-5 py-3 text-right font-medium text-ink-400">Pendapatan</th>
+                <th className="px-5 py-3 text-right font-medium text-ink-400">Denda</th>
+                <th className="px-5 py-3 text-right font-medium text-ink-400">Bagi Hasil</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-200">
+              {rows.map((r, i) => (
+                <tr key={r.partner_id} className="transition-colors hover:bg-canvas">
+                  <td className="px-5 py-3 text-ink-400">{i + 1}</td>
+                  <td className="px-5 py-3 font-medium text-ink-900">{r.nama_garasi}</td>
+                  <td className="px-5 py-3 text-ink-700">{r.nama_pemilik}</td>
+                  <td className="px-5 py-3 text-center">
+                    <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-medium text-brand-600">{r.persentase}%</span>
+                  </td>
+                  <td className="px-5 py-3 text-right text-ink-900">{r.total_order}</td>
+                  <td className="px-5 py-3 text-right font-mono text-ink-900">{formatRupiah(r.total_pendapatan)}</td>
+                  <td className="px-5 py-3 text-right font-mono text-ink-700">{formatRupiah(r.total_denda)}</td>
+                  <td className="px-5 py-3 text-right font-mono font-semibold text-ink-900">{formatRupiah(r.total_bagi_hasil)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {rows.length === 0 && <EmptyState label="Belum ada data bagi hasil" />}
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * TAB — Komisi Calo
+ * ───────────────────────────────────────────────────────────── */
+function KomisiCaloTab({ params }: { params: DateParams }) {
+  const [data, setData] = useState<KomisiCaloData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    laporanAPI
+      .komisiCalo(params)
+      .then((res) => setData(res.data as KomisiCaloData))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [params]);
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <SkeletonCard key={i} />
+        ))}
+      </div>
+    );
+  }
+  if (!data) return null;
+
+  const { data: rows, ringkasan } = data;
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Jumlah Calo" value={ringkasan.jumlah_calo} icon={ICONS.users} iconBg={ICON_BG.brand} />
+        <StatCard label="Total Pendapatan" value={formatRupiah(ringkasan.grand_total_pendapatan)} mono icon={ICONS.money} iconBg={ICON_BG.avail} />
+        <StatCard label="Total Komisi" value={formatRupiah(ringkasan.grand_total_komisi)} mono icon={ICONS.wallet} iconBg={ICON_BG.brandDark} />
+        <StatCard
+          label="Rasio Komisi"
+          value={ringkasan.grand_total_pendapatan > 0 ? `${((ringkasan.grand_total_komisi / ringkasan.grand_total_pendapatan) * 100).toFixed(1)}%` : '0%'}
+          icon={ICONS.trend}
+          iconBg={ICON_BG.rented}
+        />
+      </div>
+
+      <SectionCard title="Detail Komisi per Calo">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-canvas">
+              <tr>
+                <th className="px-5 py-3 text-left font-medium text-ink-400">#</th>
+                <th className="px-5 py-3 text-left font-medium text-ink-400">Nama Calo</th>
+                <th className="px-5 py-3 text-left font-medium text-ink-400">No. HP</th>
+                <th className="px-5 py-3 text-right font-medium text-ink-400">Order</th>
+                <th className="px-5 py-3 text-right font-medium text-ink-400">Pendapatan</th>
+                <th className="px-5 py-3 text-right font-medium text-ink-400">Komisi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-200">
+              {rows.map((r, i) => (
+                <tr key={r.calo_id} className="transition-colors hover:bg-canvas">
+                  <td className="px-5 py-3 text-ink-400">{i + 1}</td>
+                  <td className="px-5 py-3 font-medium text-ink-900">{r.nama}</td>
+                  <td className="px-5 py-3 text-ink-700">{r.no_hp}</td>
+                  <td className="px-5 py-3 text-right text-ink-900">{r.total_order}</td>
+                  <td className="px-5 py-3 text-right font-mono text-ink-900">{formatRupiah(r.total_pendapatan)}</td>
+                  <td className="px-5 py-3 text-right font-mono font-semibold text-ink-900">{formatRupiah(r.total_komisi)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {rows.length === 0 && <EmptyState label="Belum ada data komisi calo" />}
+        </div>
+      </SectionCard>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
  * HALAMAN UTAMA
  * ───────────────────────────────────────────────────────────── */
 export default function Laporan() {
@@ -1026,6 +1219,10 @@ export default function Laporan() {
         return <CustomerTab params={params} />;
       case 'order':
         return <OrderTab params={params} />;
+      case 'bagi-hasil':
+        return <BagiHasilTab params={params} />;
+      case 'komisi-calo':
+        return <KomisiCaloTab params={params} />;
       default:
         return null;
     }

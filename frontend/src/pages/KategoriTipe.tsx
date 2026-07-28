@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { kategoriAPI, tipeAPI, kendaraanAPI, type Kendaraan } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { formatRupiah } from '../lib/format';
 import ConfirmModal from '../components/ConfirmModal';
 
 const emptyKategori = { nama_kategori: '', deskripsi: '', aktif: true };
@@ -17,14 +18,6 @@ const vehicleStatusLabels: Record<string, string> = {
   disewa: 'Disewa',
   maintenance: 'Maintenance',
 };
-
-function formatRupiah(n: number | string) {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(Number(n || 0));
-}
 
 const TipeSuggestions = {
   Mobil: ['MPV', 'SUV', 'Sedan', 'Hatchback', 'Pickup', 'Minibus', 'Van', 'Truk'],

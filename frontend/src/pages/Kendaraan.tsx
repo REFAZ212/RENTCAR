@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { isAxiosError } from 'axios';
+import { formatRupiah } from '../lib/format';
 import {
   kendaraanAPI,
   garasiPartnerAPI,
@@ -99,8 +100,6 @@ const emptyForm: KendaraanFormState = {
   catatan: '',
 };
 
-const formatRupiah = (value: number | string) => `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
-
 const fotoUrl = (foto?: string | null) => (foto ? (foto.startsWith('http') ? foto : `/storage/${foto}`) : null);
 
 const inputClass =
@@ -131,6 +130,9 @@ export default function Kendaraan() {
   const [form, setForm] = useState<KendaraanFormState>(emptyForm);
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  useEffect(() => {
+    return () => { if (fotoPreview) URL.revokeObjectURL(fotoPreview); };
+  }, [fotoPreview]);
   const [lastAdded, setLastAdded] = useState(false);
 
   const [confirmDelete, setConfirmDelete] = useState<Kendaraan | null>(null);
@@ -730,8 +732,9 @@ export default function Kendaraan() {
                     <select
                       value={form.status}
                       onChange={(e: ChangeEvent<HTMLSelectElement>) => setField('status', e.target.value as StatusKendaraan)}
+                      disabled={editItem.status === 'disewa'}
                       required
-                      className={inputClass}
+                      className={`${inputClass} ${editItem.status === 'disewa' ? 'cursor-not-allowed bg-gray-50 text-ink-400' : ''}`}
                     >
                       {statuses.map((s) => (
                         <option key={s} value={s}>
@@ -739,6 +742,9 @@ export default function Kendaraan() {
                         </option>
                       ))}
                     </select>
+                    {editItem.status === 'disewa' && (
+                      <p className="mt-1 text-xs text-amber-600">Status dikendalikan oleh order aktif. Selesaikan atau batalkan order terlebih dahulu.</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -1067,6 +1073,7 @@ export default function Kendaraan() {
                     label="Tersedia"
                     active={item.status === 'tersedia'}
                     activeClass="bg-avail-500 text-white"
+                    disabled={item.status === 'disewa'}
                     onClick={() => handleQuickStatus(item, 'tersedia')}
                   />
                   <QuickStatusButton
@@ -1079,6 +1086,7 @@ export default function Kendaraan() {
                     label="Servis"
                     active={item.status === 'maintenance'}
                     activeClass="bg-amber-500 text-white"
+                    disabled={item.status === 'disewa'}
                     onClick={() => handleQuickStatus(item, 'maintenance')}
                   />
                 </div>
@@ -1131,21 +1139,24 @@ function QuickStatusButton({
   label,
   active,
   activeClass,
+  disabled,
   onClick,
 }: {
   label: string;
   active: boolean;
   activeClass: string;
+  disabled?: boolean;
   onClick: () => void;
 }) {
+  const isDisabled = active || disabled;
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={active}
-      title={active ? `Sudah berstatus ${label}` : `Tandai sebagai ${label}`}
+      disabled={isDisabled}
+      title={active ? `Sudah berstatus ${label}` : disabled ? 'Status dikendalikan oleh order aktif' : `Tandai sebagai ${label}`}
       className={`rounded-lg px-1.5 py-1.5 text-[11px] font-medium leading-tight transition-colors ${
-        active ? `${activeClass} cursor-default` : 'bg-gray-50 text-ink-400 hover:bg-gray-100 hover:text-ink-700'
+        isDisabled ? `${active ? activeClass : 'bg-gray-100 text-ink-300'} cursor-default` : 'bg-gray-50 text-ink-400 hover:bg-gray-100 hover:text-ink-700'
       }`}
     >
       {label}

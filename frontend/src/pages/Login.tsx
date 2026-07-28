@@ -18,7 +18,7 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/admin');
+      navigate('/');
     } catch (err: any) {
       setError(
         err.response?.data?.message ||
@@ -104,12 +104,6 @@ export default function Login() {
               )}
             </button>
           </form>
-
-          <div className="mt-6 p-3 bg-ink-800/30 rounded-lg border border-ink-700/50">
-            <p className="text-xs text-ink-400 text-center">
-              <span className="font-medium text-ink-200">Demo:</span> admin@cvpilar.com / password
-            </p>
-          </div>
         </div>
       </div>
     </div>

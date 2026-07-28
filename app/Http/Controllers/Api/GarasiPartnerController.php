@@ -11,13 +11,16 @@ class GarasiPartnerController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', GarasiPartner::class);
+
         $query = GarasiPartner::where('is_own', false);
 
         if ($request->search) {
-            $query->where(function ($q) use ($request) {
-                $q->where('nama_garasi', 'like', "%{$request->search}%")
-                    ->orWhere('nama_pemilik', 'like', "%{$request->search}%")
-                    ->orWhere('no_hp', 'like', "%{$request->search}%");
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                whereLikeEscaped($q, 'nama_garasi', $search);
+                $q->orWhereRaw("nama_pemilik LIKE ? ESCAPE '#'", ['%'.escapeLike($search).'%']);
+                $q->orWhereRaw("no_hp LIKE ? ESCAPE '#'", ['%'.escapeLike($search).'%']);
             });
         }
 
@@ -42,6 +45,8 @@ class GarasiPartnerController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', GarasiPartner::class);
+
         $validated = $request->validate([
             'nama_garasi' => 'required|string|max:255',
             'nama_pemilik' => 'required|string|max:255',
@@ -49,6 +54,8 @@ class GarasiPartnerController extends Controller
             'no_hp' => 'required|string|max:255',
             'email' => 'nullable|email|unique:garasi_partners,email',
             'is_own' => 'boolean',
+            'metode_bagi_hasil' => 'nullable|in:persentase',
+            'persentase_bagi_hasil' => 'nullable|numeric|min:0|max:100',
             'catatan' => 'nullable|string',
         ]);
 
@@ -59,6 +66,8 @@ class GarasiPartnerController extends Controller
 
     public function show(GarasiPartner $garasiPartner): JsonResponse
     {
+        $this->authorize('view', $garasiPartner);
+
         $garasiPartner->load(['kendaraans.kategori', 'kendaraans.tipe', 'garasiRequests.order.customer']);
 
         return response()->json($garasiPartner);
@@ -66,6 +75,8 @@ class GarasiPartnerController extends Controller
 
     public function update(Request $request, GarasiPartner $garasiPartner): JsonResponse
     {
+        $this->authorize('update', $garasiPartner);
+
         $validated = $request->validate([
             'nama_garasi' => 'sometimes|required|string|max:255',
             'nama_pemilik' => 'sometimes|required|string|max:255',
@@ -74,6 +85,8 @@ class GarasiPartnerController extends Controller
             'email' => 'nullable|email|unique:garasi_partners,email,'.$garasiPartner->id,
             'status_aktif' => 'boolean',
             'is_own' => 'boolean',
+            'metode_bagi_hasil' => 'nullable|in:persentase',
+            'persentase_bagi_hasil' => 'nullable|numeric|min:0|max:100',
             'catatan' => 'nullable|string',
         ]);
 
@@ -84,14 +97,16 @@ class GarasiPartnerController extends Controller
 
     public function destroy(GarasiPartner $garasiPartner): JsonResponse
     {
-        $hasActiveOrder = $garasiPartner->kendaraans()
+        $this->authorize('delete', $garasiPartner);
+
+        $hasAnyOrder = $garasiPartner->kendaraans()
             ->whereHas('orders', function ($q) {
-                $q->whereIn('status_order', ['pending', 'confirmed', 'active']);
+                $q->whereIn('status_order', ['pending', 'confirmed', 'active', 'completed', 'cancelled']);
             })->exists();
 
-        if ($hasActiveOrder) {
+        if ($hasAnyOrder) {
             return response()->json([
-                'message' => 'Tidak bisa menghapus garasi partner yang memiliki order aktif pada kendaraannya.',
+                'message' => 'Tidak bisa menghapus garasi partner yang memiliki riwayat order pada kendaraannya. Hubungi admin database untuk penghapusan manual.',
             ], 422);
         }
 

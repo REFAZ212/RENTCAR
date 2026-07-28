@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { formatRupiah } from '../lib/format';
 import {
   CheckCircle2,
   ArrowLeftRight,
@@ -170,8 +171,6 @@ export default function Dashboard() {
   }
 
   const { stats, recent_orders, recent_garasi_requests } = data;
-
-  const formatRupiah = (n?: number) => `Rp ${Number(n || 0).toLocaleString('id-ID')}`;
 
   const statCards = [
     {

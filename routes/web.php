@@ -8,4 +8,4 @@ Route::get('/', function () {
 });
 
 Route::get('/garasi/{token}', [GarasiResponseController::class, 'show'])->name('garasi-response.show');
-Route::post('/garasi/{token}', [GarasiResponseController::class, 'submit'])->name('garasi-response.submit');
+Route::post('/garasi/{token}', [GarasiResponseController::class, 'submit'])->name('garasi-response.submit')->middleware('throttle:10,1');

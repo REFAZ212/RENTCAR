@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+﻿import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutGrid,
   ClipboardList,
@@ -11,19 +11,58 @@ import {
   Settings,
   UserCheck,
   X,
+  History,
 } from 'lucide-react';
 import logo from '../assets/logo.png';
+import { useAuth } from '../contexts/AuthContext';
 
-const navItems = [
-  { path: '/admin', label: 'Dashboard', icon: LayoutGrid },
-  { path: '/admin/orders', label: 'Orders', icon: ClipboardList },
-  { path: '/admin/kendaraan', label: 'Kendaraan', icon: Car },
-  { path: '/admin/kategori-tipe', label: 'Kategori & Tipe', icon: Tags },
-  { path: '/admin/customers', label: 'Customers', icon: Users },
-  { path: '/admin/supir-calo', label: 'Supir & Calo', icon: UserCheck },
-  { path: '/admin/gps', label: 'GPS', icon: MapPin },
-  { path: '/admin/laporan', label: 'Laporan', icon: FileBarChart },
-  { path: '/admin/garasi', label: 'Garasi', icon: Warehouse },
+const ROLES_ADMIN = ['admin_utama', 'admin_operasional'];
+const ROLES_ALL = ['admin_utama', 'admin_operasional', 'petugas'];
+
+interface NavItem {
+  path: string;
+  label: string;
+  icon: typeof LayoutGrid;
+  roles: string[];
+}
+
+interface NavGroup {
+  title: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    title: 'Umum',
+    items: [
+      { path: '/admin', label: 'Dashboard', icon: LayoutGrid, roles: ROLES_ALL },
+      { path: '/orders', label: 'Orders', icon: ClipboardList, roles: ROLES_ALL },
+      { path: '/customers', label: 'Customers', icon: Users, roles: ROLES_ALL },
+    ],
+  },
+  {
+    title: 'Kendaraan',
+    items: [
+      { path: '/kendaraan', label: 'Kendaraan', icon: Car, roles: ROLES_ALL },
+      { path: '/kategori-tipe', label: 'Kategori & Tipe', icon: Tags, roles: ROLES_ADMIN },
+    ],
+  },
+  {
+    title: 'Tim',
+    items: [
+      { path: '/supir-calo', label: 'Supir & Calo', icon: UserCheck, roles: ROLES_ADMIN },
+      { path: '/garasi', label: 'Garasi', icon: Warehouse, roles: ROLES_ADMIN },
+      { path: '/gps', label: 'GPS', icon: MapPin, roles: ROLES_ADMIN },
+    ],
+  },
+  {
+    title: 'Lainnya',
+    items: [
+      { path: '/laporan', label: 'Laporan', icon: FileBarChart, roles: ROLES_ADMIN },
+      { path: '/pengaturan', label: 'Pengaturan', icon: Settings, roles: ['admin_utama'] },
+      { path: '/activity-log', label: 'Aktivitas', icon: History, roles: ['admin_utama'] },
+    ],
+  },
 ];
 
 interface SidebarProps {
@@ -33,8 +72,16 @@ interface SidebarProps {
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const location = useLocation();
+  const { user } = useAuth();
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => {
+    if (path === '/admin') {
+      return location.pathname === '/admin';
+    }
+    return location.pathname === path || location.pathname.startsWith(path + '/');
+  };
+
+  const userRole = user?.role ?? '';
 
   return (
     <>
@@ -57,7 +104,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             alt="Pilar Karya Production"
             className="h-8 w-auto"
           />
-
           <button
             onClick={onClose}
             className="ml-auto text-ink-400 transition-colors hover:text-white lg:hidden"
@@ -68,70 +114,48 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
         {/* Menu */}
         <nav className="flex-1 overflow-y-auto p-3">
-          <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-widest text-ink-400">
-            Operasional
-          </p>
+          {navGroups.map((group) => {
+            const visibleItems = group.items.filter((item) =>
+              item.roles.includes(userRole)
+            );
 
-          <div className="space-y-1">
-            {navItems.map((item) => {
-              const active = isActive(item.path);
+            if (visibleItems.length === 0) return null;
 
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={onClose}
-                  className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    active
-                      ? 'bg-ink-800 text-brand-400'
-                      : 'text-ink-200 hover:bg-ink-800 hover:text-white'
-                  }`}
-                >
-                  {active && (
-                    <div className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r bg-brand-500" />
-                  )}
-
-                  <item.icon
-                    size={18}
-                    className={
-                      active ? 'text-brand-400' : 'text-ink-400'
-                    }
-                  />
-
-                  {item.label}
-                </Link>
-              );
-            })}
-          </div>
+            return (
+              <div key={group.title} className="mb-4">
+                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-widest text-ink-400">
+                  {group.title}
+                </p>
+                <div className="space-y-1">
+                  {visibleItems.map((item) => {
+                    const active = isActive(item.path);
+                    return (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={onClose}
+                        className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                          active
+                            ? 'bg-ink-800 text-brand-400'
+                            : 'text-ink-200 hover:bg-ink-800 hover:text-white'
+                        }`}
+                      >
+                        {active && (
+                          <div className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r bg-brand-500" />
+                        )}
+                        <item.icon
+                          size={18}
+                          className={active ? 'text-brand-400' : 'text-ink-400'}
+                        />
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </nav>
-
-        {/* Footer */}
-        <div className="border-t border-ink-800 p-3 shrink-0">
-          <Link
-            to="/pengaturan"
-            onClick={onClose}
-            className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-              isActive('/pengaturan')
-                ? 'bg-ink-800 text-brand-400'
-                : 'text-ink-200 hover:bg-ink-800 hover:text-white'
-            }`}
-          >
-            {isActive('/pengaturan') && (
-              <div className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r bg-brand-500" />
-            )}
-
-            <Settings
-              size={18}
-              className={
-                isActive('/pengaturan')
-                  ? 'text-brand-400'
-                  : 'text-ink-400'
-              }
-            />
-
-            Pengaturan
-          </Link>
-        </div>
       </aside>
     </>
   );

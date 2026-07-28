@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronDown, Menu, X } from 'lucide-react';
+import { ADMIN_WA } from '../../../lib/format';
 import logo from '../../../assets/logo.png';
 
 /* ─── Navigation Data ────────────────────────────────────────────────── */
@@ -118,7 +119,7 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
           </div>
         ))}
         <div className="pt-3 border-t border-gray-100 mt-3">
-          <a href="https://wa.me/62895361054272?text=Halo%2C%20saya%20ingin%20reservasi"
+          <a href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20reservasi`}
             target="_blank" rel="noopener noreferrer"
             className="block px-3 py-2.5 bg-ink-950 text-white text-sm font-semibold rounded-lg text-center">
             Reservasi
@@ -200,7 +201,7 @@ export default function MegaMenu({ solid = false }: { solid?: boolean }) {
         {/* Right */}
         <div className="flex items-center gap-2">
           <a
-            href="https://wa.me/62895361054272?text=Halo%2C%20saya%20ingin%20reservasi"
+            href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20reservasi`}
             target="_blank"
             rel="noopener noreferrer"
             className="hidden sm:inline-flex items-center px-5 py-2 text-[13px] font-semibold rounded-lg transition-all duration-200 bg-white text-brand-600 hover:bg-gray-100"

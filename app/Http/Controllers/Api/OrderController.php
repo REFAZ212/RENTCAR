@@ -3,66 +3,49 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Kendaraan;
 use App\Models\Order;
-use App\Models\SupirCalo;
-use Carbon\Carbon;
+use App\Services\OrderService;
+use App\Services\WatermarkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class OrderController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Order::with(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo']);
+        $this->authorize('viewAny', Order::class);
 
-        if ($request->search) {
-            $query->where(function ($q) use ($request) {
-                $q->where('kode_order', 'like', "%{$request->search}%")
-                    ->orWhereHas('customer', function ($cq) use ($request) {
-                        $cq->where('nama_lengkap', 'like', "%{$request->search}%");
-                    })
-                    ->orWhereHas('kendaraan', function ($kq) use ($request) {
-                        $kq->where('plat_nomor', 'like', "%{$request->search}%")
-                            ->orWhere('nama_kendaraan', 'like', "%{$request->search}%");
-                    });
-            });
-        }
-
-        if ($request->has('status_order')) {
-            $query->where('status_order', $request->status_order);
-        }
-
-        if ($request->has('status_pembayaran')) {
-            $query->where('status_pembayaran', $request->status_pembayaran);
-        }
-
-        if ($request->has('status_pengiriman')) {
-            $query->where('status_pengiriman', $request->status_pengiriman);
-        }
-
-        if ($request->has('tanggal_mulai') && $request->has('tanggal_selesai')) {
-            $query->where('tanggal_mulai', '<=', $request->tanggal_selesai)
-                ->where('tanggal_selesai', '>=', $request->tanggal_mulai);
-        }
-
-        $orders = $query->orderBy('created_at', 'desc')->paginate(15);
+        $service = app(OrderService::class);
+        $orders = $service->list($request->only([
+            'search', 'status_order', 'status_pembayaran', 'status_pengiriman', 'tanggal_mulai', 'tanggal_selesai',
+        ]));
 
         return response()->json($orders);
     }
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', Order::class);
+
         $validated = $request->validate([
-            'customer_id' => 'required|exists:customers,id',
+            'customer_id' => 'nullable|exists:customers,id',
+            'customer_name' => 'required_without:customer_id|string|max:255',
+            'customer_no_hp' => 'required|string|max:20',
+            'customer_email' => 'nullable|email',
+            'customer_alamat' => 'required|string|max:500',
+            'customer_no_sim' => 'required|string|max:20',
+            'customer_no_ktp' => 'nullable|string|max:30',
+            'customer_foto_ktp' => 'nullable|image|max:2048',
+            'customer_foto_ktp_delete' => 'nullable|boolean',
+            'customer_foto_sim' => 'nullable|image|max:2048',
             'kendaraan_id' => 'required|exists:kendaraans,id',
+            'alamat_jemput' => 'nullable|string|max:500',
+            'tujuan' => 'required|string|max:500',
             'tanggal_mulai' => 'required|date|after_or_equal:today',
             'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
-            'jam_mulai' => 'nullable|string',
-            'jam_selesai' => 'nullable|string',
+            'jam_mulai' => 'nullable|date_format:H:i',
+            'jam_selesai' => 'nullable|date_format:H:i',
             'metode_pembayaran' => 'nullable|in:cash,transfer,qris,lainnya',
-            'status_order' => 'nullable|in:pending,confirmed,active,completed,cancelled',
             'status_pembayaran' => 'nullable|in:unpaid,partial,paid',
             'status_pengiriman' => 'nullable|in:belum_diambil,sudah_diantarkan,dalam_penyewaan,selesai',
             'bukti_transfer' => 'nullable|image|max:2048',
@@ -70,136 +53,61 @@ class OrderController extends Controller
             'bukti_pengembalian' => 'nullable|image|max:2048',
             'supir_id' => 'nullable|exists:supir_calos,id',
             'calo_id' => 'nullable|exists:supir_calos,id',
+            'komisi_calo' => 'nullable|numeric|min:0',
             'catatan' => 'nullable|string',
+            'jumlah_bayar' => 'nullable|numeric|min:0',
         ]);
 
-        if (! empty($validated['supir_id'])) {
-            $supir = SupirCalo::find($validated['supir_id']);
-            if ($supir && $supir->jenis !== 'supir') {
-                return response()->json(['message' => 'ID yang dipilih bukan supir.'], 422);
-            }
-        }
-        if (! empty($validated['calo_id'])) {
-            $calo = SupirCalo::find($validated['calo_id']);
-            if ($calo && $calo->jenis !== 'calo') {
-                return response()->json(['message' => 'ID yang dipilih bukan calo.'], 422);
-            }
-        }
+        $filePaths = $this->storeUploadedFiles($request);
+        $validated = array_merge($validated, $filePaths);
 
-        $statusPengiriman = $validated['status_pengiriman'] ?? 'belum_diambil';
-        if (in_array($statusPengiriman, ['sudah_diantarkan', 'dalam_penyewaan']) && ! $request->hasFile('bukti_pengiriman')) {
-            return response()->json([
-                'message' => 'Bukti foto pengiriman wajib diunggah saat status pengiriman "'.$statusPengiriman.'".',
-            ], 422);
-        }
+        $this->applyWatermarks($validated);
 
-        $statusOrder = $validated['status_order'] ?? 'pending';
-        if ($statusOrder === 'completed' && ! $request->hasFile('bukti_pengembalian')) {
-            return response()->json([
-                'message' => 'Bukti foto pengembalian kendaraan wajib diunggah saat menyelesaikan order.',
-            ], 422);
-        }
+        $service = app(OrderService::class);
+        $order = $service->create($validated, $request);
 
-        $kendaraan = Kendaraan::findOrFail($validated['kendaraan_id']);
-        $hargaPerHari = $kendaraan->harga_sewa_per_hari;
-        $statusOrder = $validated['status_order'] ?? 'pending';
-
-        if ($statusOrder === 'active') {
-            $hasActiveOrder = Order::where('kendaraan_id', $validated['kendaraan_id'])
-                ->where('status_order', 'active')
-                ->exists();
-            if ($hasActiveOrder) {
-                return response()->json([
-                    'message' => 'Kendaraan sedang disewa oleh order lain.',
-                ], 422);
-            }
-        }
-
-        $mulaiDt = Carbon::parse($validated['tanggal_mulai']);
-        $selesaiDt = Carbon::parse($validated['tanggal_selesai']);
-        if (! empty($validated['jam_mulai'])) {
-            $mulaiDt->setTimeFromTimeString($validated['jam_mulai']);
-        }
-        if (! empty($validated['jam_selesai'])) {
-            $selesaiDt->setTimeFromTimeString($validated['jam_selesai']);
-        }
-        $durasi = (int) ceil($mulaiDt->diffInSeconds($selesaiDt) / 86400);
-        if ($durasi < 1) {
-            $durasi = 1;
-        }
-
-        $supirTarif = 0;
-        if (! empty($validated['supir_id'])) {
-            $supir = SupirCalo::find($validated['supir_id']);
-            $supirTarif = (float) ($supir->tarif_per_hari ?? 0);
-        }
-
-        $buktiPath = null;
-        if ($request->hasFile('bukti_transfer')) {
-            $buktiPath = $request->file('bukti_transfer')->store('bukti-transfer', 'public');
-        }
-
-        $buktiPengirimanPath = null;
-        if ($request->hasFile('bukti_pengiriman')) {
-            $buktiPengirimanPath = $request->file('bukti_pengiriman')->store('bukti-pengiriman', 'public');
-        }
-
-        $buktiPengembalianPath = null;
-        if ($request->hasFile('bukti_pengembalian')) {
-            $buktiPengembalianPath = $request->file('bukti_pengembalian')->store('bukti-pengembalian', 'public');
-        }
-
-        $order = Order::create([
-            'customer_id' => $validated['customer_id'],
-            'kendaraan_id' => $validated['kendaraan_id'],
-            'tanggal_mulai' => $validated['tanggal_mulai'],
-            'tanggal_selesai' => $validated['tanggal_selesai'],
-            'jam_mulai' => $validated['jam_mulai'] ?? null,
-            'jam_selesai' => $validated['jam_selesai'] ?? null,
-            'harga_per_hari' => $hargaPerHari,
-            'metode_pembayaran' => $validated['metode_pembayaran'] ?? 'cash',
-            'status_order' => $statusOrder,
-            'status_pembayaran' => $validated['status_pembayaran'] ?? 'unpaid',
-            'status_pengiriman' => $statusPengiriman,
-            'catatan' => $validated['catatan'] ?? null,
-            'bukti_transfer' => $buktiPath,
-            'bukti_pengiriman' => $buktiPengirimanPath,
-            'bukti_pengembalian' => $buktiPengembalianPath,
-            'durasi_hari' => $durasi,
-            'harga_total' => ($durasi * $hargaPerHari) + ($supirTarif * $durasi),
-            'supir_id' => $validated['supir_id'] ?? null,
-            'calo_id' => $validated['calo_id'] ?? null,
-            'admin_id' => $request->user()->id,
-        ]);
-
-        if ($statusOrder === 'active') {
-            $kendaraan->update(['status' => 'disewa']);
-        }
-
-        if ($statusOrder === 'completed') {
-            $order->selesaikanSewa();
-            $order->save();
-        }
-
-        return response()->json($order->load(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo']), 201);
+        return response()->json($order, 201);
     }
 
     public function show(Order $order): JsonResponse
     {
-        $order->load(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo', 'garasiRequests.garasiPartner']);
+        $this->authorize('view', $order);
+
+        $service = app(OrderService::class);
+        $order = $service->getDetail($order);
 
         return response()->json($order);
     }
 
     public function update(Request $request, Order $order): JsonResponse
     {
+        $this->authorize('update', $order);
+
+        foreach (['supir_id', 'calo_id'] as $field) {
+            if ($request->input($field) === '') {
+                $request->merge([$field => null]);
+            }
+        }
+
         $validated = $request->validate([
             'customer_id' => 'nullable|exists:customers,id',
-            'kendaraan_id' => 'nullable|exists:kendaraans,id',
-            'tanggal_mulai' => 'nullable|date',
-            'tanggal_selesai' => 'nullable|date|after_or_equal:tanggal_mulai',
-            'jam_mulai' => 'nullable|string',
-            'jam_selesai' => 'nullable|string',
+            'customer_name' => 'sometimes|required|string|max:255',
+            'customer_no_hp' => 'sometimes|required|string|max:20',
+            'customer_email' => 'nullable|email',
+            'customer_alamat' => 'sometimes|required|string|max:500',
+            'customer_no_sim' => 'sometimes|required|string|max:20',
+            'customer_no_ktp' => 'nullable|string|max:30',
+            'customer_foto_ktp' => 'nullable|image|max:2048',
+            'customer_foto_ktp_delete' => 'nullable|boolean',
+            'customer_foto_sim' => 'nullable|image|max:2048',
+            'kendaraan_id' => 'sometimes|required|exists:kendaraans,id',
+            'alamat_jemput' => 'nullable|string|max:500',
+            'tujuan' => 'sometimes|required|string|max:500',
+            'tanggal_mulai' => 'sometimes|date|after_or_equal:today',
+            'tanggal_selesai' => 'sometimes|date|after_or_equal:tanggal_mulai',
+            'jam_mulai' => 'nullable|date_format:H:i',
+            'jam_selesai' => 'nullable|date_format:H:i',
+            'tanggal_pengembalian_aktual' => 'nullable|date',
             'status_order' => 'nullable|in:pending,confirmed,active,completed,cancelled',
             'metode_pembayaran' => 'nullable|in:cash,transfer,qris,lainnya',
             'status_pembayaran' => 'nullable|in:unpaid,partial,paid',
@@ -209,150 +117,81 @@ class OrderController extends Controller
             'bukti_pengembalian' => 'nullable|image|max:2048',
             'supir_id' => 'nullable|exists:supir_calos,id',
             'calo_id' => 'nullable|exists:supir_calos,id',
+            'komisi_calo' => 'nullable|numeric|min:0',
             'catatan' => 'nullable|string',
+            'jumlah_bayar' => 'nullable|numeric|min:0',
         ]);
 
-        if (isset($validated['supir_id']) && $validated['supir_id'] !== null) {
-            $supir = SupirCalo::find($validated['supir_id']);
-            if ($supir && $supir->jenis !== 'supir') {
-                return response()->json(['message' => 'ID yang dipilih bukan supir.'], 422);
-            }
-        }
-        if (isset($validated['calo_id']) && $validated['calo_id'] !== null) {
-            $calo = SupirCalo::find($validated['calo_id']);
-            if ($calo && $calo->jenis !== 'calo') {
-                return response()->json(['message' => 'ID yang dipilih bukan calo.'], 422);
-            }
-        }
+        $filePaths = $this->storeUploadedFiles($request);
+        $validated = array_merge($validated, $filePaths);
 
-        $newStatusPengiriman = $validated['status_pengiriman'] ?? $order->status_pengiriman;
-        if (in_array($newStatusPengiriman, ['sudah_diantarkan', 'dalam_penyewaan']) && ! $request->hasFile('bukti_pengiriman') && ! $order->bukti_pengiriman) {
-            return response()->json([
-                'message' => 'Bukti foto pengiriman wajib diunggah saat status pengiriman "'.$newStatusPengiriman.'".',
-            ], 422);
-        }
+        $this->applyWatermarks($validated);
 
-        $newStatusOrder = $validated['status_order'] ?? $order->status_order;
-        if ($newStatusOrder === 'completed' && ! $request->hasFile('bukti_pengembalian') && ! $order->bukti_pengembalian) {
-            return response()->json([
-                'message' => 'Bukti foto pengembalian kendaraan wajib diunggah saat menyelesaikan order.',
-            ], 422);
-        }
+        $service = app(OrderService::class);
+        $order = $service->updateOrder($order, $validated, $request);
 
-        $oldKendaraanId = $order->kendaraan_id;
-        $newKendaraanId = $validated['kendaraan_id'] ?? null;
-
-        if (isset($validated['status_order']) && $validated['status_order'] === 'active') {
-            $targetId = $newKendaraanId ?? $oldKendaraanId;
-            $hasOtherActive = Order::where('kendaraan_id', $targetId)
-                ->where('id', '!=', $order->id)
-                ->where('status_order', 'active')
-                ->exists();
-            if ($hasOtherActive) {
-                return response()->json([
-                    'message' => 'Kendaraan sedang disewa oleh order lain.',
-                ], 422);
-            }
-        }
-
-        $updateData = collect($validated)->except(['bukti_transfer', 'bukti_pengiriman', 'bukti_pengembalian'])->toArray();
-
-        if ($request->hasFile('bukti_transfer')) {
-            if ($order->bukti_transfer) {
-                Storage::disk('public')->delete($order->bukti_transfer);
-            }
-            $updateData['bukti_transfer'] = $request->file('bukti_transfer')->store('bukti-transfer', 'public');
-        }
-
-        if ($request->hasFile('bukti_pengiriman')) {
-            if ($order->bukti_pengiriman) {
-                Storage::disk('public')->delete($order->bukti_pengiriman);
-            }
-            $updateData['bukti_pengiriman'] = $request->file('bukti_pengiriman')->store('bukti-pengiriman', 'public');
-        }
-
-        if ($request->hasFile('bukti_pengembalian')) {
-            if ($order->bukti_pengembalian) {
-                Storage::disk('public')->delete($order->bukti_pengembalian);
-            }
-            $updateData['bukti_pengembalian'] = $request->file('bukti_pengembalian')->store('bukti-pengembalian', 'public');
-        }
-
-        $mulai = $validated['tanggal_mulai'] ?? $order->tanggal_mulai;
-        $selesai = $validated['tanggal_selesai'] ?? $order->tanggal_selesai;
-        $jamMulai = $validated['jam_mulai'] ?? $order->jam_mulai;
-        $jamSelesai = $validated['jam_selesai'] ?? $order->jam_selesai;
-
-        if ($newKendaraanId) {
-            $targetKendaraan = Kendaraan::find($newKendaraanId);
-            $harga = $targetKendaraan->harga_sewa_per_hari;
-        } else {
-            $harga = $order->harga_per_hari;
-        }
-
-        $mulaiDt = Carbon::parse($mulai);
-        $selesaiDt = Carbon::parse($selesai);
-        if ($jamMulai) {
-            $mulaiDt->setTimeFromTimeString($jamMulai);
-        }
-        if ($jamSelesai) {
-            $selesaiDt->setTimeFromTimeString($jamSelesai);
-        }
-        $durasi = (int) ceil($mulaiDt->diffInSeconds($selesaiDt) / 86400);
-        if ($durasi < 1) {
-            $durasi = 1;
-        }
-
-        $updateData['harga_per_hari'] = $harga;
-        $updateData['durasi_hari'] = $durasi;
-
-        $supirTarif = 0;
-        $supirId = $validated['supir_id'] ?? $order->supir_id;
-        if (! empty($supirId)) {
-            $supir = SupirCalo::find($supirId);
-            $supirTarif = (float) ($supir->tarif_per_hari ?? 0);
-        }
-        $updateData['harga_total'] = ($durasi * $harga) + ($supirTarif * $durasi);
-
-        $order->update($updateData);
-
-        if (isset($validated['status_order'])) {
-            $currentKendaraan = $order->kendaraan;
-
-            if ($newKendaraanId && $newKendaraanId != $oldKendaraanId) {
-                $oldKendaraan = Kendaraan::find($oldKendaraanId);
-                if ($oldKendaraan && $oldKendaraan->status === 'disewa') {
-                    $oldKendaraan->update(['status' => 'tersedia']);
-                }
-            }
-
-            match ($validated['status_order']) {
-                'active' => $currentKendaraan->update(['status' => 'disewa']),
-                'completed', 'cancelled' => $currentKendaraan->update(['status' => 'tersedia']),
-                default => null,
-            };
-
-            if (in_array($validated['status_order'], ['completed', 'cancelled'])) {
-                $order->update(['status_pengiriman' => 'selesai']);
-            }
-
-            if ($validated['status_order'] === 'completed' && $order->jam_overtime == 0) {
-                $order->selesaikanSewa();
-                $order->save();
-            }
-        }
-
-        return response()->json($order->load(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo']));
+        return response()->json($order);
     }
 
     public function destroy(Order $order): JsonResponse
     {
-        if ($order->status_order === 'active') {
-            return response()->json(['message' => 'Tidak bisa menghapus order aktif. Selesaikan atau batalkan order terlebih dahulu.'], 422);
-        }
+        $this->authorize('delete', $order);
 
-        $order->delete();
+        $service = app(OrderService::class);
+        $service->delete($order);
 
         return response()->json(['message' => 'Order berhasil dihapus']);
+    }
+
+    private function storeUploadedFiles(Request $request): array
+    {
+        $paths = [];
+
+        if ($request->hasFile('bukti_transfer')) {
+            $paths['bukti_transfer_path'] = $request->file('bukti_transfer')->store('bukti-transfer', 'public');
+        }
+        if ($request->hasFile('bukti_pengiriman')) {
+            $paths['bukti_pengiriman_path'] = $request->file('bukti_pengiriman')->store('bukti-pengiriman', 'public');
+        }
+        if ($request->hasFile('bukti_pengembalian')) {
+            $paths['bukti_pengembalian_path'] = $request->file('bukti_pengembalian')->store('bukti-pengembalian', 'public');
+        }
+        if ($request->hasFile('customer_foto_ktp')) {
+            $paths['customer_foto_ktp_path'] = $request->file('customer_foto_ktp')->store('customers', 'public');
+        }
+        if ($request->hasFile('customer_foto_sim')) {
+            $paths['customer_foto_sim_path'] = $request->file('customer_foto_sim')->store('customers', 'public');
+        }
+
+        return $paths;
+    }
+
+    private function applyWatermarks(array $validated): void
+    {
+        $watermarkPaths = array_filter([
+            $validated['bukti_transfer_path'] ?? null,
+            $validated['bukti_pengiriman_path'] ?? null,
+            $validated['bukti_pengembalian_path'] ?? null,
+        ]);
+        $identityPaths = array_filter([
+            $validated['customer_foto_ktp_path'] ?? null,
+            $validated['customer_foto_sim_path'] ?? null,
+        ]);
+
+        if (empty($watermarkPaths) && empty($identityPaths)) {
+            return;
+        }
+
+        try {
+            $watermark = app(WatermarkService::class);
+            foreach ($watermarkPaths as $path) {
+                $watermark->applyToStoragePath($path);
+            }
+            foreach ($identityPaths as $path) {
+                $watermark->applyToStoragePath($path, 'CVPILAR • Identitas');
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 }

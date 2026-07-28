@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { ADMIN_WA } from '../../lib/format';
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
 
 const layananData: Record<string, {
@@ -130,7 +131,7 @@ export default function LayananDetailPage() {
             <p className="mt-3 text-ink-400 text-[15px] max-w-md mx-auto">Hubungi kami untuk konsultasi dan penawaran harga terbaik.</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <a
-                href={`https://wa.me/62895361054272?text=${encodeURIComponent(`Halo, saya tertarik dengan layanan ${data.title}. Mohon informasi lebih lanjut.`)}`}
+                href={`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(`Halo, saya tertarik dengan layanan ${data.title}. Mohon informasi lebih lanjut.`)}`}
                 target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-ink-950 text-white text-sm font-semibold rounded-lg hover:bg-ink-800 transition-colors"
               >

@@ -1,7 +1,8 @@
 //private routes are wrapped in <Layout> component, public routes are not
-import type { PropsWithChildren } from 'react';
+import { lazy, Suspense, type PropsWithChildren } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -10,13 +11,15 @@ import Customers from './pages/Customers';
 import Orders from './pages/Orders';
 import GarasiPage from './pages/GarasiPage';
 import KategoriTipe from './pages/KategoriTipe';
-import GpsPage from './pages/GpsPage';
-import Laporan from './pages/Laporan';
-import Katalog from './pages/Katalog';
-import KendaraanDetail from './pages/KendaraanDetail';
 import NotFound from './pages/NotFound';
-import Pengaturan from './pages/Pengaturan';
 import SupirCalo from './pages/SupirCalo';
+
+const Laporan = lazy(() => import('./pages/Laporan'));
+const Katalog = lazy(() => import('./pages/Katalog'));
+const KendaraanDetail = lazy(() => import('./pages/KendaraanDetail'));
+const Pengaturan = lazy(() => import('./pages/Pengaturan'));
+const GpsPage = lazy(() => import('./pages/GpsPage'));
+const ActivityLog = lazy(() => import('./pages/ActivityLog'));
 
 //public route will redirect to / if user is logged in, private route will redirect to /login if user is not logged in
 
@@ -48,6 +51,15 @@ function PrivateRoute({ children }: PropsWithChildren) {
   return user ? <Layout>{children}</Layout> : <Navigate to="/admin/login" />;
 }
 
+function RoleRoute({ children, allowedRoles }: PropsWithChildren & { allowedRoles: string[] }) {
+  const { user } = useAuth();
+  const userRole = user?.role ?? '';
+  if (!user || !allowedRoles.includes(userRole)) {
+    return <Navigate to="/" />;
+  }
+  return <>{children}</>;
+}
+
 function PublicRoute({ children }: PropsWithChildren) {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
@@ -56,8 +68,10 @@ function PublicRoute({ children }: PropsWithChildren) {
 
 export default function App() {
   return (
+    <ErrorBoundary>
     <AuthProvider>
       <BrowserRouter>
+        <Suspense fallback={<LoadingScreen />}>
         <Routes>
           {/* Public katalog routes — no auth */}
           <Route path="/" element={<Katalog />} />
@@ -79,20 +93,23 @@ export default function App() {
 
           {/* Admin routes — auth required */}
           <Route path="/admin" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/admin/kendaraan" element={<PrivateRoute><Kendaraan /></PrivateRoute>} />
-          <Route path="/admin/kategori-tipe" element={<PrivateRoute><KategoriTipe /></PrivateRoute>} />
-          <Route path="/admin/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
-          <Route path="/admin/supir-calo" element={<PrivateRoute><SupirCalo /></PrivateRoute>} />
-          <Route path="/admin/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
-          <Route path="/admin/gps" element={<PrivateRoute><GpsPage /></PrivateRoute>} />
-          <Route path="/admin/laporan" element={<PrivateRoute><Laporan /></PrivateRoute>} />
-          <Route path="/admin/garasi" element={<PrivateRoute><GarasiPage /></PrivateRoute>} />
-          <Route path="/admin/pengaturan" element={<PrivateRoute><Pengaturan /></PrivateRoute>} />
+          <Route path="/kendaraan" element={<PrivateRoute><Kendaraan /></PrivateRoute>} />
+          <Route path="/kategori-tipe" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><KategoriTipe /></RoleRoute></PrivateRoute>} />
+          <Route path="/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
+          <Route path="/supir-calo" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><SupirCalo /></RoleRoute></PrivateRoute>} />
+          <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
+          <Route path="/gps" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><GpsPage /></RoleRoute></PrivateRoute>} />
+          <Route path="/laporan" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><Laporan /></RoleRoute></PrivateRoute>} />
+          <Route path="/garasi" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><GarasiPage /></RoleRoute></PrivateRoute>} />
+          <Route path="/pengaturan" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama']}><Pengaturan /></RoleRoute></PrivateRoute>} />
+          <Route path="/activity-log" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama']}><ActivityLog /></RoleRoute></PrivateRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </Suspense>
       </BrowserRouter>
     </AuthProvider>
+    </ErrorBoundary>
   );
 }

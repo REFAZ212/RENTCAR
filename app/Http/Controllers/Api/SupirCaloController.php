@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Order;
 use App\Models\SupirCalo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,8 @@ class SupirCaloController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', SupirCalo::class);
+
         $query = SupirCalo::query();
 
         if ($request->jenis) {
@@ -19,9 +22,10 @@ class SupirCaloController extends Controller
         }
 
         if ($request->search) {
-            $query->where(function ($q) use ($request) {
-                $q->where('nama', 'like', "%{$request->search}%")
-                    ->orWhere('no_hp', 'like', "%{$request->search}%");
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                whereLikeEscaped($q, 'nama', $search);
+                $q->orWhereRaw("no_hp LIKE ? ESCAPE '#'", ['%'.escapeLike($search).'%']);
             });
         }
 
@@ -34,6 +38,8 @@ class SupirCaloController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', SupirCalo::class);
+
         $validated = $request->validate([
             'jenis' => 'required|in:supir,calo',
             'nama' => 'required|string|max:255',
@@ -43,11 +49,16 @@ class SupirCaloController extends Controller
             'no_sim' => 'nullable|string',
             'foto' => 'nullable|image|max:2048',
             'tarif_per_hari' => 'nullable|numeric|min:0',
+            'komisi' => 'nullable|numeric|min:0',
             'catatan' => 'nullable|string',
         ]);
 
-        if ($validated['jenis'] === 'supir' && empty($validated['no_sim'])) {
+        if ($validated['jenis'] === 'supir' && empty($validated['no_sim'] ?? null)) {
             return response()->json(['message' => 'No. SIM wajib diisi untuk supir.'], 422);
+        }
+
+        if ($validated['jenis'] === 'calo' && ($validated['komisi'] ?? null) === null) {
+            return response()->json(['message' => 'Komisi wajib diisi untuk calo.'], 422);
         }
 
         if ($request->hasFile('foto')) {
@@ -61,6 +72,8 @@ class SupirCaloController extends Controller
 
     public function show(SupirCalo $supirCalo): JsonResponse
     {
+        $this->authorize('view', $supirCalo);
+
         $supirCalo->load(['ordersAsSupir' => function ($q) {
             $q->with('kendaraan')->latest()->limit(10);
         }, 'ordersAsCalo' => function ($q) {
@@ -72,6 +85,8 @@ class SupirCaloController extends Controller
 
     public function update(Request $request, SupirCalo $supirCalo): JsonResponse
     {
+        $this->authorize('update', $supirCalo);
+
         $validated = $request->validate([
             'jenis' => 'sometimes|required|in:supir,calo',
             'nama' => 'sometimes|required|string|max:255',
@@ -81,11 +96,16 @@ class SupirCaloController extends Controller
             'no_sim' => 'nullable|string',
             'foto' => 'nullable|image|max:2048',
             'tarif_per_hari' => 'nullable|numeric|min:0',
+            'komisi' => 'nullable|numeric|min:0',
             'catatan' => 'nullable|string',
         ]);
 
-        if (($validated['jenis'] ?? $supirCalo->jenis) === 'supir' && empty($validated['no_sim'] ?? $supirCalo->no_sim)) {
+        if (($validated['jenis'] ?? $supirCalo->jenis) === 'supir' && empty($validated['no_sim'] ?? $supirCalo->no_sim ?? null)) {
             return response()->json(['message' => 'No. SIM wajib diisi untuk supir.'], 422);
+        }
+
+        if (($validated['jenis'] ?? $supirCalo->jenis) === 'calo' && ($validated['komisi'] ?? $supirCalo->komisi ?? null) === null) {
+            return response()->json(['message' => 'Komisi wajib diisi untuk calo.'], 422);
         }
 
         if ($request->hasFile('foto')) {
@@ -102,13 +122,12 @@ class SupirCaloController extends Controller
 
     public function destroy(SupirCalo $supirCalo): JsonResponse
     {
-        $hasActiveOrder = $supirCalo->ordersAsSupir()
-            ->whereIn('status_order', ['pending', 'confirmed', 'active'])
-            ->orWhere(function ($q) use ($supirCalo) {
-                $q->where('calo_id', $supirCalo->id)
-                    ->whereIn('status_order', ['pending', 'confirmed', 'active']);
-            })
-            ->exists();
+        $this->authorize('delete', $supirCalo);
+
+        $hasActiveOrder = Order::where(function ($q) use ($supirCalo) {
+            $q->where('supir_id', $supirCalo->id)
+                ->orWhere('calo_id', $supirCalo->id);
+        })->whereIn('status_order', ['pending', 'confirmed', 'active'])->exists();
 
         if ($hasActiveOrder) {
             return response()->json([

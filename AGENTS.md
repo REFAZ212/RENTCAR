@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**CVPILAR** — a garage/vehicle management system (Indonesian domain). Laravel 13.19 API backend + separate React 19 SPA frontend.
+**CVPILAR** — a garage/vehicle management system (Indonesian domain). Laravel 13.8 API backend + separate React 19 SPA frontend.
 
 ## Architecture
 
@@ -18,13 +18,13 @@ Public (unauthenticated) API routes: `POST /api/login` (throttled 10/min), `GET 
 
 Public Blade routes (`routes/web.php`): `GET/POST /garasi/{token}` — token-based garage response form via `GarasiResponseController`.
 
-**Database**: `.env.example` defaults to MySQL (`DB_CONNECTION=mysql`, database `rentcar`). The running `.env` may differ (currently: MySQL `cvpilar`). Migrations in `database/migrations/`.
+**Database**: `.env.example` defaults to MySQL (`DB_CONNECTION=mysql`, database `cvpilar`). Migrations in `database/migrations/`.
 
 **Frontend API layer** (`frontend/src/services/api.ts`): axios with Bearer token from `localStorage`. Auto-redirects to `/login` on 401. File uploads use `FormData` (Content-Type header is stripped automatically). File updates use method spoofing: POST with `_method=PUT` (Laravel can't handle PUT + multipart).
 
 **Export deps**: `phpoffice/phpspreadsheet` + `openspout/openspout` for Excel/CSV export in Laporan.
 
-**Business logic**: `app/Services/OvertimeCalculator.php` — calculates late-return penalties (Rp 25,000/hour, second-precision, no grace period). `Order` model has computed accessors `jam_overtime_saat_ini` and `denda_overtime_saat_ini` that recalculate on every response for active orders. Final values stored in `jam_overtime`/`denda_overtime` columns when order is completed via `Order::selesaikanSewa()`.
+**Business logic**: `app/Services/OvertimeCalculator.php` — calculates late-return penalties (second-precision, ceil to full hour blocks). Rate and grace period are **database-configurable** via `settings` table (`overtime_rate_per_hour`, `grace_period_minutes`); defaults are 25000 and 0. `Order` model has computed accessors `jam_overtime_saat_ini` and `denda_overtime_saat_ini` that recalculate on every response for active orders. Final values stored in `jam_overtime`/`denda_overtime` columns when order is completed via `Order::selesaikanSewa()`.
 
 Return deadline (`batasWaktuKembali()`) is calculated from `tanggal_mulai + durasi_hari + jam_selesai`, NOT from `tanggal_selesai` directly — `tanggal_selesai` can be entered as the same day as `tanggal_mulai`.
 

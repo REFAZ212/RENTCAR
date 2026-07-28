@@ -12,6 +12,8 @@ class WhatsappLog extends Model
 
     protected $fillable = [
         'garasi_request_id',
+        'order_id',
+        'type',
         'nomor_tujuan',
         'pesan',
         'status_kirim',
@@ -21,5 +23,10 @@ class WhatsappLog extends Model
     public function garasiRequest(): BelongsTo
     {
         return $this->belongsTo(GarasiRequest::class);
+    }
+
+    public function order(): BelongsTo
+    {
+        return $this->belongsTo(Order::class);
     }
 }

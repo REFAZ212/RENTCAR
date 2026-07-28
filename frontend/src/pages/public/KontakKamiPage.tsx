@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, MessageCircle } from 'lucide-react';
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
+import { ADMIN_WA, ADMIN_HP_DISPLAY } from '../../lib/format';
 
 const contactInfo = [
-  { icon: Phone, label: 'Telepon', value: '0895-3610-54272', href: 'tel:+62895361054272' },
+  { icon: Phone, label: 'Telepon', value: ADMIN_HP_DISPLAY, href: `tel:+${ADMIN_WA}` },
   { icon: Mail, label: 'Email', value: 'info@pilarrental.com', href: 'mailto:info@pilarrental.com' },
   { icon: MapPin, label: 'Alamat', value: 'Jl. Contoh No. 123, Kota', href: null },
   { icon: Clock, label: 'Jam Kerja', value: 'Senin - Sabtu: 08.00 - 17.00', href: null },
@@ -15,7 +16,7 @@ export default function KontakKamiPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const wa = `https://wa.me/62895361054272?text=${encodeURIComponent(`Halo, saya ${form.nama}.\n\nSubjek: ${form.subjek}\n\n${form.pesan}\n\nEmail: ${form.email}\nTelepon: ${form.telepon}`)}`;
+    const wa = `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(`Halo, saya ${form.nama}.\n\nSubjek: ${form.subjek}\n\n${form.pesan}\n\nEmail: ${form.email}\nTelepon: ${form.telepon}`)}`;
     window.open(wa, '_blank');
     setSubmitted(true);
   };
@@ -75,7 +76,7 @@ export default function KontakKamiPage() {
                 Untuk respon cepat, hubungi kami langsung melalui WhatsApp.
               </p>
               <a
-                href="https://wa.me/62895361054272?text=Halo%2C%20saya%20ingin%20bertanya%20tentang%20layanan%20PILAR"
+                href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20bertanya%20tentang%20layanan%20PILAR`}
                 target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-avail-500 text-white text-sm font-semibold rounded-lg hover:bg-avail-600 transition-colors"
               >
