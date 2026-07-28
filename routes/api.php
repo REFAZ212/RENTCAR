@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\GarasiPartnerController;
@@ -40,6 +41,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('kendaraans', KendaraanController::class)->middleware('throttle:60,1');
     Route::apiResource('customers', CustomerController::class)->middleware('throttle:60,1');
     Route::apiResource('orders', OrderController::class)->middleware('throttle:60,1');
+    Route::get('/orders/{order}/invoice', [InvoiceController::class, 'download']);
     Route::apiResource('garasi-requests', GarasiRequestController::class)->middleware('throttle:60,1');
     Route::apiResource('kategoris', KategoriController::class);
     Route::apiResource('tipes', TipeController::class);
@@ -65,6 +67,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin_utama')->group(function () {
         Route::apiResource('users', UserController::class);
+        Route::get('/activity-log', [ActivityLogController::class, 'index']);
 
         Route::get('/settings', [SettingController::class, 'show']);
         Route::patch('/settings', [SettingController::class, 'update']);
