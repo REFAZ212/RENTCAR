@@ -441,3 +441,26 @@ export const settingsAPI = {
   get: (): Promise<AxiosResponse<AppSettings>> => api.get('/settings'),
   update: (data: Partial<AppSettings>): Promise<AxiosResponse<{ message: string }>> => api.patch('/settings', data),
 };
+
+/* ─────────────────────────────────────────────────────────────
+ * ACTIVITY LOG (audit trail)
+ * ───────────────────────────────────────────────────────────── */
+export interface ActivityLog {
+  id: number;
+  log_name: string | null;
+  description: string;
+  subject_type: string | null;
+  subject_id: number | null;
+  event: string | null;
+  causer_type: string | null;
+  causer_id: number | null;
+  causer?: { id: number; name: string };
+  properties: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export const activityLogAPI = {
+  list: (params?: QueryParams): Promise<AxiosResponse<ListResponse<ActivityLog>>> =>
+    api.get('/activity-log', { params }),
+};

@@ -1,9 +1,11 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\GarasiPartnerController;
+use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\GarasiRequestController;
 use App\Http\Controllers\Api\KatalogOrderRequestController;
 use App\Http\Controllers\Api\KatalogPublicController;
@@ -16,15 +18,16 @@ use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\SupirCaloController;
 use App\Http\Controllers\Api\TipeController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
-Route::get('/katalog', [KatalogPublicController::class, 'index']);
-Route::get('/katalog/kategoris', [KatalogPublicController::class, 'kategoris']);
-Route::get('/katalog/tipes', [KatalogPublicController::class, 'tipes']);
+Route::get('/katalog', [KatalogPublicController::class, 'index'])->middleware('throttle:120,1');
+Route::get('/katalog/kategoris', [KatalogPublicController::class, 'kategoris'])->middleware('throttle:120,1');
+Route::get('/katalog/tipes', [KatalogPublicController::class, 'tipes'])->middleware('throttle:120,1');
 Route::post('/katalog/order-request', [KatalogOrderRequestController::class, 'store'])->middleware('throttle:5,1');
-Route::get('/katalog/{kendaraan}', [KatalogPublicController::class, 'show']);
+Route::get('/katalog/{kendaraan}', [KatalogPublicController::class, 'show'])->middleware('throttle:120,1');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -35,14 +38,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get('/garasi-saya', [GarasiPartnerController::class, 'garasiSaya']);
     Route::apiResource('garasi-partners', GarasiPartnerController::class);
-    Route::apiResource('kendaraans', KendaraanController::class);
-    Route::apiResource('customers', CustomerController::class);
-    Route::apiResource('orders', OrderController::class);
-    Route::apiResource('garasi-requests', GarasiRequestController::class);
+    Route::apiResource('kendaraans', KendaraanController::class)->middleware('throttle:60,1');
+    Route::apiResource('customers', CustomerController::class)->middleware('throttle:60,1');
+    Route::apiResource('orders', OrderController::class)->middleware('throttle:60,1');
+    Route::get('/orders/{order}/invoice', [InvoiceController::class, 'download']);
+    Route::apiResource('garasi-requests', GarasiRequestController::class)->middleware('throttle:60,1');
     Route::apiResource('kategoris', KategoriController::class);
     Route::apiResource('tipes', TipeController::class);
     Route::get('/tipes/{tipe}/kendaraans', [TipeController::class, 'kendaraans']);
-    Route::apiResource('supir-calos', SupirCaloController::class);
+    Route::apiResource('supir-calos', SupirCaloController::class)->middleware('throttle:60,1');
 
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
@@ -62,6 +66,9 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::middleware('role:admin_utama')->group(function () {
+        Route::apiResource('users', UserController::class);
+        Route::get('/activity-log', [ActivityLogController::class, 'index']);
+
         Route::get('/settings', [SettingController::class, 'show']);
         Route::patch('/settings', [SettingController::class, 'update']);
 

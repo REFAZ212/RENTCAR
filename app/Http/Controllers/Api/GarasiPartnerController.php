@@ -11,6 +11,8 @@ class GarasiPartnerController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', GarasiPartner::class);
+
         $query = GarasiPartner::where('is_own', false);
 
         if ($request->search) {
@@ -43,6 +45,8 @@ class GarasiPartnerController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', GarasiPartner::class);
+
         $validated = $request->validate([
             'nama_garasi' => 'required|string|max:255',
             'nama_pemilik' => 'required|string|max:255',
@@ -62,6 +66,8 @@ class GarasiPartnerController extends Controller
 
     public function show(GarasiPartner $garasiPartner): JsonResponse
     {
+        $this->authorize('view', $garasiPartner);
+
         $garasiPartner->load(['kendaraans.kategori', 'kendaraans.tipe', 'garasiRequests.order.customer']);
 
         return response()->json($garasiPartner);
@@ -69,6 +75,8 @@ class GarasiPartnerController extends Controller
 
     public function update(Request $request, GarasiPartner $garasiPartner): JsonResponse
     {
+        $this->authorize('update', $garasiPartner);
+
         $validated = $request->validate([
             'nama_garasi' => 'sometimes|required|string|max:255',
             'nama_pemilik' => 'sometimes|required|string|max:255',
@@ -89,6 +97,8 @@ class GarasiPartnerController extends Controller
 
     public function destroy(GarasiPartner $garasiPartner): JsonResponse
     {
+        $this->authorize('delete', $garasiPartner);
+
         $hasAnyOrder = $garasiPartner->kendaraans()
             ->whereHas('orders', function ($q) {
                 $q->whereIn('status_order', ['pending', 'confirmed', 'active', 'completed', 'cancelled']);

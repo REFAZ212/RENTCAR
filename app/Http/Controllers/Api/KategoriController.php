@@ -11,6 +11,8 @@ class KategoriController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', Kategori::class);
+
         $query = Kategori::withCount('kendaraans')
             ->with(['tipes' => function ($q) {
                 $q->withCount('kendaraans')->orderBy('nama_tipe');
@@ -27,6 +29,8 @@ class KategoriController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', Kategori::class);
+
         $validated = $request->validate([
             'nama_kategori' => 'required|string|max:255|unique:kategoris,nama_kategori',
             'deskripsi' => 'nullable|string|max:500',
@@ -40,6 +44,8 @@ class KategoriController extends Controller
 
     public function show(Kategori $kategori): JsonResponse
     {
+        $this->authorize('view', $kategori);
+
         $kategori->loadCount('kendaraans');
 
         return response()->json($kategori);
@@ -47,6 +53,8 @@ class KategoriController extends Controller
 
     public function update(Request $request, Kategori $kategori): JsonResponse
     {
+        $this->authorize('update', $kategori);
+
         $validated = $request->validate([
             'nama_kategori' => 'required|string|max:255|unique:kategoris,nama_kategori,'.$kategori->id,
             'deskripsi' => 'nullable|string|max:500',
@@ -60,6 +68,8 @@ class KategoriController extends Controller
 
     public function destroy(Kategori $kategori): JsonResponse
     {
+        $this->authorize('delete', $kategori);
+
         if ($kategori->kendaraans()->count() > 0) {
             return response()->json(['message' => 'Kategori masih digunakan oleh kendaraan'], 422);
         }

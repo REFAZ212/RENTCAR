@@ -11,6 +11,8 @@ class NotificationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', Notification::class);
+
         $notifications = Notification::orderBy('created_at', 'desc')
             ->paginate(min((int) $request->input('per_page', 20), 50));
 

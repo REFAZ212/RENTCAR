@@ -17,6 +17,7 @@ import KendaraanDetail from './pages/KendaraanDetail';
 import NotFound from './pages/NotFound';
 import Pengaturan from './pages/Pengaturan';
 import SupirCalo from './pages/SupirCalo';
+import ActivityLog from './pages/ActivityLog';
 
 //public route will redirect to / if user is logged in, private route will redirect to /login if user is not logged in
 
@@ -96,6 +97,7 @@ export default function App() {
           <Route path="/laporan" element={<PrivateRoute><RoleRoute allowedRoles={['admin']}><Laporan /></RoleRoute></PrivateRoute>} />
           <Route path="/garasi" element={<PrivateRoute><GarasiPage /></PrivateRoute>} />
           <Route path="/pengaturan" element={<PrivateRoute><RoleRoute allowedRoles={['admin']}><Pengaturan /></RoleRoute></PrivateRoute>} />
+          <Route path="/activity-log" element={<PrivateRoute><RoleRoute allowedRoles={['admin']}><ActivityLog /></RoleRoute></PrivateRoute>} />
           <Route path="/admin" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
           <Route path="/admin/kendaraan" element={<PrivateRoute><Kendaraan /></PrivateRoute>} />
           <Route path="/admin/kategori-tipe" element={<PrivateRoute><KategoriTipe /></PrivateRoute>} />
@@ -106,6 +108,7 @@ export default function App() {
           <Route path="/admin/laporan" element={<PrivateRoute><Laporan /></PrivateRoute>} />
           <Route path="/admin/garasi" element={<PrivateRoute><GarasiPage /></PrivateRoute>} />
           <Route path="/admin/pengaturan" element={<PrivateRoute><Pengaturan /></PrivateRoute>} />
+          <Route path="/admin/activity-log" element={<PrivateRoute><ActivityLog /></PrivateRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />

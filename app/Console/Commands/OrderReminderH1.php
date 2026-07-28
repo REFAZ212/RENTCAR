@@ -60,7 +60,7 @@ class OrderReminderH1 extends Command
                     'tanggal_kembali' => $batas->format('d/m/Y'),
                     'jam_kembali' => $batas->format('H:i'),
                 ]);
-                $wa->kirimPesan($customer->no_hp, $pesan);
+                $wa->kirimPesanAsync($customer->no_hp, $pesan);
                 $sentCount++;
             }
 

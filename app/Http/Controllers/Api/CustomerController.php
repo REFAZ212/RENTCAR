@@ -13,6 +13,8 @@ class CustomerController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', Customer::class);
+
         $query = Customer::query();
 
         if ($request->search) {
@@ -36,6 +38,8 @@ class CustomerController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', Customer::class);
+
         $validated = $request->validate([
             'nama_lengkap' => 'required|string|max:255',
             'no_hp' => 'required|string|max:255',
@@ -73,6 +77,8 @@ class CustomerController extends Controller
 
     public function show(Customer $customer): JsonResponse
     {
+        $this->authorize('view', $customer);
+
         $customer->load(['orders' => function ($q) {
             $q->with('kendaraan')->latest()->limit(10);
         }]);
@@ -82,6 +88,8 @@ class CustomerController extends Controller
 
     public function update(Request $request, Customer $customer): JsonResponse
     {
+        $this->authorize('update', $customer);
+
         $validated = $request->validate([
             'nama_lengkap' => 'required|string|max:255',
             'no_hp' => 'required|string|max:255',
@@ -130,6 +138,8 @@ class CustomerController extends Controller
 
     public function destroy(Customer $customer): JsonResponse
     {
+        $this->authorize('delete', $customer);
+
         $hasActiveOrder = $customer->orders()
             ->whereIn('status_order', ['pending', 'confirmed', 'active'])
             ->exists();

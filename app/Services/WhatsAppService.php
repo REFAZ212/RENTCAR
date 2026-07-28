@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\SendWhatsAppMessage;
 use App\Models\Setting;
 use App\Models\WhatsappLog;
 use Illuminate\Support\Facades\Http;
@@ -74,6 +75,16 @@ class WhatsAppService
         }
 
         return $template;
+    }
+
+    public function kirimPesanAsync(string $nomorTujuan, string $pesan, string $type = 'notifikasi_customer'): void
+    {
+        SendWhatsAppMessage::dispatch($nomorTujuan, $pesan, $type);
+    }
+
+    public function kirimKeOwnerAsync(string $pesan): void
+    {
+        $this->kirimPesanAsync($this->targetNumber, $pesan, 'notifikasi_owner');
     }
 
     private function normalizePhone(string $phone): string
