@@ -2,9 +2,7 @@ import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { supirCaloAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
-import { formatHpDisplay, formatHpWa } from '../lib/format';
-
-const formatRupiah = (n) => `Rp ${Number(n || 0).toLocaleString('id-ID')}`;
+import { formatHpDisplay, formatHpWa, formatRupiah } from '../lib/format';
 
 const emptyForm = {
   nama: '',

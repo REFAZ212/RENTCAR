@@ -1,4 +1,5 @@
 import { Briefcase, MapPin, Clock, ArrowRight } from 'lucide-react';
+import { ADMIN_WA } from '../../lib/format';
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
 
 const lowongan = [
@@ -70,7 +71,7 @@ export default function KarirPage() {
                     </div>
                   </div>
                   <a
-                    href={`https://wa.me/62895361054272?text=${encodeURIComponent(`Halo, saya ingin melamar untuk posisi ${l.title}.`)}`}
+                    href={`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(`Halo, saya ingin melamar untuk posisi ${l.title}.`)}`}
                     target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-ink-950 text-white text-[13px] font-semibold rounded-lg hover:bg-ink-800 transition-colors shrink-0"
                   >

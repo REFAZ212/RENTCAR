@@ -536,7 +536,7 @@ class OrderPaymentLogTest extends TestCase
             'tanggal_selesai' => '2026-08-04',
             'tujuan' => 'Bandung',
             'status_pembayaran' => 'partial',
-            'jumlah_bayar' => 2000000,
+            'jumlah_bayar' => 3000000,
         ]);
 
         $response->assertStatus(422);

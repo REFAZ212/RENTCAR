@@ -68,8 +68,8 @@ class CustomerController extends Controller
             foreach (array_filter([$validated['foto_ktp'] ?? null, $validated['foto_sim'] ?? null]) as $path) {
                 $wm->applyToStoragePath($path, 'CVPILAR • Identitas');
             }
-        } catch (\Throwable) {
-            // GD extension not available — skip silently.
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         return response()->json($customer, 201);
@@ -128,8 +128,8 @@ class CustomerController extends Controller
                 foreach ($updatedPaths as $path) {
                     $wm->applyToStoragePath($path, 'CVPILAR • Identitas');
                 }
-            } catch (\Throwable) {
-                // GD extension not available — skip silently.
+            } catch (\Throwable $e) {
+                report($e);
             }
         }
 

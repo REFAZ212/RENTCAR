@@ -9,7 +9,7 @@ import { authAPI } from "../services/api";
 
 /* ============================
    Types
-============================ */
+======================== */
 
 export interface User {
   id: number;
@@ -37,14 +37,32 @@ interface AuthContextType {
 }
 
 /* ============================
+   Token helpers
+======================== */
+
+function isTokenExpired(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return (payload.exp ?? 0) * 1000 < Date.now();
+  } catch {
+    return true;
+  }
+}
+
+function clearAuth() {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+}
+
+/* ============================
    Context
-============================ */
+======================== */
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /* ============================
    Provider
-============================ */
+======================== */
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -62,11 +80,14 @@ export function AuthProvider({
     const savedUser = localStorage.getItem("user");
 
     if (token && savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+      if (isTokenExpired(token)) {
+        clearAuth();
+      } else {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch {
+          clearAuth();
+        }
       }
     }
 
@@ -101,8 +122,7 @@ export function AuthProvider({
       // abaikan jika gagal logout di server
     }
 
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    clearAuth();
 
     setUser(null);
   };
@@ -123,7 +143,7 @@ export function AuthProvider({
 
 /* ============================
    Hook
-============================ */
+======================== */
 
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);

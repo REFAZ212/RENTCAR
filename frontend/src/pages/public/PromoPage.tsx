@@ -1,4 +1,5 @@
 import { Tag, ArrowRight } from 'lucide-react';
+import { ADMIN_WA } from '../../lib/format';
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
 
 const promos = [
@@ -37,7 +38,7 @@ export default function PromoPage() {
                 <div className="mt-6 flex items-center justify-between">
                   <span className="text-[11px] text-ink-400">Berlaku hingga {p.validUntil}</span>
                   <a
-                    href={`https://wa.me/62895361054272?text=${encodeURIComponent(`Halo, saya ingin menggunakan promo "${p.title}" dengan kode ${p.code}.`)}`}
+                    href={`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(`Halo, saya ingin menggunakan promo "${p.title}" dengan kode ${p.code}.`)}`}
                     target="_blank" rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-600 hover:text-brand-700 transition-colors"
                   >

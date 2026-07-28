@@ -190,8 +190,8 @@ class OrderController extends Controller
             foreach ($identityPaths as $path) {
                 $watermark->applyToStoragePath($path, 'CVPILAR • Identitas');
             }
-        } catch (\Throwable) {
-            // GD extension not available in test env — skip silently.
+        } catch (\Throwable $e) {
+            report($e);
         }
     }
 }

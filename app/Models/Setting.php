@@ -21,7 +21,11 @@ class Setting extends Model
      */
     public static function get(string $key, mixed $default = null): mixed
     {
-        return Cache::remember("setting:{$key}", 3600, fn () => static::where('key', $key)->value('value') ?? $default);
+        try {
+            return Cache::remember("setting:{$key}", 3600, fn () => static::where('key', $key)->value('value') ?? $default);
+        } catch (\Throwable) {
+            return static::where('key', $key)->value('value') ?? $default;
+        }
     }
 
     /**

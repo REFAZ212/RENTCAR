@@ -35,6 +35,33 @@ export function formatHpWa(hp: string | null | undefined): string {
 }
 
 /**
+ * Format angka ke Rupiah (Rp 1.234.500).
+ * Menerima number, string, null, undefined.
+ */
+export function formatRupiah(n: number | string | null | undefined): string {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0,
+  }).format(Number(n || 0));
+}
+
+/**
+ * Format Rupiah ringkas untuk chart axis (1Jt, 500Rb, 100).
+ */
+export function formatRupiahShort(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}Jt`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}Rb`;
+  return String(n);
+}
+
+/** Nomor WhatsApp admin (format internasional tanpa +). */
+export const ADMIN_WA = '62895361054272';
+
+/** Tampilan nomor HP untuk user Indonesia. */
+export const ADMIN_HP_DISPLAY = '0895-3610-54272';
+
+/**
  * Mendapatkan tanggal hari ini dalam format YYYY-MM-DD
  * menggunakan timezone Asia/Jakarta (WIB, UTC+7).
  * `new Date().toISOString()` mengembalikan UTC — antara 00:00-07:00 WIB

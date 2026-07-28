@@ -13,6 +13,8 @@ class GarasiRequestController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', GarasiRequest::class);
+
         $query = GarasiRequest::with(['order.customer', 'order.kendaraan', 'garasiPartner']);
 
         if ($request->has('status_permintaan')) {
@@ -26,6 +28,8 @@ class GarasiRequestController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $this->authorize('create', GarasiRequest::class);
+
         $validated = $request->validate([
             'order_id' => 'required|exists:orders,id',
             'garasi_partner_id' => 'required|exists:garasi_partners,id',
@@ -56,6 +60,8 @@ class GarasiRequestController extends Controller
 
     public function show(GarasiRequest $garasiRequest): JsonResponse
     {
+        $this->authorize('view', $garasiRequest);
+
         $garasiRequest->load(['order.customer', 'order.kendaraan', 'garasiPartner', 'whatsappLogs']);
 
         return response()->json($garasiRequest);
@@ -63,6 +69,8 @@ class GarasiRequestController extends Controller
 
     public function update(Request $request, GarasiRequest $garasiRequest): JsonResponse
     {
+        $this->authorize('update', $garasiRequest);
+
         $validated = $request->validate([
             'status_permintaan' => 'required|in:pending,tersedia,tidak_terjawab',
             'catatan_garasi' => 'nullable|string',
@@ -101,6 +109,8 @@ class GarasiRequestController extends Controller
 
     public function destroy(GarasiRequest $garasiRequest): JsonResponse
     {
+        $this->authorize('delete', $garasiRequest);
+
         $garasiRequest->delete();
 
         return response()->json(['message' => 'Garasi request berhasil dihapus']);

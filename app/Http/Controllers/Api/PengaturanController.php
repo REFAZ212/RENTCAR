@@ -7,6 +7,7 @@ use App\Models\Setting;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -257,8 +258,28 @@ class PengaturanController extends Controller
         $dump = "-- Backup CVPILAR {$timestamp}\n-- =============================\n\n";
 
         foreach ($tables as $table) {
-            $dump .= "-- Table: {$table}\n";
-            $dump .= "SELECT * FROM {$table};\n\n";
+            $driver = DB::getDriverName();
+            if (in_array($driver, ['mysql', 'mariadb'])) {
+                $createTable = DB::select("SHOW CREATE TABLE `{$table}`");
+                if (! empty($createTable)) {
+                    $dump .= "DROP TABLE IF EXISTS `{$table}`;\n";
+                    $dump .= $createTable[0]->{'Create Table'}.";\n\n";
+                }
+            }
+
+            $rows = DB::table($table)->get();
+            if ($rows->isEmpty()) {
+                continue;
+            }
+
+            $columns = array_keys((array) $rows->first());
+            $columnList = '`'.implode('`, `', $columns).'`';
+
+            foreach ($rows as $row) {
+                $values = array_map(fn ($v) => $v === null ? 'NULL' : "'".addslashes((string) $v)."'", (array) $row);
+                $dump .= "INSERT INTO `{$table}` ({$columnList}) VALUES (".implode(', ', $values).");\n";
+            }
+            $dump .= "\n";
         }
 
         $tempPath = storage_path("app/{$filename}");

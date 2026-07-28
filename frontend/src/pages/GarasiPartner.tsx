@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { garasiPartnerAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
@@ -12,18 +12,26 @@ export default function GarasiPartner() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [search]);
 
   const load = useCallback(() => {
     setLoading(true);
-    garasiPartnerAPI.list({ search })
+    garasiPartnerAPI.list({ search: debouncedSearch })
       .then(({ data }) => setItems(data.data))
       .catch(() => toast.error('Gagal memuat data garasi partner'))
       .finally(() => setLoading(false));
-  }, [search, toast]);
+  }, [debouncedSearch, toast]);
 
   useEffect(() => { load(); }, [load]);
 

@@ -26,8 +26,8 @@ class UserController extends Controller
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', '%'.$search.'%')
-                    ->orWhere('email', 'like', '%'.$search.'%');
+                whereLikeEscaped($q, 'name', $search);
+                whereLikeEscaped($q, 'email', $search);
             });
         }
 
@@ -56,8 +56,8 @@ class UserController extends Controller
             try {
                 $watermark = app(WatermarkService::class);
                 $watermark->applyToStoragePath($validated['avatar']);
-            } catch (\Throwable) {
-                // GD not available
+            } catch (\Throwable $e) {
+                report($e);
             }
         }
 
@@ -102,8 +102,8 @@ class UserController extends Controller
             try {
                 $watermark = app(WatermarkService::class);
                 $watermark->applyToStoragePath($validated['avatar']);
-            } catch (\Throwable) {
-                // GD not available
+            } catch (\Throwable $e) {
+                report($e);
             }
         }
 

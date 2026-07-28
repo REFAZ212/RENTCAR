@@ -14,9 +14,9 @@ class OrderSeeder extends Seeder
 {
     public function run(): void
     {
-        $admin = User::where('role', 'admin')->first();
+        $admin = User::where('role', 'admin_utama')->first();
         $petugas1 = User::where('email', 'petugas@cvpilar.com')->first();
-        $petugas2 = User::where('email', 'petugas2@cvpilar.com')->first();
+        $petugas2 = User::where('email', 'petugas@cvpilar.com')->first();
 
         $customers = Customer::all();
 

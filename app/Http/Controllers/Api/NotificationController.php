@@ -13,7 +13,9 @@ class NotificationController extends Controller
     {
         $this->authorize('viewAny', Notification::class);
 
-        $notifications = Notification::orderBy('created_at', 'desc')
+        $notifications = Notification::where(function ($q) {
+            $q->where('user_id', auth()->id())->orWhereNull('user_id');
+        })->orderBy('created_at', 'desc')
             ->paginate(min((int) $request->input('per_page', 20), 50));
 
         return response()->json($notifications);
@@ -21,13 +23,16 @@ class NotificationController extends Controller
 
     public function unreadCount(): JsonResponse
     {
-        $count = Notification::whereNull('read_at')->count();
+        $count = Notification::where('user_id', $request->user()->id)
+            ->whereNull('read_at')->count();
 
         return response()->json(['count' => $count]);
     }
 
     public function markAsRead(Notification $notification): JsonResponse
     {
+        $this->authorize('update', $notification);
+
         $notification->markAsRead();
 
         return response()->json(['message' => 'Notifikasi ditandai sudah dibaca']);
@@ -35,7 +40,8 @@ class NotificationController extends Controller
 
     public function markAllAsRead(): JsonResponse
     {
-        Notification::whereNull('read_at')->update(['read_at' => now()]);
+        Notification::where('user_id', auth()->id())
+            ->whereNull('read_at')->update(['read_at' => now()]);
 
         return response()->json(['message' => 'Semua notifikasi ditandai sudah dibaca']);
     }

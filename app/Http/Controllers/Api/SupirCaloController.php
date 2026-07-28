@@ -53,11 +53,11 @@ class SupirCaloController extends Controller
             'catatan' => 'nullable|string',
         ]);
 
-        if ($validated['jenis'] === 'supir' && empty($validated['no_sim'])) {
+        if ($validated['jenis'] === 'supir' && empty($validated['no_sim'] ?? null)) {
             return response()->json(['message' => 'No. SIM wajib diisi untuk supir.'], 422);
         }
 
-        if ($validated['jenis'] === 'calo' && empty($validated['komisi'])) {
+        if ($validated['jenis'] === 'calo' && ($validated['komisi'] ?? null) === null) {
             return response()->json(['message' => 'Komisi wajib diisi untuk calo.'], 422);
         }
 
@@ -100,11 +100,11 @@ class SupirCaloController extends Controller
             'catatan' => 'nullable|string',
         ]);
 
-        if (($validated['jenis'] ?? $supirCalo->jenis) === 'supir' && empty($validated['no_sim'] ?? $supirCalo->no_sim)) {
+        if (($validated['jenis'] ?? $supirCalo->jenis) === 'supir' && empty($validated['no_sim'] ?? $supirCalo->no_sim ?? null)) {
             return response()->json(['message' => 'No. SIM wajib diisi untuk supir.'], 422);
         }
 
-        if (($validated['jenis'] ?? $supirCalo->jenis) === 'calo' && empty($validated['komisi'] ?? $supirCalo->komisi)) {
+        if (($validated['jenis'] ?? $supirCalo->jenis) === 'calo' && ($validated['komisi'] ?? $supirCalo->komisi ?? null) === null) {
             return response()->json(['message' => 'Komisi wajib diisi untuk calo.'], 422);
         }
 

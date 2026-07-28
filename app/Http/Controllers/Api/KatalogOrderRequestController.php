@@ -11,6 +11,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Services\WhatsAppService;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,8 +20,6 @@ use Illuminate\Validation\ValidationException;
 
 class KatalogOrderRequestController extends Controller
 {
-    private const ADMIN_PHONE = '62895361054272';
-
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -37,11 +36,10 @@ class KatalogOrderRequestController extends Controller
 
         $kendaraan = Kendaraan::with('tipe', 'kategori', 'garasiPartner')
             ->where('id', $validated['kendaraan_id'])
-            ->where('status', 'tersedia')
             ->first();
 
         if (! $kendaraan) {
-            return response()->json(['message' => 'Kendaraan tidak tersedia atau tidak ditemukan.'], 422);
+            return response()->json(['message' => 'Kendaraan tidak ditemukan.'], 422);
         }
 
         $tanggalMulai = Carbon::parse($validated['tanggal_mulai']);
@@ -64,6 +62,13 @@ class KatalogOrderRequestController extends Controller
         $hargaTotal = $durasi * $hargaPerHari;
 
         $result = DB::transaction(function () use ($kendaraan, $validated, $tanggalMulai, $tanggalSelesai, $durasi, $hargaPerHari, $hargaTotal, $jamMulai, $jamSelesai, $opsiSupir) {
+            $lockedKendaraan = Kendaraan::where('id', $kendaraan->id)->lockForUpdate()->first();
+
+            if ($lockedKendaraan->status !== 'tersedia') {
+                throw ValidationException::withMessages([
+                    'kendaraan_id' => ['Kendaraan tidak tersedia.'],
+                ]);
+            }
             $normalizedHp = preg_replace('/[^0-9]/', '', $validated['no_hp']);
             if (str_starts_with($normalizedHp, '0')) {
                 $normalizedHp = '62'.substr($normalizedHp, 1);
@@ -71,12 +76,21 @@ class KatalogOrderRequestController extends Controller
                 $normalizedHp = '62'.$normalizedHp;
             }
 
-            $customer = Customer::firstOrCreate(
-                ['no_hp' => $normalizedHp],
-                [
-                    'nama_lengkap' => $validated['nama_lengkap'],
-                ]
-            );
+            try {
+                $customer = Customer::firstOrCreate(
+                    ['no_hp' => $normalizedHp],
+                    [
+                        'nama_lengkap' => $validated['nama_lengkap'],
+                    ]
+                );
+            } catch (QueryException $e) {
+                // Handle unique constraint race condition — another request inserted first
+                if ($e->errorInfo[1] == 1062) {
+                    $customer = Customer::where('no_hp', $normalizedHp)->firstOrFail();
+                } else {
+                    throw $e;
+                }
+            }
 
             if ($customer->nama_lengkap !== $validated['nama_lengkap']) {
                 $customer->update(['nama_lengkap' => $validated['nama_lengkap']]);
@@ -84,7 +98,7 @@ class KatalogOrderRequestController extends Controller
 
             // Datetime-aware overlap check — matches OrderController logic.
             $newEffectiveStart = $validated['tanggal_mulai'].' '.($jamMulai ?? '00:00');
-            $newEffectiveEnd = $tanggalSelesai->toDateString().' '.($jamSelesai ?? '23:59');
+            $newEffectiveEnd = $tanggalSelesai->toDateString().' '.($jamSelesai ?? '23:59:59');
 
             $candidates = Order::where('kendaraan_id', $kendaraan->id)
                 ->whereIn('status_order', ['pending', 'confirmed', 'active'])
@@ -95,7 +109,7 @@ class KatalogOrderRequestController extends Controller
 
             $hasOverlap = $candidates->contains(function ($existing) use ($newEffectiveStart, $newEffectiveEnd) {
                 $existingStart = $existing->tanggal_mulai->format('Y-m-d').' '.($existing->jam_mulai ?? '00:00');
-                $existingEnd = $existing->tanggal_selesai->format('Y-m-d').' '.($existing->jam_selesai ?? '23:59');
+                $existingEnd = $existing->tanggal_selesai->format('Y-m-d').' '.($existing->jam_selesai ?? '23:59:59');
 
                 return $existingStart <= $newEffectiveEnd && $existingEnd >= $newEffectiveStart;
             });
@@ -224,6 +238,8 @@ class KatalogOrderRequestController extends Controller
 
         $pesan .= "\nMohon konfirmasi ketersediaan. Terima kasih.";
 
-        return 'https://wa.me/'.self::ADMIN_PHONE.'?text='.urlencode($pesan);
+        $adminPhone = Setting::get('nomor_wa_owner', '62895361054272');
+
+        return 'https://wa.me/'.$adminPhone.'?text='.urlencode($pesan);
     }
 }

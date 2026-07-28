@@ -7,11 +7,19 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (config('database.default') !== 'mysql') {
+            return;
+        }
+
         DB::statement("ALTER TABLE kendaraans MODIFY COLUMN status ENUM('tersedia', 'disewa', 'maintenance', 'tidak_tersedia') NOT NULL DEFAULT 'tersedia'");
     }
 
     public function down(): void
     {
+        if (config('database.default') !== 'mysql') {
+            return;
+        }
+
         DB::statement("ALTER TABLE kendaraans MODIFY COLUMN status ENUM('tersedia', 'disewa', 'maintenance') NOT NULL DEFAULT 'tersedia'");
     }
 };

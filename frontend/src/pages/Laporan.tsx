@@ -17,7 +17,7 @@ import {
 } from 'recharts';
 import { laporanAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import { formatHpDisplay } from '../lib/format';
+import { formatHpDisplay, formatRupiah, formatRupiahShort } from '../lib/format';
 
 /**
  * ─────────────────────────────────────────────────────────────
@@ -158,14 +158,7 @@ const defaultEnd = () => {
   return parts[0]; // YYYY-MM-DD
 };
 
-const formatRupiah = (n: number | string | null | undefined) =>
-  `Rp ${Number(n || 0).toLocaleString('id-ID')}`;
 
-const formatRupiahShort = (n: number) => {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}Jt`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}Rb`;
-  return String(n);
-};
 
 interface DateParams {
   start_date: string;

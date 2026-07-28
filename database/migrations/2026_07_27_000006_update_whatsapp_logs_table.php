@@ -14,12 +14,18 @@ return new class extends Migration
             $table->foreignId('order_id')->nullable()->after('garasi_request_id');
         });
 
+        if (config('database.default') !== 'mysql') {
+            return;
+        }
+
         DB::statement('ALTER TABLE whatsapp_logs MODIFY COLUMN garasi_request_id BIGINT UNSIGNED NULL');
     }
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE whatsapp_logs MODIFY COLUMN garasi_request_id BIGINT UNSIGNED NOT NULL');
+        if (config('database.default') === 'mysql') {
+            DB::statement('ALTER TABLE whatsapp_logs MODIFY COLUMN garasi_request_id BIGINT UNSIGNED NOT NULL');
+        }
 
         Schema::table('whatsapp_logs', function (Blueprint $table) {
             $table->dropColumn(['type', 'order_id']);

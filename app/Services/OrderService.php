@@ -132,6 +132,9 @@ class OrderService
         $order = DB::transaction(function () use ($validated, $request, $kendaraan, $foundSupir, $komisiCalo, $statusPengiriman, $buktiPath, $buktiPengirimanPath, $buktiPengembalianPath, $customerFotoKtpPath, $customerFotoSimPath) {
             $customer = $this->resolveCustomer($validated, $customerFotoKtpPath, $customerFotoSimPath);
 
+            // Lock the kendaraan row to prevent race conditions
+            $kendaraan = Kendaraan::where('id', $validated['kendaraan_id'])->lockForUpdate()->first();
+
             $this->checkVehicleOverlap(
                 $validated['kendaraan_id'],
                 $validated['tanggal_mulai'],
@@ -143,7 +146,7 @@ class OrderService
             $hargaPerHari = $kendaraan->harga_sewa_per_hari;
             $mulaiDt = Carbon::parse($validated['tanggal_mulai']);
             $selesaiDt = Carbon::parse($validated['tanggal_selesai']);
-            $durasi = max(1, (int) $mulaiDt->startOfDay()->diffInDays($selesaiDt->startOfDay()));
+            $durasi = max(1, (int) $mulaiDt->startOfDay()->diffInDays($selesaiDt->startOfDay()) + 1);
 
             $supirTarif = 0;
             if ($foundSupir) {
@@ -334,7 +337,9 @@ class OrderService
             $priceChanged = isset($validated['kendaraan_id'])
                 || isset($validated['tanggal_mulai'])
                 || isset($validated['tanggal_selesai'])
-                || array_key_exists('supir_id', $validated);
+                || array_key_exists('supir_id', $validated)
+                || isset($validated['jam_mulai'])
+                || isset($validated['jam_selesai']);
 
             if ($priceChanged) {
                 $targetKendaraan = $newKendaraanId ? Kendaraan::find($newKendaraanId) : null;
@@ -342,7 +347,7 @@ class OrderService
 
                 $mulaiDt = Carbon::parse($mulai);
                 $selesaiDt = Carbon::parse($selesai);
-                $durasi = max(1, (int) $mulaiDt->startOfDay()->diffInDays($selesaiDt->startOfDay()));
+                $durasi = max(1, (int) $mulaiDt->startOfDay()->diffInDays($selesaiDt->startOfDay()) + 1);
 
                 $updateData['harga_per_hari'] = $harga;
                 $updateData['durasi_hari'] = $durasi;
@@ -513,7 +518,7 @@ class OrderService
     private function checkVehicleOverlap(int $kendaraanId, string $tanggalMulai, string $tanggalSelesai, ?string $jamMulai, ?string $jamSelesai, ?int $excludeOrderId = null): void
     {
         $newEffectiveStart = $tanggalMulai.' '.($jamMulai ?? '00:00');
-        $newEffectiveEnd = $tanggalSelesai.' '.($jamSelesai ?? '23:59');
+        $newEffectiveEnd = $tanggalSelesai.' '.($jamSelesai ?? '23:59:59');
 
         $query = Order::where('kendaraan_id', $kendaraanId)
             ->whereIn('status_order', ['pending', 'confirmed', 'active'])
@@ -528,7 +533,7 @@ class OrderService
 
         $hasOverlap = $candidates->contains(function ($existing) use ($newEffectiveStart, $newEffectiveEnd) {
             $existingStart = $existing->tanggal_mulai->format('Y-m-d').' '.($existing->jam_mulai ?? '00:00');
-            $existingEnd = $existing->tanggal_selesai->format('Y-m-d').' '.($existing->jam_selesai ?? '23:59');
+            $existingEnd = $existing->tanggal_selesai->format('Y-m-d').' '.($existing->jam_selesai ?? '23:59:59');
 
             return $existingStart <= $newEffectiveEnd && $existingEnd >= $newEffectiveStart;
         });
@@ -621,7 +626,7 @@ class OrderService
                     'kendaraan' => $order->kendaraan->nama_kendaraan,
                     'plat_nomor' => $order->kendaraan->plat_nomor,
                     'tanggal' => $order->tanggal_mulai->format('d/m/Y'),
-                    'jam' => $order->jam_selesai ?? '00:00',
+                    'jam' => $order->jam_mulai ?? '00:00',
                 ]);
                 $wa->kirimPesanAsync($supir->no_hp, $pesan);
             }

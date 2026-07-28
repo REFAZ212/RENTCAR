@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { isAxiosError } from 'axios';
+import { formatRupiah } from '../lib/format';
 import {
   kendaraanAPI,
   garasiPartnerAPI,
@@ -98,8 +99,6 @@ const emptyForm: KendaraanFormState = {
   status: 'tersedia',
   catatan: '',
 };
-
-const formatRupiah = (value: number | string) => `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
 
 const fotoUrl = (foto?: string | null) => (foto ? (foto.startsWith('http') ? foto : `/storage/${foto}`) : null);
 

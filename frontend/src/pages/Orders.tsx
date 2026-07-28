@@ -3,7 +3,7 @@ import { isAxiosError } from 'axios';
 import { orderAPI, customerAPI, kendaraanAPI, supirCaloAPI, settingsAPI, type Customer, type Kendaraan, type SupirCalo, type Order } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
-import { formatHpDisplay, todayJakarta, nowWIB } from '../lib/format';
+import { formatHpDisplay, todayJakarta, nowWIB, formatRupiah } from '../lib/format';
 
 /**
  * ─────────────────────────────────────────────────────────────
@@ -157,8 +157,6 @@ const emptyForm: OrderForm = {
   catatan: '',
 };
 
-const formatRupiah = (n: number | string | null | undefined) => `Rp ${Number(n || 0).toLocaleString('id-ID')}`;
-
 const fmtDate = (d: string | null | undefined) => {
   if (!d) return '-';
   const s = typeof d === 'string' ? d.split('T')[0] : d;
@@ -240,7 +238,11 @@ function UploadBox({
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e: ChangeEvent<HTMLInputElement>) => onFile(e.target.files?.[0] ?? null)}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => {
+          const file = e.target.files?.[0] ?? null;
+          if (file && file.size > 2 * 1024 * 1024) { alert('Ukuran file maksimal 2MB'); e.target.value = ''; return; }
+          onFile(file);
+        }}
       />
     </label>
   );

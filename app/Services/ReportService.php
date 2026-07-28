@@ -9,6 +9,7 @@ use App\Models\Kendaraan;
 use App\Models\Order;
 use App\Models\SupirCalo;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ReportService
 {
@@ -34,20 +35,36 @@ class ReportService
         return [$start, $end];
     }
 
+    private function dateFormatSql(string $column, string $mysqlFormat): string
+    {
+        $driver = DB::getDriverName();
+
+        return match ($driver) {
+            'mysql', 'mariadb' => "DATE_FORMAT({$column}, '{$mysqlFormat}')",
+            'sqlite' => match ($mysqlFormat) {
+                '%Y-%m-%d' => "strftime('%Y-%m-%d', {$column})",
+                '%Y-%m' => "strftime('%Y-%m', {$column})",
+                '%Y' => "strftime('%Y', {$column})",
+                default => "strftime('%Y-%m', {$column})",
+            },
+            default => "DATE_FORMAT({$column}, '{$mysqlFormat}')",
+        };
+    }
+
     public function ringkasan(): array
     {
         $start = $this->start;
         $end = $this->end;
 
-        $totalOrders = Order::count();
-        $completedOrders = Order::where('status_order', 'completed')->count();
-        $cancelledOrders = Order::where('status_order', 'cancelled')->count();
-        $pendingOrders = Order::where('status_order', 'pending')->count();
-        $confirmedOrders = Order::where('status_order', 'confirmed')->count();
-        $activeOrders = Order::where('status_order', 'active')->count();
+        $totalOrders = Order::whereBetween('created_at', [$start, $end])->count();
+        $completedOrders = Order::where('status_order', 'completed')->whereBetween('created_at', [$start, $end])->count();
+        $cancelledOrders = Order::where('status_order', 'cancelled')->whereBetween('created_at', [$start, $end])->count();
+        $pendingOrders = Order::where('status_order', 'pending')->whereBetween('created_at', [$start, $end])->count();
+        $confirmedOrders = Order::where('status_order', 'confirmed')->whereBetween('created_at', [$start, $end])->count();
+        $activeOrders = Order::where('status_order', 'active')->whereBetween('created_at', [$start, $end])->count();
 
-        $totalRevenue = Order::where('status_order', 'completed')->sum('harga_total');
-        $totalFines = Order::sum('denda_overtime');
+        $totalRevenue = Order::where('status_order', 'completed')->whereBetween('created_at', [$start, $end])->sum('harga_total');
+        $totalFines = Order::whereBetween('created_at', [$start, $end])->sum('denda_overtime');
         $avgOrderValue = $completedOrders > 0 ? $totalRevenue / $completedOrders : 0;
 
         $totalVehicles = Kendaraan::count();
@@ -95,22 +112,26 @@ class ReportService
         };
 
         $summary = Order::where('status_order', 'completed')
+            ->whereBetween('created_at', [$start, $end])
             ->selectRaw('COUNT(*) as total_orders, SUM(harga_total) as total_revenue, SUM(denda_overtime) as total_fines, AVG(harga_total) as avg_order, COUNT(DISTINCT customer_id) as distinct_customers')
             ->first();
 
         $perPeriode = Order::where('status_order', 'completed')
-            ->selectRaw("DATE_FORMAT(tanggal_mulai, '{$dateFormat}') as periode, SUM(harga_total) as revenue, SUM(denda_overtime) as denda, COUNT(*) as orders")
+            ->whereBetween('created_at', [$start, $end])
+            ->selectRaw("{$this->dateFormatSql('tanggal_mulai', $dateFormat)} as periode, SUM(harga_total) as revenue, SUM(denda_overtime) as denda, COUNT(*) as orders")
             ->groupBy('periode')
             ->orderBy('periode')
             ->get();
 
         $perMetode = Order::where('status_order', 'completed')
+            ->whereBetween('created_at', [$start, $end])
             ->whereNotNull('metode_pembayaran')
             ->selectRaw('metode_pembayaran, SUM(harga_total) as revenue, COUNT(*) as orders')
             ->groupBy('metode_pembayaran')
             ->get();
 
         $perKategori = Order::where('status_order', 'completed')
+            ->whereBetween('orders.created_at', [$start, $end])
             ->join('kendaraans', 'orders.kendaraan_id', '=', 'kendaraans.id')
             ->join('kategoris', 'kendaraans.kategori_id', '=', 'kategoris.id')
             ->selectRaw('kategoris.nama_kategori, SUM(orders.harga_total) as revenue, SUM(orders.denda_overtime) as denda, COUNT(*) as orders')
@@ -133,27 +154,38 @@ class ReportService
 
     public function kendaraan(): array
     {
-        $kendaraanTerpopuler = Order::select('kendaraan_id')
+        $topIds = Order::select('kendaraan_id')
             ->selectRaw('COUNT(*) as order_count')
             ->groupBy('kendaraan_id')
             ->orderByDesc('order_count')
             ->limit(20)
-            ->with('kendaraan')
-            ->get()
-            ->map(function ($item) {
-                $kendaraan = $item->kendaraan;
-                $revenue = Order::where('kendaraan_id', $item->kendaraan_id)->where('status_order', 'completed')->sum('harga_total');
-                $avgDurasi = Order::where('kendaraan_id', $item->kendaraan_id)->avg('durasi_hari');
+            ->pluck('kendaraan_id');
+
+        $kendaraanTerpopuler = collect();
+
+        if ($topIds->isNotEmpty()) {
+            $kendaraanMap = Kendaraan::whereIn('id', $topIds)->get()->keyBy('id');
+
+            $stats = Order::whereIn('kendaraan_id', $topIds)
+                ->selectRaw('kendaraan_id, COUNT(*) as order_count, SUM(CASE WHEN status_order = "completed" THEN harga_total ELSE 0 END) as total_revenue, AVG(durasi_hari) as avg_duration')
+                ->groupBy('kendaraan_id')
+                ->get()
+                ->keyBy('kendaraan_id');
+
+            $kendaraanTerpopuler = $topIds->map(function ($id) use ($kendaraanMap, $stats) {
+                $k = $kendaraanMap[$id] ?? null;
+                $s = $stats[$id] ?? null;
 
                 return [
-                    'kendaraan_id' => $item->kendaraan_id,
-                    'nama_kendaraan' => $kendaraan->nama_kendaraan ?? '-',
-                    'plat_nomor' => $kendaraan->plat_nomor ?? '-',
-                    'order_count' => $item->order_count,
-                    'total_revenue' => (float) $revenue,
-                    'avg_duration' => round((float) $avgDurasi, 1),
+                    'kendaraan_id' => $id,
+                    'nama_kendaraan' => $k->nama_kendaraan ?? '-',
+                    'plat_nomor' => $k->plat_nomor ?? '-',
+                    'order_count' => $s->order_count ?? 0,
+                    'total_revenue' => (float) ($s->total_revenue ?? 0),
+                    'avg_duration' => round((float) ($s->avg_duration ?? 0), 1),
                 ];
             });
+        }
 
         $statusKendaraan = Kendaraan::selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
@@ -176,26 +208,38 @@ class ReportService
         $start = $this->start;
         $end = $this->end;
 
-        $topCustomers = Order::select('customer_id')
+        $topIds = Order::select('customer_id')
             ->selectRaw('COUNT(*) as order_count')
             ->groupBy('customer_id')
             ->orderByDesc('order_count')
             ->limit(20)
-            ->with('customer')
-            ->get()
-            ->map(function ($item) {
-                $totalSpend = Order::where('customer_id', $item->customer_id)->where('status_order', 'completed')->sum('harga_total');
-                $avgDurasi = Order::where('customer_id', $item->customer_id)->avg('durasi_hari');
+            ->pluck('customer_id');
+
+        $topCustomers = collect();
+
+        if ($topIds->isNotEmpty()) {
+            $customerMap = Customer::whereIn('id', $topIds)->get()->keyBy('id');
+
+            $stats = Order::whereIn('customer_id', $topIds)
+                ->selectRaw('customer_id, COUNT(*) as order_count, SUM(CASE WHEN status_order = "completed" THEN harga_total ELSE 0 END) as total_spend, AVG(durasi_hari) as avg_duration')
+                ->groupBy('customer_id')
+                ->get()
+                ->keyBy('customer_id');
+
+            $topCustomers = $topIds->map(function ($id) use ($customerMap, $stats) {
+                $c = $customerMap[$id] ?? null;
+                $s = $stats[$id] ?? null;
 
                 return [
-                    'customer_id' => $item->customer_id,
-                    'nama_lengkap' => $item->customer->nama_lengkap ?? '-',
-                    'no_hp' => $item->customer->no_hp ?? '-',
-                    'order_count' => $item->order_count,
-                    'total_spend' => (float) $totalSpend,
-                    'avg_duration' => round((float) $avgDurasi, 1),
+                    'customer_id' => $id,
+                    'nama_lengkap' => $c->nama_lengkap ?? '-',
+                    'no_hp' => $c->no_hp ?? '-',
+                    'order_count' => $s->order_count ?? 0,
+                    'total_spend' => (float) ($s->total_spend ?? 0),
+                    'avg_duration' => round((float) ($s->avg_duration ?? 0), 1),
                 ];
             });
+        }
 
         $totalCustomers = Customer::count();
         $newCustomers = Customer::whereBetween('created_at', [$start, $end])->count();

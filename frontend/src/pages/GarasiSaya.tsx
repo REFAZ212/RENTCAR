@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { kendaraanAPI, garasiPartnerAPI, kategoriAPI, tipeAPI, type Kendaraan, type GarasiPartner } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { formatRupiah } from '../lib/format';
 import ConfirmModal from '../components/ConfirmModal';
 
 const statusStyles = {
@@ -14,10 +15,6 @@ const statusLabels = {
   disewa: 'Disewa',
   maintenance: 'Maintenance',
 };
-
-function formatRupiah(n) {
-  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n);
-}
 
 function makeEmptyForm(garasiId) {
   return { garasi_partner_id: garasiId || '', kategori_id: '', tipe_id: '', nama_kendaraan: '', plat_nomor: '', merek: '', model: '', tahun: new Date().getFullYear(), warna: '', kapasitas_penumpang: 7, harga_sewa_per_hari: '', status: 'tersedia', catatan: '' };
@@ -354,7 +351,10 @@ export default function GarasiSaya() {
                     <input type="file" accept="image/*" className="hidden"
                       onChange={(e) => {
                         const f = e.target.files[0];
-                        if (f) { setFotoFile(f); setFotoPreview(URL.createObjectURL(f)); }
+                        if (f) {
+                          if (f.size > 2 * 1024 * 1024) { alert('Ukuran file maksimal 2MB'); return; }
+                          setFotoFile(f); setFotoPreview(URL.createObjectURL(f));
+                        }
                       }} />
                   </label>
                   {fotoPreview && (
@@ -453,8 +453,8 @@ export default function GarasiSaya() {
                   <td className="px-4 py-3 text-gray-600">{item.tipe?.nama_tipe || '-'}</td>
                   <td className="px-4 py-3 text-gray-700">{formatRupiah(item.harga_sewa_per_hari)}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusStyles[item.status]}`}>
-                      {statusLabels[item.status]}
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusStyles[item.status] || ''}`}>
+                      {statusLabels[item.status] || item.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">

@@ -21,7 +21,7 @@ import {
 } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
-import { formatHpDisplay } from '../lib/format';
+import { formatHpDisplay, formatRupiah } from '../lib/format';
 
 const emptyPartnerForm = {
   nama_garasi: '',
@@ -47,14 +47,6 @@ const vehicleStatusLabels: Record<string, string> = {
   disewa: 'Disewa',
   maintenance: 'Servis',
 };
-
-function formatRupiah(n: number | string) {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(Number(n || 0));
-}
 
 /* ───────────────────────────────────────────────────────────── */
 /* Garasi Partner Tab                                           */
