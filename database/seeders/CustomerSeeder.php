@@ -90,6 +90,46 @@ class CustomerSeeder extends Seeder
                 'no_ktp' => '3273011234560010',
                 'no_sim' => '327301123472',
             ],
+            [
+                'nama_lengkap' => 'Hendra Wijaya',
+                'no_hp' => '085678901244',
+                'email' => 'hendra.wijaya@email.com',
+                'alamat' => 'Jl. Cihampelas No. 50, Bandung',
+                'no_ktp' => '3273011234560011',
+                'no_sim' => '327301123473',
+            ],
+            [
+                'nama_lengkap' => 'Nina Agustina',
+                'no_hp' => '085678901245',
+                'email' => 'nina.agustina@email.com',
+                'alamat' => 'Jl. Gatot Subroto No. 33, Bandung',
+                'no_ktp' => '3273011234560012',
+                'no_sim' => '327301123474',
+                'catatan' => 'Sering booking untuk acara keluarga',
+            ],
+            [
+                'nama_lengkap' => 'Teguh Santoso',
+                'no_hp' => '085678901246',
+                'alamat' => 'Jl. Dipatiukur No. 14, Bandung',
+                'no_ktp' => '3273011234560013',
+                'no_sim' => '327301123475',
+            ],
+            [
+                'nama_lengkap' => 'Wati Susilawati',
+                'no_hp' => '085678901247',
+                'email' => 'wati.s@email.com',
+                'alamat' => 'Jl. Setiabudhi No. 27, Bandung',
+                'no_ktp' => '3273011234560014',
+                'no_sim' => '327301123476',
+            ],
+            [
+                'nama_lengkap' => 'Yusuf Maulana',
+                'no_hp' => '085678901248',
+                'alamat' => 'Jl. Buah Batu No. 100, Bandung',
+                'no_ktp' => '3273011234560015',
+                'no_sim' => '327301123477',
+                'catatan' => 'Customer premium, sering sewa mobil mewah',
+            ],
         ];
 
         foreach ($customers as $customer) {

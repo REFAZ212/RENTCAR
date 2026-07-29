@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             CustomerSeeder::class,
             SupirCaloSeeder::class,
             OrderSeeder::class,
+            PendapatanSeeder::class,
             GarasiRequestSeeder::class,
             WhatsappLogSeeder::class,
         ]);

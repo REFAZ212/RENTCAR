@@ -12,14 +12,9 @@ class KendaraanSeeder extends Seeder
 {
     public function run(): void
     {
-        $garasi1 = GarasiPartner::where('nama_garasi', 'Garasi Jaya Abadi')->first();
-        $garasi2 = GarasiPartner::where('nama_garasi', 'Garasi Makmur Jaya')->first();
-        $garasi3 = GarasiPartner::where('nama_garasi', 'Garasi Sentosa Abadi')->first();
-        $garasi4 = GarasiPartner::where('nama_garasi', 'Garasi Prima Motor')->first();
-
+        $garasi = GarasiPartner::all();
         $mobil = Kategori::where('nama_kategori', 'Mobil')->first();
         $motor = Kategori::where('nama_kategori', 'Motor')->first();
-        $sepeda = Kategori::where('nama_kategori', 'Sepeda')->first();
 
         $mpv = Tipe::where('nama_tipe', 'MPV')->first();
         $suv = Tipe::where('nama_tipe', 'SUV')->first();
@@ -27,28 +22,20 @@ class KendaraanSeeder extends Seeder
         $hatchback = Tipe::where('nama_tipe', 'Hatchback')->first();
         $pickup = Tipe::where('nama_tipe', 'Pickup')->first();
         $minibus = Tipe::where('nama_tipe', 'Minibus')->first();
-        $van = Tipe::where('nama_tipe', 'Van')->first();
-        $truk = Tipe::where('nama_tipe', 'Truk')->first();
-        $sport = Tipe::where('nama_tipe', 'Sport')->first();
         $matic = Tipe::where('nama_tipe', 'Matic')->first();
+        $sport = Tipe::where('nama_tipe', 'Sport')->first();
         $bebek = Tipe::where('nama_tipe', 'Bebek')->first();
-        $trail = Tipe::where('nama_tipe', 'Trail')->first();
-        $sepedaMTB = Tipe::where('nama_tipe', 'Gunung (MTB)')->first();
-        $sepedaRoad = Tipe::where('nama_tipe', 'Jalan (Road Bike)')->first();
-        $sepedaLipat = Tipe::where('nama_tipe', 'Lipat')->first();
-        $sepedaBMX = Tipe::where('nama_tipe', 'BMX')->first();
-        $sepedaListrik = Tipe::where('nama_tipe', 'Listrik')->first();
-        $sepedaKota = Tipe::where('nama_tipe', 'Kota')->first();
+
+        $platHuruf = ['A', 'B', 'D', 'E', 'F', 'H', 'L', 'T', 'Z'];
+        $warna = ['Putih', 'Hitam', 'Silver', 'Merah', 'Biru', 'Abu-abu', 'Biru Muda', 'Merah Marun', 'Putih Mutiara', 'Hitam Metallik'];
 
         $kendaraans = [
-            // Garasi 1 - Jaya Abadi
             [
-                'garasi_partner_id' => $garasi1->id,
+                'garasi_partner_id' => $garasi[0]->id,
                 'kategori_id' => $mobil->id,
                 'tipe_id' => $mpv->id,
                 'nama_kendaraan' => 'Toyota Avanza Veloz',
                 'plat_nomor' => 'D 1234 ABC',
-                'tipe' => 'mpv',
                 'merek' => 'Toyota',
                 'model' => 'Avanza Veloz',
                 'tahun' => 2023,
@@ -59,12 +46,11 @@ class KendaraanSeeder extends Seeder
                 'catatan' => 'Kondisi prima, baru servis',
             ],
             [
-                'garasi_partner_id' => $garasi1->id,
+                'garasi_partner_id' => $garasi[0]->id,
                 'kategori_id' => $mobil->id,
                 'tipe_id' => $hatchback->id,
                 'nama_kendaraan' => 'Honda Brio Satya',
                 'plat_nomor' => 'D 5678 DEF',
-                'tipe' => 'hatchback',
                 'merek' => 'Honda',
                 'model' => 'Brio Satya',
                 'tahun' => 2022,
@@ -75,12 +61,11 @@ class KendaraanSeeder extends Seeder
                 'catatan' => 'Irit BBM, cocok untuk dalam kota',
             ],
             [
-                'garasi_partner_id' => $garasi1->id,
+                'garasi_partner_id' => $garasi[0]->id,
                 'kategori_id' => $mobil->id,
                 'tipe_id' => $suv->id,
                 'nama_kendaraan' => 'Toyota Fortuner VRZ',
                 'plat_nomor' => 'D 9012 GHI',
-                'tipe' => 'suv',
                 'merek' => 'Toyota',
                 'model' => 'Fortuner VRZ',
                 'tahun' => 2023,
@@ -91,45 +76,11 @@ class KendaraanSeeder extends Seeder
                 'catatan' => 'SUV premium, fitur lengkap',
             ],
             [
-                'garasi_partner_id' => $garasi1->id,
-                'kategori_id' => $mobil->id,
-                'tipe_id' => $hatchback->id,
-                'nama_kendaraan' => 'Honda City Hatchback',
-                'plat_nomor' => 'D 3456 JKL',
-                'tipe' => 'hatchback',
-                'merek' => 'Honda',
-                'model' => 'City Hatchback',
-                'tahun' => 2024,
-                'warna' => 'Silver',
-                'kapasitas_penumpang' => 5,
-                'harga_sewa_per_hari' => 300000,
-                'status' => 'tersedia',
-            ],
-            [
-                'garasi_partner_id' => $garasi1->id,
-                'kategori_id' => $mobil->id,
-                'tipe_id' => $pickup->id,
-                'nama_kendaraan' => 'Toyota Hilux D-Cab',
-                'plat_nomor' => 'D 7890 MNO',
-                'tipe' => 'pickup',
-                'merek' => 'Toyota',
-                'model' => 'Hilux D-Cab',
-                'tahun' => 2022,
-                'warna' => 'Abu-abu',
-                'kapasitas_penumpang' => 5,
-                'harga_sewa_per_hari' => 450000,
-                'status' => 'maintenance',
-                'catatan' => 'Sedang ganti oli dan filter',
-            ],
-
-            // Garasi 2 - Makmur Jaya
-            [
-                'garasi_partner_id' => $garasi2->id,
+                'garasi_partner_id' => $garasi[1]->id,
                 'kategori_id' => $mobil->id,
                 'tipe_id' => $mpv->id,
                 'nama_kendaraan' => 'Toyota Kijang Innova Reborn',
                 'plat_nomor' => 'D 1122 PQR',
-                'tipe' => 'mpv',
                 'merek' => 'Toyota',
                 'model' => 'Innova Reborn',
                 'tahun' => 2023,
@@ -140,12 +91,11 @@ class KendaraanSeeder extends Seeder
                 'catatan' => 'MPV premium, sangat nyaman',
             ],
             [
-                'garasi_partner_id' => $garasi2->id,
+                'garasi_partner_id' => $garasi[1]->id,
                 'kategori_id' => $mobil->id,
                 'tipe_id' => $mpv->id,
                 'nama_kendaraan' => 'Daihatsu Xenia',
                 'plat_nomor' => 'D 3344 STU',
-                'tipe' => 'mpv',
                 'merek' => 'Daihatsu',
                 'model' => 'Xenia',
                 'tahun' => 2022,
@@ -155,28 +105,25 @@ class KendaraanSeeder extends Seeder
                 'status' => 'tersedia',
             ],
             [
-                'garasi_partner_id' => $garasi2->id,
+                'garasi_partner_id' => $garasi[1]->id,
                 'kategori_id' => $mobil->id,
                 'tipe_id' => $suv->id,
                 'nama_kendaraan' => 'Honda HR-V',
                 'plat_nomor' => 'D 5566 VWX',
-                'tipe' => 'suv',
                 'merek' => 'Honda',
                 'model' => 'HR-V',
                 'tahun' => 2024,
                 'warna' => 'Merah Marun',
                 'kapasitas_penumpang' => 5,
                 'harga_sewa_per_hari' => 400000,
-                'status' => 'disewa',
-                'catatan' => 'Disewa oleh customer Ahmad Fauzi, 15-17 Juli 2026',
+                'status' => 'tersedia',
             ],
             [
-                'garasi_partner_id' => $garasi2->id,
+                'garasi_partner_id' => $garasi[2]->id,
                 'kategori_id' => $mobil->id,
                 'tipe_id' => $sedan->id,
                 'nama_kendaraan' => 'Toyota Vios',
                 'plat_nomor' => 'D 7788 YZA',
-                'tipe' => 'sedan',
                 'merek' => 'Toyota',
                 'model' => 'Vios',
                 'tahun' => 2023,
@@ -185,15 +132,12 @@ class KendaraanSeeder extends Seeder
                 'harga_sewa_per_hari' => 350000,
                 'status' => 'tersedia',
             ],
-
-            // Garasi 3 - Sentosa Abadi
             [
-                'garasi_partner_id' => $garasi3->id,
+                'garasi_partner_id' => $garasi[2]->id,
                 'kategori_id' => $mobil->id,
                 'tipe_id' => $minibus->id,
                 'nama_kendaraan' => 'Mitsubishi Colt Diesel',
                 'plat_nomor' => 'D 9900 BCD',
-                'tipe' => 'minibus',
                 'merek' => 'Mitsubishi',
                 'model' => 'Colt Diesel 120PS',
                 'tahun' => 2022,
@@ -204,27 +148,11 @@ class KendaraanSeeder extends Seeder
                 'catatan' => 'Minibus untuk rombongan',
             ],
             [
-                'garasi_partner_id' => $garasi3->id,
-                'kategori_id' => $mobil->id,
-                'tipe_id' => $van->id,
-                'nama_kendaraan' => 'Hyundai Stargazer',
-                'plat_nomor' => 'D 2233 EFG',
-                'tipe' => 'mpv',
-                'merek' => 'Hyundai',
-                'model' => 'Stargazer',
-                'tahun' => 2024,
-                'warna' => 'Putih',
-                'kapasitas_penumpang' => 8,
-                'harga_sewa_per_hari' => 550000,
-                'status' => 'tersedia',
-            ],
-            [
-                'garasi_partner_id' => $garasi3->id,
+                'garasi_partner_id' => $garasi[2]->id,
                 'kategori_id' => $mobil->id,
                 'tipe_id' => $pickup->id,
                 'nama_kendaraan' => 'Mitsubishi L300',
                 'plat_nomor' => 'D 4456 HIJ',
-                'tipe' => 'pickup',
                 'merek' => 'Mitsubishi',
                 'model' => 'L300',
                 'tahun' => 2021,
@@ -233,15 +161,12 @@ class KendaraanSeeder extends Seeder
                 'harga_sewa_per_hari' => 350000,
                 'status' => 'tersedia',
             ],
-
-            // Garasi 4 - Prima Motor
             [
-                'garasi_partner_id' => $garasi4->id,
+                'garasi_partner_id' => $garasi[3]->id,
                 'kategori_id' => $mobil->id,
                 'tipe_id' => $sedan->id,
                 'nama_kendaraan' => 'Toyota Camry',
                 'plat_nomor' => 'D 6678 KLM',
-                'tipe' => 'sedan',
                 'merek' => 'Toyota',
                 'model' => 'Camry',
                 'tahun' => 2024,
@@ -252,12 +177,11 @@ class KendaraanSeeder extends Seeder
                 'catatan' => 'Sedan premium, full feature',
             ],
             [
-                'garasi_partner_id' => $garasi4->id,
+                'garasi_partner_id' => $garasi[3]->id,
                 'kategori_id' => $mobil->id,
                 'tipe_id' => $suv->id,
                 'nama_kendaraan' => 'Mitsubishi Pajero Sport',
                 'plat_nomor' => 'D 8890 NOP',
-                'tipe' => 'suv',
                 'merek' => 'Mitsubishi',
                 'model' => 'Pajero Sport Dakar',
                 'tahun' => 2023,
@@ -267,12 +191,11 @@ class KendaraanSeeder extends Seeder
                 'status' => 'tersedia',
             ],
             [
-                'garasi_partner_id' => $garasi4->id,
+                'garasi_partner_id' => $garasi[3]->id,
                 'kategori_id' => $mobil->id,
                 'tipe_id' => $hatchback->id,
                 'nama_kendaraan' => 'Suzuki Swift Sport',
                 'plat_nomor' => 'D 1122 QRS',
-                'tipe' => 'hatchback',
                 'merek' => 'Suzuki',
                 'model' => 'Swift Sport',
                 'tahun' => 2023,
@@ -282,30 +205,40 @@ class KendaraanSeeder extends Seeder
                 'status' => 'tersedia',
             ],
             [
-                'garasi_partner_id' => $garasi4->id,
+                'garasi_partner_id' => $garasi[0]->id,
                 'kategori_id' => $mobil->id,
-                'tipe_id' => $truk->id,
-                'nama_kendaraan' => 'Mitsubishi Colt Diesel Box',
-                'plat_nomor' => 'D 3344 TUV',
-                'tipe' => 'truk',
-                'merek' => 'Mitsubishi',
-                'model' => 'Colt Diesel Box',
-                'tahun' => 2022,
-                'warna' => 'Putih',
-                'kapasitas_penumpang' => 3,
-                'harga_sewa_per_hari' => 900000,
-                'status' => 'maintenance',
-                'catatan' => 'Sedang perbaikan mesin',
+                'tipe_id' => $hatchback->id,
+                'nama_kendaraan' => 'Honda City Hatchback',
+                'plat_nomor' => 'D 3456 JKL',
+                'merek' => 'Honda',
+                'model' => 'City Hatchback',
+                'tahun' => 2024,
+                'warna' => 'Silver',
+                'kapasitas_penumpang' => 5,
+                'harga_sewa_per_hari' => 300000,
+                'status' => 'tersedia',
             ],
-
-            // Motor - Garasi 3 (Sentosa Abadi)
             [
-                'garasi_partner_id' => $garasi3->id,
+                'garasi_partner_id' => $garasi[0]->id,
+                'kategori_id' => $mobil->id,
+                'tipe_id' => $pickup->id,
+                'nama_kendaraan' => 'Toyota Hilux D-Cab',
+                'plat_nomor' => 'D 7890 MNO',
+                'merek' => 'Toyota',
+                'model' => 'Hilux D-Cab',
+                'tahun' => 2022,
+                'warna' => 'Abu-abu',
+                'kapasitas_penumpang' => 5,
+                'harga_sewa_per_hari' => 450000,
+                'status' => 'tersedia',
+                'catatan' => 'Pickup double cabin, tangguh',
+            ],
+            [
+                'garasi_partner_id' => $garasi[1]->id,
                 'kategori_id' => $motor->id,
                 'tipe_id' => $matic->id,
                 'nama_kendaraan' => 'Honda Vario 160',
-                'plat_nomor' => 'D 1234 SE',
-                'tipe' => 'motor',
+                'plat_nomor' => 'D 2345 SE',
                 'merek' => 'Honda',
                 'model' => 'Vario 160',
                 'tahun' => 2024,
@@ -314,122 +247,6 @@ class KendaraanSeeder extends Seeder
                 'harga_sewa_per_hari' => 75000,
                 'status' => 'tersedia',
                 'catatan' => 'Motor matic irit, cocok untuk harian',
-            ],
-            [
-                'garasi_partner_id' => $garasi3->id,
-                'kategori_id' => $motor->id,
-                'tipe_id' => $sport->id,
-                'nama_kendaraan' => 'Yamaha R15 V4',
-                'plat_nomor' => 'D 5678 SE',
-                'tipe' => 'motor',
-                'merek' => 'Yamaha',
-                'model' => 'R15 V4',
-                'tahun' => 2024,
-                'warna' => 'Biru',
-                'kapasitas_penumpang' => 2,
-                'harga_sewa_per_hari' => 100000,
-                'status' => 'tersedia',
-                'catatan' => 'Motor sport performa tinggi',
-            ],
-            [
-                'garasi_partner_id' => $garasi4->id,
-                'kategori_id' => $motor->id,
-                'tipe_id' => $matic->id,
-                'nama_kendaraan' => 'Honda Beat Street',
-                'plat_nomor' => 'D 9012 SE',
-                'tipe' => 'motor',
-                'merek' => 'Honda',
-                'model' => 'Beat Street',
-                'tahun' => 2023,
-                'warna' => 'Hitam',
-                'kapasitas_penumpang' => 2,
-                'harga_sewa_per_hari' => 60000,
-                'status' => 'tersedia',
-                'catatan' => 'Motor matic ringan dan gesit',
-            ],
-            [
-                'garasi_partner_id' => $garasi4->id,
-                'kategori_id' => $motor->id,
-                'tipe_id' => $trail->id,
-                'nama_kendaraan' => 'Kawasaki KLX 150',
-                'plat_nomor' => 'D 3456 SE',
-                'tipe' => 'motor',
-                'merek' => 'Kawasaki',
-                'model' => 'KLX 150',
-                'tahun' => 2023,
-                'warna' => 'Hijau',
-                'kapasitas_penumpang' => 2,
-                'harga_sewa_per_hari' => 120000,
-                'status' => 'tersedia',
-                'catatan' => 'Motor trail untuk medan off-road',
-            ],
-
-            // Sepeda - Garasi 1 (Jaya Abadi)
-            [
-                'garasi_partner_id' => $garasi1->id,
-                'kategori_id' => $sepeda->id,
-                'tipe_id' => $sepedaMTB->id,
-                'nama_kendaraan' => 'Polygon Siskiu D7',
-                'plat_nomor' => 'SEPEDA-001',
-                'tipe' => 'sepeda',
-                'merek' => 'Polygon',
-                'model' => 'Siskiu D7',
-                'tahun' => 2024,
-                'warna' => 'Hitam-Merah',
-                'kapasitas_penumpang' => 1,
-                'harga_sewa_per_hari' => 150000,
-                'status' => 'tersedia',
-                'catatan' => 'MTB full suspension, cocok untuk trail',
-            ],
-            [
-                'garasi_partner_id' => $garasi1->id,
-                'kategori_id' => $sepeda->id,
-                'tipe_id' => $sepedaRoad->id,
-                'nama_kendaraan' => 'Polygon Strattos S7',
-                'plat_nomor' => 'SEPEDA-002',
-                'tipe' => 'sepeda',
-                'merek' => 'Polygon',
-                'model' => 'Strattos S7',
-                'tahun' => 2024,
-                'warna' => 'Biru',
-                'kapasitas_penumpang' => 1,
-                'harga_sewa_per_hari' => 120000,
-                'status' => 'tersedia',
-                'catatan' => 'Road bike carbon frame, ringan',
-            ],
-
-            // Sepeda - Garasi 2 (Makmur Jaya)
-            [
-                'garasi_partner_id' => $garasi2->id,
-                'kategori_id' => $sepeda->id,
-                'tipe_id' => $sepedaLipat->id,
-                'nama_kendaraan' => 'Pacific Noris 2.0',
-                'plat_nomor' => 'SEPEDA-003',
-                'tipe' => 'sepeda',
-                'merek' => 'Pacific',
-                'model' => 'Noris 2.0',
-                'tahun' => 2023,
-                'warna' => 'Silver',
-                'kapasitas_penumpang' => 1,
-                'harga_sewa_per_hari' => 75000,
-                'status' => 'tersedia',
-                'catatan' => 'Sepeda lipat, ringkas dan praktis',
-            ],
-            [
-                'garasi_partner_id' => $garasi2->id,
-                'kategori_id' => $sepeda->id,
-                'tipe_id' => $sepedaListrik->id,
-                'nama_kendaraan' => 'United E-Motion EX9',
-                'plat_nomor' => 'SEPEDA-004',
-                'tipe' => 'sepeda',
-                'merek' => 'United',
-                'model' => 'E-Motion EX9',
-                'tahun' => 2024,
-                'warna' => 'Abu-abu',
-                'kapasitas_penumpang' => 1,
-                'harga_sewa_per_hari' => 200000,
-                'status' => 'tersedia',
-                'catatan' => 'Sepeda listrik, jarak tempuh hingga 80km',
             ],
         ];
 

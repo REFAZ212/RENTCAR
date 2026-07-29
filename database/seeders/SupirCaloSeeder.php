@@ -9,8 +9,7 @@ class SupirCaloSeeder extends Seeder
 {
     public function run(): void
     {
-        $supirCalos = [
-            // Supir
+        $supirs = [
             [
                 'jenis' => 'supir',
                 'nama' => 'Andi Kurniawan',
@@ -19,7 +18,7 @@ class SupirCaloSeeder extends Seeder
                 'status' => 'active',
                 'no_sim' => '3273011001',
                 'tarif_per_hari' => 200000,
-                'catatan' => 'Supir senior, pengalaman 5 tahun',
+                'catatan' => 'Supir senior, pengalaman 10 tahun',
             ],
             [
                 'jenis' => 'supir',
@@ -49,11 +48,50 @@ class SupirCaloSeeder extends Seeder
                 'tarif_per_hari' => 150000,
                 'catatan' => 'Sedang cuti, efektif Agustus 2026',
             ],
+            [
+                'jenis' => 'supir',
+                'nama' => 'Eko Saputra',
+                'no_hp' => '081234567105',
+                'alamat' => 'Jl. Asia Afrika No. 45, Bandung',
+                'status' => 'active',
+                'no_sim' => '3273011005',
+                'tarif_per_hari' => 200000,
+                'catatan' => 'Spesialis rute luar kota',
+            ],
+            [
+                'jenis' => 'supir',
+                'nama' => 'Firman Hakim',
+                'no_hp' => '081234567106',
+                'alamat' => 'Jl. Diponegoro No. 11, Bandung',
+                'status' => 'active',
+                'no_sim' => '3273011006',
+                'tarif_per_hari' => 160000,
+            ],
+            [
+                'jenis' => 'supir',
+                'nama' => 'Gunawan Wibowo',
+                'no_hp' => '081234567107',
+                'alamat' => 'Jl. Pahlawan No. 30, Bandung',
+                'status' => 'active',
+                'no_sim' => '3273011007',
+                'tarif_per_hari' => 180000,
+                'catatan' => 'Supir malam, biasa jaga shift malam',
+            ],
+            [
+                'jenis' => 'supir',
+                'nama' => 'Hadi Prasetyo',
+                'no_hp' => '081234567108',
+                'alamat' => 'Jl. Ahmad Yani No. 55, Bandung',
+                'status' => 'active',
+                'no_sim' => '3273011008',
+                'tarif_per_hari' => 190000,
+            ],
+        ];
 
-            // Calo (semua wajib punya komisi)
+        $calos = [
             [
                 'jenis' => 'calo',
-                'nama' => 'Eka Putri',
+                'nama' => 'Ika Putri',
                 'no_hp' => '081234567201',
                 'alamat' => 'Jl. Asia Afrika No. 10, Bandung',
                 'status' => 'active',
@@ -62,7 +100,7 @@ class SupirCaloSeeder extends Seeder
             ],
             [
                 'jenis' => 'calo',
-                'nama' => 'Fadli Ramadhan',
+                'nama' => 'Joko Susilo',
                 'no_hp' => '081234567202',
                 'alamat' => 'Jl. Dago No. 33, Bandung',
                 'status' => 'active',
@@ -70,7 +108,7 @@ class SupirCaloSeeder extends Seeder
             ],
             [
                 'jenis' => 'calo',
-                'nama' => 'Gita Sari',
+                'nama' => 'Kartika Sari',
                 'no_hp' => '081234567203',
                 'alamat' => 'Jl. Riau No. 15, Bandung',
                 'status' => 'active',
@@ -78,17 +116,38 @@ class SupirCaloSeeder extends Seeder
             ],
             [
                 'jenis' => 'calo',
-                'nama' => 'Hendra Lesmana',
+                'nama' => 'Lukman Hakim',
                 'no_hp' => '081234567204',
                 'alamat' => 'Jl. Lebak Gede No. 8, Bandung',
                 'status' => 'inactive',
                 'komisi' => 45000,
                 'catatan' => 'Pindah domisili ke Jakarta',
             ],
+            [
+                'jenis' => 'calo',
+                'nama' => 'Mita Anggraeni',
+                'no_hp' => '081234567205',
+                'alamat' => 'Jl. Buah Batu No. 88, Bandung',
+                'status' => 'active',
+                'komisi' => 60000,
+                'catatan' => 'Calo top performer, banyak rekomendasi',
+            ],
+            [
+                'jenis' => 'calo',
+                'nama' => 'Nugroho Setiawan',
+                'no_hp' => '081234567206',
+                'alamat' => 'Jl. Tamblong No. 20, Bandung',
+                'status' => 'active',
+                'komisi' => 45000,
+            ],
         ];
 
-        foreach ($supirCalos as $item) {
-            SupirCalo::create($item);
+        foreach ($supirs as $supir) {
+            SupirCalo::create($supir);
+        }
+
+        foreach ($calos as $calo) {
+            SupirCalo::create($calo);
         }
     }
 }
