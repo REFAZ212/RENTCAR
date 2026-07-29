@@ -15,7 +15,7 @@ import NotFound from './pages/NotFound';
 import SupirCalo from './pages/SupirCalo';
 
 const Laporan = lazy(() => import('./pages/Laporan'));
-const Katalog = lazy(() => import('./pages/Katalog'));
+const Katalog = lazy(() => import('./pages/public/Katalog'));
 const KendaraanDetail = lazy(() => import('./pages/KendaraanDetail'));
 const Pengaturan = lazy(() => import('./pages/Pengaturan'));
 const GpsPage = lazy(() => import('./pages/GpsPage'));
@@ -27,6 +27,7 @@ const CustomerDetail = lazy(() => import('./pages/CustomerDetail'));
 //public route will redirect to / if user is logged in, private route will redirect to /login if user is not logged in
 
 import PublicLayout from './components/public/PublicLayout';
+import LandingPage from './pages/public/LandingPage';
 import TentangKamiPage from './pages/public/TentangKamiPage';
 import KontakKamiPage from './pages/public/KontakKamiPage';
 import LayananPage from './pages/public/LayananPage';
@@ -76,8 +77,10 @@ export default function App() {
       <BrowserRouter>
         <Suspense fallback={<LoadingScreen />}>
         <Routes>
+          {/* Public landing page */}
+          <Route path="/" element={<PublicLayout><LandingPage /></PublicLayout>} />
+
           {/* Public katalog routes — no auth */}
-          <Route path="/" element={<Katalog />} />
           <Route path="/katalog" element={<Katalog />} />
           <Route path="/katalog/:id" element={<KendaraanDetail />} />
 

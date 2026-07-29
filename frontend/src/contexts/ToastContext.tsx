@@ -5,6 +5,7 @@ import {
   useCallback,
   useRef,
   useEffect,
+  useMemo,
   ReactNode,
 } from "react";
 
@@ -80,16 +81,14 @@ export function ToastProvider({ children }: ToastProviderProps) {
     []
   );
 
-  const toast: ToastContextType = {
-    success: (message: string) =>
-      addToast(message, "success"),
-
-    error: (message: string) =>
-      addToast(message, "error"),
-
-    info: (message: string) =>
-      addToast(message, "info"),
-  };
+  const toast: ToastContextType = useMemo(
+    () => ({
+      success: (message: string) => addToast(message, "success"),
+      error: (message: string) => addToast(message, "error"),
+      info: (message: string) => addToast(message, "info"),
+    }),
+    [addToast]
+  );
 
   return (
     <ToastContext.Provider value={toast}>

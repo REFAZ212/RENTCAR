@@ -1073,7 +1073,6 @@ export default function Kendaraan() {
                     label="Tersedia"
                     active={item.status === 'tersedia'}
                     activeClass="bg-avail-500 text-white"
-                    disabled={item.status === 'disewa'}
                     onClick={() => handleQuickStatus(item, 'tersedia')}
                   />
                   <QuickStatusButton
@@ -1086,7 +1085,6 @@ export default function Kendaraan() {
                     label="Servis"
                     active={item.status === 'maintenance'}
                     activeClass="bg-amber-500 text-white"
-                    disabled={item.status === 'disewa'}
                     onClick={() => handleQuickStatus(item, 'maintenance')}
                   />
                 </div>
@@ -1139,24 +1137,21 @@ function QuickStatusButton({
   label,
   active,
   activeClass,
-  disabled,
   onClick,
 }: {
   label: string;
   active: boolean;
   activeClass: string;
-  disabled?: boolean;
   onClick: () => void;
 }) {
-  const isDisabled = active || disabled;
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={isDisabled}
-      title={active ? `Sudah berstatus ${label}` : disabled ? 'Status dikendalikan oleh order aktif' : `Tandai sebagai ${label}`}
+      disabled={active}
+      title={active ? `Sudah berstatus ${label}` : `Tandai sebagai ${label}`}
       className={`rounded-lg px-1.5 py-1.5 text-[11px] font-medium leading-tight transition-colors ${
-        isDisabled ? `${active ? activeClass : 'bg-gray-100 text-ink-300'} cursor-default` : 'bg-gray-50 text-ink-400 hover:bg-gray-100 hover:text-ink-700'
+        active ? `${activeClass} cursor-default` : 'bg-gray-50 text-ink-400 hover:bg-gray-100 hover:text-ink-700'
       }`}
     >
       {label}
