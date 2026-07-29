@@ -548,7 +548,38 @@ function RingkasanTab({ params }: { params: DateParams }) {
     setLoading(true);
     laporanAPI
       .ringkasan(params)
-      .then((res) => setData(res.data as RingkasanData))
+      .then((res) => {
+        const d = (res.data as { data: Record<string, unknown> }).data;
+        setData({
+          order: {
+            total: d.total_orders as number,
+            pending: d.pending_orders as number,
+            confirmed: d.confirmed_orders as number,
+            active: d.active_orders as number,
+            selesai: d.completed_orders as number,
+            dibatalkan: d.cancelled_orders as number,
+          },
+          keuangan: {
+            pendapatan: d.total_revenue as number,
+            denda: d.total_fines as number,
+            total_penerimaan: ((d.total_revenue as number) + (d.total_fines as number)),
+            rata_rata_order: d.avg_order_value as number,
+          },
+          kendaraan: {
+            disewa: d.rented_vehicles as number,
+            total: d.total_vehicles as number,
+            utilisasi_persen: d.utilization as number,
+          },
+          pertumbuhan: {
+            customer_baru: d.new_customers as number,
+            kendaraan_baru: d.new_vehicles as number,
+          },
+          garasi: {
+            pending: d.pending_garage_requests as number,
+            direspon: d.answered_garage_requests as number,
+          },
+        });
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params]);
