@@ -11,8 +11,6 @@ class ActivityLogController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $this->authorize('viewAny', Activity::class);
-
         $query = Activity::with('causer')
             ->orderBy('created_at', 'desc');
 

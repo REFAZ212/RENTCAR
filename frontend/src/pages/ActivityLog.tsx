@@ -82,9 +82,10 @@ export default function ActivityLogPage() {
       if (search) params.search = search;
 
       const res = await activityLogAPI.list(params);
-      setLogs(res.data.data);
-      setLastPage(res.data.meta?.last_page ?? 1);
-      setTotal(res.data.meta?.total ?? 0);
+      const d = res.data as { data: ActivityLog[]; last_page?: number; total?: number };
+      setLogs(d.data);
+      setLastPage(d.last_page ?? 1);
+      setTotal(d.total ?? 0);
     } catch {
       toast.error('Gagal memuat aktivitas');
     } finally {
