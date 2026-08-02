@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+﻿import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutGrid,
   ClipboardList,
@@ -47,7 +47,7 @@ const navGroups: NavGroup[] = [
     items: [
       { path: '/kendaraan', label: 'Kendaraan', icon: Car, roles: ROLES_ALL },
       { path: '/kategori-tipe', label: 'Kategori & Tipe', icon: Tags, roles: ROLES_ADMIN },
-      { path: '/inspeksi', label: 'Inspeksi', icon: ClipboardCheck, roles: ROLES_ADMIN },
+      //{ path: '/inspeksi', label: 'Inspeksi', icon: ClipboardCheck, roles: ROLES_ADMIN },
     ],
   },
   {
