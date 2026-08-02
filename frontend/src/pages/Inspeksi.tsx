@@ -56,30 +56,30 @@ const kondisiLampuLabels: Record<string, string> = {
 };
 
 const fuelColors: Record<string, string> = {
-  full: 'bg-avail-50 text-avail-600',
-  '3/4': 'bg-avail-50 text-avail-600',
-  '1/2': 'bg-amber-100 text-amber-800',
-  '1/4': 'bg-maint-50 text-maint-600',
-  kosong: 'bg-rented-50 text-rented-600',
+  full: 'bg-accent-50 text-accent-600',
+  '3/4': 'bg-accent-50 text-accent-600',
+  '1/2': 'bg-accent-100 text-accent-700',
+  '1/4': 'bg-error-50 text-error-600',
+  kosong: 'bg-primary-50 text-primary-600',
 };
 
 const kondisiColors: Record<string, string> = {
-  baik: 'bg-avail-50 text-avail-600',
-  lecet_ringan: 'bg-amber-100 text-amber-800',
-  lecet_parah: 'bg-maint-50 text-maint-600',
-  kotor_ringan: 'bg-amber-100 text-amber-800',
-  kotor_banyak: 'bg-maint-50 text-maint-600',
-  rusak: 'bg-rented-50 text-rented-600',
-  tipis: 'bg-amber-100 text-amber-800',
-  gundul: 'bg-maint-50 text-maint-600',
-  kosong: 'bg-rented-50 text-rented-600',
-  tidak_baik: 'bg-maint-50 text-maint-600',
-  penyok: 'bg-maint-50 text-maint-600',
-  retak: 'bg-rented-50 text-rented-600',
+  baik: 'bg-accent-50 text-accent-600',
+  lecet_ringan: 'bg-accent-100 text-accent-700',
+  lecet_parah: 'bg-error-50 text-error-600',
+  kotor_ringan: 'bg-accent-100 text-accent-700',
+  kotor_banyak: 'bg-error-50 text-error-600',
+  rusak: 'bg-primary-50 text-primary-600',
+  tipis: 'bg-accent-100 text-accent-700',
+  gundul: 'bg-error-50 text-error-600',
+  kosong: 'bg-primary-50 text-primary-600',
+  tidak_baik: 'bg-error-50 text-error-600',
+  penyok: 'bg-error-50 text-error-600',
+  retak: 'bg-primary-50 text-primary-600',
 };
 
 const inputClass =
-  'w-full rounded-lg border border-ink-200 px-3 py-2 text-sm text-ink-900 outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500';
+  'w-full rounded-lg border border-black-200 px-3 py-2 text-sm text-black-900 outline-none transition-colors focus:border-primary-500 focus:ring-1 focus:ring-primary-500';
 
 /* ─────────────────────────────────────────────────────────────
  * TYPES
@@ -237,12 +237,12 @@ export default function Inspeksi() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink-900">Inspeksi Kendaraan</h1>
-          <p className="text-sm text-ink-500">Pencatan kondisi kendaraan saat serah terima pickup & return</p>
+          <h1 className="text-2xl font-bold text-black-900">Inspeksi Kendaraan</h1>
+          <p className="text-sm text-black-500">Pencatan kondisi kendaraan saat serah terima pickup & return</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
-          className="inline-flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-600"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-600"
         >
           <Plus size={16} />
           Inspeksi Baru
@@ -255,7 +255,7 @@ export default function Inspeksi() {
           <button
             onClick={() => setFilterJenis('')}
             className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              filterJenis === '' ? 'bg-brand-500 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+              filterJenis === '' ? 'bg-primary-500 text-white' : 'bg-black-200 text-black-600 hover:bg-black-200'
             }`}
           >
             Semua
@@ -263,7 +263,7 @@ export default function Inspeksi() {
           <button
             onClick={() => setFilterJenis('pickup')}
             className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              filterJenis === 'pickup' ? 'bg-brand-500 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+              filterJenis === 'pickup' ? 'bg-primary-500 text-white' : 'bg-black-200 text-black-600 hover:bg-black-200'
             }`}
           >
             Pickup
@@ -271,14 +271,14 @@ export default function Inspeksi() {
           <button
             onClick={() => setFilterJenis('return')}
             className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-              filterJenis === 'return' ? 'bg-brand-500 text-white' : 'bg-ink-100 text-ink-600 hover:bg-ink-200'
+              filterJenis === 'return' ? 'bg-primary-500 text-white' : 'bg-black-200 text-black-600 hover:bg-black-200'
             }`}
           >
             Return
           </button>
         </div>
         <div className="relative flex-1">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-400" />
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-black-400" />
           <input
             type="text"
             placeholder="Cari berdasarkan Order ID..."
@@ -290,69 +290,69 @@ export default function Inspeksi() {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-ink-200 bg-white">
+      <div className="overflow-hidden rounded-xl border border-black-200 bg-white">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-ink-200 bg-ink-50">
+            <thead className="border-b border-black-200 bg-accent-50">
               <tr>
-                <th className="px-4 py-3 font-medium text-ink-600">Tanggal</th>
-                <th className="px-4 py-3 font-medium text-ink-600">Order</th>
-                <th className="px-4 py-3 font-medium text-ink-600">Jenis</th>
-                <th className="px-4 py-3 font-medium text-ink-600">Odometer</th>
-                <th className="px-4 py-3 font-medium text-ink-600">BBM</th>
-                <th className="px-4 py-3 font-medium text-ink-600">Body</th>
-                <th className="px-4 py-3 font-medium text-ink-600">Ban</th>
-                <th className="px-4 py-3 font-medium text-ink-600">Damage</th>
-                <th className="px-4 py-3 font-medium text-ink-600">Petugas</th>
-                <th className="px-4 py-3 font-medium text-ink-600">Aksi</th>
+                <th className="px-4 py-3 font-medium text-black-600">Tanggal</th>
+                <th className="px-4 py-3 font-medium text-black-600">Order</th>
+                <th className="px-4 py-3 font-medium text-black-600">Jenis</th>
+                <th className="px-4 py-3 font-medium text-black-600">Odometer</th>
+                <th className="px-4 py-3 font-medium text-black-600">BBM</th>
+                <th className="px-4 py-3 font-medium text-black-600">Body</th>
+                <th className="px-4 py-3 font-medium text-black-600">Ban</th>
+                <th className="px-4 py-3 font-medium text-black-600">Damage</th>
+                <th className="px-4 py-3 font-medium text-black-600">Petugas</th>
+                <th className="px-4 py-3 font-medium text-black-600">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink-100">
+            <tbody className="divide-y divide-black-200">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-ink-400">Memuat...</td>
+                  <td colSpan={10} className="px-4 py-12 text-center text-black-400">Memuat...</td>
                 </tr>
               ) : inspeksis.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-ink-400">Belum ada data inspeksi</td>
+                  <td colSpan={10} className="px-4 py-12 text-center text-black-400">Belum ada data inspeksi</td>
                 </tr>
               ) : (
                 inspeksis.map((item) => (
-                  <tr key={item.id} className="hover:bg-ink-50 transition-colors">
-                    <td className="whitespace-nowrap px-4 py-3 text-ink-700">{formatDate(item.created_at)}</td>
-                    <td className="whitespace-nowrap px-4 py-3 font-medium text-ink-900">{item.order?.kode_order ?? `#${item.order_id}`}</td>
+                  <tr key={item.id} className="hover:bg-accent-50 transition-colors">
+                    <td className="whitespace-nowrap px-4 py-3 text-black-700">{formatDate(item.created_at)}</td>
+                    <td className="whitespace-nowrap px-4 py-3 font-medium text-black-900">{item.order?.kode_order ?? `#${item.order_id}`}</td>
                     <td className="px-4 py-3">
                       <Badge
                         label={item.jenis === 'pickup' ? 'Pickup' : 'Return'}
-                        color={item.jenis === 'pickup' ? 'bg-avail-50 text-avail-600' : 'bg-brand-100 text-brand-600'}
+                        color={item.jenis === 'pickup' ? 'bg-accent-50 text-accent-600' : 'bg-primary-100 text-primary-600'}
                       />
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-ink-700">{item.odometer ? `${item.odometer.toLocaleString('id-ID')} km` : '-'}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-black-700">{item.odometer ? `${item.odometer.toLocaleString('id-ID')} km` : '-'}</td>
                     <td className="px-4 py-3">
-                      <Badge label={fuelLabels[item.fuel_level] ?? item.fuel_level} color={fuelColors[item.fuel_level] ?? 'bg-ink-100 text-ink-600'} />
+                      <Badge label={fuelLabels[item.fuel_level] ?? item.fuel_level} color={fuelColors[item.fuel_level] ?? 'bg-black-200 text-black-600'} />
                     </td>
                     <td className="px-4 py-3">
-                      <Badge label={kondisiBodyLabels[item.kondisi_body] ?? item.kondisi_body} color={kondisiColors[item.kondisi_body] ?? 'bg-ink-100 text-ink-600'} />
+                      <Badge label={kondisiBodyLabels[item.kondisi_body] ?? item.kondisi_body} color={kondisiColors[item.kondisi_body] ?? 'bg-black-200 text-black-600'} />
                     </td>
                     <td className="px-4 py-3">
-                      <Badge label={kondisiBanLabels[item.kondisi_ban] ?? item.kondisi_ban} color={kondisiColors[item.kondisi_ban] ?? 'bg-ink-100 text-ink-600'} />
+                      <Badge label={kondisiBanLabels[item.kondisi_ban] ?? item.kondisi_ban} color={kondisiColors[item.kondisi_ban] ?? 'bg-black-200 text-black-600'} />
                     </td>
                     <td className="px-4 py-3">
                       {item.ada_damagenya ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-maint-600">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-error-600">
                           <AlertTriangle size={14} /> Ya
                         </span>
                       ) : (
-                        <span className="text-xs text-ink-400">Tidak</span>
+                        <span className="text-xs text-black-400">Tidak</span>
                       )}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-ink-600">{item.inspeksi_oleh ?? item.admin?.name ?? '-'}</td>
+                    <td className="whitespace-nowrap px-4 py-3 text-black-600">{item.inspeksi_oleh ?? item.admin?.name ?? '-'}</td>
                     <td className="whitespace-nowrap px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <button onClick={() => setShowDetail(item)} className="text-ink-400 hover:text-brand-500 transition-colors" title="Lihat Detail">
+                        <button onClick={() => setShowDetail(item)} className="text-black-400 hover:text-primary-500 transition-colors" title="Lihat Detail">
                           <Eye size={16} />
                         </button>
-                        <button onClick={() => setDeleteTarget(item)} className="text-ink-400 hover:text-red-500 transition-colors" title="Hapus">
+                        <button onClick={() => setDeleteTarget(item)} className="text-black-400 hover:text-error-500 transition-colors" title="Hapus">
                           <Trash2 size={16} />
                         </button>
                       </div>
@@ -370,19 +370,19 @@ export default function Inspeksi() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-ink-900">Inspeksi Kendaraan Baru</h2>
-              <button onClick={() => setShowForm(false)} className="text-ink-400 hover:text-ink-600"><X size={20} /></button>
+              <h2 className="text-lg font-bold text-black-900">Inspeksi Kendaraan Baru</h2>
+              <button onClick={() => setShowForm(false)} className="text-black-400 hover:text-black-600"><X size={20} /></button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Order ID & Jenis */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Order ID <span className="text-red-500">*</span></label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Order ID <span className="text-error-500">*</span></label>
                   <input type="number" name="order_id" value={form.order_id} onChange={handleFormChange} required className={inputClass} placeholder="Masukkan ID order" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Jenis Inspeksi <span className="text-red-500">*</span></label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Jenis Inspeksi <span className="text-error-500">*</span></label>
                   <select name="jenis" value={form.jenis} onChange={handleFormChange} className={inputClass}>
                     <option value="pickup">Pickup (Serah Terima Awal)</option>
                     <option value="return">Return (Serah Terima Akhir)</option>
@@ -393,11 +393,11 @@ export default function Inspeksi() {
               {/* Odometer & Fuel */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Odometer (km)</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Odometer (km)</label>
                   <input type="number" name="odometer" value={form.odometer} onChange={handleFormChange} className={inputClass} placeholder="Contoh: 45000" min="0" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Level BBM <span className="text-red-500">*</span></label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Level BBM <span className="text-error-500">*</span></label>
                   <select name="fuel_level" value={form.fuel_level} onChange={handleFormChange} className={inputClass}>
                     <option value="full">Full</option>
                     <option value="3/4">3/4</option>
@@ -411,7 +411,7 @@ export default function Inspeksi() {
               {/* Kondisi */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Kondisi Body <span className="text-red-500">*</span></label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Kondisi Body <span className="text-error-500">*</span></label>
                   <select name="kondisi_body" value={form.kondisi_body} onChange={handleFormChange} className={inputClass}>
                     <option value="baik">Baik</option>
                     <option value="lecet_ringan">Lecet Ringan</option>
@@ -421,7 +421,7 @@ export default function Inspeksi() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Kondisi Interior <span className="text-red-500">*</span></label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Kondisi Interior <span className="text-error-500">*</span></label>
                   <select name="kondisi_interior" value={form.kondisi_interior} onChange={handleFormChange} className={inputClass}>
                     <option value="baik">Baik</option>
                     <option value="kotor_ringan">Kotor Ringan</option>
@@ -430,7 +430,7 @@ export default function Inspeksi() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Kondisi Ban <span className="text-red-500">*</span></label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Kondisi Ban <span className="text-error-500">*</span></label>
                   <select name="kondisi_ban" value={form.kondisi_ban} onChange={handleFormChange} className={inputClass}>
                     <option value="baik">Baik</option>
                     <option value="tipis">Tipis</option>
@@ -439,14 +439,14 @@ export default function Inspeksi() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Kondisi AC <span className="text-red-500">*</span></label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Kondisi AC <span className="text-error-500">*</span></label>
                   <select name="kondisi_ac" value={form.kondisi_ac} onChange={handleFormChange} className={inputClass}>
                     <option value="baik">Baik</option>
                     <option value="tidak_baik">Tidak Baik</option>
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Kondisi Lampu <span className="text-red-500">*</span></label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Kondisi Lampu <span className="text-error-500">*</span></label>
                   <select name="kondisi_lampu" value={form.kondisi_lampu} onChange={handleFormChange} className={inputClass}>
                     <option value="baik">Baik</option>
                     <option value="tidak_baik">Tidak Baik</option>
@@ -456,29 +456,29 @@ export default function Inspeksi() {
 
               {/* Damage checkbox */}
               <div className="flex items-center gap-2">
-                <input type="checkbox" name="ada_damagenya" checked={form.ada_damagenya} onChange={handleFormChange} className="h-4 w-4 rounded border-ink-300 text-brand-500 focus:ring-brand-500" />
-                <label className="text-sm font-medium text-ink-700">Ada Kerusakan</label>
+                <input type="checkbox" name="ada_damagenya" checked={form.ada_damagenya} onChange={handleFormChange} className="h-4 w-4 rounded border-black-400 text-primary-500 focus:ring-primary-500" />
+                <label className="text-sm font-medium text-black-700">Ada Kerusakan</label>
               </div>
 
               {/* Deskripsi & Catatan */}
               <div>
-                <label className="mb-1 block text-sm font-medium text-ink-700">Deskripsi Kondisi</label>
+                <label className="mb-1 block text-sm font-medium text-black-700">Deskripsi Kondisi</label>
                 <textarea name="deskripsi_kondisi" value={form.deskripsi_kondisi} onChange={handleFormChange} rows={3} className={inputClass} placeholder="Deskripsikan kondisi kendaraan secara detail..." />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-ink-700">Catatan</label>
+                <label className="mb-1 block text-sm font-medium text-black-700">Catatan</label>
                 <textarea name="catatan" value={form.catatan} onChange={handleFormChange} rows={2} className={inputClass} placeholder="Catatan tambahan..." />
               </div>
 
               {/* Petugas & Foto */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Inspeksi Oleh</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Inspeksi Oleh</label>
                   <input type="text" name="inspeksi_oleh" value={form.inspeksi_oleh} onChange={handleFormChange} className={inputClass} placeholder="Nama petugas" />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Foto Kendaraan</label>
-                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-ink-300 px-4 py-3 text-sm text-ink-500 transition-colors hover:border-brand-500 hover:text-brand-500">
+                  <label className="mb-1 block text-sm font-medium text-black-700">Foto Kendaraan</label>
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-black-400 px-4 py-3 text-sm text-black-500 transition-colors hover:border-primary-500 hover:text-primary-500">
                     <Upload size={16} />
                     {form.foto ? form.foto.name : 'Pilih foto...'}
                     <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
@@ -488,8 +488,8 @@ export default function Inspeksi() {
 
               {/* Submit */}
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-600 hover:bg-ink-50">Batal</button>
-                <button type="submit" disabled={submitting} className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 disabled:opacity-50">
+                <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-600 hover:bg-accent-50">Batal</button>
+                <button type="submit" disabled={submitting} className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50">
                   {submitting ? 'Menyimpan...' : 'Simpan Inspeksi'}
                 </button>
               </div>
@@ -503,49 +503,49 @@ export default function Inspeksi() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-ink-900">Detail Inspeksi #{showDetail.id}</h2>
-              <button onClick={() => setShowDetail(null)} className="text-ink-400 hover:text-ink-600"><X size={20} /></button>
+              <h2 className="text-lg font-bold text-black-900">Detail Inspeksi #{showDetail.id}</h2>
+              <button onClick={() => setShowDetail(null)} className="text-black-400 hover:text-black-600"><X size={20} /></button>
             </div>
 
             <div className="space-y-4">
               {/* Info Dasar */}
-              <div className="grid grid-cols-2 gap-4 rounded-lg bg-ink-50 p-4">
+              <div className="grid grid-cols-2 gap-4 rounded-lg bg-accent-50 p-4">
                 <div>
-                  <p className="text-xs font-medium text-ink-500">Order</p>
-                  <p className="text-sm font-semibold text-ink-900">{showDetail.order?.kode_order ?? `#${showDetail.order_id}`}</p>
+                  <p className="text-xs font-medium text-black-500">Order</p>
+                  <p className="text-sm font-semibold text-black-900">{showDetail.order?.kode_order ?? `#${showDetail.order_id}`}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-ink-500">Jenis</p>
+                  <p className="text-xs font-medium text-black-500">Jenis</p>
                   <Badge
                     label={jenisLabels[showDetail.jenis] ?? showDetail.jenis}
-                    color={showDetail.jenis === 'pickup' ? 'bg-avail-50 text-avail-600' : 'bg-brand-100 text-brand-600'}
+                    color={showDetail.jenis === 'pickup' ? 'bg-accent-50 text-accent-600' : 'bg-primary-100 text-primary-600'}
                   />
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-ink-500">Tanggal Inspeksi</p>
-                  <p className="text-sm text-ink-700">{formatDate(showDetail.created_at)}</p>
+                  <p className="text-xs font-medium text-black-500">Tanggal Inspeksi</p>
+                  <p className="text-sm text-black-700">{formatDate(showDetail.created_at)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-ink-500">Petugas</p>
-                  <p className="text-sm text-ink-700">{showDetail.inspeksi_oleh ?? showDetail.admin?.name ?? '-'}</p>
+                  <p className="text-xs font-medium text-black-500">Petugas</p>
+                  <p className="text-sm text-black-700">{showDetail.inspeksi_oleh ?? showDetail.admin?.name ?? '-'}</p>
                 </div>
               </div>
 
               {/* Data Kendaraan */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs font-medium text-ink-500">Odometer</p>
-                  <p className="text-sm font-semibold text-ink-900">{showDetail.odometer ? `${showDetail.odometer.toLocaleString('id-ID')} km` : '-'}</p>
+                  <p className="text-xs font-medium text-black-500">Odometer</p>
+                  <p className="text-sm font-semibold text-black-900">{showDetail.odometer ? `${showDetail.odometer.toLocaleString('id-ID')} km` : '-'}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-ink-500">Level BBM</p>
-                  <Badge label={fuelLabels[showDetail.fuel_level] ?? showDetail.fuel_level} color={fuelColors[showDetail.fuel_level] ?? 'bg-ink-100 text-ink-600'} />
+                  <p className="text-xs font-medium text-black-500">Level BBM</p>
+                  <Badge label={fuelLabels[showDetail.fuel_level] ?? showDetail.fuel_level} color={fuelColors[showDetail.fuel_level] ?? 'bg-black-200 text-black-600'} />
                 </div>
               </div>
 
               {/* Kondisi Detail */}
               <div>
-                <p className="mb-2 text-xs font-medium text-ink-500 uppercase tracking-wider">Kondisi Kendaraan</p>
+                <p className="mb-2 text-xs font-medium text-black-500 uppercase tracking-wider">Kondisi Kendaraan</p>
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { label: 'Body', value: showDetail.kondisi_body, labels: kondisiBodyLabels },
@@ -555,11 +555,11 @@ export default function Inspeksi() {
                     { label: 'Lampu', value: showDetail.kondisi_lampu, labels: kondisiLampuLabels },
                     { label: 'Kerusakan', value: showDetail.ada_damagenya ? 'Ya' : 'Tidak', labels: {} },
                   ].map((item) => (
-                    <div key={item.label} className="rounded-lg bg-ink-50 px-3 py-2">
-                      <p className="text-xs text-ink-500">{item.label}</p>
+                    <div key={item.label} className="rounded-lg bg-accent-50 px-3 py-2">
+                      <p className="text-xs text-black-500">{item.label}</p>
                       <Badge
                         label={item.labels[item.value] ?? item.value}
-                        color={kondisiColors[item.value] ?? (item.value === 'Ya' ? 'bg-maint-50 text-maint-600' : 'bg-avail-50 text-avail-600')}
+                        color={kondisiColors[item.value] ?? (item.value === 'Ya' ? 'bg-error-50 text-error-600' : 'bg-accent-50 text-accent-600')}
                       />
                     </div>
                   ))}
@@ -569,21 +569,21 @@ export default function Inspeksi() {
               {/* Deskripsi & Catatan */}
               {showDetail.deskripsi_kondisi && (
                 <div>
-                  <p className="text-xs font-medium text-ink-500">Deskripsi Kondisi</p>
-                  <p className="mt-1 text-sm text-ink-700 whitespace-pre-wrap">{showDetail.deskripsi_kondisi}</p>
+                  <p className="text-xs font-medium text-black-500">Deskripsi Kondisi</p>
+                  <p className="mt-1 text-sm text-black-700 whitespace-pre-wrap">{showDetail.deskripsi_kondisi}</p>
                 </div>
               )}
               {showDetail.catatan && (
                 <div>
-                  <p className="text-xs font-medium text-ink-500">Catatan</p>
-                  <p className="mt-1 text-sm text-ink-700 whitespace-pre-wrap">{showDetail.catatan}</p>
+                  <p className="text-xs font-medium text-black-500">Catatan</p>
+                  <p className="mt-1 text-sm text-black-700 whitespace-pre-wrap">{showDetail.catatan}</p>
                 </div>
               )}
 
               {/* Foto */}
               {showDetail.foto && (
                 <div>
-                  <p className="text-xs font-medium text-ink-500">Foto Kendaraan</p>
+                  <p className="text-xs font-medium text-black-500">Foto Kendaraan</p>
                   <img
                     src={`/storage/${showDetail.foto}`}
                     alt={`Inspeksi #${showDetail.id}`}
@@ -594,7 +594,7 @@ export default function Inspeksi() {
             </div>
 
             <div className="mt-6 flex justify-end">
-              <button onClick={() => setShowDetail(null)} className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-600 hover:bg-ink-50">Tutup</button>
+              <button onClick={() => setShowDetail(null)} className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-600 hover:bg-accent-50">Tutup</button>
             </div>
           </div>
         </div>

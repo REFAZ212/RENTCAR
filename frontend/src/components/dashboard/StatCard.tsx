@@ -45,16 +45,16 @@ export default function StatCard({
   sparkId,
 }: StatCardProps) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl shadow-sm border border-accent-100 p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between">
-        <p className="text-sm font-medium text-gray-500">{label}</p>
+        <p className="text-sm font-medium text-black-400">{label}</p>
         <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${iconBg} shrink-0`}>
           <Icon size={18} className={iconColor} />
         </div>
       </div>
 
       <div className="mt-3 flex items-end justify-between gap-2">
-        <span className="text-2xl font-bold text-gray-900 truncate">{value}</span>
+        <span className="text-2xl font-bold text-black-900 truncate">{value}</span>
         <Sparkline data={sparkData} color={sparkColor} fillId={sparkId} />
       </div>
     </div>

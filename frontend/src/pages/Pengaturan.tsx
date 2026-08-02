@@ -117,27 +117,27 @@ const TEMPLATE_VARS_OWNER = ['{kendaraan}', '{customer}', '{driver}', '{tanggal}
  * KOMPONEN DASAR (dibagi antar tab)
  * ───────────────────────────────────────────────────────────── */
 function inputClass(hasError?: boolean) {
-  return `w-full rounded-lg border px-3 py-2 text-sm text-ink-900 outline-none transition-colors focus:ring-1 ${
-    hasError ? 'border-maint-500 focus:border-maint-500 focus:ring-maint-500' : 'border-ink-200 focus:border-brand-500 focus:ring-brand-500'
+  return `w-full rounded-lg border px-3 py-2 text-sm text-black-900 outline-none transition-colors focus:ring-1 ${
+    hasError ? 'border-error-500 focus:border-error-500 focus:ring-error-500' : 'border-black-200 focus:border-primary-500 focus:ring-primary-500'
   }`;
 }
 
 function Field({ label, children, hint, error }: { label: string; children: ReactNode; hint?: string; error?: string }) {
   return (
     <div>
-      <label className="mb-1.5 block text-sm font-medium text-ink-700">{label}</label>
+      <label className="mb-1.5 block text-sm font-medium text-black-700">{label}</label>
       {children}
-      {error ? <p className="mt-1 text-xs text-maint-600">{error}</p> : hint ? <p className="mt-1 text-xs text-ink-400">{hint}</p> : null}
+      {error ? <p className="mt-1 text-xs text-error-600">{error}</p> : hint ? <p className="mt-1 text-xs text-black-400">{hint}</p> : null}
     </div>
   );
 }
 
 function SectionCard({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-ink-200">
-      <div className="border-b border-ink-200 px-6 py-4">
-        <h3 className="font-semibold text-ink-900">{title}</h3>
-        {description && <p className="mt-0.5 text-xs text-ink-400">{description}</p>}
+    <div className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-black-200">
+      <div className="border-b border-black-200 px-6 py-4">
+        <h3 className="font-semibold text-black-900">{title}</h3>
+        {description && <p className="mt-0.5 text-xs text-black-400">{description}</p>}
       </div>
       <div className="p-6">{children}</div>
     </div>
@@ -158,8 +158,8 @@ function ToggleSwitch({
   return (
     <div className="flex items-center justify-between gap-4 py-3">
       <div>
-        <p className="text-sm font-medium text-ink-900">{label}</p>
-        {description && <p className="mt-0.5 text-xs text-ink-400">{description}</p>}
+        <p className="text-sm font-medium text-black-900">{label}</p>
+        {description && <p className="mt-0.5 text-xs text-black-400">{description}</p>}
       </div>
       <button
         type="button"
@@ -168,7 +168,7 @@ function ToggleSwitch({
         aria-label={label}
         onClick={() => onChange(!checked)}
         className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${
-          checked ? 'bg-brand-500' : 'bg-ink-200'
+          checked ? 'bg-primary-500' : 'bg-black-200'
         }`}
       >
         <span
@@ -186,7 +186,7 @@ function SaveButton({ loading, label = 'Simpan Perubahan' }: { loading: boolean;
     <button
       type="submit"
       disabled={loading}
-      className="flex items-center gap-2 rounded-lg bg-brand-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+      className="flex items-center gap-2 rounded-lg bg-primary-500 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
     >
       {loading && (
         <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -214,18 +214,18 @@ function AvatarUpload({
   return (
     <div className="flex items-center gap-4">
       <div
-        className={`flex items-center justify-center overflow-hidden bg-canvas ring-1 ring-ink-200 ${radius}`}
+        className={`flex items-center justify-center overflow-hidden bg-canvas ring-1 ring-black-200 ${radius}`}
         style={{ width: size, height: size }}
       >
         {imageUrl ? (
           <img src={imageUrl} alt="Preview" className="h-full w-full object-cover" />
         ) : (
-          <svg className="h-8 w-8 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="h-8 w-8 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={ICONS.upload} />
           </svg>
         )}
       </div>
-      <label className="cursor-pointer rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-canvas">
+      <label className="cursor-pointer rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas">
         Ganti Gambar
         <input
           type="file"
@@ -371,7 +371,7 @@ function ProfilTab() {
               />
             </Field>
 
-            <div className="flex justify-end border-t border-ink-200 pt-5">
+            <div className="flex justify-end border-t border-black-200 pt-5">
               <SaveButton loading={saving} />
             </div>
           </div>
@@ -393,7 +393,7 @@ function ProfilTab() {
                 <button
                   type="button"
                   onClick={() => setShowPw({ ...showPw, lama: !showPw.lama })}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-black-400 hover:text-black-700"
                   aria-label={showPw.lama ? 'Sembunyikan password' : 'Tampilkan password'}
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -417,7 +417,7 @@ function ProfilTab() {
                   <button
                     type="button"
                     onClick={() => setShowPw({ ...showPw, baru: !showPw.baru })}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-black-400 hover:text-black-700"
                     aria-label={showPw.baru ? 'Sembunyikan password' : 'Tampilkan password'}
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -437,7 +437,7 @@ function ProfilTab() {
               </Field>
             </div>
 
-            <div className="flex justify-end border-t border-ink-200 pt-5">
+            <div className="flex justify-end border-t border-black-200 pt-5">
               <SaveButton loading={pwSaving} label="Ubah Password" />
             </div>
           </div>
@@ -557,20 +557,20 @@ function BisnisTab() {
       </SectionCard>
 
       <SectionCard title="Jam Operasional" description="Menentukan kapan booking baru bisa diproses admin">
-        <div className="overflow-hidden rounded-xl border border-ink-200">
+        <div className="overflow-hidden rounded-xl border border-black-200">
           <table className="w-full text-sm">
             <thead className="bg-canvas">
               <tr>
-                <th className="px-4 py-2.5 text-left font-medium text-ink-400">Hari</th>
-                <th className="px-4 py-2.5 text-left font-medium text-ink-400">Buka</th>
-                <th className="px-4 py-2.5 text-left font-medium text-ink-400">Tutup</th>
-                <th className="px-4 py-2.5 text-center font-medium text-ink-400">Libur</th>
+                <th className="px-4 py-2.5 text-left font-medium text-black-400">Hari</th>
+                <th className="px-4 py-2.5 text-left font-medium text-black-400">Buka</th>
+                <th className="px-4 py-2.5 text-left font-medium text-black-400">Tutup</th>
+                <th className="px-4 py-2.5 text-center font-medium text-black-400">Libur</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink-200">
+            <tbody className="divide-y divide-black-200">
               {form.jam_operasional.map((row, i) => (
                 <tr key={row.hari} className={row.libur ? 'bg-canvas' : ''}>
-                  <td className="px-4 py-2.5 font-medium text-ink-900">{row.hari}</td>
+                  <td className="px-4 py-2.5 font-medium text-black-900">{row.hari}</td>
                   <td className="px-4 py-2.5">
                     <input
                       type="time"
@@ -594,7 +594,7 @@ function BisnisTab() {
                       type="checkbox"
                       checked={row.libur}
                       onChange={(e) => updateJam(i, { libur: e.target.checked })}
-                      className="h-4 w-4 rounded border-ink-200 text-brand-500 focus:ring-brand-500"
+                      className="h-4 w-4 rounded border-black-200 text-primary-500 focus:ring-primary-500"
                     />
                   </td>
                 </tr>
@@ -682,19 +682,19 @@ function HargaTab() {
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <Field label="Biaya Antar (per km)" hint="Dihitung dari garasi ke lokasi customer">
             <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-400">Rp</span>
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-black-400">Rp</span>
               <input type="number" min={0} value={form.biaya_antar_per_km} onChange={setNum('biaya_antar_per_km')} className={`${inputClass()} pl-9`} />
             </div>
           </Field>
           <Field label="Biaya Jemput (flat)" hint="Kalau customer minta ambil di lokasi tertentu">
             <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-400">Rp</span>
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-black-400">Rp</span>
               <input type="number" min={0} value={form.biaya_jemput_flat} onChange={setNum('biaya_jemput_flat')} className={`${inputClass()} pl-9`} />
             </div>
           </Field>
           <Field label="Biaya dengan Driver (per hari)">
             <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-400">Rp</span>
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-black-400">Rp</span>
               <input
                 type="number"
                 min={0}
@@ -712,7 +712,7 @@ function HargaTab() {
           <Field label="Minimal DP" hint="Persentase minimum uang muka saat booking dikonfirmasi">
             <div className="relative">
               <input type="number" min={0} max={100} value={form.minimal_dp_persen} onChange={setNum('minimal_dp_persen')} className={`${inputClass()} pr-9`} />
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-400">%</span>
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-black-400">%</span>
             </div>
           </Field>
           <Field label="Toleransi Keterlambatan" hint="Sebelum denda mulai dihitung">
@@ -724,12 +724,12 @@ function HargaTab() {
                 onChange={setNum('toleransi_keterlambatan_menit')}
                 className={`${inputClass()} pr-16`}
               />
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-400">menit</span>
+              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-black-400">menit</span>
             </div>
           </Field>
           <Field label="Denda Keterlambatan (per jam)">
             <div className="relative">
-              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-400">Rp</span>
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-black-400">Rp</span>
               <input
                 type="number"
                 min={0}
@@ -741,7 +741,7 @@ function HargaTab() {
           </Field>
         </div>
 
-        <div className="mt-6 flex justify-end border-t border-ink-200 pt-5">
+        <div className="mt-6 flex justify-end border-t border-black-200 pt-5">
           <SaveButton loading={saving} />
         </div>
       </SectionCard>
@@ -774,7 +774,7 @@ function TemplateEditor({
             key={v}
             type="button"
             onClick={() => insertVar(v)}
-            className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-medium text-brand-600 transition-colors hover:bg-brand-100"
+            className="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-600 transition-colors hover:bg-primary-100"
           >
             {v}
           </button>
@@ -855,7 +855,7 @@ function NotifikasiTab() {
               <button
                 type="button"
                 onClick={() => setShowToken(!showToken)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-black-400 hover:text-black-700"
                 aria-label={showToken ? 'Sembunyikan token' : 'Tampilkan token'}
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -878,7 +878,7 @@ function NotifikasiTab() {
                 type="button"
                 onClick={handleTestKirim}
                 disabled={testing || !form.nomor_wa_owner}
-                className="flex-shrink-0 rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-canvas disabled:opacity-50"
+                className="flex-shrink-0 rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas disabled:opacity-50"
               >
                 {testing ? 'Mengirim...' : 'Kirim Test'}
               </button>
@@ -888,7 +888,7 @@ function NotifikasiTab() {
       </SectionCard>
 
       <SectionCard title="Jenis Notifikasi Otomatis" description="Pilih kejadian mana saja yang memicu pesan WhatsApp otomatis">
-        <div className="divide-y divide-ink-200">
+        <div className="divide-y divide-black-200">
           <ToggleSwitch
             checked={form.notif_booking_baru}
             onChange={(v) => setForm({ ...form, notif_booking_baru: v })}
@@ -932,7 +932,7 @@ function NotifikasiTab() {
           />
         </div>
 
-        <div className="mt-6 flex justify-end border-t border-ink-200 pt-5">
+        <div className="mt-6 flex justify-end border-t border-black-200 pt-5">
           <SaveButton loading={saving} />
         </div>
       </SectionCard>
@@ -1052,7 +1052,7 @@ function SistemTab() {
             </Field>
           </div>
 
-          <div className="mt-6 flex justify-end border-t border-ink-200 pt-5">
+          <div className="mt-6 flex justify-end border-t border-black-200 pt-5">
             <SaveButton loading={saving} />
           </div>
         </SectionCard>
@@ -1061,14 +1061,14 @@ function SistemTab() {
       <SectionCard title="Backup Data" description="Unduh salinan seluruh data booking, kendaraan, dan customer">
         <div className="flex items-center justify-between rounded-xl bg-canvas p-4">
           <div>
-            <p className="text-sm font-medium text-ink-900">Backup Manual</p>
-            <p className="mt-0.5 text-xs text-ink-400">File akan diunduh dalam format .zip berisi data terbaru</p>
+            <p className="text-sm font-medium text-black-900">Backup Manual</p>
+            <p className="mt-0.5 text-xs text-black-400">File akan diunduh dalam format .zip berisi data terbaru</p>
           </div>
           <button
             type="button"
             onClick={handleBackup}
             disabled={exporting}
-            className="flex items-center gap-2 rounded-lg bg-avail-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-avail-600 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-600 disabled:opacity-50"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={ICONS.download} />
@@ -1106,9 +1106,9 @@ export default function Pengaturan() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl bg-gradient-to-r from-ink-900 via-ink-800 to-brand-700 p-6 text-white shadow-sm sm:p-7">
+      <div className="rounded-2xl bg-gradient-to-r from-black-900 via-black-800 to-primary-700 p-6 text-white shadow-sm sm:p-7">
         <h1 className="font-display text-2xl font-bold">Pengaturan</h1>
-        <p className="mt-1 text-sm text-ink-200">Kelola profil, kebijakan bisnis, dan preferensi sistem Anda</p>
+        <p className="mt-1 text-sm text-black-200">Kelola profil, kebijakan bisnis, dan preferensi sistem Anda</p>
       </div>
 
       <div className="flex flex-col gap-6 lg:flex-row">
@@ -1119,7 +1119,7 @@ export default function Pengaturan() {
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3.5 py-2.5 text-left text-sm font-medium transition-all ${
-                activeTab === tab.key ? 'bg-surface text-brand-600 shadow-sm' : 'text-ink-400 hover:text-ink-700'
+                activeTab === tab.key ? 'bg-surface text-primary-600 shadow-sm' : 'text-black-400 hover:text-black-700'
               }`}
             >
               <svg className="h-4 w-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

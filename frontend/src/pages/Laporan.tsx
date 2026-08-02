@@ -31,7 +31,7 @@ import { formatHpDisplay, formatRupiah, formatRupiahShort } from '../lib/format'
  * tidak ada token dedicated di tema kita untuk "menunggu")
  *
  * Untuk chart, warna diambil langsung dari CSS variable Tailwind v4
- * (var(--color-brand-500), dst) — supaya tetap 1 sumber kebenaran
+ * (var(--color-primary-500), dst) — supaya tetap 1 sumber kebenaran
  * dengan app.css, tidak ada duplikasi hex code.
  */
 
@@ -70,31 +70,31 @@ const metodeBayarLabels: Record<MetodeBayar, string> = {
 
 // Badge status — dipetakan ke token tema (avail/rented/maint/ink + amber bawaan)
 const statusColors: Record<string, string> = {
-  pending: 'bg-amber-100 text-amber-800',
-  confirmed: 'bg-rented-50 text-rented-500',
-  active: 'bg-avail-50 text-avail-600',
-  completed: 'bg-ink-200 text-ink-700',
-  cancelled: 'bg-maint-50 text-maint-600',
-  unpaid: 'bg-maint-50 text-maint-600',
-  partial: 'bg-amber-100 text-amber-800',
-  paid: 'bg-avail-50 text-avail-600',
-  belum_diambil: 'bg-amber-100 text-amber-800',
-  sudah_diantarkan: 'bg-rented-50 text-rented-500',
-  dalam_penyewaan: 'bg-brand-100 text-brand-600',
-  selesai: 'bg-ink-200 text-ink-700',
-  tersedia: 'bg-avail-50 text-avail-600',
-  disewa: 'bg-rented-50 text-rented-500',
-  maintenance: 'bg-maint-50 text-maint-600',
+  pending: 'bg-accent-100 text-accent-700',
+  confirmed: 'bg-primary-50 text-primary-500',
+  active: 'bg-accent-50 text-accent-600',
+  completed: 'bg-black-200 text-black-700',
+  cancelled: 'bg-error-50 text-error-600',
+  unpaid: 'bg-error-50 text-error-600',
+  partial: 'bg-accent-100 text-accent-700',
+  paid: 'bg-accent-50 text-accent-600',
+  belum_diambil: 'bg-accent-100 text-accent-700',
+  sudah_diantarkan: 'bg-primary-50 text-primary-500',
+  dalam_penyewaan: 'bg-primary-100 text-primary-600',
+  selesai: 'bg-black-200 text-black-700',
+  tersedia: 'bg-success-50 text-success-600',
+  disewa: 'bg-primary-50 text-primary-500',
+  maintenance: 'bg-error-50 text-error-600',
 };
 
 // Warna ikon StatCard — dipetakan by makna, bukan asal warna
 const ICON_BG = {
-  brand: 'bg-brand-500',
-  brandDark: 'bg-brand-700',
-  avail: 'bg-avail-500',
-  maint: 'bg-maint-500',
-  rented: 'bg-rented-500',
-  ink: 'bg-ink-700',
+  brand: 'bg-primary-500',
+  brandDark: 'bg-primary-700',
+  avail: 'bg-success-500',
+  maint: 'bg-error-500',
+  rented: 'bg-primary-500',
+  ink: 'bg-black-700',
 } as const;
 
 const tabs = [
@@ -309,7 +309,7 @@ interface KomisiCaloData {
  * ───────────────────────────────────────────────────────────── */
 function SkeletonCard() {
   return (
-    <div className="rounded-2xl bg-surface p-5 shadow-sm ring-1 ring-ink-200">
+    <div className="rounded-2xl bg-surface p-5 shadow-sm ring-1 ring-black-200">
       <div className="skeleton mb-4 h-9 w-9 rounded-xl" />
       <div className="skeleton mb-3 h-3 w-24" />
       <div className="skeleton h-7 w-32" />
@@ -319,11 +319,11 @@ function SkeletonCard() {
 
 function TableSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-ink-200">
-      <div className="border-b border-ink-200 p-5">
+    <div className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-black-200">
+      <div className="border-b border-black-200 p-5">
         <div className="skeleton h-5 w-40" />
       </div>
-      <div className="divide-y divide-ink-200">
+      <div className="divide-y divide-black-200">
         {Array.from({ length: rows }).map((_, i) => (
           <div key={i} className="flex items-center gap-4 p-4">
             <div className="skeleton h-3 w-1/4" />
@@ -338,7 +338,7 @@ function TableSkeleton({ rows = 5 }: { rows?: number }) {
 
 function EmptyState({ label = 'Belum ada data' }: { label?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-2 px-5 py-12 text-ink-400">
+    <div className="flex flex-col items-center justify-center gap-2 px-5 py-12 text-black-400">
       <svg className="h-9 w-9" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path
           strokeLinecap="round"
@@ -354,9 +354,9 @@ function EmptyState({ label = 'Belum ada data' }: { label?: string }) {
 
 function SectionCard({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-ink-200">
-      <div className="flex items-center justify-between border-b border-ink-200 px-5 py-4">
-        <h3 className="font-semibold text-ink-900">{title}</h3>
+    <div className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-black-200">
+      <div className="flex items-center justify-between border-b border-black-200 px-5 py-4">
+        <h3 className="font-semibold text-black-900">{title}</h3>
         {action}
       </div>
       {children}
@@ -378,14 +378,14 @@ function StatCard({
   iconBg: string;
 }) {
   return (
-    <div className="group rounded-2xl bg-surface p-5 shadow-sm ring-1 ring-ink-200 transition-all hover:-translate-y-0.5 hover:shadow-md">
+    <div className="group rounded-2xl bg-surface p-5 shadow-sm ring-1 ring-black-200 transition-all hover:-translate-y-0.5 hover:shadow-md">
       <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl ${iconBg}`}>
         <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
         </svg>
       </div>
-      <p className="mb-1 text-xs font-medium text-ink-400">{label}</p>
-      <p className={`truncate text-xl font-bold text-ink-900 ${mono ? 'font-mono' : ''}`}>{value}</p>
+      <p className="mb-1 text-xs font-medium text-black-400">{label}</p>
+      <p className={`truncate text-xl font-bold text-black-900 ${mono ? 'font-mono' : ''}`}>{value}</p>
     </div>
   );
 }
@@ -394,8 +394,8 @@ function StatCard({
 function RupiahTooltip({ active, payload, label }: { active?: boolean; payload?: { name: string; value: number; color: string }[]; label?: string }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
-    <div className="rounded-lg border border-ink-200 bg-surface px-3 py-2 text-xs shadow-md">
-      <p className="mb-1 font-medium text-ink-900">{label}</p>
+    <div className="rounded-lg border border-black-200 bg-surface px-3 py-2 text-xs shadow-md">
+      <p className="mb-1 font-medium text-black-900">{label}</p>
       {payload.map((p) => (
         <p key={p.name} style={{ color: p.color }}>
           {p.name}: {formatRupiah(p.value)}
@@ -417,14 +417,14 @@ function RevenueAreaChart({ data }: { data: PendapatanPeriodeRow[] }) {
         <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="fillPendapatan" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--color-brand-500)" stopOpacity={0.35} />
-              <stop offset="95%" stopColor="var(--color-brand-500)" stopOpacity={0.02} />
+              <stop offset="5%" stopColor="var(--color-primary-500)" stopOpacity={0.35} />
+              <stop offset="95%" stopColor="var(--color-primary-500)" stopOpacity={0.02} />
             </linearGradient>
           </defs>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-ink-200)" vertical={false} />
-          <XAxis dataKey="periode" tick={{ fontSize: 11, fill: 'var(--color-ink-400)' }} axisLine={false} tickLine={false} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-black-200)" vertical={false} />
+          <XAxis dataKey="periode" tick={{ fontSize: 11, fill: 'var(--color-black-400)' }} axisLine={false} tickLine={false} />
           <YAxis
-            tick={{ fontSize: 11, fill: 'var(--color-ink-400)' }}
+            tick={{ fontSize: 11, fill: 'var(--color-black-400)' }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v: number) => formatRupiahShort(v)}
@@ -435,7 +435,7 @@ function RevenueAreaChart({ data }: { data: PendapatanPeriodeRow[] }) {
             type="monotone"
             dataKey="total_pendapatan"
             name="Pendapatan"
-            stroke="var(--color-brand-500)"
+            stroke="var(--color-primary-500)"
             strokeWidth={2}
             fill="url(#fillPendapatan)"
           />
@@ -448,7 +448,7 @@ function RevenueAreaChart({ data }: { data: PendapatanPeriodeRow[] }) {
 /* ─────────────────────────────────────────────────────────────
  * CHART — Metode Pembayaran (Pie Chart)
  * ───────────────────────────────────────────────────────────── */
-const PIE_COLORS = ['var(--color-brand-500)', 'var(--color-rented-500)', 'var(--color-avail-500)', 'var(--color-maint-500)'];
+const PIE_COLORS = ['var(--color-primary-500)', 'var(--color-primary-500)', 'var(--color-accent-500)', 'var(--color-error-500)'];
 
 function PaymentMethodPieChart({ data }: { data: MetodePembayaranRow[] }) {
   if (data.length === 0) return <EmptyState label="Belum ada data pembayaran" />;
@@ -479,11 +479,11 @@ function PaymentMethodPieChart({ data }: { data: MetodePembayaranRow[] }) {
  * CHART — Distribusi Status Order (Donut)
  * ───────────────────────────────────────────────────────────── */
 const STATUS_ORDER_COLOR_VAR: Record<StatusOrder, string> = {
-  pending: '#d97706', // amber-600, tidak ada token dedicated
-  confirmed: 'var(--color-rented-500)',
-  active: 'var(--color-avail-500)',
-  completed: 'var(--color-ink-700)',
-  cancelled: 'var(--color-maint-500)',
+  pending: '#FFC20F', // accent gold
+  confirmed: 'var(--color-primary-500)',
+  active: 'var(--color-accent-500)',
+  completed: 'var(--color-black-700)',
+  cancelled: 'var(--color-error-500)',
 };
 
 function OrderStatusDonut({ order }: { order: RingkasanData['order'] }) {
@@ -524,13 +524,13 @@ function KategoriBarChart({ data }: { data: KategoriStatRow[] }) {
     <div className="h-72 w-full p-5">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-ink-200)" vertical={false} />
-          <XAxis dataKey="nama_kategori" tick={{ fontSize: 11, fill: 'var(--color-ink-400)' }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 11, fill: 'var(--color-ink-400)' }} axisLine={false} tickLine={false} width={32} />
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-black-200)" vertical={false} />
+          <XAxis dataKey="nama_kategori" tick={{ fontSize: 11, fill: 'var(--color-black-400)' }} axisLine={false} tickLine={false} />
+          <YAxis tick={{ fontSize: 11, fill: 'var(--color-black-400)' }} axisLine={false} tickLine={false} width={32} />
           <Tooltip />
           <Legend verticalAlign="top" height={28} iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-          <Bar dataKey="disewa" name="Disewa" fill="var(--color-rented-500)" radius={[4, 4, 0, 0]} />
-          <Bar dataKey="tersedia" name="Tersedia" fill="var(--color-avail-500)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="disewa" name="Disewa" fill="var(--color-primary-500)" radius={[4, 4, 0, 0]} />
+          <Bar dataKey="tersedia" name="Tersedia" fill="var(--color-success-500)" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -681,19 +681,19 @@ function PendapatanTab({ params }: { params: DateParams }) {
             <table className="w-full text-sm">
               <thead className="bg-canvas">
                 <tr>
-                  <th className="px-5 py-3 text-left font-medium text-ink-400">Periode</th>
-                  <th className="px-5 py-3 text-right font-medium text-ink-400">Order</th>
-                  <th className="px-5 py-3 text-right font-medium text-ink-400">Pendapatan</th>
-                  <th className="px-5 py-3 text-right font-medium text-ink-400">Denda</th>
+                  <th className="px-5 py-3 text-left font-medium text-black-400">Periode</th>
+                  <th className="px-5 py-3 text-right font-medium text-black-400">Order</th>
+                  <th className="px-5 py-3 text-right font-medium text-black-400">Pendapatan</th>
+                  <th className="px-5 py-3 text-right font-medium text-black-400">Denda</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-ink-200">
+              <tbody className="divide-y divide-black-200">
                 {pendapatan_periode.map((row) => (
                   <tr key={row.periode} className="transition-colors hover:bg-canvas">
-                    <td className="px-5 py-3 font-medium text-ink-900">{row.periode}</td>
-                    <td className="px-5 py-3 text-right text-ink-700">{row.total_order}</td>
-                    <td className="px-5 py-3 text-right font-mono text-ink-900">{formatRupiah(row.total_pendapatan)}</td>
-                    <td className="px-5 py-3 text-right font-mono text-ink-700">{formatRupiah(row.total_denda)}</td>
+                    <td className="px-5 py-3 font-medium text-black-900">{row.periode}</td>
+                    <td className="px-5 py-3 text-right text-black-700">{row.total_order}</td>
+                    <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(row.total_pendapatan)}</td>
+                    <td className="px-5 py-3 text-right font-mono text-black-700">{formatRupiah(row.total_denda)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -713,19 +713,19 @@ function PendapatanTab({ params }: { params: DateParams }) {
             <table className="w-full text-sm">
               <thead className="bg-canvas">
                 <tr>
-                  <th className="px-5 py-3 text-left font-medium text-ink-400">Kategori</th>
-                  <th className="px-5 py-3 text-right font-medium text-ink-400">Order</th>
-                  <th className="px-5 py-3 text-right font-medium text-ink-400">Pendapatan</th>
-                  <th className="px-5 py-3 text-right font-medium text-ink-400">Denda</th>
+                  <th className="px-5 py-3 text-left font-medium text-black-400">Kategori</th>
+                  <th className="px-5 py-3 text-right font-medium text-black-400">Order</th>
+                  <th className="px-5 py-3 text-right font-medium text-black-400">Pendapatan</th>
+                  <th className="px-5 py-3 text-right font-medium text-black-400">Denda</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-ink-200">
+              <tbody className="divide-y divide-black-200">
                 {pendapatan_kategori.map((row) => (
                   <tr key={row.nama_kategori} className="transition-colors hover:bg-canvas">
-                    <td className="px-5 py-3 font-medium text-ink-900">{row.nama_kategori}</td>
-                    <td className="px-5 py-3 text-right text-ink-700">{row.total_order}</td>
-                    <td className="px-5 py-3 text-right font-mono text-ink-900">{formatRupiah(row.total_pendapatan)}</td>
-                    <td className="px-5 py-3 text-right font-mono text-ink-700">{formatRupiah(row.total_denda)}</td>
+                    <td className="px-5 py-3 font-medium text-black-900">{row.nama_kategori}</td>
+                    <td className="px-5 py-3 text-right text-black-700">{row.total_order}</td>
+                    <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(row.total_pendapatan)}</td>
+                    <td className="px-5 py-3 text-right font-mono text-black-700">{formatRupiah(row.total_denda)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -792,25 +792,25 @@ function KendaraanTab({ params }: { params: DateParams }) {
           <table className="w-full text-sm">
             <thead className="bg-canvas">
               <tr>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">#</th>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">Nama</th>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">Plat</th>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">Kategori</th>
-                <th className="px-5 py-3 text-right font-medium text-ink-400">Harga/Hari</th>
-                <th className="px-5 py-3 text-right font-medium text-ink-400">Order</th>
-                <th className="px-5 py-3 text-right font-medium text-ink-400">Pendapatan</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">#</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">Nama</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">Plat</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">Kategori</th>
+                <th className="px-5 py-3 text-right font-medium text-black-400">Harga/Hari</th>
+                <th className="px-5 py-3 text-right font-medium text-black-400">Order</th>
+                <th className="px-5 py-3 text-right font-medium text-black-400">Pendapatan</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink-200">
+            <tbody className="divide-y divide-black-200">
               {kendaraan_terpopuler.map((k, i) => (
                 <tr key={k.id} className="transition-colors hover:bg-canvas">
-                  <td className="px-5 py-3 text-ink-400">{i + 1}</td>
-                  <td className="px-5 py-3 font-medium text-ink-900">{k.nama_kendaraan}</td>
-                  <td className="px-5 py-3 font-mono text-ink-700">{k.plat_nomor}</td>
-                  <td className="px-5 py-3 text-ink-700">{k.kategori?.nama_kategori ?? '-'}</td>
-                  <td className="px-5 py-3 text-right font-mono text-ink-900">{formatRupiah(k.harga_sewa_per_hari)}</td>
-                  <td className="px-5 py-3 text-right text-ink-900">{k.orders_count}</td>
-                  <td className="px-5 py-3 text-right font-mono text-ink-900">{formatRupiah(k.orders_sum_harga_total)}</td>
+                  <td className="px-5 py-3 text-black-400">{i + 1}</td>
+                  <td className="px-5 py-3 font-medium text-black-900">{k.nama_kendaraan}</td>
+                  <td className="px-5 py-3 font-mono text-black-700">{k.plat_nomor}</td>
+                  <td className="px-5 py-3 text-black-700">{k.kategori?.nama_kategori ?? '-'}</td>
+                  <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(k.harga_sewa_per_hari)}</td>
+                  <td className="px-5 py-3 text-right text-black-900">{k.orders_count}</td>
+                  <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(k.orders_sum_harga_total)}</td>
                 </tr>
               ))}
             </tbody>
@@ -857,21 +857,21 @@ function CustomerTab({ params }: { params: DateParams }) {
           <table className="w-full text-sm">
             <thead className="bg-canvas">
               <tr>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">#</th>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">Nama</th>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">No. HP</th>
-                <th className="px-5 py-3 text-right font-medium text-ink-400">Total Order</th>
-                <th className="px-5 py-3 text-right font-medium text-ink-400">Total Pengeluaran</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">#</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">Nama</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">No. HP</th>
+                <th className="px-5 py-3 text-right font-medium text-black-400">Total Order</th>
+                <th className="px-5 py-3 text-right font-medium text-black-400">Total Pengeluaran</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink-200">
+            <tbody className="divide-y divide-black-200">
               {customer_top.map((c, i) => (
                 <tr key={c.id} className="transition-colors hover:bg-canvas">
-                  <td className="px-5 py-3 text-ink-400">{i + 1}</td>
-                  <td className="px-5 py-3 font-medium text-ink-900">{c.nama_lengkap}</td>
-                  <td className="px-5 py-3 text-ink-700">{formatHpDisplay(c.no_hp)}</td>
-                  <td className="px-5 py-3 text-right text-ink-900">{c.orders_count}</td>
-                  <td className="px-5 py-3 text-right font-mono text-ink-900">{formatRupiah(c.orders_sum_harga_total)}</td>
+                  <td className="px-5 py-3 text-black-400">{i + 1}</td>
+                  <td className="px-5 py-3 font-medium text-black-900">{c.nama_lengkap}</td>
+                  <td className="px-5 py-3 text-black-700">{formatHpDisplay(c.no_hp)}</td>
+                  <td className="px-5 py-3 text-right text-black-900">{c.orders_count}</td>
+                  <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(c.orders_sum_harga_total)}</td>
                 </tr>
               ))}
             </tbody>
@@ -927,7 +927,7 @@ function OrderTab({ params }: { params: DateParams }) {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <SectionCard title="Status Order">
-          <div className="divide-y divide-ink-200">
+          <div className="divide-y divide-black-200">
             {order.status_order.length === 0 ? (
               <EmptyState />
             ) : (
@@ -936,7 +936,7 @@ function OrderTab({ params }: { params: DateParams }) {
                   <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[s.status_order]}`}>
                     {statusOrderLabels[s.status_order]}
                   </span>
-                  <span className="text-sm font-semibold text-ink-900">{s.total}</span>
+                  <span className="text-sm font-semibold text-black-900">{s.total}</span>
                 </div>
               ))
             )}
@@ -944,7 +944,7 @@ function OrderTab({ params }: { params: DateParams }) {
         </SectionCard>
 
         <SectionCard title="Status Pembayaran">
-          <div className="divide-y divide-ink-200">
+          <div className="divide-y divide-black-200">
             {order.status_pembayaran.length === 0 ? (
               <EmptyState />
             ) : (
@@ -953,7 +953,7 @@ function OrderTab({ params }: { params: DateParams }) {
                   <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[s.status_pembayaran]}`}>
                     {statusPembayaranLabels[s.status_pembayaran]}
                   </span>
-                  <span className="text-sm font-semibold text-ink-900">{s.total}</span>
+                  <span className="text-sm font-semibold text-black-900">{s.total}</span>
                 </div>
               ))
             )}
@@ -961,7 +961,7 @@ function OrderTab({ params }: { params: DateParams }) {
         </SectionCard>
 
         <SectionCard title="Status Pengiriman">
-          <div className="divide-y divide-ink-200">
+          <div className="divide-y divide-black-200">
             {order.status_pengiriman.length === 0 ? (
               <EmptyState />
             ) : (
@@ -970,7 +970,7 @@ function OrderTab({ params }: { params: DateParams }) {
                   <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[s.status_pengiriman]}`}>
                     {statusPengirimanLabels[s.status_pengiriman]}
                   </span>
-                  <span className="text-sm font-semibold text-ink-900">{s.total}</span>
+                  <span className="text-sm font-semibold text-black-900">{s.total}</span>
                 </div>
               ))
             )}
@@ -983,21 +983,21 @@ function OrderTab({ params }: { params: DateParams }) {
           <table className="w-full text-sm">
             <thead className="bg-canvas">
               <tr>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">Kode</th>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">Customer</th>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">Kendaraan</th>
-                <th className="px-5 py-3 text-right font-medium text-ink-400">Total</th>
-                <th className="px-5 py-3 text-center font-medium text-ink-400">Order</th>
-                <th className="px-5 py-3 text-center font-medium text-ink-400">Bayar</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">Kode</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">Customer</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">Kendaraan</th>
+                <th className="px-5 py-3 text-right font-medium text-black-400">Total</th>
+                <th className="px-5 py-3 text-center font-medium text-black-400">Order</th>
+                <th className="px-5 py-3 text-center font-medium text-black-400">Bayar</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink-200">
+            <tbody className="divide-y divide-black-200">
               {order_terbaru.map((o) => (
                 <tr key={o.id} className="transition-colors hover:bg-canvas">
-                  <td className="px-5 py-3 font-mono font-medium text-ink-900">{o.kode_order}</td>
-                  <td className="px-5 py-3 text-ink-700">{o.customer?.nama_lengkap}</td>
-                  <td className="px-5 py-3 text-ink-700">{o.kendaraan?.nama_kendaraan}</td>
-                  <td className="px-5 py-3 text-right font-mono text-ink-900">{formatRupiah(o.harga_total)}</td>
+                  <td className="px-5 py-3 font-mono font-medium text-black-900">{o.kode_order}</td>
+                  <td className="px-5 py-3 text-black-700">{o.customer?.nama_lengkap}</td>
+                  <td className="px-5 py-3 text-black-700">{o.kendaraan?.nama_kendaraan}</td>
+                  <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(o.harga_total)}</td>
                   <td className="px-5 py-3 text-center">
                     <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[o.status_order]}`}>
                       {statusOrderLabels[o.status_order]}
@@ -1067,29 +1067,29 @@ function BagiHasilTab({ params }: { params: DateParams }) {
           <table className="w-full text-sm">
             <thead className="bg-canvas">
               <tr>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">#</th>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">Nama Garasi</th>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">Pemilik</th>
-                <th className="px-5 py-3 text-center font-medium text-ink-400">Persentase</th>
-                <th className="px-5 py-3 text-right font-medium text-ink-400">Order</th>
-                <th className="px-5 py-3 text-right font-medium text-ink-400">Pendapatan</th>
-                <th className="px-5 py-3 text-right font-medium text-ink-400">Denda</th>
-                <th className="px-5 py-3 text-right font-medium text-ink-400">Bagi Hasil</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">#</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">Nama Garasi</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">Pemilik</th>
+                <th className="px-5 py-3 text-center font-medium text-black-400">Persentase</th>
+                <th className="px-5 py-3 text-right font-medium text-black-400">Order</th>
+                <th className="px-5 py-3 text-right font-medium text-black-400">Pendapatan</th>
+                <th className="px-5 py-3 text-right font-medium text-black-400">Denda</th>
+                <th className="px-5 py-3 text-right font-medium text-black-400">Bagi Hasil</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink-200">
+            <tbody className="divide-y divide-black-200">
               {rows.map((r, i) => (
                 <tr key={r.partner_id} className="transition-colors hover:bg-canvas">
-                  <td className="px-5 py-3 text-ink-400">{i + 1}</td>
-                  <td className="px-5 py-3 font-medium text-ink-900">{r.nama_garasi}</td>
-                  <td className="px-5 py-3 text-ink-700">{r.nama_pemilik}</td>
+                  <td className="px-5 py-3 text-black-400">{i + 1}</td>
+                  <td className="px-5 py-3 font-medium text-black-900">{r.nama_garasi}</td>
+                  <td className="px-5 py-3 text-black-700">{r.nama_pemilik}</td>
                   <td className="px-5 py-3 text-center">
-                    <span className="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-medium text-brand-600">{r.persentase}%</span>
+                    <span className="rounded-full bg-primary-100 px-2.5 py-1 text-xs font-medium text-primary-600">{r.persentase}%</span>
                   </td>
-                  <td className="px-5 py-3 text-right text-ink-900">{r.total_order}</td>
-                  <td className="px-5 py-3 text-right font-mono text-ink-900">{formatRupiah(r.total_pendapatan)}</td>
-                  <td className="px-5 py-3 text-right font-mono text-ink-700">{formatRupiah(r.total_denda)}</td>
-                  <td className="px-5 py-3 text-right font-mono font-semibold text-ink-900">{formatRupiah(r.total_bagi_hasil)}</td>
+                  <td className="px-5 py-3 text-right text-black-900">{r.total_order}</td>
+                  <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(r.total_pendapatan)}</td>
+                  <td className="px-5 py-3 text-right font-mono text-black-700">{formatRupiah(r.total_denda)}</td>
+                  <td className="px-5 py-3 text-right font-mono font-semibold text-black-900">{formatRupiah(r.total_bagi_hasil)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1149,23 +1149,23 @@ function KomisiCaloTab({ params }: { params: DateParams }) {
           <table className="w-full text-sm">
             <thead className="bg-canvas">
               <tr>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">#</th>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">Nama Calo</th>
-                <th className="px-5 py-3 text-left font-medium text-ink-400">No. HP</th>
-                <th className="px-5 py-3 text-right font-medium text-ink-400">Order</th>
-                <th className="px-5 py-3 text-right font-medium text-ink-400">Pendapatan</th>
-                <th className="px-5 py-3 text-right font-medium text-ink-400">Komisi</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">#</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">Nama Calo</th>
+                <th className="px-5 py-3 text-left font-medium text-black-400">No. HP</th>
+                <th className="px-5 py-3 text-right font-medium text-black-400">Order</th>
+                <th className="px-5 py-3 text-right font-medium text-black-400">Pendapatan</th>
+                <th className="px-5 py-3 text-right font-medium text-black-400">Komisi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-ink-200">
+            <tbody className="divide-y divide-black-200">
               {rows.map((r, i) => (
                 <tr key={r.calo_id} className="transition-colors hover:bg-canvas">
-                  <td className="px-5 py-3 text-ink-400">{i + 1}</td>
-                  <td className="px-5 py-3 font-medium text-ink-900">{r.nama}</td>
-                  <td className="px-5 py-3 text-ink-700">{r.no_hp}</td>
-                  <td className="px-5 py-3 text-right text-ink-900">{r.total_order}</td>
-                  <td className="px-5 py-3 text-right font-mono text-ink-900">{formatRupiah(r.total_pendapatan)}</td>
-                  <td className="px-5 py-3 text-right font-mono font-semibold text-ink-900">{formatRupiah(r.total_komisi)}</td>
+                  <td className="px-5 py-3 text-black-400">{i + 1}</td>
+                  <td className="px-5 py-3 font-medium text-black-900">{r.nama}</td>
+                  <td className="px-5 py-3 text-black-700">{r.no_hp}</td>
+                  <td className="px-5 py-3 text-right text-black-900">{r.total_order}</td>
+                  <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(r.total_pendapatan)}</td>
+                  <td className="px-5 py-3 text-right font-mono font-semibold text-black-900">{formatRupiah(r.total_komisi)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1262,16 +1262,16 @@ export default function Laporan() {
   return (
     <div className="space-y-6">
       {/* Header — gradasi ink gelap ke brand, senada dengan Sidebar */}
-      <div className="rounded-2xl bg-gradient-to-r from-ink-900 via-ink-800 to-brand-700 p-6 text-white shadow-sm sm:p-7">
+      <div className="rounded-2xl bg-gradient-to-r from-black-900 via-black-800 to-primary-700 p-6 text-white shadow-sm sm:p-7">
         <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
             <h1 className="font-display text-2xl font-bold">Laporan</h1>
-            <p className="mt-1 text-sm text-ink-200">Pantau performa order, pendapatan, dan customer dalam satu tempat.</p>
+            <p className="mt-1 text-sm text-black-200">Pantau performa order, pendapatan, dan customer dalam satu tempat.</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 backdrop-blur">
-              <label htmlFor="start_date" className="text-xs font-medium text-ink-200">
+              <label htmlFor="start_date" className="text-xs font-medium text-black-200">
                 Dari
               </label>
               <input
@@ -1283,7 +1283,7 @@ export default function Laporan() {
               />
             </div>
             <div className="flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 backdrop-blur">
-              <label htmlFor="end_date" className="text-xs font-medium text-ink-200">
+              <label htmlFor="end_date" className="text-xs font-medium text-black-200">
                 Sampai
               </label>
               <input
@@ -1305,7 +1305,7 @@ export default function Laporan() {
             <button
               onClick={() => handleDownload('xlsx')}
               disabled={exporting}
-              className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-brand-600 shadow-sm transition-colors hover:bg-ink-200 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-sm font-medium text-primary-600 shadow-sm transition-colors hover:bg-black-200 disabled:opacity-50"
             >
               {exporting ? 'Mengunduh...' : 'Excel'}
             </button>
@@ -1313,7 +1313,7 @@ export default function Laporan() {
             <button
               onClick={handleDownloadAll}
               disabled={exporting}
-              className="flex items-center gap-1.5 rounded-lg bg-avail-500 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-avail-600 disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-accent-500 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent-600 disabled:opacity-50"
             >
               {exporting ? 'Mengunduh...' : 'Download Semua'}
             </button>
@@ -1328,7 +1328,7 @@ export default function Laporan() {
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-              activeTab === tab.key ? 'bg-surface text-brand-600 shadow-sm' : 'text-ink-400 hover:text-ink-700'
+              activeTab === tab.key ? 'bg-surface text-primary-600 shadow-sm' : 'text-black-400 hover:text-black-700'
             }`}
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1339,7 +1339,7 @@ export default function Laporan() {
         ))}
       </div>
 
-      <div className="text-xs text-ink-400">
+      <div className="text-xs text-black-400">
         Periode: {startDate} s/d {endDate}
       </div>
 

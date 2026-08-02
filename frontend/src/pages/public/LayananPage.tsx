@@ -14,14 +14,14 @@ export default function LayananPage() {
   return (
     <div className="min-h-screen">
       {/* Hero */}
-      <section className="bg-ink-950 py-20 sm:py-28">
+      <section className="bg-black py-20 sm:py-28">
         <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20">
           <AnimatedSection>
-            <span className="text-[11px] font-semibold tracking-widest uppercase text-brand-400 mb-4 block">Layanan Kami</span>
+            <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-400 mb-4 block">Layanan Kami</span>
             <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight max-w-2xl">
               Solusi Transportasi Komprehensif
             </h1>
-            <p className="mt-5 text-ink-400 text-[15px] leading-relaxed max-w-xl">
+            <p className="mt-5 text-black-400 text-[15px] leading-relaxed max-w-xl">
               Beragam layanan yang dirancang untuk memenuhi kebutuhan mobilitas korporat, pemerintah, maupun individu.
             </p>
           </AnimatedSection>
@@ -33,21 +33,21 @@ export default function LayananPage() {
         <div className="space-y-8">
           {services.map((s, i) => (
             <AnimatedSection key={s.slug} delay={i * 0.06}>
-              <Link to={`/layanan/${s.slug}`} className="group block bg-white rounded-[24px] border border-gray-100 p-8 sm:p-10 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5">
+              <Link to={`/layanan/${s.slug}`} className="group block bg-white rounded-[24px] border border-accent-100 p-8 sm:p-10 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-6">
-                  <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-brand-50 transition-colors">
-                    <s.icon size={24} className="text-ink-950 group-hover:text-brand-600 transition-colors" strokeWidth={1.5} />
+                  <div className="w-14 h-14 bg-canvas rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-primary-50 transition-colors">
+                    <s.icon size={24} className="text-black group-hover:text-primary-600 transition-colors" strokeWidth={1.5} />
                   </div>
                   <div className="flex-1">
-                    <h2 className="font-display text-xl font-bold text-ink-950 group-hover:text-brand-600 transition-colors">{s.title}</h2>
-                    <p className="mt-2 text-ink-400 text-[15px] leading-relaxed max-w-2xl">{s.desc}</p>
+                    <h2 className="font-display text-xl font-bold text-black group-hover:text-primary-600 transition-colors">{s.title}</h2>
+                    <p className="mt-2 text-black-400 text-[15px] leading-relaxed max-w-2xl">{s.desc}</p>
                     <div className="flex flex-wrap gap-2 mt-4">
                       {s.highlights.map((h) => (
-                        <span key={h} className="px-3 py-1 bg-gray-50 text-[12px] font-medium text-ink-500 rounded-lg">{h}</span>
+                        <span key={h} className="px-3 py-1 bg-canvas text-[12px] font-medium text-black-500 rounded-lg">{h}</span>
                       ))}
                     </div>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand-600 shrink-0 group-hover:gap-2.5 transition-all">
+                  <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-primary-600 shrink-0 group-hover:gap-2.5 transition-all">
                     Selengkapnya <ArrowRight size={14} />
                   </span>
                 </div>
@@ -58,13 +58,13 @@ export default function LayananPage() {
       </section>
 
       {/* Rental Mobil CTA */}
-      <section className="bg-gray-50 py-20 sm:py-28">
+      <section className="bg-canvas py-20 sm:py-28">
         <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20">
           <AnimatedSection className="text-center">
-            <Car size={32} className="text-ink-950 mx-auto mb-4" strokeWidth={1.5} />
-            <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink-950 tracking-tight">Rental Mobil Mandiri</h2>
-            <p className="mt-3 text-ink-400 text-[15px] max-w-md mx-auto">Sewa kendaraan harian, mingguan, dan bulanan tanpa sopir. Armada terawat, harga transparan.</p>
-            <Link to="/katalog" className="inline-flex items-center gap-2 mt-8 px-6 py-3 bg-ink-950 text-white text-sm font-semibold rounded-lg hover:bg-ink-800 transition-colors">
+            <Car size={32} className="text-black mx-auto mb-4" strokeWidth={1.5} />
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-black tracking-tight">Rental Mobil Mandiri</h2>
+            <p className="mt-3 text-black-400 text-[15px] max-w-md mx-auto">Sewa kendaraan harian, mingguan, dan bulanan tanpa sopir. Armada terawat, harga transparan.</p>
+            <Link to="/katalog" className="inline-flex items-center gap-2 mt-8 px-6 py-3 bg-black text-white text-sm font-semibold rounded-lg hover:bg-black-800 transition-colors">
               Lihat Armada <ArrowRight size={15} />
             </Link>
           </AnimatedSection>

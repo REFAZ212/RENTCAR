@@ -40,28 +40,28 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen">
       {/* Hero */}
-      <section className="bg-ink-950 relative overflow-hidden">
+      <section className="bg-black relative overflow-hidden">
         <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover">
           <source src={heroVideo} type="video/mp4" />
         </video>
         <div className="absolute inset-0 bg-black/60" />
         <div className="max-w-[1600px] mx-auto px-8 sm:px-12 lg:px-24 py-20 sm:py-28 relative">
           <AnimatedSection>
-            <span className="text-[11px] font-semibold tracking-widest uppercase text-brand-400 mb-4 block">
+            <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-400 mb-4 block">
               Rental Kendaraan Terpercaya
             </span>
             <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight max-w-3xl">
               Solusi Mobilitas
               <br />
-              <span className="text-brand-400">Untuk Kebutuhan Anda</span>
+              <span className="text-primary-400">Untuk Kebutuhan Anda</span>
             </h1>
-            <p className="mt-5 text-ink-400 text-[15px] leading-relaxed max-w-xl">
+            <p className="mt-5 text-black-400 text-[15px] leading-relaxed max-w-xl">
               Armada lengkap, harga transparan, proses cepat. Tersedia mobil dan motor untuk kebutuhan harian, wisata, hingga bisnis di seluruh Indonesia.
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 to="/katalog"
-                className="px-6 py-3 bg-brand-600 text-white font-semibold rounded-xl hover:bg-brand-700 transition-colors shadow-lg shadow-brand-600/25 inline-flex items-center gap-2"
+                className="px-6 py-3 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 transition-colors shadow-lg shadow-primary-600/25 inline-flex items-center gap-2"
               >
                 Lihat Katalog
                 <ArrowRight className="w-4 h-4" />
@@ -80,17 +80,17 @@ export default function LandingPage() {
       </section>
 
       {/* Features */}
-      <section className="bg-white border-b border-gray-100">
+      <section className="bg-white border-b border-accent-100">
         <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20 py-14">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
             {features.map((f, i) => (
               <AnimatedSection key={i} delay={i * 0.1}>
                 <div className="flex flex-col items-center text-center gap-3">
-                  <div className="w-12 h-12 bg-brand-50 rounded-xl flex items-center justify-center">
-                    <f.icon className="w-5 h-5 text-brand-600" />
+                  <div className="w-12 h-12 bg-primary-50 rounded-xl flex items-center justify-center">
+                    <f.icon className="w-5 h-5 text-primary-600" />
                   </div>
-                  <h3 className="font-semibold text-ink-950">{f.title}</h3>
-                  <p className="text-sm text-ink-400 leading-relaxed">{f.desc}</p>
+                  <h3 className="font-semibold text-black">{f.title}</h3>
+                  <p className="text-sm text-black-400 leading-relaxed">{f.desc}</p>
                 </div>
               </AnimatedSection>
             ))}
@@ -100,16 +100,16 @@ export default function LandingPage() {
 
       {/* Kategori */}
       {kategoris.length > 0 && (
-        <section className="bg-gray-50">
+        <section className="bg-canvas">
           <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20 py-16">
             <AnimatedSection>
-              <span className="text-[11px] font-semibold tracking-widest uppercase text-brand-500 mb-3 block">
+              <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-500 mb-3 block">
                 Kategori
               </span>
-              <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink-950 tracking-tight">
+              <h2 className="font-display text-2xl sm:text-3xl font-bold text-black tracking-tight">
                 Pilih Berdasarkan Kebutuhan
               </h2>
-              <p className="mt-2 text-ink-400 text-[15px]">
+              <p className="mt-2 text-black-400 text-[15px]">
                 Tersedia berbagai pilihan kategori kendaraan
               </p>
             </AnimatedSection>
@@ -118,12 +118,12 @@ export default function LandingPage() {
                 <AnimatedSection key={k.id} delay={i * 0.05}>
                   <Link
                     to="/katalog"
-                    className="group block bg-white rounded-xl border border-gray-200 p-5 text-center hover:border-brand-300 hover:shadow-md transition-all"
+                    className="group block bg-white rounded-xl border border-black-200 p-5 text-center hover:border-primary-400 hover:shadow-md transition-all"
                   >
-                    <div className="w-12 h-12 bg-brand-50 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-brand-100 transition-colors">
-                      <Car className="w-5 h-5 text-brand-600" />
+                    <div className="w-12 h-12 bg-primary-50 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-primary-100 transition-colors">
+                      <Car className="w-5 h-5 text-primary-600" />
                     </div>
-                    <h3 className="font-semibold text-ink-950 text-sm">{k.nama_kategori}</h3>
+                    <h3 className="font-semibold text-black text-sm">{k.nama_kategori}</h3>
                   </Link>
                 </AnimatedSection>
               ))}
@@ -139,16 +139,16 @@ export default function LandingPage() {
             <AnimatedSection>
               <div className="flex items-end justify-between mb-8">
                 <div>
-                  <span className="text-[11px] font-semibold tracking-widest uppercase text-brand-500 mb-3 block">
+                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-500 mb-3 block">
                     Armada Kami
                   </span>
-                  <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink-950 tracking-tight">
+                  <h2 className="font-display text-2xl sm:text-3xl font-bold text-black tracking-tight">
                     Kendaraan Terbaru
                   </h2>
                 </div>
                 <Link
                   to="/katalog"
-                  className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 transition-colors"
+                  className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-primary-600 hover:text-primary-700 transition-colors"
                 >
                   Lihat Semua
                   <ArrowRight className="w-4 h-4" />
@@ -158,12 +158,12 @@ export default function LandingPage() {
             {loading ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-xl border border-gray-200 overflow-hidden animate-pulse">
-                    <div className="h-44 bg-gray-200" />
+                  <div key={i} className="bg-white rounded-xl border border-black-200 overflow-hidden animate-pulse">
+                    <div className="h-44 bg-black-200" />
                     <div className="p-4 space-y-3">
-                      <div className="h-5 bg-gray-200 rounded w-3/4" />
-                      <div className="h-4 bg-gray-200 rounded w-1/2" />
-                      <div className="h-4 bg-gray-200 rounded w-2/3" />
+                      <div className="h-5 bg-black-200 rounded w-3/4" />
+                      <div className="h-4 bg-black-200 rounded w-1/2" />
+                      <div className="h-4 bg-black-200 rounded w-2/3" />
                     </div>
                   </div>
                 ))}
@@ -176,9 +176,9 @@ export default function LandingPage() {
                     <Link
                       key={item.id}
                       to={`/katalog/${item.id}`}
-                      className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-lg hover:border-brand-200 transition-all"
+                      className="group bg-white rounded-xl border border-black-200 overflow-hidden hover:shadow-lg hover:border-primary-200 transition-all"
                     >
-                      <div className="relative h-44 bg-gray-100 overflow-hidden">
+                      <div className="relative h-44 bg-accent-100 overflow-hidden">
                         {fotoUrl ? (
                           <img
                             src={fotoUrl}
@@ -188,30 +188,30 @@ export default function LandingPage() {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <Car className="w-10 h-10 text-gray-300" />
+                            <Car className="w-10 h-10 text-black-200" />
                           </div>
                         )}
                         {item.tipe && (
-                          <span className="absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur-sm text-xs font-semibold text-gray-700 rounded-lg uppercase">
+                          <span className="absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur-sm text-xs font-semibold text-black-700 rounded-lg uppercase">
                             {item.tipe.nama_tipe}
                           </span>
                         )}
                       </div>
                       <div className="p-4">
-                        <h3 className="font-bold text-ink-950 group-hover:text-brand-600 transition-colors line-clamp-1">
+                        <h3 className="font-bold text-black group-hover:text-primary-600 transition-colors line-clamp-1">
                           {item.nama_kendaraan}
                         </h3>
-                        <p className="text-sm text-ink-400 mt-0.5">
+                        <p className="text-sm text-black-400 mt-0.5">
                           {item.merek} {item.model} &middot; {item.tahun}
                         </p>
-                        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-                          <span className="text-lg font-bold text-brand-600">
+                        <div className="mt-3 pt-3 border-t border-accent-100 flex items-center justify-between">
+                          <span className="text-lg font-bold text-primary-600">
                             {formatRupiah(item.harga_sewa_per_hari)}
-                            <span className="text-xs text-ink-400 font-normal">/hari</span>
+                            <span className="text-xs text-black-400 font-normal">/hari</span>
                           </span>
-                          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-green-50 text-green-700">
-                            Tersedia
-                          </span>
+<span className="text-xs font-medium px-2.5 py-1 rounded-full bg-success-50 text-success-600">
+                              Tersedia
+                           </span>
                         </div>
                       </div>
                     </Link>
@@ -222,7 +222,7 @@ export default function LandingPage() {
             <div className="mt-8 text-center sm:hidden">
               <Link
                 to="/katalog"
-                className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-700 transition-colors"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-600 hover:text-primary-700 transition-colors"
               >
                 Lihat Semua Kendaraan
                 <ArrowRight className="w-4 h-4" />
@@ -233,13 +233,13 @@ export default function LandingPage() {
       )}
 
       {/* CTA */}
-      <section className="bg-brand-600">
+      <section className="bg-primary-600">
         <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20 py-14 text-center">
           <AnimatedSection>
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">
               Butuh Kendaraan Sekarang?
             </h2>
-            <p className="mt-3 text-brand-100">
+            <p className="mt-3 text-primary-100">
               Hubungi kami via WhatsApp untuk konsultasi dan pemesanan cepat
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
@@ -247,7 +247,7 @@ export default function LandingPage() {
                 href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20butuh%20kendaraan%20untuk%20disewa`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-8 py-3 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 transition-colors shadow-lg"
+                className="inline-flex items-center gap-2 px-8 py-3 bg-success-500 text-white font-semibold rounded-xl hover:bg-success-600 transition-colors shadow-lg"
               >
                 <Phone className="w-5 h-5" />
                 Chat WhatsApp
