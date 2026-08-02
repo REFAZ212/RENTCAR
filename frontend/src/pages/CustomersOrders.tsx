@@ -12,13 +12,13 @@ export default function CustomersOrders() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg w-fit">
+      <div className="flex items-center gap-1 bg-accent-100 p-1 rounded-lg w-fit">
         {tabs.map((tab) => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)}
             className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
               activeTab === tab.key
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
+                ? 'bg-white text-primary-600 shadow-sm'
+                : 'text-black-400 hover:text-black-700'
             }`}>
             {tab.icon}
             {tab.label}

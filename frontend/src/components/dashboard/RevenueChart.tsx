@@ -34,20 +34,20 @@ export default function RevenueChart({ data, activeRange, onRangeChange }: Reven
   };
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-accent-100 bg-white p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="font-display text-lg font-semibold text-ink-900">Rentals & Revenue</h2>
-          <p className="mt-1 text-sm text-gray-500">Jumlah penyewaan dan pendapatan {range === 'Harian' ? 'per hari' : range === 'Mingguan' ? 'per minggu' : 'per bulan'} (dalam juta Rupiah)</p>
+          <h2 className="font-display text-lg font-semibold text-black-900">Rentals & Revenue</h2>
+          <p className="mt-1 text-sm text-black-400">Jumlah penyewaan dan pendapatan {range === 'Harian' ? 'per hari' : range === 'Mingguan' ? 'per minggu' : 'per bulan'} (dalam juta Rupiah)</p>
         </div>
 
-        <div className="flex items-center rounded-lg border border-gray-200 p-1">
+        <div className="flex items-center rounded-lg border border-black-200 p-1">
           {ranges.map((r) => (
             <button
               key={r}
               onClick={() => handleRange(r)}
               className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                range === r ? 'bg-ink-900 text-white' : 'text-gray-500 hover:text-gray-700'
+                range === r ? 'bg-black-900 text-white' : 'text-black-400 hover:text-black-700'
               }`}
             >
               {r}
@@ -57,23 +57,23 @@ export default function RevenueChart({ data, activeRange, onRangeChange }: Reven
       </div>
 
       {!data || data.length === 0 ? (
-        <div className="mt-6 flex h-72 flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 text-center">
-          <BarChart3 size={36} className="text-gray-300 mb-2" strokeWidth={1.5} />
-          <p className="text-sm text-gray-500 font-medium">Data tren pendapatan belum tersedia</p>
-          <p className="text-xs text-gray-400 mt-1 max-w-xs">
+        <div className="mt-6 flex h-72 flex-col items-center justify-center rounded-xl border border-dashed border-black-200 text-center">
+          <BarChart3 size={36} className="text-black-200 mb-2" strokeWidth={1.5} />
+          <p className="text-sm text-black-400 font-medium">Data tren pendapatan belum tersedia</p>
+          <p className="text-xs text-black-400 mt-1 max-w-xs">
             Backend perlu menambahkan field <code className="font-mono">chart_pendapatan</code> di endpoint{' '}
             <code className="font-mono">/api/dashboard</code>.
           </p>
         </div>
       ) : (
         <>
-          <div className="mt-4 flex items-center gap-5 text-sm text-gray-600">
+          <div className="mt-4 flex items-center gap-5 text-sm text-black-400">
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-brand-500" />
+              <span className="h-2 w-2 rounded-full bg-primary-500" />
               Pendapatan (Jt)
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-ink-700" />
+              <span className="h-2 w-2 rounded-full bg-black-700" />
               Jumlah Sewa
             </span>
           </div>
@@ -81,28 +81,28 @@ export default function RevenueChart({ data, activeRange, onRangeChange }: Reven
           <div className="mt-6 h-80 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={data} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="bulan" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
-                <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af', fontSize: 12 }} />
+                <CartesianGrid vertical={false} stroke="#e0e0e0" />
+                <XAxis dataKey="bulan" axisLine={false} tickLine={false} tick={{ fill: '#999999', fontSize: 12 }} />
+                <YAxis yAxisId="left" axisLine={false} tickLine={false} tick={{ fill: '#999999', fontSize: 12 }} />
                 <YAxis
                   yAxisId="right"
                   orientation="right"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fill: '#9ca3af', fontSize: 12 }}
+                  tick={{ fill: '#999999', fontSize: 12 }}
                 />
                 <Tooltip
-                  contentStyle={{ borderRadius: 12, border: '1px solid #f1f5f9', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}
+                  contentStyle={{ borderRadius: 12, border: '1px solid #e0e0e0', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' }}
                 />
-                <Bar yAxisId="left" dataKey="jumlah_sewa" name="Jumlah Sewa" fill="#2b3742" radius={[6, 6, 0, 0]} barSize={18} />
+                <Bar yAxisId="left" dataKey="jumlah_sewa" name="Jumlah Sewa" fill="#2a2a2a" radius={[6, 6, 0, 0]} barSize={18} />
                 <Line
                   yAxisId="right"
                   type="monotone"
                   dataKey="pendapatan"
                   name="Pendapatan (Jt)"
-                  stroke="#2f4b8f"
+                  stroke="#15459A"
                   strokeWidth={3}
-                  dot={{ r: 3, fill: '#2f4b8f' }}
+                  dot={{ r: 3, fill: '#15459A' }}
                 />
               </ComposedChart>
             </ResponsiveContainer>

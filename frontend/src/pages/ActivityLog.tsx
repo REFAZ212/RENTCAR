@@ -22,9 +22,9 @@ const eventLabels: Record<string, string> = {
 };
 
 const eventColors: Record<string, string> = {
-  created: 'bg-avail-50 text-avail-600',
-  updated: 'bg-brand-50 text-brand-500',
-  deleted: 'bg-maint-50 text-maint-600',
+  created: 'bg-accent-50 text-accent-600',
+  updated: 'bg-primary-50 text-primary-500',
+  deleted: 'bg-error-50 text-error-600',
 };
 
 function formatSubjectType(type: string | null): string {
@@ -107,12 +107,12 @@ export default function ActivityLogPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-ink-900">Aktivitas Sistem</h1>
-          <p className="text-sm text-ink-500">{total} aktivitas tercatat</p>
+          <h1 className="text-2xl font-bold text-black-900">Aktivitas Sistem</h1>
+          <p className="text-sm text-black-500">{total} aktivitas tercatat</p>
         </div>
         <button
           onClick={fetchLogs}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-ink-700 hover:bg-gray-50"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-black-200 rounded-lg text-sm font-medium text-black-700 hover:bg-canvas"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           Refresh
@@ -127,11 +127,11 @@ export default function ActivityLogPage() {
             placeholder="Cari aktivitas..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            className="flex-1 px-3 py-2 border border-black-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
           <button
             type="submit"
-            className="px-4 py-2 bg-brand-500 text-white rounded-lg text-sm font-medium hover:bg-brand-600"
+            className="px-4 py-2 bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-600"
           >
             Cari
           </button>
@@ -139,7 +139,7 @@ export default function ActivityLogPage() {
         <select
           value={filterSubject}
           onChange={(e) => { setFilterSubject(e.target.value); setPage(1); }}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="px-3 py-2 border border-black-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
           <option value="">Semua Model</option>
           {Object.entries(subjectTypeLabels).map(([key, label]) => (
@@ -149,7 +149,7 @@ export default function ActivityLogPage() {
         <select
           value={filterEvent}
           onChange={(e) => { setFilterEvent(e.target.value); setPage(1); }}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500"
+          className="px-3 py-2 border border-black-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
           <option value="">Semua Event</option>
           <option value="created">Dibuat</option>
@@ -159,13 +159,13 @@ export default function ActivityLogPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl border border-black-200 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
           </div>
         ) : logs.length === 0 ? (
-          <div className="py-20 text-center text-ink-400">
+          <div className="py-20 text-center text-black-400">
             <p className="text-lg font-medium">Tidak ada aktivitas</p>
             <p className="text-sm mt-1">Belum ada aktivitas sistem yang tercatat.</p>
           </div>
@@ -173,38 +173,38 @@ export default function ActivityLogPage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100">
-                  <th className="text-left px-4 py-3 font-medium text-ink-600">Waktu</th>
-                  <th className="text-left px-4 py-3 font-medium text-ink-600">Event</th>
-                  <th className="text-left px-4 py-3 font-medium text-ink-600">Model</th>
-                  <th className="text-left px-4 py-3 font-medium text-ink-600">Oleh</th>
-                  <th className="text-left px-4 py-3 font-medium text-ink-600">Detail</th>
+                <tr className="bg-canvas border-b border-accent-100">
+                  <th className="text-left px-4 py-3 font-medium text-black-600">Waktu</th>
+                  <th className="text-left px-4 py-3 font-medium text-black-600">Event</th>
+                  <th className="text-left px-4 py-3 font-medium text-black-600">Model</th>
+                  <th className="text-left px-4 py-3 font-medium text-black-600">Oleh</th>
+                  <th className="text-left px-4 py-3 font-medium text-black-600">Detail</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-black-200">
                 {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="px-4 py-3 text-ink-500 whitespace-nowrap">
+                  <tr key={log.id} className="hover:bg-canvas/50 transition-colors">
+                    <td className="px-4 py-3 text-black-500 whitespace-nowrap">
                       {new Date(log.created_at).toLocaleString('id-ID', {
                         day: '2-digit', month: 'short', year: 'numeric',
                         hour: '2-digit', minute: '2-digit',
                       })}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${eventColors[log.event ?? ''] ?? 'bg-gray-100 text-gray-600'}`}>
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${eventColors[log.event ?? ''] ?? 'bg-accent-100 text-black-400'}`}>
                         {eventLabels[log.event ?? ''] ?? log.event}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="font-medium text-ink-800">{formatSubjectType(log.subject_type)}</span>
+                      <span className="font-medium text-black-800">{formatSubjectType(log.subject_type)}</span>
                       {log.subject_id && (
-                        <span className="ml-1 text-ink-400">#{log.subject_id}</span>
+                        <span className="ml-1 text-black-400">#{log.subject_id}</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-ink-600">
+                    <td className="px-4 py-3 text-black-600">
                       {log.causer?.name ?? '-'}
                     </td>
-                    <td className="px-4 py-3 text-ink-500 max-w-xs truncate" title={formatProperties(log.properties, log.event)}>
+                    <td className="px-4 py-3 text-black-500 max-w-xs truncate" title={formatProperties(log.properties, log.event)}>
                       {formatProperties(log.properties, log.event) || log.description}
                     </td>
                   </tr>
@@ -217,20 +217,20 @@ export default function ActivityLogPage() {
 
       {/* Pagination */}
       {lastPage > 1 && (
-        <div className="flex items-center justify-between text-sm text-ink-500">
+        <div className="flex items-center justify-between text-sm text-black-500">
           <span>Halaman {page} dari {lastPage}</span>
           <div className="flex gap-2">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page <= 1}
-              className="px-3 py-1.5 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+              className="px-3 py-1.5 border border-black-200 rounded-lg disabled:opacity-40 hover:bg-canvas"
             >
               Sebelumnya
             </button>
             <button
               onClick={() => setPage((p) => Math.min(lastPage, p + 1))}
               disabled={page >= lastPage}
-              className="px-3 py-1.5 border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50"
+              className="px-3 py-1.5 border border-black-200 rounded-lg disabled:opacity-40 hover:bg-canvas"
             >
               Selanjutnya
             </button>

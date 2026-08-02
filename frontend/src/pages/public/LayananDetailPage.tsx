@@ -80,9 +80,9 @@ export default function LayananDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="font-display text-2xl font-bold text-ink-950 mb-2">Layanan Tidak Ditemukan</h1>
-          <p className="text-ink-400 text-sm mb-6">Layanan yang Anda cari belum tersedia.</p>
-          <Link to="/layanan" className="inline-flex items-center gap-2 text-sm font-semibold text-brand-600 hover:text-brand-700">
+          <h1 className="font-display text-2xl font-bold text-black mb-2">Layanan Tidak Ditemukan</h1>
+          <p className="text-black-400 text-sm mb-6">Layanan yang Anda cari belum tersedia.</p>
+          <Link to="/layanan" className="inline-flex items-center gap-2 text-sm font-semibold text-primary-600 hover:text-primary-700">
             <ArrowRight size={14} className="rotate-180" /> Kembali ke Layanan
           </Link>
         </div>
@@ -93,17 +93,17 @@ export default function LayananDetailPage() {
   return (
     <div className="min-h-screen">
       {/* Hero */}
-      <section className="bg-ink-950 py-20 sm:py-28">
+      <section className="bg-black py-20 sm:py-28">
         <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20">
           <AnimatedSection>
-            <Link to="/layanan" className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ink-400 hover:text-white transition-colors mb-6">
+            <Link to="/layanan" className="inline-flex items-center gap-1.5 text-[12px] font-medium text-black-400 hover:text-white transition-colors mb-6">
               <ArrowRight size={12} className="rotate-180" /> Semua Layanan
             </Link>
-            <span className="text-[11px] font-semibold tracking-widest uppercase text-brand-400 mb-4 block">{data.subtitle}</span>
+            <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-400 mb-4 block">{data.subtitle}</span>
             <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight max-w-2xl">
               {data.title}
             </h1>
-            <p className="mt-5 text-ink-400 text-[15px] leading-relaxed max-w-xl">{data.desc}</p>
+            <p className="mt-5 text-black-400 text-[15px] leading-relaxed max-w-xl">{data.desc}</p>
           </AnimatedSection>
         </div>
       </section>
@@ -113,10 +113,10 @@ export default function LayananDetailPage() {
         <div className="grid sm:grid-cols-2 gap-5">
           {data.features.map((f, i) => (
             <AnimatedSection key={f.title} delay={i * 0.06}>
-              <div className="bg-white rounded-[20px] border border-gray-100 p-7 hover:shadow-lg hover:shadow-black/5 transition-all duration-200 h-full">
-                <CheckCircle2 size={18} className="text-avail-500 mb-4" />
-                <h3 className="font-semibold text-ink-950 text-[15px]">{f.title}</h3>
-                <p className="mt-2 text-ink-400 text-sm leading-relaxed">{f.desc}</p>
+              <div className="bg-white rounded-[20px] border border-accent-100 p-7 hover:shadow-lg hover:shadow-black/5 transition-all duration-200 h-full">
+                <CheckCircle2 size={18} className="text-accent-500 mb-4" />
+                <h3 className="font-semibold text-black text-[15px]">{f.title}</h3>
+                <p className="mt-2 text-black-400 text-sm leading-relaxed">{f.desc}</p>
               </div>
             </AnimatedSection>
           ))}
@@ -124,20 +124,20 @@ export default function LayananDetailPage() {
       </section>
 
       {/* CTA */}
-      <section className="bg-gray-50 py-20 sm:py-28">
+      <section className="bg-canvas py-20 sm:py-28">
         <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20 text-center">
           <AnimatedSection>
-            <h2 className="font-display text-2xl sm:text-3xl font-bold text-ink-950 tracking-tight">Tertarik dengan {data.title}?</h2>
-            <p className="mt-3 text-ink-400 text-[15px] max-w-md mx-auto">Hubungi kami untuk konsultasi dan penawaran harga terbaik.</p>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-black tracking-tight">Tertarik dengan {data.title}?</h2>
+            <p className="mt-3 text-black-400 text-[15px] max-w-md mx-auto">Hubungi kami untuk konsultasi dan penawaran harga terbaik.</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <a
                 href={`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(`Halo, saya tertarik dengan layanan ${data.title}. Mohon informasi lebih lanjut.`)}`}
                 target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-ink-950 text-white text-sm font-semibold rounded-lg hover:bg-ink-800 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-black text-white text-sm font-semibold rounded-lg hover:bg-black-800 transition-colors"
               >
                 {data.cta} <ArrowRight size={15} />
               </a>
-              <Link to="/layanan" className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-ink-500 hover:text-ink-950 transition-colors">
+              <Link to="/layanan" className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-black-500 hover:text-black transition-colors">
                 Lihat Layanan Lain
               </Link>
             </div>

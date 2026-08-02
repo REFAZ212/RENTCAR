@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import { ADMIN_WA } from '../../../lib/format';
-import logo from '../../../assets/logo.png';
+import logo from '../../../assets/logorentcar.png';
 
 /* ─── Navigation Data ────────────────────────────────────────────────── */
 
@@ -58,16 +58,16 @@ function MegaDropdown({ item, onClose }: { item: NavItem; onClose: () => void })
 
   return (
     <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 w-max">
-      <div className="bg-white rounded-xl border border-gray-100 shadow-xl shadow-black/[0.06] p-5 grid grid-cols-2 gap-1 min-w-[480px]">
+      <div className="bg-white rounded-xl border border-accent-100 shadow-xl shadow-black/[0.06] p-5 grid grid-cols-2 gap-1 min-w-[480px]">
         {item.children.map((child) => (
           <Link
             key={child.href}
             to={child.href}
             onClick={onClose}
-            className="flex flex-col gap-0.5 px-4 py-3 rounded-lg hover:bg-gray-50 transition-colors group"
+            className="flex flex-col gap-0.5 px-4 py-3 rounded-lg hover:bg-canvas transition-colors group"
           >
-            <span className="text-[13px] font-semibold text-ink-950 group-hover:text-brand-600 transition-colors">{child.label}</span>
-            {child.desc && <span className="text-[11px] text-ink-400 leading-snug">{child.desc}</span>}
+            <span className="text-[13px] font-semibold text-black group-hover:text-primary-600 transition-colors">{child.label}</span>
+            {child.desc && <span className="text-[11px] text-black-400 leading-snug">{child.desc}</span>}
           </Link>
         ))}
       </div>
@@ -94,16 +94,16 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
               <>
                 <button
                   onClick={() => setExpanded(expanded === item.label ? null : item.label)}
-                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-ink-700 rounded-lg hover:bg-gray-50"
+                  className="w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-black-700 rounded-lg hover:bg-canvas"
                 >
                   {item.label}
-                  <ChevronDown size={16} className={`text-ink-400 transition-transform ${expanded === item.label ? 'rotate-180' : ''}`} />
+                  <ChevronDown size={16} className={`text-black-400 transition-transform ${expanded === item.label ? 'rotate-180' : ''}`} />
                 </button>
                 {expanded === item.label && (
                   <div className="pl-4 pb-1">
                     {item.children.map((child) => (
                       <Link key={child.href} to={child.href} onClick={onClose}
-                        className="block px-3 py-2 text-sm text-ink-600 rounded-lg hover:bg-gray-50">
+                        className="block px-3 py-2 text-sm text-black-600 rounded-lg hover:bg-canvas">
                         {child.label}
                       </Link>
                     ))}
@@ -112,16 +112,16 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
               </>
             ) : (
               <Link to={item.href || '#'} onClick={onClose}
-                className="block px-3 py-2.5 text-sm font-medium text-ink-700 rounded-lg hover:bg-gray-50">
+                className="block px-3 py-2.5 text-sm font-medium text-black-700 rounded-lg hover:bg-canvas">
                 {item.label}
               </Link>
             )}
           </div>
         ))}
-        <div className="pt-3 border-t border-gray-100 mt-3">
+        <div className="pt-3 border-t border-accent-100 mt-3">
           <a href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20reservasi`}
             target="_blank" rel="noopener noreferrer"
-            className="block px-3 py-2.5 bg-ink-950 text-white text-sm font-semibold rounded-lg text-center">
+            className="block px-3 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-lg text-center">
             Reservasi
           </a>
         </div>
@@ -157,16 +157,13 @@ export default function MegaMenu({ solid = false }: { solid?: boolean }) {
   return (
     <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
       scrolled
-        ? 'bg-ink-950/95 backdrop-blur-md shadow-md'
+        ? 'bg-white/95 backdrop-blur-md shadow-md'
         : 'bg-transparent'
     }`}>
       <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20 flex items-center justify-between h-16">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 shrink-0">
-          <img src={logo} alt="PILAR" className="h-8 w-auto" />
-          <span className="font-display font-bold text-base text-white">
-            PILAR Rental
-          </span>
+          <img src={logo} alt="PILAR" className="h-10 w-auto" />
         </Link>
 
         {/* Desktop nav */}
@@ -181,12 +178,12 @@ export default function MegaMenu({ solid = false }: { solid?: boolean }) {
               {item.href ? (
                 <Link
                   to={item.href}
-                  className="inline-flex items-center gap-1 px-3 py-2 text-[13px] font-medium rounded-lg transition-colors text-white/70 hover:text-white hover:bg-white/10"
+                  className="inline-flex items-center gap-1 px-3 py-2 text-[13px] font-medium rounded-lg transition-colors text-black/70 hover:text-black hover:bg-black/5"
                 >
                   {item.label}
                 </Link>
               ) : (
-                <button className="inline-flex items-center gap-1 px-3 py-2 text-[13px] font-medium rounded-lg transition-colors text-white/70 hover:text-white hover:bg-white/10">
+                <button className="inline-flex items-center gap-1 px-3 py-2 text-[13px] font-medium rounded-lg transition-colors text-black/70 hover:text-black hover:bg-black/5">
                   {item.label}
                   <ChevronDown size={12} className={`transition-transform duration-200 ${openDropdown === item.label ? 'rotate-180' : ''}`} />
                 </button>
@@ -204,13 +201,13 @@ export default function MegaMenu({ solid = false }: { solid?: boolean }) {
             href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20reservasi`}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden sm:inline-flex items-center px-5 py-2 text-[13px] font-semibold rounded-lg transition-all duration-200 bg-white text-brand-600 hover:bg-gray-100"
+            className="hidden sm:inline-flex items-center px-5 py-2 text-[13px] font-semibold rounded-lg transition-all duration-200 bg-white text-primary-600 hover:bg-accent-100"
           >
             Reservasi
           </a>
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="lg:hidden p-2 rounded-lg transition-colors text-white hover:bg-white/10"
+            className="lg:hidden p-2 rounded-lg transition-colors text-black hover:bg-black/5"
           >
             {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>

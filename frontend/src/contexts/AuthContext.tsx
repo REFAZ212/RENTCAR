@@ -36,19 +36,6 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-/* ============================
-   Token helpers
-======================== */
-
-function isTokenExpired(token: string): boolean {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return (payload.exp ?? 0) * 1000 < Date.now();
-  } catch {
-    return true;
-  }
-}
-
 function clearAuth() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
@@ -80,14 +67,10 @@ export function AuthProvider({
     const savedUser = localStorage.getItem("user");
 
     if (token && savedUser) {
-      if (isTokenExpired(token)) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch {
         clearAuth();
-      } else {
-        try {
-          setUser(JSON.parse(savedUser));
-        } catch {
-          clearAuth();
-        }
       }
     }
 

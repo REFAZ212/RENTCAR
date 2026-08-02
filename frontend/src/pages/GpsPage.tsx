@@ -49,21 +49,21 @@ const mockVehicles: GpsVehicle[] = [
 ];
 
 const statusStyles: Record<GpsStatus, string> = {
-  Bergerak: 'bg-avail-50 text-avail-500',
-  Diam: 'bg-brand-50 text-brand-600',
-  Offline: 'bg-gray-100 text-gray-500',
+  Bergerak: 'bg-accent-50 text-accent-500',
+  Diam: 'bg-primary-50 text-primary-600',
+  Offline: 'bg-accent-100 text-black-400',
 };
 
 const statusDot: Record<GpsStatus, string> = {
-  Bergerak: 'bg-avail-500',
-  Diam: 'bg-brand-500',
-  Offline: 'bg-gray-400',
+  Bergerak: 'bg-accent-500',
+  Diam: 'bg-primary-500',
+  Offline: 'bg-black-400',
 };
 
 const statusFilters: Array<'Semua' | GpsStatus> = ['Semua', 'Bergerak', 'Diam', 'Offline'];
 
 function markerIcon(status: GpsStatus) {
-  const color = status === 'Bergerak' ? '#0f6a2a' : status === 'Diam' ? '#2f4b8f' : '#9ca3af';
+  const color = status === 'Bergerak' ? '#FFC20F' : status === 'Diam' ? '#15459A' : '#999999';
   return L.divIcon({
     className: '',
     html: `<div style="width:16px;height:16px;border-radius:9999px;background:${color};border:3px solid white;box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>`,
@@ -113,71 +113,71 @@ export default function GpsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink-900">Pelacakan GPS</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="font-display text-2xl font-semibold text-black-900">Pelacakan GPS</h1>
+          <p className="mt-1 text-sm text-black-400">
             Pantau lokasi armada secara langsung · data contoh (belum tersambung perangkat GPS asli)
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="bg-white rounded-2xl shadow-sm border border-accent-100 p-5">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-lg bg-ink-900/5 flex items-center justify-center shrink-0">
-              <Radio size={20} className="text-ink-900" />
+            <div className="w-11 h-11 rounded-lg bg-black-900/5 flex items-center justify-center shrink-0">
+              <Radio size={20} className="text-black-900" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 font-medium">Total Terpantau</p>
-              <p className="text-xl font-bold text-gray-900">{counts.total}</p>
+              <p className="text-xs text-black-400 font-medium">Total Terpantau</p>
+              <p className="text-xl font-bold text-black-900">{counts.total}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="bg-white rounded-2xl shadow-sm border border-accent-100 p-5">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-lg bg-avail-50 flex items-center justify-center shrink-0">
-              <Navigation size={20} className="text-avail-500" />
+            <div className="w-11 h-11 rounded-lg bg-accent-50 flex items-center justify-center shrink-0">
+              <Navigation size={20} className="text-accent-500" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 font-medium">Bergerak</p>
-              <p className="text-xl font-bold text-gray-900">{counts.bergerak}</p>
+              <p className="text-xs text-black-400 font-medium">Bergerak</p>
+              <p className="text-xl font-bold text-black-900">{counts.bergerak}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="bg-white rounded-2xl shadow-sm border border-accent-100 p-5">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
-              <PauseCircle size={20} className="text-brand-600" />
+            <div className="w-11 h-11 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
+              <PauseCircle size={20} className="text-primary-600" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 font-medium">Diam</p>
-              <p className="text-xl font-bold text-gray-900">{counts.diam}</p>
+              <p className="text-xs text-black-400 font-medium">Diam</p>
+              <p className="text-xl font-bold text-black-900">{counts.diam}</p>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+        <div className="bg-white rounded-2xl shadow-sm border border-accent-100 p-5">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-              <WifiOff size={20} className="text-gray-500" />
+            <div className="w-11 h-11 rounded-lg bg-accent-100 flex items-center justify-center shrink-0">
+              <WifiOff size={20} className="text-black-400" />
             </div>
             <div>
-              <p className="text-xs text-gray-500 font-medium">Offline</p>
-              <p className="text-xl font-bold text-gray-900">{counts.offline}</p>
+              <p className="text-xs text-black-400 font-medium">Offline</p>
+              <p className="text-xl font-bold text-black-900">{counts.offline}</p>
             </div>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col max-h-[640px]">
-          <div className="p-4 border-b border-gray-100 space-y-3 shrink-0">
+        <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-accent-100 flex flex-col max-h-[640px]">
+          <div className="p-4 border-b border-accent-100 space-y-3 shrink-0">
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black-400" />
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Cari plat, unit, atau driver..."
-                className="w-full rounded-lg border border-gray-200 bg-gray-50 py-2 pl-9 pr-3 text-sm text-gray-600 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100"
+                className="w-full rounded-lg border border-black-200 bg-canvas py-2 pl-9 pr-3 text-sm text-black-400 placeholder:text-black-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100"
               />
             </div>
             <div className="flex flex-wrap gap-1.5">
@@ -186,7 +186,7 @@ export default function GpsPage() {
                   key={s}
                   onClick={() => setStatusFilter(s)}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    statusFilter === s ? 'bg-ink-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    statusFilter === s ? 'bg-black-900 text-white' : 'bg-accent-100 text-black-400 hover:bg-black-200'
                   }`}
                 >
                   {s}
@@ -195,23 +195,23 @@ export default function GpsPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
+          <div className="flex-1 overflow-y-auto divide-y divide-accent-50">
             {filtered.map((v) => (
               <button
                 key={v.id}
                 onClick={() => setSelectedId(v.id)}
-                className={`w-full text-left p-4 hover:bg-gray-50 transition-colors ${
-                  selectedId === v.id ? 'bg-brand-50/60' : ''
+                className={`w-full text-left p-4 hover:bg-canvas transition-colors ${
+                  selectedId === v.id ? 'bg-primary-50/60' : ''
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full shrink-0 ${statusDot[v.status]}`} />
-                      <span className="font-mono text-xs font-semibold text-gray-500">{v.plate}</span>
+                      <span className="font-mono text-xs font-semibold text-black-400">{v.plate}</span>
                     </div>
-                    <p className="mt-1 text-sm font-semibold text-gray-900 truncate">{v.model}</p>
-                    <p className="text-xs text-gray-500 truncate">{v.driver}</p>
+                    <p className="mt-1 text-sm font-semibold text-black-900 truncate">{v.model}</p>
+                    <p className="text-xs text-black-400 truncate">{v.driver}</p>
                   </div>
                   <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusStyles[v.status]}`}>
                     {v.status}
@@ -221,12 +221,12 @@ export default function GpsPage() {
             ))}
 
             {filtered.length === 0 && (
-              <div className="p-8 text-center text-sm text-gray-400">Tidak ada kendaraan yang cocok.</div>
+              <div className="p-8 text-center text-sm text-black-400">Tidak ada kendaraan yang cocok.</div>
             )}
           </div>
         </div>
 
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-accent-100 overflow-hidden">
           <div className="h-[420px] lg:h-[520px] w-full">
             <MapContainer center={[-6.6, 107.1]} zoom={9} scrollWheelZoom className="h-full w-full">
               <TileLayer
@@ -239,8 +239,8 @@ export default function GpsPage() {
                   <Popup>
                     <div className="text-sm">
                       <p className="font-semibold">{v.plate}</p>
-                      <p className="text-gray-500">{v.model} · {v.driver}</p>
-                      <p className="text-gray-500">{v.status} · {v.speed} km/jam</p>
+                      <p className="text-black-400">{v.model} · {v.driver}</p>
+                      <p className="text-black-400">{v.status} · {v.speed} km/jam</p>
                     </div>
                   </Popup>
                 </Marker>
@@ -249,7 +249,7 @@ export default function GpsPage() {
               <Circle
                 center={[-6.2088, 106.8456]}
                 radius={15000}
-                pathOptions={{ color: '#2f4b8f', fillColor: '#2f4b8f', fillOpacity: 0.05, weight: 1 }}
+                pathOptions={{ color: '#15459A', fillColor: '#15459A', fillOpacity: 0.05, weight: 1 }}
               />
 
               <FlyToVehicle vehicle={selected} />
@@ -259,45 +259,45 @@ export default function GpsPage() {
       </div>
 
       {selected && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-accent-100 p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <span className="rounded-md border-2 border-ink-800 bg-ink-900 px-2.5 py-1 font-mono text-xs font-semibold tracking-wider text-white">
+                <span className="rounded-md border-2 border-black-800 bg-black-900 px-2.5 py-1 font-mono text-xs font-semibold tracking-wider text-white">
                   {selected.plate}
                 </span>
                 <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[selected.status]}`}>
                   {selected.status}
                 </span>
               </div>
-              <p className="mt-2 font-display text-lg font-semibold text-ink-900">{selected.model}</p>
-              <p className="flex items-center gap-1.5 text-sm text-gray-500 mt-1">
+              <p className="mt-2 font-display text-lg font-semibold text-black-900">{selected.model}</p>
+              <p className="flex items-center gap-1.5 text-sm text-black-400 mt-1">
                 <MapPin size={14} />
                 {selected.address}
               </p>
             </div>
 
-            <button onClick={() => setSelectedId(null)} className="text-sm font-medium text-gray-500 hover:text-gray-700">
+            <button onClick={() => setSelectedId(null)} className="text-sm font-medium text-black-400 hover:text-black-700">
               Tutup detail
             </button>
           </div>
 
           <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="flex items-center gap-1.5 text-xs text-gray-500"><User size={13} /> Driver</p>
-              <p className="mt-1 text-sm font-semibold text-gray-900">{selected.driver}</p>
+            <div className="rounded-xl bg-canvas p-3">
+              <p className="flex items-center gap-1.5 text-xs text-black-400"><User size={13} /> Driver</p>
+              <p className="mt-1 text-sm font-semibold text-black-900">{selected.driver}</p>
             </div>
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="flex items-center gap-1.5 text-xs text-gray-500"><Gauge size={13} /> Kecepatan</p>
-              <p className="mt-1 text-sm font-semibold text-gray-900">{selected.speed} km/jam</p>
+            <div className="rounded-xl bg-canvas p-3">
+              <p className="flex items-center gap-1.5 text-xs text-black-400"><Gauge size={13} /> Kecepatan</p>
+              <p className="mt-1 text-sm font-semibold text-black-900">{selected.speed} km/jam</p>
             </div>
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="flex items-center gap-1.5 text-xs text-gray-500"><Fuel size={13} /> Bahan Bakar</p>
-              <p className="mt-1 text-sm font-semibold text-gray-900">{selected.fuel}%</p>
+            <div className="rounded-xl bg-canvas p-3">
+              <p className="flex items-center gap-1.5 text-xs text-black-400"><Fuel size={13} /> Bahan Bakar</p>
+              <p className="mt-1 text-sm font-semibold text-black-900">{selected.fuel}%</p>
             </div>
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="flex items-center gap-1.5 text-xs text-gray-500"><Clock size={13} /> Update Terakhir</p>
-              <p className="mt-1 text-sm font-semibold text-gray-900">{selected.lastUpdate}</p>
+            <div className="rounded-xl bg-canvas p-3">
+              <p className="flex items-center gap-1.5 text-xs text-black-400"><Clock size={13} /> Update Terakhir</p>
+              <p className="mt-1 text-sm font-semibold text-black-900">{selected.lastUpdate}</p>
             </div>
           </div>
         </div>

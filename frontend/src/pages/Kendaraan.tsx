@@ -66,9 +66,9 @@ const statuses: StatusKendaraan[] = ['tersedia', 'disewa', 'maintenance'];
 
 // Badge status — disamakan tema (avail/rented/amber untuk maintenance/perhatian)
 const statusStyles: Record<StatusKendaraan, string> = {
-  tersedia: 'bg-avail-50 text-avail-600',
-  disewa: 'bg-rented-50 text-rented-500',
-  maintenance: 'bg-amber-100 text-amber-800',
+  tersedia: 'bg-success-50 text-success-600',
+  disewa: 'bg-primary-50 text-primary-500',
+  maintenance: 'bg-accent-100 text-accent-700',
 };
 
 const statusLabels: Record<StatusKendaraan, string> = {
@@ -103,7 +103,7 @@ const emptyForm: KendaraanFormState = {
 const fotoUrl = (foto?: string | null) => (foto ? (foto.startsWith('http') ? foto : `/storage/${foto}`) : null);
 
 const inputClass =
-  'w-full rounded-lg border border-ink-200 px-3 py-2 text-sm text-ink-900 outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500';
+  'w-full rounded-lg border border-black-200 px-3 py-2 text-sm text-black-900 outline-none transition-colors focus:border-primary-500 focus:ring-1 focus:ring-primary-500';
 
 /* ------------------------------------------------------------------ */
 /* Component                                                          */
@@ -397,14 +397,14 @@ export default function Kendaraan() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-ink-900 via-ink-800 to-brand-700 p-6 text-white shadow-sm">
+      <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-black-900 via-black-800 to-primary-700 p-6 text-white shadow-sm">
         <div>
           <h1 className="font-display text-2xl font-bold">Manajemen Armada</h1>
-          <p className="mt-1 text-sm text-ink-200">Kelola data kendaraan, tarif, dan status ketersediaan</p>
+          <p className="mt-1 text-sm text-black-200">Kelola data kendaraan, tarif, dan status ketersediaan</p>
         </div>
         <button
           onClick={openAddForm}
-          className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-brand-600 shadow-sm transition-colors hover:bg-ink-200"
+          className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary-600 shadow-sm transition-colors hover:bg-black-200"
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -428,7 +428,7 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-ink-700"
+          iconClass="bg-black-700"
         />
         <StatCard
           label="Tersedia"
@@ -438,7 +438,7 @@ export default function Kendaraan() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
             </svg>
           }
-          iconClass="bg-avail-500"
+          iconClass="bg-success-500"
         />
         <StatCard
           label="Disewa"
@@ -453,7 +453,7 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-rented-500"
+          iconClass="bg-primary-500"
         />
         <StatCard
           label="Dalam Servis"
@@ -468,15 +468,15 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-amber-500"
+          iconClass="bg-accent-500"
         />
       </div>
 
       {/* Search + filter tabs */}
-      <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-ink-200">
+      <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black-200">
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
           <div className="relative w-full max-w-md">
-            <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -487,13 +487,13 @@ export default function Kendaraan() {
               className={`${inputClass} pl-10`}
             />
           </div>
-          <div className="flex items-center gap-1 self-start rounded-lg bg-gray-50 p-1 md:self-auto">
+          <div className="flex items-center gap-1 self-start rounded-lg bg-canvas p-1 md:self-auto">
             {filterTabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
-                  activeTab === tab.key ? 'bg-white text-brand-600 shadow-sm' : 'text-ink-400 hover:text-ink-700'
+                  activeTab === tab.key ? 'bg-white text-primary-600 shadow-sm' : 'text-black-400 hover:text-black-700'
                 }`}
               >
                 {tab.label}
@@ -523,7 +523,7 @@ export default function Kendaraan() {
             value={filterTipe}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setFilterTipe(e.target.value)}
             disabled={!filterKategori}
-            className={`${inputClass} w-auto py-1.5 disabled:bg-gray-50 disabled:text-ink-400`}
+            className={`${inputClass} w-auto py-1.5 disabled:bg-canvas disabled:text-black-400`}
           >
             <option value="">{filterKategori ? 'Semua Tipe' : 'Pilih kategori dulu'}</option>
             {tipes
@@ -540,7 +540,7 @@ export default function Kendaraan() {
                 setFilterKategori('');
                 setFilterTipe('');
               }}
-              className="rounded-md p-2 text-ink-400 transition hover:bg-gray-50 hover:text-ink-700"
+              className="rounded-md p-2 text-black-400 transition hover:bg-canvas hover:text-black-700"
               title="Reset Filter"
             >
               <RotateCcw size={16} />
@@ -559,38 +559,38 @@ export default function Kendaraan() {
           }}
         >
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-200 bg-white p-6">
-              <h2 className="text-lg font-semibold text-ink-900">{editItem ? 'Edit Kendaraan' : 'Tambah Kendaraan'}</h2>
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black-200 bg-white p-6">
+              <h2 className="text-lg font-semibold text-black-900">{editItem ? 'Edit Kendaraan' : 'Tambah Kendaraan'}</h2>
               <button
                 onClick={() => {
                   setShowForm(false);
                   setEditItem(null);
                 }}
-                className="rounded-lg p-1 transition-colors hover:bg-gray-50"
+                className="rounded-lg p-1 transition-colors hover:bg-canvas"
                 aria-label="Tutup"
               >
-                <svg className="h-5 w-5 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-5 w-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4 p-6">
               {lastAdded && !editItem && (
-                <div className="flex items-center justify-between rounded-lg border border-avail-500/30 bg-avail-50 p-3">
+                <div className="flex items-center justify-between rounded-lg border border-accent-500/30 bg-accent-50 p-3">
                   <div className="flex items-center gap-2">
-                    <svg className="h-5 w-5 text-avail-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span className="text-sm font-medium text-avail-600">Kendaraan berhasil ditambahkan!</span>
+                    <span className="text-sm font-medium text-accent-600">Kendaraan berhasil ditambahkan!</span>
                   </div>
-                  <button type="button" onClick={() => setLastAdded(false)} className="text-sm font-medium text-avail-600 underline hover:text-avail-500">
+                  <button type="button" onClick={() => setLastAdded(false)} className="text-sm font-medium text-accent-600 underline hover:text-accent-500">
                     Sembunyikan
                   </button>
                 </div>
               )}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Garasi Partner *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Garasi Partner *</label>
                   <select
                     value={form.garasi_partner_id}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) => setField('garasi_partner_id', e.target.value)}
@@ -606,7 +606,7 @@ export default function Kendaraan() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Kategori</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Kategori</label>
                   <select
                     value={form.kategori_id}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) => {
@@ -626,7 +626,7 @@ export default function Kendaraan() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Nama Kendaraan *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Nama Kendaraan *</label>
                   <input
                     type="text"
                     value={form.nama_kendaraan}
@@ -636,7 +636,7 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Plat Nomor *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Plat Nomor *</label>
                   <input
                     type="text"
                     value={form.plat_nomor}
@@ -646,12 +646,12 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Tipe Kendaraan</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Tipe Kendaraan</label>
                   <select
                     value={form.tipe_id}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) => setField('tipe_id', e.target.value)}
                     disabled={!form.kategori_id}
-                    className={`${inputClass} disabled:bg-gray-50 disabled:text-ink-400`}
+                    className={`${inputClass} disabled:bg-canvas disabled:text-black-400`}
                   >
                     <option value="">{form.kategori_id ? 'Pilih Tipe' : 'Pilih kategori dulu'}</option>
                     {tipes
@@ -664,7 +664,7 @@ export default function Kendaraan() {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Merek *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Merek *</label>
                   <input
                     type="text"
                     value={form.merek}
@@ -674,7 +674,7 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Model *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Model *</label>
                   <input
                     type="text"
                     value={form.model}
@@ -684,7 +684,7 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Tahun *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Tahun *</label>
                   <input
                     type="number"
                     value={form.tahun}
@@ -695,7 +695,7 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Warna *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Warna *</label>
                   <input
                     type="text"
                     value={form.warna}
@@ -705,7 +705,7 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Kapasitas *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Kapasitas *</label>
                   <input
                     type="number"
                     value={form.kapasitas_penumpang}
@@ -716,7 +716,7 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Harga/Hari (Rp) *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Harga/Hari (Rp) *</label>
                   <input
                     type="number"
                     value={form.harga_sewa_per_hari}
@@ -728,13 +728,13 @@ export default function Kendaraan() {
                 </div>
                 {editItem && (
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-ink-700">Status *</label>
+                    <label className="mb-1 block text-sm font-medium text-black-700">Status *</label>
                     <select
                       value={form.status}
                       onChange={(e: ChangeEvent<HTMLSelectElement>) => setField('status', e.target.value as StatusKendaraan)}
                       disabled={editItem.status === 'disewa'}
                       required
-                      className={`${inputClass} ${editItem.status === 'disewa' ? 'cursor-not-allowed bg-gray-50 text-ink-400' : ''}`}
+                      className={`${inputClass} ${editItem.status === 'disewa' ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
                     >
                       {statuses.map((s) => (
                         <option key={s} value={s}>
@@ -743,17 +743,17 @@ export default function Kendaraan() {
                       ))}
                     </select>
                     {editItem.status === 'disewa' && (
-                      <p className="mt-1 text-xs text-amber-600">Status dikendalikan oleh order aktif. Selesaikan atau batalkan order terlebih dahulu.</p>
+                      <p className="mt-1 text-xs text-accent-600">Status dikendalikan oleh order aktif. Selesaikan atau batalkan order terlebih dahulu.</p>
                     )}
                   </div>
                 )}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-ink-700">Foto Kendaraan</label>
+                <label className="mb-1 block text-sm font-medium text-black-700">Foto Kendaraan</label>
                 <div className="flex items-start gap-4">
-                  <label className="flex flex-1 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-ink-200 px-4 py-6 transition-colors hover:border-brand-400 hover:bg-brand-50/50">
+                  <label className="flex flex-1 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-black-200 px-4 py-6 transition-colors hover:border-primary-400 hover:bg-primary-50/50">
                     <div className="text-center">
-                      <svg className="mx-auto mb-1 h-8 w-8 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="mx-auto mb-1 h-8 w-8 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -761,8 +761,8 @@ export default function Kendaraan() {
                           d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                         />
                       </svg>
-                      <p className="text-xs text-ink-400">{fotoFile ? fotoFile.name : 'Klik atau seret foto ke sini'}</p>
-                      <p className="mt-0.5 text-xs text-ink-400">JPG, PNG, maks 2MB</p>
+                      <p className="text-xs text-black-400">{fotoFile ? fotoFile.name : 'Klik atau seret foto ke sini'}</p>
+                      <p className="mt-0.5 text-xs text-black-400">JPG, PNG, maks 2MB</p>
                     </div>
                     <input
                       type="file"
@@ -779,14 +779,14 @@ export default function Kendaraan() {
                   </label>
                   {fotoPreview && (
                     <div className="relative shrink-0">
-                      <img src={fotoPreview} alt="Preview" className="h-24 w-24 rounded-lg border border-ink-200 object-cover" />
+                      <img src={fotoPreview} alt="Preview" className="h-24 w-24 rounded-lg border border-black-200 object-cover" />
                       <button
                         type="button"
                         onClick={() => {
                           setFotoFile(null);
                           setFotoPreview(null);
                         }}
-                        className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-maint-500 text-white transition-colors hover:bg-maint-600"
+                        className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-error-500 text-white transition-colors hover:bg-error-600"
                         aria-label="Hapus foto"
                       >
                         <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -798,7 +798,7 @@ export default function Kendaraan() {
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-ink-700">Catatan</label>
+                <label className="mb-1 block text-sm font-medium text-black-700">Catatan</label>
                 <textarea
                   value={form.catatan}
                   onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setField('catatan', e.target.value)}
@@ -806,7 +806,7 @@ export default function Kendaraan() {
                   className={`${inputClass} resize-none`}
                 />
               </div>
-              <div className="flex justify-end gap-3 border-t border-ink-200 pt-4">
+              <div className="flex justify-end gap-3 border-t border-black-200 pt-4">
                 <button
                   type="button"
                   onClick={() => {
@@ -814,7 +814,7 @@ export default function Kendaraan() {
                     setEditItem(null);
                     setLastAdded(false);
                   }}
-                  className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-gray-50"
+                  className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas"
                 >
                   Batal
                 </button>
@@ -822,7 +822,7 @@ export default function Kendaraan() {
                   <button
                     type="button"
                     onClick={() => setLastAdded(false)}
-                    className="flex items-center gap-2 rounded-lg bg-avail-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-avail-600"
+                    className="flex items-center gap-2 rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success-600"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -833,7 +833,7 @@ export default function Kendaraan() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
                   >
                     {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
                     {editItem ? 'Simpan' : 'Tambah'}
@@ -849,10 +849,10 @@ export default function Kendaraan() {
       {detailItem && (
         <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4" onClick={() => setDetailItem(null)}>
           <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-200 bg-white p-6">
-              <h2 className="text-lg font-semibold text-ink-900">Detail Kendaraan</h2>
-              <button onClick={() => setDetailItem(null)} className="rounded-lg p-1 transition-colors hover:bg-gray-50" aria-label="Tutup">
-                <svg className="h-5 w-5 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black-200 bg-white p-6">
+              <h2 className="text-lg font-semibold text-black-900">Detail Kendaraan</h2>
+              <button onClick={() => setDetailItem(null)} className="rounded-lg p-1 transition-colors hover:bg-canvas" aria-label="Tutup">
+                <svg className="h-5 w-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -865,11 +865,11 @@ export default function Kendaraan() {
                   <img
                     src={fotoUrl(detailItem.foto) as string}
                     alt={detailItem.nama_kendaraan}
-                    className="aspect-square w-full rounded-xl border border-ink-200 object-cover sm:h-64 sm:w-64"
+                    className="aspect-square w-full rounded-xl border border-black-200 object-cover sm:h-64 sm:w-64"
                   />
                 ) : (
-                  <div className="flex aspect-square w-full items-center justify-center rounded-xl bg-gray-50 sm:h-64 sm:w-64">
-                    <svg className="h-14 w-14 text-ink-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex aspect-square w-full items-center justify-center rounded-xl bg-canvas sm:h-64 sm:w-64">
+                    <svg className="h-14 w-14 text-black-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -889,8 +889,8 @@ export default function Kendaraan() {
               {/* Detail — di kanan */}
               <div className="flex-1 space-y-4">
                 <div>
-                  <div className="text-lg font-semibold text-ink-900">{detailItem.nama_kendaraan}</div>
-                  <div className="text-sm text-ink-400">
+                  <div className="text-lg font-semibold text-black-900">{detailItem.nama_kendaraan}</div>
+                  <div className="text-sm text-black-400">
                     {detailItem.merek} {detailItem.model} · {detailItem.tahun}
                   </div>
                 </div>
@@ -906,10 +906,10 @@ export default function Kendaraan() {
                   {detailItem.catatan && <DetailField label="Catatan" value={detailItem.catatan} full />}
                 </div>
 
-                <div className="flex justify-end gap-3 border-t border-ink-200 pt-4">
+                <div className="flex justify-end gap-3 border-t border-black-200 pt-4">
                   <button
                     onClick={() => setDetailItem(null)}
-                    className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-gray-50"
+                    className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas"
                   >
                     Tutup
                   </button>
@@ -919,7 +919,7 @@ export default function Kendaraan() {
                       setDetailItem(null);
                       handleEdit(item);
                     }}
-                    className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600"
+                    className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600"
                   >
                     Edit Kendaraan
                   </button>
@@ -966,8 +966,8 @@ export default function Kendaraan() {
         }}
       >
         <div>
-          <label className="mb-1 block text-sm font-medium text-ink-700">
-            Catatan servis <span className="font-normal text-ink-400">(opsional)</span>
+          <label className="mb-1 block text-sm font-medium text-black-700">
+            Catatan servis <span className="font-normal text-black-400">(opsional)</span>
           </label>
           <textarea
             value={maintenanceNote}
@@ -981,13 +981,13 @@ export default function Kendaraan() {
 
       {/* Grid Card Kendaraan */}
       {loading ? (
-        <div className="rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-ink-200">
-          <div className="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
-          <p className="text-sm text-ink-400">Memuat data...</p>
+        <div className="rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-black-200">
+          <div className="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+          <p className="text-sm text-black-400">Memuat data...</p>
         </div>
       ) : filteredItems.length === 0 ? (
-        <div className="rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-ink-200">
-          <svg className="mx-auto mb-3 h-12 w-12 text-ink-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-black-200">
+          <svg className="mx-auto mb-3 h-12 w-12 text-black-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -995,8 +995,8 @@ export default function Kendaraan() {
               d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18M3 11v6a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-6"
             />
           </svg>
-          <p className="font-medium text-ink-700">Tidak ada data kendaraan</p>
-          <p className="mt-1 text-sm text-ink-400">Mulai dengan menambahkan kendaraan baru</p>
+          <p className="font-medium text-black-700">Tidak ada data kendaraan</p>
+          <p className="mt-1 text-sm text-black-400">Mulai dengan menambahkan kendaraan baru</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -1004,15 +1004,15 @@ export default function Kendaraan() {
             <div
               key={item.id}
               onClick={() => setDetailItem(item)}
-              className="cursor-pointer overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-ink-200 transition-all hover:shadow-md"
+              className="cursor-pointer overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black-200 transition-all hover:shadow-md"
             >
               {/* Foto + badge status + tombol edit/hapus */}
-              <div className="relative aspect-[4/3] bg-gray-50">
+              <div className="relative aspect-[4/3] bg-canvas">
                 {fotoUrl(item.foto) ? (
                   <img src={fotoUrl(item.foto) as string} alt={item.nama_kendaraan} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center">
-                    <svg className="h-10 w-10 text-ink-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-10 w-10 text-black-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -1028,7 +1028,7 @@ export default function Kendaraan() {
                 <div className="absolute right-2.5 top-2.5 flex gap-1" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => handleEdit(item)}
-                    className="rounded-lg bg-white/90 p-1.5 text-ink-700 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-brand-600"
+                    className="rounded-lg bg-white/90 p-1.5 text-black-700 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-primary-600"
                     title="Edit"
                     aria-label="Edit kendaraan"
                   >
@@ -1037,7 +1037,7 @@ export default function Kendaraan() {
                   {item.status !== 'disewa' && (
                     <button
                       onClick={() => setConfirmDelete(item)}
-                      className="rounded-lg bg-white/90 p-1.5 text-ink-700 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-maint-600"
+                      className="rounded-lg bg-white/90 p-1.5 text-black-700 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-error-600"
                       title="Hapus"
                       aria-label="Hapus kendaraan"
                     >
@@ -1050,41 +1050,41 @@ export default function Kendaraan() {
               {/* Info */}
               <div className="p-4">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <p className="truncate font-semibold text-ink-900">
+                  <p className="truncate font-semibold text-black-900">
                     {item.merek} {item.model}
                   </p>
-                  <span className="shrink-0 rounded-md bg-ink-900 px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-white">
+                  <span className="shrink-0 rounded-md bg-black-900 px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-white">
                     {item.plat_nomor}
                   </span>
                 </div>
-                <p className="mb-2 truncate text-xs text-ink-400">{item.nama_kendaraan}</p>
+                <p className="mb-2 truncate text-xs text-black-400">{item.nama_kendaraan}</p>
 
-                <div className="mb-3 flex flex-wrap gap-1.5 text-xs text-ink-400">
-                  {item.kategori?.nama_kategori && <span className="rounded-full bg-gray-50 px-2 py-0.5">{item.kategori.nama_kategori}</span>}
-                  {item.tipe?.nama_tipe && <span className="rounded-full bg-gray-50 px-2 py-0.5">{item.tipe.nama_tipe}</span>}
-                  {item.garasi_partner?.nama_partner && <span className="rounded-full bg-gray-50 px-2 py-0.5">{item.garasi_partner.nama_partner}</span>}
+                <div className="mb-3 flex flex-wrap gap-1.5 text-xs text-black-400">
+                  {item.kategori?.nama_kategori && <span className="rounded-full bg-canvas px-2 py-0.5">{item.kategori.nama_kategori}</span>}
+                  {item.tipe?.nama_tipe && <span className="rounded-full bg-canvas px-2 py-0.5">{item.tipe.nama_tipe}</span>}
+                  {item.garasi_partner?.nama_partner && <span className="rounded-full bg-canvas px-2 py-0.5">{item.garasi_partner.nama_partner}</span>}
                 </div>
 
-                <p className="mb-3 text-sm font-bold text-brand-600">{formatRupiah(item.harga_sewa_per_hari)}/hari</p>
+                <p className="mb-3 text-sm font-bold text-primary-600">{formatRupiah(item.harga_sewa_per_hari)}/hari</p>
 
                 {/* 3 aksi cepat status */}
-                <div className="grid grid-cols-3 gap-1.5 border-t border-ink-200 pt-3" onClick={(e) => e.stopPropagation()}>
+                <div className="grid grid-cols-3 gap-1.5 border-t border-black-200 pt-3" onClick={(e) => e.stopPropagation()}>
                   <QuickStatusButton
                     label="Tersedia"
                     active={item.status === 'tersedia'}
-                    activeClass="bg-avail-500 text-white"
+                    activeClass="bg-success-500 text-white"
                     onClick={() => handleQuickStatus(item, 'tersedia')}
                   />
                   <QuickStatusButton
                     label="Tidak Tersedia"
                     active={item.status === 'disewa'}
-                    activeClass="bg-rented-500 text-white"
+                    activeClass="bg-primary-500 text-white"
                     onClick={() => handleQuickStatus(item, 'disewa')}
                   />
                   <QuickStatusButton
                     label="Servis"
                     active={item.status === 'maintenance'}
-                    activeClass="bg-amber-500 text-white"
+                    activeClass="bg-accent-500 text-white"
                     onClick={() => handleQuickStatus(item, 'maintenance')}
                   />
                 </div>
@@ -1094,7 +1094,7 @@ export default function Kendaraan() {
                     e.stopPropagation();
                     setDetailItem(item);
                   }}
-                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-ink-400 transition-colors hover:bg-gray-50 hover:text-ink-700"
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-black-400 transition-colors hover:bg-canvas hover:text-black-700"
                 >
                   <Eye size={13} />
                   Lihat Detail
@@ -1114,11 +1114,11 @@ export default function Kendaraan() {
 
 function StatCard({ label, value, icon, iconClass }: { label: string; value: number; icon: ReactNode; iconClass: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-ink-200">
+    <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-black-200">
       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white ${iconClass}`}>{icon}</div>
       <div>
-        <div className="text-xs text-ink-400">{label}</div>
-        <div className="text-xl font-bold text-ink-900">{value}</div>
+        <div className="text-xs text-black-400">{label}</div>
+        <div className="text-xl font-bold text-black-900">{value}</div>
       </div>
     </div>
   );
@@ -1127,8 +1127,8 @@ function StatCard({ label, value, icon, iconClass }: { label: string; value: num
 function DetailField({ label, value, mono, full }: { label: string; value: string; mono?: boolean; full?: boolean }) {
   return (
     <div className={full ? 'col-span-2' : ''}>
-      <div className="mb-0.5 text-xs text-ink-400">{label}</div>
-      <div className={`text-sm text-ink-900 ${mono ? 'font-mono' : ''}`}>{value}</div>
+      <div className="mb-0.5 text-xs text-black-400">{label}</div>
+      <div className={`text-sm text-black-900 ${mono ? 'font-mono' : ''}`}>{value}</div>
     </div>
   );
 }
@@ -1151,7 +1151,7 @@ function QuickStatusButton({
       disabled={active}
       title={active ? `Sudah berstatus ${label}` : `Tandai sebagai ${label}`}
       className={`rounded-lg px-1.5 py-1.5 text-[11px] font-medium leading-tight transition-colors ${
-        active ? `${activeClass} cursor-default` : 'bg-gray-50 text-ink-400 hover:bg-gray-100 hover:text-ink-700'
+        active ? `${activeClass} cursor-default` : 'bg-canvas text-black-400 hover:bg-accent-100 hover:text-black-700'
       }`}
     >
       {label}
