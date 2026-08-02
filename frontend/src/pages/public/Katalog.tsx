@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { Star } from 'lucide-react';
 import { katalogAPI, type KategoriKendaraan, type TipeKendaraan, type KatalogItem, type OrderRequestPayload } from '../../services/api';
 import { todayJakarta, formatRupiah, ADMIN_WA } from '../../lib/format';
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
@@ -610,68 +611,44 @@ function VehicleCard({
           </div>
         )}
       </div>
-      <div className="p-4">
-        <h3 className={`font-bold text-black transition-colors line-clamp-1 ${
-          isDisabled ? '' : 'group-hover:text-primary-600'
-        }`}>
-          {item.nama_kendaraan}
-        </h3>
-        <p className="text-sm text-black-400 mt-0.5">
-          {item.merek} {item.model} &middot; {item.tahun}
-        </p>
-        <div className="flex items-center gap-3 mt-2 text-xs text-black-400">
-          {item.kapasitas_penumpang && (
-            <span className="flex items-center gap-1">
-              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              {item.kapasitas_penumpang} kursi
-            </span>
-          )}
-          {item.garasi_partner && (
-            <span className="flex items-center gap-1">
-              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              {item.garasi_partner.nama_garasi}
-            </span>
-          )}
-        </div>
-        <div className="mt-3 pt-3 border-t border-accent-100">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <span className="text-lg font-bold text-primary-600">{formatRupiah(item.harga_sewa_per_hari)}</span>
-              <span className="text-xs text-black-400">/hari</span>
-            </div>
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${status.bgColor} ${status.textColor}`}>
-              {status.label}
-            </span>
-          </div>
-          {item.status === 'disewa' && item.estimated_return_date && (
-            <p className="text-xs text-black-400 mb-2">
-              Estimasi kembali: {formatDate(item.estimated_return_date)}
-            </p>
-          )}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!isDisabled) onPesan(item);
-            }}
-            disabled={isDisabled}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors ${
-              isDisabled
-                ? 'bg-black-200 text-black-400 cursor-not-allowed'
-                : 'bg-primary-600 text-white hover:bg-primary-700'
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z" />
-            </svg>
-            {isDisabled ? status.label : 'Pesan Sekarang'}
-          </button>
-        </div>
-      </div>
+<div className="p-4">
+                        <h3 className={`font-bold text-black transition-colors line-clamp-1 ${
+                          isDisabled ? '' : 'group-hover:text-primary-600'
+                        }`}>
+                          {item.nama_kendaraan}
+                        </h3>
+                        <p className="text-sm text-black-400 mt-0.5">
+                          {item.merek} {item.model} &middot; {item.tahun}
+                        </p>
+                        <div className="flex items-center gap-1 mt-2">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className="w-3.5 h-3.5 text-accent-500 fill-accent-500" />
+                          ))}
+                        </div>
+                        <div className="mt-3 pt-3 border-t border-accent-100 flex items-center justify-between">
+                          <span className="text-lg font-bold text-primary-600">
+                            {formatRupiah(item.harga_sewa_per_hari)}
+                            <span className="text-xs text-black-400 font-normal">/hari</span>
+                          </span>
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${status.bgColor} ${status.textColor}`}>
+                            {status.label}
+                          </span>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isDisabled) onPesan(item);
+                          }}
+                          disabled={isDisabled}
+                          className={`mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors ${
+                            isDisabled
+                              ? 'bg-black-200 text-black-400 cursor-not-allowed'
+                              : 'bg-primary-600 text-white hover:bg-primary-700'
+                          }`}
+                        >
+                          {isDisabled ? status.label : 'Sewa Sekarang'}
+                        </button>
+                      </div>
     </div>
   );
 }
