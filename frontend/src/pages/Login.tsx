@@ -65,7 +65,7 @@ export default function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 bg-canvas border border-black-200 rounded-lg text-black placeholder-black-400 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none transition text-sm"
-                  placeholder="admin@cvpilar.com"
+                  placeholder="admin@udin-renctcar.com"
                   required
                   autoFocus
                 />

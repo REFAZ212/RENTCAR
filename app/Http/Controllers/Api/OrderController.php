@@ -192,7 +192,7 @@ class OrderController extends Controller
                 $watermark->applyToStoragePath($path);
             }
             foreach ($identityPaths as $path) {
-                $watermark->applyToStoragePath($path, 'CVPILAR • Identitas');
+                $watermark->applyToStoragePath($path, 'UDIN RENCTCAR • Identitas');
             }
         } catch (\Throwable $e) {
             report($e);

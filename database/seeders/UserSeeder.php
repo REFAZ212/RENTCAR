@@ -12,7 +12,7 @@ class UserSeeder extends Seeder
     {
         User::create([
             'name' => 'Admin Utama',
-            'email' => 'admin@cvpilar.com',
+            'email' => 'admin@udin-renctcar.com',
             'phone' => '0895361054272',
             'role' => 'admin_utama',
             'password' => Hash::make('password'),
@@ -20,7 +20,7 @@ class UserSeeder extends Seeder
 
         User::create([
             'name' => 'Admin Operasional',
-            'email' => 'opsional@cvpilar.com',
+            'email' => 'opsional@udin-renctcar.com',
             'phone' => '081234567890',
             'role' => 'admin_operasional',
             'password' => Hash::make('password'),
@@ -28,7 +28,7 @@ class UserSeeder extends Seeder
 
         User::create([
             'name' => 'Petugas 1',
-            'email' => 'petugas@cvpilar.com',
+            'email' => 'petugas@udin-renctcar.com',
             'phone' => '081234567891',
             'role' => 'petugas',
             'password' => Hash::make('password'),

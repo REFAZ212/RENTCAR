@@ -15,7 +15,7 @@ class InvoiceService
         $data = [
             'order' => $order,
             'company' => [
-                'name' => Setting::get('nama_usaha', 'CVPILAR'),
+                'name' => Setting::get('nama_usaha', 'UDIN RENCTCAR'),
                 'alamat' => Setting::get('alamat_usaha', ''),
                 'phone' => Setting::get('telepon_usaha', ''),
             ],

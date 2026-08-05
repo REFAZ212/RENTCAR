@@ -17,7 +17,7 @@ export default function PromoPage() {
           <AnimatedSection>
             <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-400 mb-4 block">Media</span>
             <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight">Promo & Penawaran</h1>
-            <p className="mt-5 text-black-400 text-[15px] leading-relaxed max-w-xl">Penawaran spesial dan diskon menarik dari PILAR Rental.</p>
+            <p className="mt-5 text-black-400 text-[15px] leading-relaxed max-w-xl">Penawaran spesial dan diskon menarik dari UDIN RENCTCAR.</p>
           </AnimatedSection>
         </div>
       </section>

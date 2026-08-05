@@ -98,12 +98,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-40 flex h-screen w-64 flex-col bg-black-900 text-white transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-40 flex h-screen w-64 flex-col bg-white text-black-700 transition-transform duration-200 lg:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center border-b border-black-800 px-6 shrink-0">
+        <div className="flex h-16 items-center border-b border-black-200 px-6 shrink-0">
           <img
             src={logo}
             alt="logo"
@@ -111,7 +111,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           />
           <button
             onClick={onClose}
-            className="ml-auto text-black-400 transition-colors hover:text-white lg:hidden"
+            className="ml-auto text-black-400 transition-colors hover:text-primary-600 lg:hidden"
           >
             <X size={20} />
           </button>
@@ -141,8 +141,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         onClick={onClose}
                         className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                           active
-                            ? 'bg-black-800 text-primary-400'
-                            : 'text-black-200 hover:bg-black-800 hover:text-white'
+                            ? 'bg-primary-50 text-primary-600'
+                            : 'text-black-500 hover:bg-primary-50 hover:text-primary-600'
                         }`}
                       >
                         {active && (
@@ -150,7 +150,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         )}
                         <item.icon
                           size={18}
-                          className={active ? 'text-primary-400' : 'text-black-400'}
+                          className={active ? 'text-primary-500' : 'text-black-400'}
                         />
                         {item.label}
                       </Link>

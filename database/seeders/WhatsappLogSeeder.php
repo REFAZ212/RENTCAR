@@ -18,7 +18,7 @@ class WhatsappLogSeeder extends Seeder
             [
                 'garasi_request_id' => $requests[0]->id,
                 'nomor_tujuan' => '081234567893',
-                'pesan' => 'Halo Bp/Ibu Siti, kami dari CV Pilar ingin menanyakan ketersediaan Honda HR-V untuk disewa 3 hari. Mohon konfirmasi. Terima kasih.',
+                'pesan' => 'Halo Bp/Ibu Siti, kami dari CV UDIN RENCTCAR ingin menanyakan ketersediaan Honda HR-V untuk disewa 3 hari. Mohon konfirmasi. Terima kasih.',
                 'status_kirim' => 'terkirim',
                 'response' => null,
                 'created_at' => Carbon::now()->subDays(2),

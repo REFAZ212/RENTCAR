@@ -26,7 +26,7 @@ export default function LandingFooter() {
           {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
             <Link to="/katalog" className="flex items-center gap-2.5 mb-2">
-              <img src={logo} alt="PILAR" className="h-12 w-auto" />
+              <img src={logo} alt="UDIN RENCTCAR" className="h-12 w-auto" />
             </Link>
             <p className="text-sm leading-relaxed max-w-xs mt-1">
               Solusi rental kendaraan terpercaya. Armada lengkap, proses mudah, harga bersahabat.
@@ -83,7 +83,7 @@ export default function LandingFooter() {
               </li>
               <li className="flex items-start gap-2.5 text-sm">
                 <Mail size={15} className="mt-0.5 shrink-0 text-black-400" />
-                <span>info@pilarrental.com</span>
+                <span>info@udin-renctcar.com</span>
               </li>
               <li className="flex items-start gap-2.5 text-sm">
                 <MapPin size={15} className="mt-0.5 shrink-0 text-black-400" />
@@ -95,7 +95,7 @@ export default function LandingFooter() {
 
         {/* Bottom bar */}
         <div className="py-6 border-t border-black-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-black-400">
-          <p>&copy; {new Date().getFullYear()} PILAR Rental. Hak cipta dilindungi.</p>
+          <p>&copy; {new Date().getFullYear()} UDIN RENCTCAR. Hak cipta dilindungi.</p>
           <div className="flex items-center gap-4">
             <span>Senin - Sabtu: 08.00 - 17.00</span>
             <span className="w-1 h-1 bg-black-700 rounded-full" />

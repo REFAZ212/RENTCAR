@@ -12,10 +12,10 @@ class SettingSeeder extends Seeder
         Setting::set('overtime_rate_per_hour', 25000);
         Setting::set('grace_period_minutes', 0);
 
-        Setting::set('nama_usaha', 'Pilar Rental Mobil');
+        Setting::set('nama_usaha', 'UDIN RENCTCAR');
         Setting::set('alamat_usaha', 'Jl. Raya Banjar No. 12, Banjar, Jawa Barat');
         Setting::set('no_telp_usaha', '0265123456');
-        Setting::set('email_usaha', 'info@pilarrental.com');
+        Setting::set('email_usaha', 'info@udin-renctcar.com');
         Setting::set('jam_operasional', json_encode([
             ['hari' => 'Senin', 'buka' => '08:00', 'tutup' => '20:00', 'libur' => false],
             ['hari' => 'Selasa', 'buka' => '08:00', 'tutup' => '20:00', 'libur' => false],

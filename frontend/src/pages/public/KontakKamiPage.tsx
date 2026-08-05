@@ -5,7 +5,7 @@ import { ADMIN_WA, ADMIN_HP_DISPLAY } from '../../lib/format';
 
 const contactInfo = [
   { icon: Phone, label: 'Telepon', value: ADMIN_HP_DISPLAY, href: `tel:+${ADMIN_WA}` },
-  { icon: Mail, label: 'Email', value: 'info@pilarrental.com', href: 'mailto:info@pilarrental.com' },
+  { icon: Mail, label: 'Email', value: 'info@udin-renctcar.com', href: 'mailto:info@udin-renctcar.com' },
   { icon: MapPin, label: 'Alamat', value: 'Jl. Contoh No. 123, Kota', href: null },
   { icon: Clock, label: 'Jam Kerja', value: 'Senin - Sabtu: 08.00 - 17.00', href: null },
 ];
@@ -76,7 +76,7 @@ export default function KontakKamiPage() {
                 Untuk respon cepat, hubungi kami langsung melalui WhatsApp.
               </p>
               <a
-                href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20bertanya%20tentang%20layanan%20PILAR`}
+                href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20bertanya%20tentang%20layanan%20UDIN RENCTCAR`}
                 target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-success-500 text-white text-sm font-semibold rounded-lg hover:bg-success-600 transition-colors"
               >

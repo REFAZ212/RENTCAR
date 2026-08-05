@@ -20,7 +20,7 @@ export default function KarirPage() {
               Bergabung Dengan Kami
             </h1>
             <p className="mt-5 text-black-400 text-[15px] leading-relaxed max-w-xl">
-              PILAR terus berkembang dan membutuhkan talenta terbaik untuk bergabung dalam tim kami. Temukan kesempatan karir yang sesuai dengan keahlian Anda.
+              UDIN RENCTCAR terus berkembang dan membutuhkan talenta terbaik untuk bergabung dalam tim kami. Temukan kesempatan karir yang sesuai dengan keahlian Anda.
             </p>
           </AnimatedSection>
         </div>
@@ -29,7 +29,7 @@ export default function KarirPage() {
       {/* Why Work Here */}
       <section className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20 py-20 sm:py-28">
         <AnimatedSection className="max-w-xl mb-14">
-          <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-500 mb-4 block">Mengapa PILAR</span>
+          <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-500 mb-4 block">Mengapa UDIN RENCTCAR</span>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-black tracking-tight">Lingkungan Kerja Terbaik</h2>
         </AnimatedSection>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
