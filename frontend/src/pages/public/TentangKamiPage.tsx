@@ -3,7 +3,7 @@ import { ArrowRight, Target, Eye, Heart, Users, Award, ShieldCheck, Clock, Globe
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
 
 const timeline = [
-  { year: '2009', title: 'Pendirian Perusahaan', desc: 'PT PILAR didirikan dengan fokus awal pada layanan rental kendaraan di satu kota.' },
+  { year: '2009', title: 'Pendirian Perusahaan', desc: 'PT UDIN RENCTCAR didirikan dengan fokus awal pada layanan rental kendaraan di satu kota.' },
   { year: '2013', title: 'Ekspansi Regional', desc: 'Membuka cabang pertama di luar kota asal, memperluas cakupan layanan transportasi.' },
   { year: '2017', title: '100 Unit Armada', desc: 'Mencapai milestone 100 unit kendaraan dalam armada operasional.' },
   { year: '2020', title: 'Transformasi Digital', desc: 'Meluncurkan platform digital untuk pemesanan dan manajemen armada secara online.' },
@@ -34,7 +34,7 @@ export default function TentangKamiPage() {
           <AnimatedSection>
             <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-400 mb-4 block">Tentang Kami</span>
             <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight max-w-2xl">
-              Mengenal PT PILAR Lebih Dekat
+              Mengenal PT UDIN RENCTCAR Lebih Dekat
             </h1>
             <p className="mt-5 text-black-400 text-[15px] leading-relaxed max-w-xl">
               Perusahaan transportasi nasional yang berkomitmen menyediakan solusi mobilitas terbaik bagi korporat, pemerintah, dan individu di seluruh Indonesia.
@@ -52,7 +52,7 @@ export default function TentangKamiPage() {
               Solusi transportasi terpercaya sejak 2009
             </h2>
             <p className="mt-5 text-black-400 text-[15px] leading-relaxed">
-              PT PILAR didirikan pada tahun 2009 dengan visi menjadi penyedia layanan transportasi terpercaya di Indonesia. Bermula dari sebuah usaha kecil, kami terus berkembang hingga kini beroperasi di lebih dari 25 kota dengan armada lebih dari 150 kendaraan.
+              PT UDIN RENCTCAR didirikan pada tahun 2009 dengan visi menjadi penyedia layanan transportasi terpercaya di Indonesia. Bermula dari sebuah usaha kecil, kami terus berkembang hingga kini beroperasi di lebih dari 25 kota dengan armada lebih dari 150 kendaraan.
             </p>
             <p className="mt-4 text-black-400 text-[15px] leading-relaxed">
               Kami melayani berbagai segmen pelanggan mulai dari perusahaan multinasional, instansi pemerintah, agen perjalanan, hingga individu yang membutuhkan solusi transportasi yang handal dan profesional.
@@ -189,7 +189,7 @@ export default function TentangKamiPage() {
       <section className="bg-black py-20 sm:py-28">
         <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20 text-center">
           <AnimatedSection>
-            <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">Jadikan PILAR Mitra Transportasi Anda</h2>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">Jadikan UDIN RENCTCAR Mitra Transportasi Anda</h2>
             <p className="mt-3 text-black-400 text-[15px] max-w-md mx-auto">Hubungi kami untuk konsultasi kebutuhan transportasi perusahaan Anda.</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link to="/kontak" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black text-sm font-semibold rounded-lg hover:bg-accent-100 transition-colors duration-200">

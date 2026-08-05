@@ -17,7 +17,7 @@ const navItems: NavItem[] = [
   {
     label: 'Tentang Kami',
     children: [
-      { label: 'Profil Perusahaan', href: '/tentang', desc: 'Mengenal PT PILAR lebih dekat' },
+      { label: 'Profil Perusahaan', href: '/tentang', desc: 'Mengenal PT UDIN RENCTCAR lebih dekat' },
       { label: 'Sejarah', href: '/tentang#sejarah', desc: 'Perjalanan kami sejak berdiri' },
       { label: 'Visi & Misi', href: '/tentang#visi-misi', desc: 'Arah dan tujuan perusahaan' },
       { label: 'Nilai Perusahaan', href: '/tentang#nilai', desc: 'Prinsip yang kamipegang teguh' },
@@ -163,7 +163,7 @@ export default function MegaMenu({ solid = false }: { solid?: boolean }) {
       <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20 flex items-center justify-between h-16">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 shrink-0">
-          <img src={logo} alt="PILAR" className="h-10 w-auto" />
+          <img src={logo} alt="UDIN RENCTCAR" className="h-10 w-auto" />
         </Link>
 
         {/* Desktop nav */}

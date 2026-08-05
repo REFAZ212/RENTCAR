@@ -26,7 +26,7 @@ class GarasiRequestSeeder extends Seeder
                 'order_id' => $orders[0]->id,
                 'garasi_partner_id' => $makmur->id,
                 'status_permintaan' => 'pending',
-                'pesan_wa_terkirim' => 'Halo, kami dari CV Pilar ingin menanyakan ketersediaan Honda HR-V untuk disewa 3 hari. Mohon konfirmasi.',
+                'pesan_wa_terkirim' => 'Halo, kami dari CV UDIN RENCTCAR ingin menanyakan ketersediaan Honda HR-V untuk disewa 3 hari. Mohon konfirmasi.',
                 'waktu_kirim' => Carbon::now()->subDays(2),
                 'deadline' => Carbon::now()->addDay(),
             ],

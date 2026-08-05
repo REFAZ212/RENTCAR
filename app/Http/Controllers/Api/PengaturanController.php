@@ -212,7 +212,7 @@ class PengaturanController extends Controller
         }
 
         $wa = app(WhatsAppService::class);
-        $pesan = "✅ *Test Notifikasi CVPILAR*\n\n"
+        $pesan = "✅ *Test Notifikasi UDIN RENCTCAR*\n\n"
             ."Pesan ini dikirim untuk memverifikasi koneksi WhatsApp gateway.\n"
             .'Waktu: *'.now()->format('d/m/Y H:i').' WIB*';
 
@@ -254,7 +254,7 @@ class PengaturanController extends Controller
     public function backup(): BinaryFileResponse
     {
         $timestamp = now()->format('Y-m-d_His');
-        $filename = "backup-cvpilar-{$timestamp}.sql";
+        $filename = "backup-udin-renctcar-{$timestamp}.sql";
 
         $tables = [
             'users', 'orders', 'customers', 'kendaraans', 'garasi_partners',
@@ -267,7 +267,7 @@ class PengaturanController extends Controller
             'settings' => [],
         ];
 
-        $dump = "-- Backup CVPILAR {$timestamp}\n-- =============================\n\n";
+        $dump = "-- Backup UDIN RENCTCAR {$timestamp}\n-- =============================\n\n";
 
         foreach ($tables as $table) {
             $driver = DB::getDriverName();

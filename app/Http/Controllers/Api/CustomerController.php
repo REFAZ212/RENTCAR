@@ -66,7 +66,7 @@ class CustomerController extends Controller
         try {
             $wm = app(WatermarkService::class);
             foreach (array_filter([$validated['foto_ktp'] ?? null, $validated['foto_sim'] ?? null]) as $path) {
-                $wm->applyToStoragePath($path, 'CVPILAR • Identitas');
+                $wm->applyToStoragePath($path, 'UDIN RENCTCAR • Identitas');
             }
         } catch (\Throwable $e) {
             report($e);
@@ -128,7 +128,7 @@ class CustomerController extends Controller
             try {
                 $wm = app(WatermarkService::class);
                 foreach ($updatedPaths as $path) {
-                    $wm->applyToStoragePath($path, 'CVPILAR • Identitas');
+                    $wm->applyToStoragePath($path, 'UDIN RENCTCAR • Identitas');
                 }
             } catch (\Throwable $e) {
                 report($e);

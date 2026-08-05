@@ -33,7 +33,7 @@ class WatermarkService
         $width = $image->width();
         $height = $image->height();
 
-        $namaUsaha = $label ?? Setting::get('nama_usaha', 'CVPILAR');
+        $namaUsaha = $label ?? Setting::get('nama_usaha', 'UDIN RENCTCAR');
         $timestamp = now()->timezone('Asia/Jakarta')->format('d M Y H:i');
         $text = "{$namaUsaha} • {$timestamp}";
 
@@ -70,7 +70,7 @@ class WatermarkService
         $width = $image->width();
         $height = $image->height();
 
-        $namaUsaha = $label ?? Setting::get('nama_usaha', 'CVPILAR');
+        $namaUsaha = $label ?? Setting::get('nama_usaha', 'UDIN RENCTCAR');
         $timestamp = now()->timezone('Asia/Jakarta')->format('d M Y H:i');
         $text = "{$namaUsaha} • {$timestamp}";
 

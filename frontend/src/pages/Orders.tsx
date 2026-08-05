@@ -65,18 +65,18 @@ const metodePembayaranLabels: Record<MetodePembayaran, string> = {
 
 // Badge status — dipetakan ke token tema (avail/rented/maint/ink + amber bawaan untuk "menunggu")
 const statusColors: Record<string, string> = {
-  pending: 'bg-accent-100 text-accent-700',
+  pending: 'bg-amber-50 text-amber-700',
   confirmed: 'bg-primary-50 text-primary-500',
   active: 'bg-accent-50 text-accent-600',
-  completed: 'bg-black-200 text-black-700',
+  completed: 'bg-green-50 text-green-700',
   cancelled: 'bg-error-50 text-error-600',
   unpaid: 'bg-error-50 text-error-600',
-  partial: 'bg-accent-100 text-accent-700',
-  paid: 'bg-accent-50 text-accent-600',
+  partial: 'bg-amber-50 text-amber-600',
+  paid: 'bg-green-50 text-green-600',
   belum_diambil: 'bg-accent-100 text-accent-700',
   sudah_diantarkan: 'bg-primary-50 text-primary-500',
   dalam_penyewaan: 'bg-primary-100 text-primary-600',
-  selesai: 'bg-black-200 text-black-700',
+  selesai: 'bg-green-50 text-green-700',
 };
 
 const formatJam = (jam: number): string => {
@@ -93,6 +93,21 @@ const inputClass =
 /* ─────────────────────────────────────────────────────────────
  * TYPES — ENTITAS (di-import dari api.ts sebagai single source of truth)
  * ───────────────────────────────────────────────────────────── */
+
+const cardBorderColor: Record<string, string> = {
+  pending: 'border-t-amber-500',
+  confirmed: 'border-t-primary-500',
+  active: 'border-t-green-500',
+  completed: 'border-t-black-300',
+  cancelled: 'border-t-black-200',
+};
+const statusDotColor: Record<string, string> = {
+  pending: 'bg-amber-500',
+  confirmed: 'bg-primary-500',
+  active: 'bg-green-500',
+  completed: 'bg-black-400',
+  cancelled: 'bg-black-300',
+};
 
 interface OrderForm {
   customer_id: string;
@@ -2333,107 +2348,214 @@ export default function Orders() {
         </div>
       )}
 
-      {/* Detail Modal */}
+      {/* ─────────────────────────────────────────────────────────────
+ * Detail Order Modal — redesign
+ * ─────────────────────────────────────────────────────────────
+ * Ganti seluruh blok "{/* Detail Modal *​/}" (dari {detailOrder && ( ...
+ * sampai penutupnya )} ) di Orders.tsx dengan kode di bawah ini.
+ * State & handler yang dipakai (detailOrder, setDetailOrder,
+ * setInvoiceOrder, overtimeRate, toast) sudah ada di file kamu,
+ * tidak perlu tambahan apa pun selain kode ini.
+ *
+ * CATATAN: Field "Kategori / Tipe / Transmisi" pada card Kendaraan
+ * di gambar referensi kemungkinan berasal dari field tambahan pada
+ * objek `kendaraan` (mis. kendaraan.kategori, kendaraan.tipe,
+ * kendaraan.transmisi) yang belum saya lihat di type Kendaraan kamu.
+ * Saya buat opsional (hanya tampil kalau field-nya ada) — kalau
+ * field itu belum ada di API/type kamu, kasih tahu saya nama field
+ * aslinya biar saya sesuaikan, atau baris itu otomatis tidak muncul.
+ * ───────────────────────────────────────────────────────────── */}
+
       {detailOrder && (
         <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4" onClick={() => setDetailOrder(null)}>
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black-200 bg-white p-6">
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white p-6">
               <div>
                 <h2 className="text-lg font-semibold text-black-900">Detail Order</h2>
-                <p className="font-mono text-sm text-black-400">{detailOrder.kode_order}</p>
+                <button
+                  onClick={() => {
+                    navigator.clipboard?.writeText(detailOrder.kode_order);
+                    toast.success('Kode order disalin');
+                  }}
+                  className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-canvas px-2.5 py-1 font-mono text-xs font-medium text-black-600 transition-colors hover:bg-black-100"
+                >
+                  {detailOrder.kode_order}
+                  <svg className="h-3 w-3 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
               </div>
               <button onClick={() => setDetailOrder(null)} className="rounded-lg p-1 transition-colors hover:bg-canvas" aria-label="Tutup">
                 <CloseIcon />
               </button>
             </div>
-            <div className="space-y-5 p-6">
+
+            <div className="space-y-4 p-6">
+              {/* ── Status pills ── */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`rounded-full px-3 py-1 text-sm font-semibold ${statusColors[detailOrder.status_order]}`}>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusColors[detailOrder.status_order]}`}>
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                   {statusOrderLabels[detailOrder.status_order]}
                 </span>
-                <span className={`rounded-full px-3 py-1 text-sm font-semibold ${statusColors[detailOrder.status_pembayaran]}`}>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusColors[detailOrder.status_pembayaran]}`}>
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                   {statusPembayaranLabels[detailOrder.status_pembayaran]}
                 </span>
-                <span className={`rounded-full px-3 py-1 text-sm font-semibold ${statusColors[detailOrder.status_pengiriman]}`}>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusColors[detailOrder.status_pengiriman]}`}>
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                   {statusPengirimanLabels[detailOrder.status_pengiriman]}
                 </span>
                 {detailOrder.source === 'katalog' && (
-                  <span className="rounded-full bg-primary-100 px-3 py-1 text-sm font-semibold text-primary-600">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-100 px-3 py-1.5 text-sm font-semibold text-primary-600">
                     Pesanan Katalog
                   </span>
                 )}
               </div>
 
-              <div className="space-y-1 rounded-xl bg-canvas p-4">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-black-400">Customer</h3>
-                <div className="flex justify-between text-sm">
-                  <span className="text-black-400">Nama</span>
-                  <span className="font-medium text-black-900">{detailOrder.customer?.nama_lengkap}</span>
+              {/* ── Customer ── */}
+              <div className="rounded-2xl border border-gray-200 p-4">
+                <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-black-500">
+                  <svg className="h-4 w-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  Customer
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-black-400">No. HP</span>
-                  <span className="text-black-900">{formatHpDisplay(detailOrder.customer?.no_hp)}</span>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-600">
+                      {detailOrder.customer?.nama_lengkap?.charAt(0)?.toLowerCase() || '?'}
+                    </div>
+                    <p className="truncate text-sm font-semibold text-black-900">{detailOrder.customer?.nama_lengkap}</p>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-xs text-black-400">No. HP</p>
+                    <div className="flex items-center gap-1.5 text-sm text-black-700">
+                      <svg className="h-3.5 w-3.5 shrink-0 text-black-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                      {formatHpDisplay(detailOrder.customer?.no_hp)}
+                    </div>
+                  </div>
+                  {detailOrder.customer?.alamat && (
+                    <div>
+                      <p className="mb-1 text-xs text-black-400">Alamat</p>
+                      <div className="flex items-start gap-1.5 text-sm text-black-700">
+                        <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-black-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        <span className="truncate">{detailOrder.customer.alamat}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {detailOrder.customer?.email && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-black-400">Email</span>
-                    <span className="text-black-900">{detailOrder.customer.email}</span>
-                  </div>
-                )}
-                {detailOrder.customer?.alamat && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-black-400">Alamat</span>
-                    <span className="max-w-[60%] text-right text-black-900">{detailOrder.customer.alamat}</span>
-                  </div>
-                )}
               </div>
 
-              <div className="space-y-1 rounded-xl bg-canvas p-4">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-black-400">Kendaraan</h3>
-                <div className="flex justify-between text-sm">
-                  <span className="text-black-400">Nama</span>
-                  <span className="font-medium text-black-900">{detailOrder.kendaraan?.nama_kendaraan}</span>
+              {/* ── Kendaraan ── */}
+              <div className="rounded-2xl border border-gray-200 p-4">
+                <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-black-500">
+                  <svg className="h-4 w-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18M3 11v6a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-6" /></svg>
+                  Kendaraan
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-black-400">Plat Nomor</span>
-                  <span className="font-mono text-black-900">{detailOrder.kendaraan?.plat_nomor}</span>
-                </div>
-                {detailOrder.kendaraan?.garasiPartner && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-black-400">Garasi</span>
-                    <span className="text-black-900">{detailOrder.kendaraan.garasiPartner.nama_partner}</span>
+                <div className="flex flex-wrap items-start gap-4">
+                  <div className="flex items-center gap-3">
+                    {detailOrder.kendaraan?.foto ? (
+                      <img src={`/storage/${detailOrder.kendaraan.foto}`} alt="" className="h-14 w-16 shrink-0 rounded-lg object-cover" />
+                    ) : (
+                      <div className="flex h-14 w-16 shrink-0 items-center justify-center rounded-lg bg-black-50 text-black-300">
+                        <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18" /></svg>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold text-black-900">{detailOrder.kendaraan?.nama_kendaraan}</p>
+                      <p className="font-mono text-xs text-black-400">{detailOrder.kendaraan?.plat_nomor}</p>
+                      <span className="mt-1 inline-block rounded-full bg-canvas px-2 py-0.5 text-[11px] font-medium text-black-500">
+                        {detailOrder.durasi_hari} hari
+                      </span>
+                    </div>
                   </div>
-                )}
+                  {/* Kategori/Tipe — dari relasi Kendaraan.kategori & Kendaraan.tipe (api.ts) */}
+                  {detailOrder.kendaraan?.kategori?.nama_kategori && (
+                    <div>
+                      <p className="mb-1 text-xs text-black-400">Kategori</p>
+                      <span className="inline-block rounded-full bg-canvas px-2.5 py-1 text-xs font-medium text-black-700">{detailOrder.kendaraan.kategori.nama_kategori}</span>
+                    </div>
+                  )}
+                  {detailOrder.kendaraan?.tipe?.nama_tipe && (
+                    <div>
+                      <p className="mb-1 text-xs text-black-400">Tipe</p>
+                      <span className="inline-block rounded-full bg-canvas px-2.5 py-1 text-xs font-medium text-black-700">{detailOrder.kendaraan.tipe.nama_tipe}</span>
+                    </div>
+                  )}
+                  {/* Transmisi: belum ada field ini di type Kendaraan (api.ts).
+                      Kalau kamu tambahkan field `transmisi` di backend + type Kendaraan,
+                      tinggal aktifkan blok ini:
+                  {detailOrder.kendaraan?.transmisi && (
+                    <div>
+                      <p className="mb-1 text-xs text-black-400">Transmisi</p>
+                      <span className="inline-block rounded-full bg-canvas px-2.5 py-1 text-xs font-medium text-black-700">{detailOrder.kendaraan.transmisi}</span>
+                    </div>
+                  )}
+                  */}
+                  {detailOrder.kendaraan?.garasiPartner && (
+                    <div>
+                      <p className="mb-1 text-xs text-black-400">Garasi</p>
+                      <span className="inline-block rounded-full bg-canvas px-2.5 py-1 text-xs font-medium text-black-700">{detailOrder.kendaraan.garasiPartner.nama_partner}</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
+              {/* ── Supir & Calo ── */}
               {(detailOrder.supir || detailOrder.calo) && (
-                <div className="space-y-1 rounded-xl bg-canvas p-4">
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-black-400">Supir & Calo</h3>
-                  {detailOrder.supir && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-black-400">Supir</span>
-                      <span className="text-black-900">
-                        {detailOrder.supir.nama} — {formatHpDisplay(detailOrder.supir.no_hp)}
-                      </span>
-                    </div>
-                  )}
-                  {detailOrder.calo && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-black-400">Calo</span>
-                      <span className="text-black-900">
-                        {detailOrder.calo.nama} — {formatHpDisplay(detailOrder.calo.no_hp)}
-                      </span>
-                    </div>
-                  )}
+                <div className="rounded-2xl border border-gray-200 p-4">
+                  <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-black-500">
+                    <svg className="h-4 w-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                    Supir & Calo
+                  </div>
+                  <div className="space-y-3">
+                    {detailOrder.supir && (
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-100 text-sm font-bold text-accent-600">
+                            {detailOrder.supir.nama?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-black-900">{detailOrder.supir.nama}</p>
+                            <p className="text-xs text-black-400">Supir</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-sm text-black-700">
+                          <svg className="h-3.5 w-3.5 shrink-0 text-black-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                          {formatHpDisplay(detailOrder.supir.no_hp)}
+                        </div>
+                      </div>
+                    )}
+                    {detailOrder.calo && (
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-100 text-sm font-bold text-accent-600">
+                            {detailOrder.calo.nama?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-black-900">{detailOrder.calo.nama}</p>
+                            <p className="text-xs text-black-400">Calo</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-sm text-black-700">
+                          <svg className="h-3.5 w-3.5 shrink-0 text-black-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                          {formatHpDisplay(detailOrder.calo.no_hp)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
-              <div className="space-y-3 rounded-xl border border-primary-100 bg-primary-50 p-4">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-primary-400">Rincian Biaya</h3>
-                <div className="flex items-start justify-between gap-4">
+              {/* ── Rincian Biaya ── */}
+              <div className="space-y-3 rounded-2xl border border-primary-100 bg-primary-50 p-4">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary-500">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  Rincian Biaya
+                </div>
+                <div className="flex items-start justify-between gap-4 border-t border-primary-100/70 pt-3">
                   <div>
-                    <p className="text-sm font-medium text-black-900">Sewa Kendaraan</p>
-                    <p className="text-xs text-black-400">
+                    <p className="text-sm font-semibold text-black-900">Sewa Kendaraan</p>
+                    <p className="text-xs text-black-500">
                       {detailOrder.durasi_hari} hari × {formatRupiah(detailOrder.harga_per_hari)}/hari
                     </p>
                     <p className="mt-0.5 text-xs text-black-400">
@@ -2444,9 +2566,9 @@ export default function Orders() {
                   <p className="shrink-0 text-sm font-semibold text-black-900">{formatRupiah(Number(detailOrder.harga_per_hari) * detailOrder.durasi_hari)}</p>
                 </div>
                 {detailOrder.jam_overtime > 0 && (
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start justify-between gap-4 border-t border-primary-100/70 pt-3">
                     <div>
-                      <p className="text-sm font-medium text-error-600">Denda Overtime</p>
+                      <p className="text-sm font-semibold text-error-600">Denda Overtime</p>
                       <p className="text-xs text-error-500">
                         {formatJam(detailOrder.jam_overtime)} × {formatRupiah(overtimeRate)}/jam
                       </p>
@@ -2455,9 +2577,9 @@ export default function Orders() {
                   </div>
                 )}
                 {detailOrder.status_order === 'active' && detailOrder.jam_overtime_saat_ini > 0 && !detailOrder.jam_overtime && (
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start justify-between gap-4 border-t border-primary-100/70 pt-3">
                     <div>
-                      <p className="text-sm font-medium text-error-600">Overtime saat ini</p>
+                      <p className="text-sm font-semibold text-error-600">Overtime saat ini</p>
                       <p className="text-xs text-error-500">
                         {formatJam(detailOrder.jam_overtime_saat_ini)} × {formatRupiah(overtimeRate)}/jam
                       </p>
@@ -2465,7 +2587,7 @@ export default function Orders() {
                     <p className="shrink-0 text-sm font-semibold text-error-600">{formatRupiah(detailOrder.denda_overtime_saat_ini)}</p>
                   </div>
                 )}
-                <div className="flex items-center justify-between border-t border-primary-100 pt-2">
+                <div className="flex items-center justify-between border-t border-primary-200 pt-3">
                   <span className="text-sm font-semibold text-black-900">Total</span>
                   <span className="text-lg font-bold text-primary-600">
                     {formatRupiah(
@@ -2478,110 +2600,143 @@ export default function Orders() {
                 </div>
               </div>
 
-              {(detailOrder.alamat_jemput || detailOrder.tujuan) && (
-                <div className="grid grid-cols-1 gap-3 rounded-xl bg-canvas p-4 sm:grid-cols-2">
-                  {detailOrder.alamat_jemput && (
-                    <div>
-                      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-black-400">Alamat Jemput</h3>
-                      <p className="text-sm text-black-700">{detailOrder.alamat_jemput}</p>
+              {/* ── Alamat Jemput / Tujuan / Tanggal & Waktu ── */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {detailOrder.alamat_jemput && (
+                  <div className="rounded-xl bg-canvas p-3">
+                    <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-black-400">
+                      <svg className="h-3.5 w-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      Alamat Jemput
                     </div>
-                  )}
-                  {detailOrder.tujuan && (
-                    <div>
-                      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wider text-black-400">Tujuan</h3>
-                      <p className="text-sm text-black-700">{detailOrder.tujuan}</p>
+                    <p className="text-sm font-medium text-black-800">{detailOrder.alamat_jemput}</p>
+                  </div>
+                )}
+                {detailOrder.tujuan && (
+                  <div className="rounded-xl bg-canvas p-3">
+                    <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-black-400">
+                      <svg className="h-3.5 w-3.5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      Tujuan
                     </div>
-                  )}
+                    <p className="text-sm font-medium text-black-800">{detailOrder.tujuan}</p>
+                  </div>
+                )}
+                <div className="rounded-xl bg-canvas p-3">
+                  <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-black-400">
+                    <svg className="h-3.5 w-3.5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    Tanggal & Waktu
+                  </div>
+                  <p className="text-sm font-medium text-black-800">
+                    {fmtDate(detailOrder.tanggal_mulai)} {fmtTime(detailOrder.jam_mulai) || '08:00'}
+                  </p>
+                  <p className="text-xs text-black-500">
+                    s/d {fmtDate(detailOrder.tanggal_selesai)} {fmtTime(detailOrder.jam_selesai) || '17:00'} WIB
+                  </p>
                 </div>
-              )}
+              </div>
 
+              {/* ── Catatan ── */}
               {detailOrder.catatan && (
-                <div className="rounded-xl bg-canvas p-4">
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-black-400">Catatan</h3>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                  <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    Catatan
+                  </div>
                   <p className="whitespace-pre-wrap text-sm text-black-700">{detailOrder.catatan}</p>
                 </div>
               )}
 
+              {/* ── Bukti Dokumen ── */}
               {(detailOrder.bukti_transfer || detailOrder.bukti_pengiriman || detailOrder.bukti_pengembalian) && (
-                <div className="space-y-3">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-black-400">Bukti Foto</h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    {detailOrder.bukti_transfer && (
-                      <div>
-                        <p className="mb-1 text-xs text-black-400">Bukti Pembayaran</p>
-                        <a href={`/storage/${detailOrder.bukti_transfer}`} target="_blank" rel="noopener noreferrer">
-                          <img
-                            src={`/storage/${detailOrder.bukti_transfer}`}
-                            alt="Bukti Transfer"
-                            className="h-32 w-full cursor-pointer rounded-xl border border-black-200 object-cover transition-all hover:ring-2 hover:ring-primary-400"
-                          />
-                        </a>
-                      </div>
-                    )}
-                    {detailOrder.bukti_pengiriman && (
-                      <div>
-                        <p className="mb-1 text-xs text-black-400">Bukti Pengiriman</p>
-                        <a href={`/storage/${detailOrder.bukti_pengiriman}`} target="_blank" rel="noopener noreferrer">
-                          <img
-                            src={`/storage/${detailOrder.bukti_pengiriman}`}
-                            alt="Bukti Pengiriman"
-                            className="h-32 w-full cursor-pointer rounded-xl border border-black-200 object-cover transition-all hover:ring-2 hover:ring-primary-400"
-                          />
-                        </a>
-                      </div>
-                    )}
-                    {detailOrder.bukti_pengembalian && (
-                      <div>
-                        <p className="mb-1 text-xs text-black-400">Bukti Pengembalian</p>
-                        <a href={`/storage/${detailOrder.bukti_pengembalian}`} target="_blank" rel="noopener noreferrer">
-                          <img
-                            src={`/storage/${detailOrder.bukti_pengembalian}`}
-                            alt="Bukti Pengembalian"
-                            className="h-32 w-full cursor-pointer rounded-xl border border-black-200 object-cover transition-all hover:ring-2 hover:ring-primary-400"
-                          />
-                        </a>
-                      </div>
-                    )}
-                  </div>
+<div className="rounded-2xl border border-gray-200 p-4">
+                <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-black-500">
+                  <svg className="h-4 w-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  Bukti Dokumen
                 </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {detailOrder.bukti_transfer && (
+                    <div>
+                      <p className="mb-1.5 text-xs text-black-400">Bukti Pembayaran</p>
+                      <a href={`/storage/${detailOrder.bukti_transfer}`} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={`/storage/${detailOrder.bukti_transfer}`}
+                          alt="Bukti Transfer"
+                          className="h-24 w-full cursor-pointer rounded-xl border border-gray-200 object-cover transition-all hover:ring-2 hover:ring-primary-400 sm:h-32"
+                        />
+                      </a>
+                    </div>
+                  )}
+                  {detailOrder.bukti_pengiriman && (
+                    <div>
+                      <p className="mb-1.5 text-xs text-black-400">Bukti Pengiriman</p>
+                      <a href={`/storage/${detailOrder.bukti_pengiriman}`} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={`/storage/${detailOrder.bukti_pengiriman}`}
+                          alt="Bukti Pengiriman"
+                          className="h-24 w-full cursor-pointer rounded-xl border border-gray-200 object-cover transition-all hover:ring-2 hover:ring-primary-400 sm:h-32"
+                        />
+                      </a>
+                    </div>
+                  )}
+                  {detailOrder.bukti_pengembalian && (
+                    <div>
+                      <p className="mb-1.5 text-xs text-black-400">Bukti Pengembalian</p>
+                      <a href={`/storage/${detailOrder.bukti_pengembalian}`} target="_blank" rel="noopener noreferrer">
+                        <img
+                          src={`/storage/${detailOrder.bukti_pengembalian}`}
+                          alt="Bukti Pengembalian"
+                          className="h-24 w-full cursor-pointer rounded-xl border border-gray-200 object-cover transition-all hover:ring-2 hover:ring-primary-400 sm:h-32"
+                        />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </div>
               )}
 
-              <div className="space-y-1 border-t border-black-200 pt-2 text-xs text-black-400">
-                <div className="flex justify-between">
-                  <span>Dibuat</span>
-                  <span>{detailOrder.created_at ? new Date(detailOrder.created_at).toLocaleString('id-ID') : '-'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Diperbarui</span>
-                  <span>{detailOrder.updated_at ? new Date(detailOrder.updated_at).toLocaleString('id-ID') : '-'}</span>
-                </div>
-                {detailOrder.admin?.name && (
-                  <div className="flex justify-between">
-                    <span>Admin</span>
-                    <span>{detailOrder.admin.name}</span>
+              {/* ── Footer: audit info + Lihat Invoice ── */}
+              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
+                <div className="flex flex-wrap items-center gap-5 text-xs text-black-400">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-black-50 text-black-300">
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                    </div>
+                    <div>
+                      <p>Dibuat oleh</p>
+                      <p className="font-medium text-black-700">{detailOrder.admin?.name || '-'}</p>
+                      <p>{detailOrder.created_at ? new Date(detailOrder.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}</p>
+                    </div>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-black-50 text-black-300">
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                    </div>
+                    <div>
+                      <p>Diperbarui oleh</p>
+                      <p className="font-medium text-black-700">{detailOrder.admin?.name || '-'}</p>
+                      <p>{detailOrder.updated_at ? new Date(detailOrder.updated_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}</p>
+                    </div>
+                  </div>
+                </div>
+                {detailOrder.status_order === 'completed' && (
+                  <button
+                    onClick={() => {
+                      setDetailOrder(null);
+                      setInvoiceOrder(detailOrder);
+                    }}
+                    className="flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                      />
+                    </svg>
+                    Lihat Invoice
+                  </button>
                 )}
               </div>
-
-              {detailOrder.status_order === 'completed' && (
-                <button
-                  onClick={() => {
-                    setDetailOrder(null);
-                    setInvoiceOrder(detailOrder);
-                  }}
-                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600"
-                >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
-                    />
-                  </svg>
-                  Lihat Invoice
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -2591,7 +2746,7 @@ export default function Orders() {
       {invoiceOrder && (
         <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4" onClick={() => setInvoiceOrder(null)}>
           <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-black-200 p-6 print:hidden">
+            <div className="flex items-center justify-between border-b border-gray-200 p-6 print:hidden">
               <h2 className="text-lg font-semibold text-black-900">Invoice Sewa Kendaraan</h2>
               <div className="flex items-center gap-2">
                 <button
@@ -2614,8 +2769,8 @@ export default function Orders() {
               </div>
             </div>
             <div className="space-y-5 p-6" id="invoice-content">
-              <div className="border-b border-black-200 pb-4 text-center">
-                <h1 className="text-xl font-bold text-black-900">CVPILAR</h1>
+              <div className="border-b border-gray-200 pb-4 text-center">
+                <h1 className="text-xl font-bold text-black-900">UDIN RENCTCAR</h1>
                 <p className="mt-1 text-xs text-black-400">Sistem Manajemen Rental Kendaraan</p>
                 <p className="mt-0.5 text-xs text-black-400">Jl. Contoh Alamat No. 123, Bandung</p>
               </div>
@@ -2677,7 +2832,7 @@ export default function Orders() {
                 </div>
               </div>
 
-              <div className="space-y-2 border-t border-black-200 pt-4 text-sm">
+              <div className="space-y-2 border-t border-gray-200 pt-4 text-sm">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-black-400">Rincian Biaya</p>
                 <div className="flex justify-between">
                   <span className="text-black-700">
@@ -2701,13 +2856,13 @@ export default function Orders() {
                     <span className="font-medium text-error-600">{formatRupiah(invoiceOrder.denda_overtime)}</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between border-t border-black-200 pt-2">
-                  <span className="font-semibold text-black-900">Total</span>
-                  <span className="text-xl font-bold text-black-900">{formatRupiah(invoiceOrder.harga_total)}</span>
-                </div>
-              </div>
+<div className="flex items-center justify-between border-t border-gray-200 pt-2">
+                      <span className="font-semibold text-black-900">Total</span>
+                      <span className="text-xl font-bold text-black-900">{formatRupiah(invoiceOrder.harga_total)}</span>
+                    </div>
+                  </div>
 
-              <div className="flex items-center justify-between border-t border-black-200 pt-2 text-xs text-black-400">
+                  <div className="flex items-center justify-between border-t border-gray-200 pt-2 text-xs text-black-400">
                 <div className="flex items-center gap-3">
                   <span>
                     Status:{' '}
@@ -2749,204 +2904,204 @@ export default function Orders() {
 
       {confirmComplete && (
         <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4" onClick={closeCompleteModal}>
-          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-black-200 p-6">
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-200 p-6">
               <h2 className="text-lg font-semibold text-black-900">Selesaikan Order</h2>
               <button onClick={closeCompleteModal} className="rounded-lg p-1 transition-colors hover:bg-canvas" aria-label="Tutup">
                 <CloseIcon />
               </button>
             </div>
-            <div className="space-y-4 p-6">
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between rounded-lg bg-canvas p-2.5">
-                  <span className="text-black-400">Kode</span>
-                  <span className="font-mono font-semibold text-black-900">{confirmComplete?.kode_order}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-lg bg-canvas p-2.5">
-                  <span className="text-black-400">Customer</span>
-                  <span className="font-medium text-black-900">{confirmComplete?.customer?.nama_lengkap}</span>
-                </div>
-                <div className="flex items-center justify-between rounded-lg bg-canvas p-2.5">
-                  <span className="text-black-400">Kendaraan</span>
-                  <span className="font-medium text-black-900">
-                    {confirmComplete?.kendaraan?.nama_kendaraan} ({confirmComplete?.kendaraan?.plat_nomor})
-                  </span>
-                </div>
-              </div>
-
-              {confirmComplete && (
-                <div className="space-y-3 rounded-xl border border-primary-100 bg-primary-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-primary-400">Rincian Biaya</p>
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-black-900">Sewa Kendaraan</p>
-                      <p className="text-xs text-black-400">
-                        {confirmComplete.durasi_hari} hari × {formatRupiah(confirmComplete.harga_per_hari)}/hari
-                      </p>
-                    </div>
-                    <p className="shrink-0 text-sm font-semibold text-black-900">{formatRupiah(confirmComplete.durasi_hari * confirmComplete.harga_per_hari)}</p>
+            <div className="flex gap-6 p-6">
+              <div className="flex-1 space-y-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between rounded-lg bg-canvas p-2.5">
+                    <span className="text-black-400">Kode</span>
+                    <span className="font-mono font-semibold text-black-900">{confirmComplete?.kode_order}</span>
                   </div>
-                  {confirmComplete.supir && (
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-black-900">Biaya Supir</p>
-                        <p className="text-xs text-black-400">{confirmComplete.supir.nama}</p>
-                      </div>
-                      <p className="shrink-0 text-sm font-semibold text-black-900">-</p>
-                    </div>
-                  )}
-                  {confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime && (
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-sm font-medium text-error-600">Denda Overtime</p>
-                        <p className="text-xs text-error-500">
-                          {formatJam(confirmComplete.jam_overtime_saat_ini)} × {formatRupiah(overtimeRate)}/jam
-                        </p>
-                      </div>
-                      <p className="shrink-0 text-sm font-semibold text-error-600">{formatRupiah(confirmComplete.denda_overtime_saat_ini)}</p>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between border-t border-primary-100 pt-2">
-                    <span className="text-sm font-semibold text-black-900">Total</span>
-                    <span className="text-lg font-bold text-primary-600">
-                      {formatRupiah(
-                        Number(confirmComplete.harga_total || 0) +
-                          (confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime
-                            ? Number(confirmComplete.denda_overtime_saat_ini || 0)
-                            : 0)
-                      )}
+                  <div className="flex items-center justify-between rounded-lg bg-canvas p-2.5">
+                    <span className="text-black-400">Customer</span>
+                    <span className="font-medium text-black-900">{confirmComplete?.customer?.nama_lengkap}</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-lg bg-canvas p-2.5">
+                    <span className="text-black-400">Kendaraan</span>
+                    <span className="font-medium text-black-900">
+                      {confirmComplete?.kendaraan?.nama_kendaraan} ({confirmComplete?.kendaraan?.plat_nomor})
                     </span>
                   </div>
                 </div>
-              )}
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-black-700">
-                  Waktu Pengembalian Aktual <span className="text-error-500">*</span>
-                </label>
-                <p className="mb-1.5 text-xs text-black-400">Kapan kendaraan benar-benar tiba (dipakai untuk hitung denda)</p>
-                <input
-                  type="datetime-local"
-                  value={completeReturnTime}
-                  onChange={(e) => setCompleteReturnTime(e.target.value)}
-                  className="block w-full rounded-lg border border-black-200 bg-white px-3 py-2 text-sm text-black-900 shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1 block text-sm font-medium text-black-700">
-                  Foto Pengembalian Kendaraan <span className="text-error-500">*</span>
-                </label>
-                {completeFile && (
-                  <ImagePreview
-                    src={completeFilePreview}
-                    onRemove={() => {
-                      if (completeFilePreview) URL.revokeObjectURL(completeFilePreview);
-                      setCompleteFile(null);
-                      setCompleteFilePreview(null);
-                    }}
-                  />
-                )}
-                <UploadBox
-                  label="Upload foto kendaraan dikembalikan"
-                  hint="Foto kondisi kendaraan saat dikembalikan, JPG/PNG, maks 2MB"
-                  fileName={completeFile?.name}
-                  icon={
-                    <svg className="h-5 w-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={1.5}
-                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                      />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  }
-                  onFile={(f) => {
-                    if (!f) return;
-                    if (completeFilePreview) URL.revokeObjectURL(completeFilePreview);
-                    setCompleteFile(f);
-                    setCompleteFilePreview(URL.createObjectURL(f));
-                  }}
-                />
-              </div>
-
-              {confirmComplete &&
-                (confirmComplete.status_pembayaran !== 'paid' || (confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime)) && (
-                  <div>
-                    <label className="mb-1 block text-sm font-medium text-black-700">
-                      Bukti Pembayaran <span className="text-error-500">*</span>
-                    </label>
-                    {completePaymentFile && (
-                      <ImagePreview
-                        src={completePaymentPreview}
-                        onRemove={() => {
-                          if (completePaymentPreview) URL.revokeObjectURL(completePaymentPreview);
-                          setCompletePaymentFile(null);
-                          setCompletePaymentPreview(null);
-                        }}
-                      />
+                {confirmComplete && (
+                  <div className="space-y-3 rounded-xl border border-primary-100 bg-primary-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-primary-400">Rincian Biaya</p>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-medium text-black-900">Sewa Kendaraan</p>
+                        <p className="text-xs text-black-400">
+                          {confirmComplete.durasi_hari} hari × {formatRupiah(confirmComplete.harga_per_hari)}/hari
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-sm font-semibold text-black-900">{formatRupiah(confirmComplete.durasi_hari * confirmComplete.harga_per_hari)}</p>
+                    </div>
+                    {confirmComplete.supir && (
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-black-900">Biaya Supir</p>
+                          <p className="text-xs text-black-400">{confirmComplete.supir.nama}</p>
+                        </div>
+                        <p className="shrink-0 text-sm font-semibold text-black-900">-</p>
+                      </div>
                     )}
-                    <UploadBox
-                      label="Upload bukti pembayaran"
-                      hint="Bukti transfer / pembayaran, JPG/PNG, maks 2MB"
-                      fileName={completePaymentFile?.name}
-                      icon={
-                        <svg className="h-5 w-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={1.5}
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                          />
-                        </svg>
-                      }
-                      onFile={(f) => {
-                        if (!f) return;
-                        if (completePaymentPreview) URL.revokeObjectURL(completePaymentPreview);
-                        setCompletePaymentFile(f);
-                        setCompletePaymentPreview(URL.createObjectURL(f));
-                      }}
-                    />
+                    {confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime && (
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-error-600">Denda Overtime</p>
+                          <p className="text-xs text-error-500">
+                            {formatJam(confirmComplete.jam_overtime_saat_ini)} × {formatRupiah(overtimeRate)}/jam
+                          </p>
+                        </div>
+                        <p className="shrink-0 text-sm font-semibold text-error-600">{formatRupiah(confirmComplete.denda_overtime_saat_ini)}</p>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between border-t border-primary-100 pt-2">
+                      <span className="text-sm font-semibold text-black-900">Total</span>
+                      <span className="text-lg font-bold text-primary-600">
+                        {formatRupiah(
+                          Number(confirmComplete.harga_total || 0) +
+                            (confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime
+                              ? Number(confirmComplete.denda_overtime_saat_ini || 0)
+                              : 0)
+                        )}
+                      </span>
+                    </div>
                   </div>
                 )}
-            </div>
-            <div className="flex justify-end gap-3 border-t border-black-200 p-6">
-              <button
-                onClick={closeCompleteModal}
-                className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas"
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleCompleteOrder}
-                disabled={submitting}
-                className="flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-600 disabled:opacity-50"
-              >
-                {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-                Ya, Selesaikan
-              </button>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-black-700">
+                    Waktu Pengembalian Aktual <span className="text-error-500">*</span>
+                  </label>
+                  <p className="mb-1.5 text-xs text-black-400">Kapan kendaraan benar-benar tiba (dipakai untuk hitung denda)</p>
+                  <input
+                    type="datetime-local"
+                    value={completeReturnTime}
+                    onChange={(e) => setCompleteReturnTime(e.target.value)}
+                    className="block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-black-900 shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 border-t border-gray-200 pt-4">
+                  <button
+                    onClick={closeCompleteModal}
+                    className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleCompleteOrder}
+                    disabled={submitting}
+                    className="flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-600 disabled:opacity-50"
+                  >
+                    {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+                    Ya, Selesaikan
+                  </button>
+                </div>
+              </div>
+
+              <div className="w-72 shrink-0 space-y-4">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-black-700">
+                    Foto Pengembalian Kendaraan <span className="text-error-500">*</span>
+                  </label>
+                  {completeFile && (
+                    <ImagePreview
+                      src={completeFilePreview}
+                      onRemove={() => {
+                        if (completeFilePreview) URL.revokeObjectURL(completeFilePreview);
+                        setCompleteFile(null);
+                        setCompleteFilePreview(null);
+                      }}
+                    />
+                  )}
+                  <UploadBox
+                    label="Upload foto kendaraan dikembalikan"
+                    hint="Foto kondisi kendaraan saat dikembalikan, JPG/PNG, maks 2MB"
+                    fileName={completeFile?.name}
+                    icon={
+                      <svg className="h-5 w-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                        />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                    }
+                    onFile={(f) => {
+                      if (!f) return;
+                      if (completeFilePreview) URL.revokeObjectURL(completeFilePreview);
+                      setCompleteFile(f);
+                      setCompleteFilePreview(URL.createObjectURL(f));
+                    }}
+                  />
+                </div>
+
+                {confirmComplete &&
+                  (confirmComplete.status_pembayaran !== 'paid' || (confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime)) && (
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-black-700">
+                        Bukti Pembayaran <span className="text-error-500">*</span>
+                      </label>
+                      {completePaymentFile && (
+                        <ImagePreview
+                          src={completePaymentPreview}
+                          onRemove={() => {
+                            if (completePaymentPreview) URL.revokeObjectURL(completePaymentPreview);
+                            setCompletePaymentFile(null);
+                            setCompletePaymentPreview(null);
+                          }}
+                        />
+                      )}
+                      <UploadBox
+                        label="Upload bukti pembayaran"
+                        hint="Bukti transfer / pembayaran, JPG/PNG, maks 2MB"
+                        fileName={completePaymentFile?.name}
+                        icon={
+                          <svg className="h-5 w-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={1.5}
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                            />
+                          </svg>
+                        }
+                        onFile={(f) => {
+                          if (!f) return;
+                          if (completePaymentPreview) URL.revokeObjectURL(completePaymentPreview);
+                          setCompletePaymentFile(f);
+                          setCompletePaymentPreview(URL.createObjectURL(f));
+                        }}
+                      />
+                    </div>
+                  )}
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Order List */}
-      <div className="space-y-3">
+      {/* Order List — Card Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {loading ? (
-          <div className="rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-black-200">
+          <div className="col-span-full rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-black-200">
             <div className="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
             <p className="text-sm text-black-400">Memuat data...</p>
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-black-200">
+          <div className="col-span-full rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-black-200">
             <svg className="mx-auto mb-3 h-12 w-12 text-black-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
             </svg>
             <p className="font-medium text-black-700">Tidak ada data order</p>
             <p className="mt-1 text-sm text-black-400">Mulai dengan membuat order baru</p>
@@ -2956,314 +3111,188 @@ export default function Orders() {
             const isOpen = item.status_order === 'pending' || item.status_order === 'confirmed';
             const isActive = item.status_order === 'active';
             const isTerlambat = isActive && item.jam_overtime_saat_ini > 0;
-
-            const sideBarColor =
-              item.status_order === 'pending'
-                ? 'bg-accent-400'
-                : item.status_order === 'confirmed'
-                  ? 'bg-primary-500'
-                  : item.status_order === 'active'
-                    ? 'bg-accent-500'
-                    : item.status_order === 'completed'
-                      ? 'bg-black-400'
-                      : 'bg-error-500';
+            const isCompleted = item.status_order === 'completed';
+            const borderColor = isTerlambat ? 'border-t-error-500' : cardBorderColor[item.status_order];
 
             return (
               <div
                 key={item.id}
-                className={`rounded-2xl bg-white shadow-sm ring-1 transition-all hover:shadow-md ${
-                  isActive ? 'ring-accent-500/30' : isOpen ? 'ring-amber-500/30' : 'ring-black-200'
-                }`}
+                className={`group flex flex-col overflow-hidden rounded-2xl border border-gray-200 border-t-4 ${borderColor} bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`}
               >
-                <div className="flex items-stretch">
-                  <div className={`w-1.5 shrink-0 rounded-l-2xl ${sideBarColor}`} />
-
-                  <div className="flex-1 p-4">
-                    <div className="mb-3 flex flex-wrap items-center justify-between gap-y-2">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className="font-mono text-sm font-bold text-black-900">{item.kode_order}</span>
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusColors[item.status_order]}`}>
-                          {statusOrderLabels[item.status_order]}
-                        </span>
-                        {item.source === 'katalog' && (
-                          <span className="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-semibold text-primary-600">
-                            Pesanan Katalog
-                          </span>
-                        )}
-                        {isActive && (
-                          <span className="flex items-center gap-1 text-xs font-medium text-accent-600">
-                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent-500" />
-                            Aktif
-                          </span>
-                        )}
-                        {isTerlambat && (
-                          <span className="flex items-center gap-1 rounded-full bg-error-50 px-2 py-0.5 text-xs font-semibold text-error-600">
-                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"
-                              />
-                            </svg>
-                            Overtime {formatJam(item.jam_overtime_saat_ini)} ({formatRupiah(item.denda_overtime_saat_ini)})
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => setDetailOrder(item)}
-                          className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-canvas hover:text-black-700"
-                          title="Lihat detail"
-                          aria-label="Lihat detail"
-                        >
-                          <EyeIcon />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(item)}
-                          className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-primary-50 hover:text-primary-600"
-                          title="Edit order"
-                          aria-label="Edit order"
-                        >
-                          <PencilIcon />
-                        </button>
-                        {item.status_order === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => openEditModal(item, { konfirmasi: true })}
-                              className="rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-600"
-                            >
-                              Konfirmasi
-                            </button>
-                            <button
-                              onClick={() =>
-                                setConfirmAction({
-                                  title: 'Batalkan Order',
-                                  message: `Batalkan order "${item.kode_order}" dari ${item.customer?.nama_lengkap}?`,
-                                  danger: true,
-                                  onConfirm: () => handleInlineUpdate(item.id, 'status_order', 'cancelled'),
-                                })
-                              }
-                              className="rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50"
-                            >
-                              Batal
-                            </button>
-                          </>
-                        )}
-                        {item.status_order === 'confirmed' && (
-                          <>
-                            <button
-                              onClick={() => openEditModal(item, { sewakan: true })}
-                              className="flex items-center gap-1 rounded-lg bg-accent-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-600"
-                            >
-                              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                              </svg>
-                              Kirim Kendaraan
-                            </button>
-                            <button
-                              onClick={() =>
-                                setConfirmAction({
-                                  title: 'Batalkan Order',
-                                  message: `Batalkan order "${item.kode_order}" dari ${item.customer?.nama_lengkap}?`,
-                                  danger: true,
-                                  onConfirm: () => handleInlineUpdate(item.id, 'status_order', 'cancelled'),
-                                })
-                              }
-                              className="rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50"
-                            >
-                              Batal
-                            </button>
-                          </>
-                        )}
-                        {isActive && item.status_pengiriman === 'sudah_diantarkan' && item.bukti_pengiriman && (
-                          <button
-                            onClick={() =>
-                              setConfirmAction({
-                                title: 'Mulai Sewa',
-                                message: `Mulai penyewaan "${item.kode_order}" dari ${item.customer?.nama_lengkap}?`,
-                                danger: false,
-                                onConfirm: () => handleInlineUpdate(item.id, 'status_pengiriman', 'dalam_penyewaan'),
-                              })
-                            }
-                            className="flex items-center gap-1 rounded-lg bg-accent-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-600"
-                          >
-                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Mulai Sewa
-                          </button>
-                        )}
-                        {isActive && item.status_pengiriman !== 'sudah_diantarkan' && (
-                          <button
-                            onClick={() => setConfirmComplete(item)}
-                            className="flex items-center gap-1 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-500"
-                          >
-                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            Selesai
-                          </button>
-                        )}
-                        {isOpen && (
-                          <button
-                            onClick={() => setConfirmDelete(item)}
-                            className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-error-50 hover:text-error-600"
-                            title="Hapus"
-                            aria-label="Hapus"
-                          >
-                            <TrashIcon />
-                          </button>
-                        )}
-                      </div>
+                {/* ── Header: kode + status badge + menu ── */}
+                <div className="flex items-start justify-between px-4 pt-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm font-bold text-black-900">{item.kode_order}</span>
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                          isTerlambat ? statusColors['cancelled'] : statusColors[item.status_order]
+                        }`}
+                      >
+                        {isTerlambat ? 'Terlambat' : statusOrderLabels[item.status_order]}
+                      </span>
                     </div>
-
-                    {isTerlambat && (
-                      <div className="mb-3 flex items-center gap-2 rounded-lg border border-error-500/30 bg-error-50 px-3 py-2">
-                        <svg className="h-4 w-4 flex-shrink-0 text-error-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="text-xs font-medium text-error-600">
-                          Kendaraan terlambat dikembalikan <strong>{formatJam(item.jam_overtime_saat_ini)}</strong> — denda{' '}
-                          <strong>{formatRupiah(item.denda_overtime_saat_ini)}</strong>
-                        </span>
-                      </div>
-                    )}
-
-                    {item.status_order === 'completed' && item.jam_overtime > 0 && (
-                      <div className="mb-3 flex items-center gap-2 rounded-lg border border-accent-200 bg-accent-50 px-3 py-2">
-                        <svg className="h-4 w-4 flex-shrink-0 text-accent-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="text-xs font-medium text-accent-600">
-                          Terlambat {formatJam(item.jam_overtime)} — denda {formatRupiah(item.denda_overtime)}
-                        </span>
-                        <button onClick={() => setInvoiceOrder(item)} className="ml-auto text-xs font-medium text-accent-600 underline hover:text-accent-700">
-                          Lihat Invoice
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-                      <div className="space-y-0.5">
-                        <span className="text-xs uppercase tracking-wider text-black-400">Customer</span>
-                        <div className="flex items-center gap-2 px-2 py-1">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-600">
-                            {item.customer?.nama_lengkap?.charAt(0) || '?'}
-                          </div>
-                          <div className="min-w-0">
-                            <span className="block truncate font-medium text-black-900">{item.customer?.nama_lengkap}</span>
-                            <p className="truncate text-xs text-black-400">{formatHpDisplay(item.customer?.no_hp)}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-xs uppercase tracking-wider text-black-400">Kendaraan</span>
-                        <div className="flex items-center gap-2 px-2 py-1">
-                          {item.kendaraan?.foto ? (
-                            <img src={`/storage/${item.kendaraan.foto}`} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
-                          ) : (
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-black-200 text-black-400">
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18" /></svg>
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <span className="block truncate font-medium text-black-900">{item.kendaraan?.nama_kendaraan}</span>
-                            <p className="truncate text-xs text-black-400">{item.kendaraan?.plat_nomor}</p>
-                          </div>
-                        </div>
-                      </div>
-                      {(item.supir || item.calo) && (
-                        <div className="space-y-0.5">
-                          <span className="text-xs uppercase tracking-wider text-black-400">Supir / Calo</span>
-                          <div className="px-2 py-1">
-                            {item.supir && <span className="block truncate text-black-900">{item.supir.nama}</span>}
-                            {item.calo && <p className="truncate text-xs text-black-400">{item.calo.nama}</p>}
-                            {!item.supir && !item.calo && <span className="text-black-400">-</span>}
-                          </div>
-                        </div>
+                    <div className="mt-1 flex items-center gap-1.5">
+                      <span className={`h-1.5 w-1.5 rounded-full ${isTerlambat ? 'bg-error-500' : statusDotColor[item.status_order]} ${isActive ? 'animate-pulse' : ''}`} />
+                      <span className={`text-[11px] font-medium ${isTerlambat ? 'text-error-600' : 'text-black-400'}`}>
+                        {isTerlambat ? 'Terlambat' : statusOrderLabels[item.status_order]}
+                      </span>
+                      {item.source === 'katalog' && (
+                        <span className="ml-1 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-600">Katalog</span>
                       )}
-                      <div className="space-y-0.5">
-                        <span className="text-xs uppercase tracking-wider text-black-400">Periode</span>
-                        <div className="px-2 py-1">
-                          <span className="block text-black-900">
-                            {fmtDate(item.tanggal_mulai)} {fmtTime(item.jam_mulai) || '08:00'} → {fmtDate(item.tanggal_selesai)} {fmtTime(item.jam_selesai) || '17:00'} WIB
-                          </span>
-                          <p className="text-xs text-black-400">{item.durasi_hari} hari</p>
-                        </div>
-                      </div>
-                      <div className="space-y-0.5">
-                        <span className="text-xs uppercase tracking-wider text-black-400">Total</span>
-                        <div className="px-2 py-1">
-                          <span className="font-bold text-black-900">
-                            {formatRupiah(
-                              Number(item.harga_total) +
-                                (item.status_order === 'active' && item.jam_overtime_saat_ini > 0 && !item.jam_overtime
-                                  ? Number(item.denda_overtime_saat_ini)
-                                  : 0)
-                            )}
-                          </span>
-                          <p className="text-xs text-black-400">{formatRupiah(item.harga_per_hari)}/hari</p>
-                        </div>
-                      </div>
                     </div>
-
-                    {(item.alamat_jemput || item.tujuan) && (
-                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-accent-50 px-3 py-2 text-xs text-black-500">
-                        {item.alamat_jemput && (
-                          <span className="flex items-center gap-1.5">
-                            <svg className="h-3.5 w-3.5 shrink-0 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                            {item.alamat_jemput}
-                          </span>
-                        )}
-                        {item.alamat_jemput && item.tujuan && <span className="text-black-400">→</span>}
-                        {item.tujuan && (
-                          <span className="flex items-center gap-1.5">
-                            <svg className="h-3.5 w-3.5 shrink-0 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><circle cx="12" cy="11" r="3" /></svg>
-                            {item.tujuan}
-                          </span>
-                        )}
-                      </div>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    <button onClick={() => setDetailOrder(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-canvas hover:text-black-700" title="Lihat detail" aria-label="Lihat detail"><EyeIcon /></button>
+                    <button onClick={() => openEditModal(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-primary-50 hover:text-primary-600" title="Edit order" aria-label="Edit order"><PencilIcon /></button>
+                    {isOpen && (
+                      <button onClick={() => setConfirmDelete(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-error-50 hover:text-error-600" title="Hapus" aria-label="Hapus"><TrashIcon /></button>
                     )}
+                  </div>
+                </div>
 
-                    <div className="mt-3 flex flex-wrap items-center gap-4 border-t border-black-200 pt-3">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-black-400">Bayar:</span>
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusColors[item.status_pembayaran]}`}>
-                          {statusPembayaranLabels[item.status_pembayaran]}
-                        </span>
-                        {item.bukti_transfer && (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-50" title="Bukti transfer terlampir">
-                            <svg className="h-3 w-3 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </span>
-                        )}
-                        {item.bukti_pengiriman && (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-50" title="Bukti pengiriman terlampir">
-                            <svg className="h-3 w-3 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={1.5}
-                                d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                              />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                          </span>
-                        )}
+                {/* ── Body ── */}
+                <div className="flex flex-1 flex-col gap-3 p-4 pt-3">
+                  {/* CUSTOMER */}
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-black-300">Customer</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-600">
+                          {item.customer?.nama_lengkap?.charAt(0)?.toLowerCase() || '?'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-black-900">{item.customer?.nama_lengkap}</p>
+                          <p className="truncate text-xs text-black-400">{formatHpDisplay(item.customer?.no_hp)}</p>
+                        </div>
                       </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-black-400">Pengiriman:</span>
-                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusColors[item.status_pengiriman]}`}>
-                          {statusPengirimanLabels[item.status_pengiriman]}
-                        </span>
-                      </div>
-
-                      <div className="ml-auto text-xs text-black-400">{item.admin?.name && `oleh ${item.admin.name}`}</div>
+                      {item.customer?.no_hp && (
+                        <a
+                          href={`tel:${item.customer.no_hp}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-black-300 transition-colors hover:bg-primary-50 hover:text-primary-600"
+                          aria-label="Telepon customer"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                          </svg>
+                        </a>
+                      )}
                     </div>
+                  </div>
+
+                  {/* KENDARAAN */}
+                  <div>
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-black-300">Kendaraan</p>
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-black-50 text-black-400">
+                        {item.kendaraan?.foto ? (
+                          <img src={`/storage/${item.kendaraan.foto}`} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                        ) : (
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18" /></svg>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-black-900">{item.kendaraan?.nama_kendaraan}</p>
+                        <p className="truncate font-mono text-xs text-black-400">{item.kendaraan?.plat_nomor}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* PERIODE / TOTAL */}
+                  <div className="border-t border-gray-100 pt-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-black-300">Periode</p>
+                        <div className="flex items-center gap-1.5 text-xs text-black-600">
+                          <svg className="h-3.5 w-3.5 shrink-0 text-black-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                          <span>{fmtDate(item.tanggal_mulai)} {fmtTime(item.jam_mulai)}</span>
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-1.5 pl-5 text-xs text-black-600">
+                          <span className="text-black-300">→</span>
+                          <span>{fmtDate(item.tanggal_selesai)} {fmtTime(item.jam_selesai)}</span>
+                        </div>
+                        <p className="mt-1 pl-5 text-[11px] text-black-400">{item.durasi_hari} hari</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-black-300">Total</p>
+                        <p className="text-sm font-bold text-black-900">
+                          {formatRupiah(
+                            Number(item.harga_total) +
+                              (isActive && item.jam_overtime_saat_ini > 0 && !item.jam_overtime
+                                ? Number(item.denda_overtime_saat_ini)
+                                : 0)
+                          )}
+                        </p>
+                        <p className="text-[11px] text-black-400">{formatRupiah(item.harga_per_hari)}/hari</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* LOKASI */}
+                  {(item.alamat_jemput || item.tujuan) && (
+                    <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-black-600">
+                      <svg className="h-3.5 w-3.5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      <span className="truncate">{item.alamat_jemput || item.tujuan}</span>
+                      {item.alamat_jemput && item.tujuan && (
+                        <>
+                          <span className="text-black-300">→</span>
+                          <span className="truncate">{item.tujuan}</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Overtime warning */}
+                  {isTerlambat && (
+                    <div className="rounded-lg border border-error-500/30 bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600">
+                      Terlambat {formatJam(item.jam_overtime_saat_ini)} — {formatRupiah(item.denda_overtime_saat_ini)}
+                    </div>
+                  )}
+                  {isCompleted && item.jam_overtime > 0 && (
+                    <div className="rounded-lg border border-accent-200 bg-accent-50 px-3 py-1.5 text-xs font-medium text-accent-600">
+                      Terlambat {formatJam(item.jam_overtime)} — {formatRupiah(item.denda_overtime)}
+                    </div>
+                  )}
+
+                  {/* Bayar / Pengiriman */}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-gray-100 pt-3 text-xs">
+                    <span className="text-black-400">
+                      Bayar:{' '}
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColors[item.status_pembayaran]}`}>
+                        {statusPembayaranLabels[item.status_pembayaran]}
+                      </span>
+                    </span>
+                    <span className="text-black-400">
+                      Pengiriman:{' '}
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColors[item.status_pengiriman]}`}>
+                        {statusPengirimanLabels[item.status_pengiriman]}
+                      </span>
+                    </span>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="mt-auto flex flex-wrap gap-2 pt-1">
+                    <button onClick={() => setDetailOrder(item)} className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-black-700 transition-colors hover:bg-canvas">Lihat</button>
+                    <button onClick={() => openEditModal(item)} className="flex-1 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-600">Edit</button>
+                    {isActive && item.status_pengiriman !== 'sudah_diantarkan' && (
+                      <button onClick={() => setConfirmComplete(item)} className="flex-1 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-500">Selesai</button>
+                    )}
+                    {isActive && item.status_pengiriman === 'sudah_diantarkan' && item.bukti_pengiriman && (
+                      <button onClick={() => setConfirmAction({ title: 'Mulai Sewa', message: `Mulai penyewaan "${item.kode_order}" dari ${item.customer?.nama_lengkap}?`, danger: false, onConfirm: () => handleInlineUpdate(item.id, 'status_pengiriman', 'dalam_penyewaan') })} className="flex-1 rounded-lg bg-accent-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-600">Mulai</button>
+                    )}
+                    {item.status_order === 'pending' && (
+                      <>
+                        <button onClick={() => openEditModal(item, { konfirmasi: true })} className="flex-1 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-600">Konfirmasi</button>
+                        <button onClick={() => setConfirmAction({ title: 'Batalkan Order', message: `Batalkan order "${item.kode_order}" dari ${item.customer?.nama_lengkap}?`, danger: true, onConfirm: () => handleInlineUpdate(item.id, 'status_order', 'cancelled') })} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
+                      </>
+                    )}
+                    {item.status_order === 'confirmed' && (
+                      <>
+                        <button onClick={() => openEditModal(item, { sewakan: true })} className="flex-1 rounded-lg bg-accent-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-600">Kirim</button>
+                        <button onClick={() => setConfirmAction({ title: 'Batalkan Order', message: `Batalkan order "${item.kode_order}" dari ${item.customer?.nama_lengkap}?`, danger: true, onConfirm: () => handleInlineUpdate(item.id, 'status_order', 'cancelled') })} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

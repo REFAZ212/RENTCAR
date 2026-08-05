@@ -520,7 +520,7 @@ function BisnisTab() {
               value={form.nama_usaha}
               onChange={(e) => setForm({ ...form, nama_usaha: e.target.value })}
               className={inputClass()}
-              placeholder="Contoh: Pilar Rental Mobil"
+              placeholder="Contoh: UDIN RENCTCAR"
               required
             />
           </Field>

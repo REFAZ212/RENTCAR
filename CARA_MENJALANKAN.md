@@ -1,8 +1,8 @@
-# CVPILAR - Panduan Menjalankan Sistem
+# UDIN RENCTCAR - Panduan Menjalankan Sistem
 
 ## Ikhtisar
 
-**CVPILAR** adalah sistem manajemen garasi/kendaraan rental mobil. Terdiri dari dua bagian utama:
+**UDIN RENCTCAR** adalah sistem manajemen garasi/kendaraan rental mobil. Terdiri dari dua bagian utama:
 
 - **Backend**: Laravel 13.8 API (PHP 8.3+)
 - **Frontend**: React 19 SPA (Vite + React Router DOM v7)
@@ -78,15 +78,15 @@ Edit file `.env` dan pastikan konfigurasi berikut:
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=cvpilar
+DB_DATABASE=udin-renctcar
 DB_USERNAME=root
 DB_PASSWORD=
 ```
 
-Buat database `cvpilar` di MySQL terlebih dahulu:
+Buat database `udin-renctcar` di MySQL terlebih dahulu:
 
 ```sql
-CREATE DATABASE cvpilar;
+CREATE DATABASE udin-renctcar;
 ```
 
 ### Menggunakan SQLite
@@ -263,7 +263,7 @@ npm run lint
 | Masalah | Solusi |
 |---------|--------|
 | `Class not found` | Jalankan `composer dump-autoload` |
-| Database tidak ditemukan | Pastikan MySQL running dan database `cvpilar` sudah dibuat |
+| Database tidak ditemukan | Pastikan MySQL running dan database `udin-renctcar` sudah dibuat |
 | Port 8000 sudah dipakai | Jalankan `php artisan serve --port=8001` |
 | Port 5173 sudah dipakai | Vite akan otomatis menggunakan port berikutnya |
 | Frontend tidak bisa koneksi ke API | Pastikan backend berjalan di port 8000 (proxy setting) |

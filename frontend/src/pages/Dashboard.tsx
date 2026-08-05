@@ -3,9 +3,6 @@ import { Link } from 'react-router-dom';
 import { formatRupiah } from '../lib/format';
 import {
   CheckCircle2,
-  ArrowLeftRight,
-  ClipboardList,
-  Clock,
   Wallet,
   TrendingUp,
   Building2,
@@ -20,12 +17,8 @@ import RevenueChart, { type ChartPendapatanPoint } from '../components/dashboard
 interface DashboardStats {
   kendaraan_tersedia: number;
   total_kendaraan: number;
-  kendaraan_disewa: number;
-  orders_aktif: number;
-  orders_pending: number;
   pendapatan_hari_ini: number;
   pendapatan_bulan_ini: number;
-  garasi_pending: number;
   total_customer: number;
 }
 
@@ -143,7 +136,7 @@ export default function Dashboard() {
           <div className="h-4 w-56 skeleton" />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <StatCardSkeleton key={i} />
           ))}
         </div>
@@ -184,36 +177,6 @@ export default function Dashboard() {
       sparkColor: '#FFC20F',
     },
     {
-      key: 'kendaraan_disewa',
-      label: 'Sedang Disewa',
-      value: stats.kendaraan_disewa,
-      rawValue: stats.kendaraan_disewa,
-      icon: ArrowLeftRight,
-      iconBg: 'bg-primary-50',
-      iconColor: 'text-primary-500',
-      sparkColor: '#15459A',
-    },
-    {
-      key: 'orders_aktif',
-      label: 'Order Aktif',
-      value: stats.orders_aktif,
-      rawValue: stats.orders_aktif,
-      icon: ClipboardList,
-      iconBg: 'bg-primary-50',
-      iconColor: 'text-primary-600',
-      sparkColor: '#15459A',
-    },
-    {
-      key: 'orders_pending',
-      label: 'Order Pending',
-      value: stats.orders_pending,
-      rawValue: stats.orders_pending,
-      icon: Clock,
-      iconBg: 'bg-error-50',
-      iconColor: 'text-error-500',
-      sparkColor: '#c1121f',
-    },
-    {
       key: 'pendapatan_hari',
       label: 'Pendapatan Hari Ini',
       value: formatRupiah(stats.pendapatan_hari_ini),
@@ -232,16 +195,6 @@ export default function Dashboard() {
       iconBg: 'bg-primary-50',
       iconColor: 'text-primary-700',
       sparkColor: '#0d2e6b',
-    },
-    {
-      key: 'garasi_pending',
-      label: 'Garasi Pending',
-      value: stats.garasi_pending,
-      rawValue: stats.garasi_pending,
-      icon: Building2,
-      iconBg: 'bg-error-50',
-      iconColor: 'text-error-600',
-      sparkColor: '#9c0e19',
     },
     {
       key: 'total_customer',

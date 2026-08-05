@@ -774,7 +774,7 @@ export default function Katalog() {
       <nav className="bg-white border-b border-black-200 sticky top-0 z-40" role="navigation" aria-label="Navigasi utama">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
           <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            <img src={logo} alt="PILAR" className="h-10 w-auto" />
+            <img src={logo} alt="UDIN RENCTCAR" className="h-10 w-auto" />
           </Link>
           <div className="flex items-center gap-3">
             <Link
@@ -1110,7 +1110,7 @@ export default function Katalog() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             <div>
               <div className="flex items-center gap-2 mb-2">
-                <img src={logoFooter} alt="PILAR" className="h-12 w-auto" />
+                <img src={logoFooter} alt="UDIN RENCTCAR" className="h-12 w-auto" />
               </div>
               <p className="text-sm leading-relaxed mt-1">Solusi rental kendaraan terpercaya. Armada lengkap, proses mudah, harga bersahabat.</p>
             </div>
@@ -1118,7 +1118,7 @@ export default function Katalog() {
               <h4 className="text-white font-semibold mb-3">Kontak</h4>
               <div className="space-y-2 text-sm">
                 <p>WhatsApp: 0895-3610-54272</p>
-                <p>Email: info@pilarrental.com</p>
+                <p>Email: info@udin-renctcar.com</p>
                 <p>Jl. Contoh No. 123, Kota</p>
               </div>
             </div>
@@ -1131,7 +1131,7 @@ export default function Katalog() {
             </div>
           </div>
           <div className="mt-8 pt-6 border-t border-black-800 text-center text-sm">
-            &copy; {new Date().getFullYear()} PILAR Rental. Hak cipta dilindungi.
+            &copy; {new Date().getFullYear()} UDIN RENCTCAR. Hak cipta dilindungi.
           </div>
         </div>
       </footer>
