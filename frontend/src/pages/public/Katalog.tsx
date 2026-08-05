@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Star } from 'lucide-react';
 import { katalogAPI, type KategoriKendaraan, type TipeKendaraan, type KatalogItem, type OrderRequestPayload } from '../../services/api';
 import { todayJakarta, formatRupiah, ADMIN_WA } from '../../lib/format';
@@ -54,6 +54,7 @@ function getStatusInfo(item: KatalogItem, availableForDates?: boolean) {
       textColor: 'text-accent-600',
       bgColor: 'bg-accent-50',
       borderColor: 'border-accent-200',
+      // "disabled" here only means "can't be ordered directly" — the detail page is still viewable.
       disabled: true,
       reason: 'maintenance' as const,
     };
@@ -64,7 +65,7 @@ function getStatusInfo(item: KatalogItem, availableForDates?: boolean) {
       color: 'bg-error-500',
       textColor: 'text-error-600',
       bgColor: 'bg-error-50',
-      borderColor: 'border-error-50',
+      borderColor: 'border-error-200',
       disabled: true,
       reason: 'disewa' as const,
       estimatedReturn: item.estimated_return_date,
@@ -554,14 +555,16 @@ function VehicleCard({
   onPesan: (item: KatalogItem) => void;
   availableForDates?: boolean;
 }) {
+  const navigate = useNavigate();
   const fotoUrl = getFotoUrl(item.foto);
   const status = getStatusInfo(item, availableForDates);
+  // "isDisabled" only blocks ordering — the card itself always navigates to the detail page,
+  // so customers can still see specs, estimated availability, and similar-vehicle suggestions.
   const isDisabled = status.disabled;
 
   const handleCardClick = (e: React.MouseEvent) => {
-    if (isDisabled) return;
     if ((e.target as HTMLElement).closest('button')) return;
-    window.location.href = `/katalog/${item.id}`;
+    navigate(`/katalog/${item.id}`);
   };
 
   const formatDate = (dateStr: string) => {
@@ -575,10 +578,8 @@ function VehicleCard({
   return (
     <div
       onClick={handleCardClick}
-      className={`group bg-white rounded-xl border overflow-hidden transition-all duration-200 ${
-        isDisabled
-          ? 'border-black-200 opacity-80'
-          : 'border-black-200 hover:shadow-lg hover:border-primary-200 cursor-pointer'
+      className={`group bg-white rounded-xl border overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary-200 ${
+        isDisabled ? 'border-black-200 opacity-80' : 'border-black-200'
       }`}
     >
       <div className="relative h-44 bg-accent-100 overflow-hidden">
@@ -587,9 +588,7 @@ function VehicleCard({
             src={fotoUrl}
             alt={`${item.merek ?? ''} ${item.model ?? ''}`}
             loading="lazy"
-            className={`w-full h-full object-cover transition-transform duration-300 ${
-              isDisabled ? '' : 'group-hover:scale-105'
-            }`}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -611,44 +610,50 @@ function VehicleCard({
           </div>
         )}
       </div>
-<div className="p-4">
-                        <h3 className={`font-bold text-black transition-colors line-clamp-1 ${
-                          isDisabled ? '' : 'group-hover:text-primary-600'
-                        }`}>
-                          {item.nama_kendaraan}
-                        </h3>
-                        <p className="text-sm text-black-400 mt-0.5">
-                          {item.merek} {item.model} &middot; {item.tahun}
-                        </p>
-                        <div className="flex items-center gap-1 mt-2">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className="w-3.5 h-3.5 text-accent-500 fill-accent-500" />
-                          ))}
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-accent-100 flex items-center justify-between">
-                          <span className="text-lg font-bold text-primary-600">
-                            {formatRupiah(item.harga_sewa_per_hari)}
-                            <span className="text-xs text-black-400 font-normal">/hari</span>
-                          </span>
-                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${status.bgColor} ${status.textColor}`}>
-                            {status.label}
-                          </span>
-                        </div>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (!isDisabled) onPesan(item);
-                          }}
-                          disabled={isDisabled}
-                          className={`mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors ${
-                            isDisabled
-                              ? 'bg-black-200 text-black-400 cursor-not-allowed'
-                              : 'bg-primary-600 text-white hover:bg-primary-700'
-                          }`}
-                        >
-                          {isDisabled ? status.label : 'Sewa Sekarang'}
-                        </button>
-                      </div>
+      <div className="p-4">
+        <h3 className={`font-bold text-black transition-colors line-clamp-1 group-hover:text-primary-600`}>
+          {item.nama_kendaraan}
+        </h3>
+        <p className="text-sm text-black-400 mt-0.5">
+          {item.merek} {item.model} &middot; {item.tahun}
+        </p>
+        <div className="flex items-center gap-1 mt-2">
+          {[...Array(5)].map((_, i) => (
+            <Star key={i} className="w-3.5 h-3.5 text-accent-500 fill-accent-500" />
+          ))}
+        </div>
+        <div className="mt-3 pt-3 border-t border-accent-100 flex items-center justify-between">
+          <span className="text-lg font-bold text-primary-600">
+            {formatRupiah(item.harga_sewa_per_hari)}
+            <span className="text-xs text-black-400 font-normal">/hari</span>
+          </span>
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${status.bgColor} ${status.textColor}`}>
+            {status.label}
+          </span>
+        </div>
+        {status.reason === 'disewa' && status.estimatedReturn && (
+          <p className="text-[11px] text-black-400 mt-1.5">
+            Perkiraan kembali: {formatDate(status.estimatedReturn)}
+          </p>
+        )}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            if (isDisabled) {
+              navigate(`/katalog/${item.id}`);
+            } else {
+              onPesan(item);
+            }
+          }}
+          className={`mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors ${
+            isDisabled
+              ? 'bg-canvas text-black-600 border border-black-200 hover:bg-black-200'
+              : 'bg-primary-600 text-white hover:bg-primary-700'
+          }`}
+        >
+          {isDisabled ? 'Lihat Detail' : 'Sewa Sekarang'}
+        </button>
+      </div>
     </div>
   );
 }
