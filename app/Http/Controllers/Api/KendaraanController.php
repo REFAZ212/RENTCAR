@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Kendaraan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class KendaraanController extends Controller
@@ -149,21 +150,26 @@ class KendaraanController extends Controller
     {
         $this->authorize('delete', $kendaraan);
 
-        $hasAnyOrder = $kendaraan->orders()
-            ->whereIn('status_order', ['pending', 'confirmed', 'active', 'completed', 'cancelled'])
+        $hasActiveOrder = $kendaraan->orders()
+            ->whereIn('status_order', ['pending', 'confirmed', 'active'])
             ->exists();
 
-        if ($hasAnyOrder) {
+        if ($hasActiveOrder) {
             return response()->json([
-                'message' => 'Tidak bisa menghapus kendaraan yang memiliki riwayat order. Selesaikan atau batalkan semua order terlebih dahulu.',
+                'message' => 'Tidak bisa menghapus kendaraan yang masih memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.',
             ], 422);
         }
 
-        if ($kendaraan->foto) {
-            Storage::disk('public')->delete($kendaraan->foto);
-        }
+        DB::transaction(function () use ($kendaraan) {
+            // Putuskan referensi order historis sebelum menghapus kendaraan
+            $kendaraan->orders()->update(['kendaraan_id' => null]);
 
-        $kendaraan->delete();
+            if ($kendaraan->foto) {
+                Storage::disk('public')->delete($kendaraan->foto);
+            }
+
+            $kendaraan->delete();
+        });
 
         return response()->json(['message' => 'Kendaraan berhasil dihapus']);
     }
