@@ -11,7 +11,7 @@ class InvoiceController extends Controller
 {
     public function download(Request $request, Order $order, InvoiceService $invoice)
     {
-        $this->authorize('view', $order);
+        $this->authorize('invoice', $order);
 
         $pdf = $invoice->generatePdf($order);
 

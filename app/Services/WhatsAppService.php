@@ -20,47 +20,24 @@ class WhatsAppService
         $this->targetNumber = Setting::get('nomor_wa_owner', '');
     }
 
-    public function kirimPesan(string $nomorTujuan, string $pesan, string $type = 'notifikasi_customer'): bool
+    /**
+     * Kirim pesan secara sinkron (langsung) dan catat satu baris log
+     * dengan status ASLI dari gateway.
+     */
+    public function kirimPesan(string $nomorTujuan, string $pesan, string $type = 'notifikasi_customer', ?int $orderId = null): bool
     {
-        if (empty($this->token)) {
-            Log::warning('WhatsApp token not configured');
+        [$status, $response] = $this->kirimGateway($nomorTujuan, $pesan);
 
-            return false;
-        }
+        WhatsappLog::create([
+            'nomor_tujuan' => $nomorTujuan,
+            'pesan' => $pesan,
+            'status_kirim' => $status ? 'terkirim' : 'gagal',
+            'response' => json_encode($response),
+            'type' => $type,
+            'order_id' => $orderId,
+        ]);
 
-        $normalizedNomor = $this->normalizePhone($nomorTujuan);
-
-        try {
-            $response = Http::withToken($this->token)
-                ->timeout(10)
-                ->post('https://api.fonnte.com/send', [
-                    'target' => $normalizedNomor,
-                    'message' => $pesan,
-                ]);
-
-            $result = $response->json();
-            $status = $result['status'] ?? false;
-
-            WhatsappLog::create([
-                'nomor_tujuan' => $normalizedNomor,
-                'pesan' => $pesan,
-                'status_kirim' => $status ? 'terkirim' : 'gagal',
-                'response' => $result,
-            ]);
-
-            return $status;
-        } catch (\Exception $e) {
-            Log::error('WhatsApp send failed: '.$e->getMessage());
-
-            WhatsappLog::create([
-                'nomor_tujuan' => $normalizedNomor,
-                'pesan' => $pesan,
-                'status_kirim' => 'gagal',
-                'response' => ['error' => $e->getMessage()],
-            ]);
-
-            return false;
-        }
+        return $status;
     }
 
     public function kirimKeOwner(string $pesan): bool
@@ -77,14 +54,73 @@ class WhatsAppService
         return $template;
     }
 
-    public function kirimPesanAsync(string $nomorTujuan, string $pesan, string $type = 'notifikasi_customer'): void
+    /**
+     * Kirim pesan secara ANTRIAN (async). Satu baris log dicatat SEKARANG
+     * dengan status 'diantri', lalu job (SendWhatsAppMessage) yang meng-update
+     * baris yang sama ke 'terkirim'/'gagal' setelah gateway dihubungi.
+     * Dengan begini riwayat selalu jujur & tidak dobel-catat.
+     */
+    public function kirimPesanAsync(string $nomorTujuan, string $pesan, string $type = 'notifikasi_customer', ?int $orderId = null): void
     {
-        SendWhatsAppMessage::dispatch($nomorTujuan, $pesan, $type);
+        $log = WhatsappLog::create([
+            'nomor_tujuan' => $nomorTujuan,
+            'pesan' => $pesan,
+            'status_kirim' => 'diantri',
+            'type' => $type,
+            'order_id' => $orderId,
+        ]);
+
+        SendWhatsAppMessage::dispatch($log->id);
     }
 
-    public function kirimKeOwnerAsync(string $pesan): void
+    public function kirimKeOwnerAsync(string $pesan, string $type = 'notifikasi_owner', ?int $orderId = null): void
     {
-        $this->kirimPesanAsync($this->targetNumber, $pesan, 'notifikasi_owner');
+        $this->kirimPesanAsync($this->targetNumber, $pesan, $type, $orderId);
+    }
+
+    /**
+     * Dipanggil oleh job SendWhatsAppMessage untuk mengirim pesan yang sudah
+     * tercatat (log id) dan memperbarui statusnya menjadi terkirim/gagal.
+     */
+    public function kirimLogDiantri(WhatsappLog $log): void
+    {
+        [$status, $response] = $this->kirimGateway($log->nomor_tujuan, $log->pesan);
+
+        $log->update([
+            'status_kirim' => $status ? 'terkirim' : 'gagal',
+            'response' => json_encode($response),
+        ]);
+    }
+
+    /**
+     * Inti pengiriman ke gateway Fonnte. Mengembalikan [status, response].
+     */
+    private function kirimGateway(string $nomorTujuan, string $pesan): array
+    {
+        if (empty($this->token)) {
+            Log::warning('WhatsApp token not configured');
+
+            return [false, ['error' => 'Token gateway belum dikonfigurasi.']];
+        }
+
+        $normalizedNomor = $this->normalizePhone($nomorTujuan);
+
+        try {
+            $response = Http::withToken($this->token)
+                ->timeout(10)
+                ->post('https://api.fonnte.com/send', [
+                    'target' => $normalizedNomor,
+                    'message' => $pesan,
+                ]);
+
+            $result = $response->json();
+
+            return [(bool) ($result['status'] ?? false), $result ?? []];
+        } catch (\Exception $e) {
+            Log::error('WhatsApp send failed: '.$e->getMessage());
+
+            return [false, ['error' => $e->getMessage()]];
+        }
     }
 
     private function normalizePhone(string $phone): string

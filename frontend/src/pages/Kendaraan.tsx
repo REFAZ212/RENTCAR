@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { isAxiosError } from 'axios';
-import { formatRupiah } from '../lib/format';
+import { formatRupiah, warnaKendaraanHex } from '../lib/format';
+import { fotoFileError } from '../lib/file';
+import { statusPhotoClass } from '../lib/katalogStatus';
+import { vehicleStatusStyles, vehicleStatusLabels, VEHICLE_STATUSES, type StatusKendaraan } from '../lib/vehicleStatus';
 import {
   kendaraanAPI,
   garasiPartnerAPI,
@@ -12,10 +15,10 @@ import {
   type TipeKendaraan,
 } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from '../components/ConfirmModal';
+import KategoriTipeQuickCreate from '../components/KategoriTipeQuickCreate';
 import { RotateCcw, Pencil, Trash2, Eye } from 'lucide-react';
-
-export type StatusKendaraan = 'tersedia' | 'disewa' | 'maintenance';
 
 type Kendaraan = ApiKendaraan & {
   garasi_partner?: { nama_partner: string };
@@ -39,11 +42,11 @@ interface KendaraanFormState {
   nama_kendaraan: string;
   plat_nomor: string;
   merek: string;
-  model: string;
   tahun: number;
   warna: string;
   kapasitas_penumpang: number;
   harga_sewa_per_hari: string | number;
+  harga_partner_per_hari: string | number;
   status: StatusKendaraan;
   catatan: string;
 }
@@ -58,30 +61,24 @@ interface ConfirmActionState {
 
 type FilterTab = 'semua' | StatusKendaraan;
 
+interface KendaraanCounts {
+  total: number;
+  tersedia: number;
+  disewa: number;
+  maintenance: number;
+  tidak_tersedia: number;
+}
+
 /* ------------------------------------------------------------------ */
 /* Constants                                                          */
 /* ------------------------------------------------------------------ */
-
-const statuses: StatusKendaraan[] = ['tersedia', 'disewa', 'maintenance'];
-
-// Badge status — disamakan tema (avail/rented/amber untuk maintenance/perhatian)
-const statusStyles: Record<StatusKendaraan, string> = {
-  tersedia: 'bg-avail-50 text-avail-600',
-  disewa: 'bg-rented-50 text-rented-500',
-  maintenance: 'bg-amber-100 text-amber-800',
-};
-
-const statusLabels: Record<StatusKendaraan, string> = {
-  tersedia: 'Tersedia',
-  disewa: 'Disewa',
-  maintenance: 'Servis',
-};
 
 const filterTabs: { key: FilterTab; label: string }[] = [
   { key: 'semua', label: 'Semua' },
   { key: 'tersedia', label: 'Tersedia' },
   { key: 'disewa', label: 'Disewa' },
   { key: 'maintenance', label: 'Servis' },
+  { key: 'tidak_tersedia', label: 'Tidak Tersedia' },
 ];
 
 const emptyForm: KendaraanFormState = {
@@ -91,11 +88,11 @@ const emptyForm: KendaraanFormState = {
   nama_kendaraan: '',
   plat_nomor: '',
   merek: '',
-  model: '',
   tahun: new Date().getFullYear(),
   warna: '',
   kapasitas_penumpang: 7,
   harga_sewa_per_hari: '',
+  harga_partner_per_hari: '',
   status: 'tersedia',
   catatan: '',
 };
@@ -103,7 +100,7 @@ const emptyForm: KendaraanFormState = {
 const fotoUrl = (foto?: string | null) => (foto ? (foto.startsWith('http') ? foto : `/storage/${foto}`) : null);
 
 const inputClass =
-  'w-full rounded-lg border border-ink-200 px-3 py-2 text-sm text-ink-900 outline-none transition-colors focus:border-brand-500 focus:ring-1 focus:ring-brand-500';
+  'w-full rounded-lg border border-black-200 px-3 py-2 text-sm text-black-900 outline-none transition-colors focus:border-primary-500 focus:ring-1 focus:ring-primary-500';
 
 /* ------------------------------------------------------------------ */
 /* Component                                                          */
@@ -111,8 +108,13 @@ const inputClass =
 
 export default function Kendaraan() {
   const toast = useToast();
+  const { user } = useAuth();
+  const canManageMaster = ['admin_utama', 'admin_operasional'].includes(user?.role ?? '');
 
   const [items, setItems] = useState<Kendaraan[]>([]);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
+  const [counts, setCounts] = useState<KendaraanCounts | undefined>(undefined);
   const [garasi, setGarasi] = useState<GarasiPartnerLocal[]>([]);
   const [kategoris, setKategoris] = useState<(KategoriKendaraan & { aktif?: boolean })[]>([]);
   const [tipes, setTipes] = useState<(TipeKendaraan & { aktif?: boolean })[]>([]);
@@ -130,6 +132,7 @@ export default function Kendaraan() {
   const [form, setForm] = useState<KendaraanFormState>(emptyForm);
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [hapusFoto, setHapusFoto] = useState(false);
   useEffect(() => {
     return () => { if (fotoPreview) URL.revokeObjectURL(fotoPreview); };
   }, [fotoPreview]);
@@ -144,13 +147,32 @@ export default function Kendaraan() {
 
   const [detailItem, setDetailItem] = useState<Kendaraan | null>(null);
 
+  const [quickCreate, setQuickCreate] = useState<'kategori' | 'tipe' | null>(null);
+
   /* ---------------------------- data loading --------------------------- */
 
   const load = useCallback(() => {
     setLoading(true);
     kendaraanAPI
-      .list({ search })
-      .then(({ data }) => setItems(data.data as Kendaraan[]))
+      .list({
+        search,
+        page,
+        status: activeTab === 'semua' ? undefined : activeTab,
+        kategori_id: filterKategori || undefined,
+        tipe_id: filterTipe || undefined,
+      })
+      .then(({ data }) => {
+        const res = data as unknown as {
+          data: Kendaraan[];
+          current_page: number;
+          last_page: number;
+          total: number;
+          counts?: KendaraanCounts;
+        };
+        setItems(res.data);
+        setCounts(res.counts);
+        setMeta({ current_page: res.current_page, last_page: res.last_page, total: res.total });
+      })
       .catch(() => toast.error('Gagal memuat data kendaraan'))
       .finally(() => setLoading(false));
     // 'toast' sengaja tidak dimasukkan ke dependency array. Objek `toast` dari
@@ -159,15 +181,19 @@ export default function Kendaraan() {
     // memicu useEffect di bawah untuk fetch ulang SEMUA data — persis setelah
     // toast sukses muncul. Itu penyebab data terasa "refresh 2 kali".
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, page, activeTab, filterKategori, filterTipe]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   useEffect(() => {
+    setPage(1);
+  }, [search, activeTab, filterKategori, filterTipe]);
+
+  useEffect(() => {
     garasiPartnerAPI
-      .list({})
+      .list({ include_own: true })
       .then(({ data }) => setGarasi(data.data as unknown as GarasiPartnerLocal[]))
       .catch(() => {});
     // Catatan: /kategoris dan /tipes mengembalikan array LANGSUNG (tidak
@@ -183,27 +209,35 @@ export default function Kendaraan() {
       .catch(() => {});
   }, []);
 
+  const handleQuickCreateCreated = (newId: number | string) => {
+    if (quickCreate === 'kategori') {
+      setField('kategori_id', String(newId));
+      setField('tipe_id', '');
+    } else if (quickCreate === 'tipe') {
+      setField('tipe_id', String(newId));
+    }
+    setQuickCreate(null);
+    kategoriAPI
+      .list({})
+      .then(({ data }) => setKategoris(data as unknown as (KategoriKendaraan & { aktif?: boolean })[]))
+      .catch(() => {});
+    tipeAPI
+      .list({})
+      .then(({ data }) => setTipes(data as unknown as (TipeKendaraan & { aktif?: boolean })[]))
+      .catch(() => {});
+  };
+
   /* ------------------------------ derived ------------------------------ */
 
   const stats = useMemo(
     () => ({
-      total: items.length,
-      tersedia: items.filter((i) => i.status === 'tersedia').length,
-      disewa: items.filter((i) => i.status === 'disewa').length,
-      maintenance: items.filter((i) => i.status === 'maintenance').length,
+      total: counts?.total ?? meta?.total ?? items.length,
+      tersedia: counts?.tersedia ?? items.filter((i) => i.status === 'tersedia').length,
+      disewa: counts?.disewa ?? items.filter((i) => i.status === 'disewa').length,
+      maintenance: counts?.maintenance ?? items.filter((i) => i.status === 'maintenance').length,
+      tidakTersedia: counts?.tidak_tersedia ?? items.filter((i) => i.status === 'tidak_tersedia').length,
     }),
-    [items]
-  );
-
-  const filteredItems = useMemo(
-    () =>
-      items.filter(
-        (i) =>
-          (activeTab === 'semua' || i.status === activeTab) &&
-          (!filterKategori || i.kategori_id?.toString() === filterKategori) &&
-          (!filterTipe || i.tipe_id?.toString() === filterTipe)
-      ),
-    [items, activeTab, filterKategori, filterTipe]
+    [counts, items, meta?.total]
   );
 
   /* ------------------------------ handlers ------------------------------ */
@@ -220,13 +254,15 @@ export default function Kendaraan() {
         });
         fd.append('foto', fotoFile as File);
         if (editItem) {
-          await kendaraanAPI.update(Number(editItem.id), fd);
+          await kendaraanAPI.updateWithFile(Number(editItem.id), fd);
         } else {
           await kendaraanAPI.create(fd);
         }
       } else {
         if (editItem) {
-          await kendaraanAPI.update(Number(editItem.id), form as unknown as Record<string, unknown>);
+          const payload = { ...(form as unknown as Record<string, unknown>) };
+          if (hapusFoto) payload.hapus_foto = true;
+          await kendaraanAPI.update(Number(editItem.id), payload);
         } else {
           await kendaraanAPI.create(form as unknown as Record<string, unknown>);
         }
@@ -238,11 +274,13 @@ export default function Kendaraan() {
         setForm(emptyForm);
         setFotoFile(null);
         setFotoPreview(null);
+        setHapusFoto(false);
         setLastAdded(false);
       } else {
         setForm({ ...emptyForm, garasi_partner_id: form.garasi_partner_id });
         setFotoFile(null);
         setFotoPreview(null);
+        setHapusFoto(false);
         setLastAdded(true);
       }
       load();
@@ -266,16 +304,17 @@ export default function Kendaraan() {
       nama_kendaraan: item.nama_kendaraan,
       plat_nomor: item.plat_nomor,
       merek: item.merek || '',
-      model: item.model || '',
       tahun: item.tahun || new Date().getFullYear(),
       warna: item.warna,
       kapasitas_penumpang: item.kapasitas_penumpang || 1,
       harga_sewa_per_hari: item.harga_sewa_per_hari,
+      harga_partner_per_hari: item.harga_partner_per_hari ?? '',
       status: item.status as StatusKendaraan,
       catatan: item.catatan || '',
     });
     setFotoFile(null);
     setFotoPreview(fotoUrl(item.foto));
+    setHapusFoto(false);
     setEditItem(item);
     setShowForm(true);
   };
@@ -308,7 +347,7 @@ export default function Kendaraan() {
           item.id === id ? { ...item, status, ...(catatan !== undefined ? { catatan } : {}) } : item
         )
       );
-      toast.success(`Status kendaraan diubah menjadi "${statusLabels[status]}"`);
+      toast.success(`Status kendaraan diubah menjadi "${vehicleStatusLabels[status]}"`);
       return true;
     } catch (err) {
       console.error('Gagal mengubah status kendaraan:', err);
@@ -370,13 +409,13 @@ export default function Kendaraan() {
       return;
     }
 
-    // target === 'disewa' (Tidak Tersedia)
+    // target === 'tidak_tersedia'
     setConfirmAction({
       title: 'Tandai Tidak Tersedia',
       message: `Tandai "${item.nama_kendaraan}" sebagai Tidak Tersedia? Kendaraan tidak akan muncul sebagai pilihan saat membuat booking baru.`,
       confirmLabel: 'Tandai Tidak Tersedia',
       danger: true,
-      onConfirm: () => handleStatusChange(item.id, 'disewa'),
+      onConfirm: () => handleStatusChange(item.id, 'tidak_tersedia'),
     });
   };
 
@@ -388,6 +427,7 @@ export default function Kendaraan() {
     setEditItem(null);
     setFotoFile(null);
     setFotoPreview(null);
+    setHapusFoto(false);
     setLastAdded(false);
     setShowForm(true);
   };
@@ -397,14 +437,14 @@ export default function Kendaraan() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-ink-900 via-ink-800 to-brand-700 p-6 text-white shadow-sm">
+      <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-black-900 via-black-800 to-primary-700 p-6 text-white shadow-sm">
         <div>
           <h1 className="font-display text-2xl font-bold">Manajemen Armada</h1>
-          <p className="mt-1 text-sm text-ink-200">Kelola data kendaraan, tarif, dan status ketersediaan</p>
+          <p className="mt-1 text-sm text-black-200">Kelola data kendaraan, tarif, dan status ketersediaan</p>
         </div>
         <button
           onClick={openAddForm}
-          className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-brand-600 shadow-sm transition-colors hover:bg-ink-200"
+          className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary-600 shadow-sm transition-colors hover:bg-black-200"
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -414,7 +454,7 @@ export default function Kendaraan() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         <StatCard
           label="Total Unit"
           value={stats.total}
@@ -428,7 +468,7 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-ink-700"
+          iconClass="bg-black-700"
         />
         <StatCard
           label="Tersedia"
@@ -438,7 +478,7 @@ export default function Kendaraan() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
             </svg>
           }
-          iconClass="bg-avail-500"
+          iconClass="bg-success-500"
         />
         <StatCard
           label="Disewa"
@@ -453,7 +493,7 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-rented-500"
+          iconClass="bg-primary-500"
         />
         <StatCard
           label="Dalam Servis"
@@ -468,32 +508,47 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-amber-500"
+          iconClass="bg-accent-500"
+        />
+        <StatCard
+          label="Tidak Tersedia"
+          value={stats.tidakTersedia}
+          icon={
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          }
+          iconClass="bg-error-500"
         />
       </div>
 
       {/* Search + filter tabs */}
-      <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-ink-200">
+      <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black-200">
         <div className="flex flex-col justify-between gap-3 md:flex-row md:items-center">
           <div className="relative w-full max-w-md">
-            <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
-              placeholder="Cari plat, model, tipe, atau lokasi..."
+              placeholder="Cari nama, plat, merek, tipe..."
               value={search}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
               className={`${inputClass} pl-10`}
             />
           </div>
-          <div className="flex items-center gap-1 self-start rounded-lg bg-gray-50 p-1 md:self-auto">
+          <div className="flex items-center gap-1 self-start rounded-lg bg-canvas p-1 md:self-auto">
             {filterTabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
-                  activeTab === tab.key ? 'bg-white text-brand-600 shadow-sm' : 'text-ink-400 hover:text-ink-700'
+                  activeTab === tab.key ? 'bg-white text-primary-600 shadow-sm' : 'text-black-400 hover:text-black-700'
                 }`}
               >
                 {tab.label}
@@ -523,7 +578,7 @@ export default function Kendaraan() {
             value={filterTipe}
             onChange={(e: ChangeEvent<HTMLSelectElement>) => setFilterTipe(e.target.value)}
             disabled={!filterKategori}
-            className={`${inputClass} w-auto py-1.5 disabled:bg-gray-50 disabled:text-ink-400`}
+            className={`${inputClass} w-auto py-1.5 disabled:bg-canvas disabled:text-black-400`}
           >
             <option value="">{filterKategori ? 'Semua Tipe' : 'Pilih kategori dulu'}</option>
             {tipes
@@ -540,7 +595,7 @@ export default function Kendaraan() {
                 setFilterKategori('');
                 setFilterTipe('');
               }}
-              className="rounded-md p-2 text-ink-400 transition hover:bg-gray-50 hover:text-ink-700"
+              className="rounded-md p-2 text-black-400 transition hover:bg-canvas hover:text-black-700"
               title="Reset Filter"
             >
               <RotateCcw size={16} />
@@ -559,38 +614,38 @@ export default function Kendaraan() {
           }}
         >
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-200 bg-white p-6">
-              <h2 className="text-lg font-semibold text-ink-900">{editItem ? 'Edit Kendaraan' : 'Tambah Kendaraan'}</h2>
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black-200 bg-white p-6">
+              <h2 className="text-lg font-semibold text-black-900">{editItem ? 'Edit Kendaraan' : 'Tambah Kendaraan'}</h2>
               <button
                 onClick={() => {
                   setShowForm(false);
                   setEditItem(null);
                 }}
-                className="rounded-lg p-1 transition-colors hover:bg-gray-50"
+                className="rounded-lg p-1 transition-colors hover:bg-canvas"
                 aria-label="Tutup"
               >
-                <svg className="h-5 w-5 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-5 w-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4 p-6">
               {lastAdded && !editItem && (
-                <div className="flex items-center justify-between rounded-lg border border-avail-500/30 bg-avail-50 p-3">
+                <div className="flex items-center justify-between rounded-lg border border-accent-500/30 bg-accent-50 p-3">
                   <div className="flex items-center gap-2">
-                    <svg className="h-5 w-5 text-avail-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span className="text-sm font-medium text-avail-600">Kendaraan berhasil ditambahkan!</span>
+                    <span className="text-sm font-medium text-accent-600">Kendaraan berhasil ditambahkan!</span>
                   </div>
-                  <button type="button" onClick={() => setLastAdded(false)} className="text-sm font-medium text-avail-600 underline hover:text-avail-500">
+                  <button type="button" onClick={() => setLastAdded(false)} className="text-sm font-medium text-accent-600 underline hover:text-accent-500">
                     Sembunyikan
                   </button>
                 </div>
               )}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Garasi Partner *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Garasi *</label>
                   <select
                     value={form.garasi_partner_id}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) => setField('garasi_partner_id', e.target.value)}
@@ -601,12 +656,13 @@ export default function Kendaraan() {
                     {garasi.map((g) => (
                       <option key={g.id} value={g.id}>
                         {g.nama_garasi}
+                        {g.status_aktif === false ? ' (nonaktif)' : ''}
                       </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Kategori</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Kategori</label>
                   <select
                     value={form.kategori_id}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) => {
@@ -624,9 +680,19 @@ export default function Kendaraan() {
                         </option>
                       ))}
                   </select>
+                  {canManageMaster && (
+                    <button
+                      type="button"
+                      onClick={() => setQuickCreate('kategori')}
+                      className="mt-1.5 flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      Kategori Baru
+                    </button>
+                  )}
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Nama Kendaraan *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Nama Kendaraan *</label>
                   <input
                     type="text"
                     value={form.nama_kendaraan}
@@ -636,7 +702,7 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Plat Nomor *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Plat Nomor *</label>
                   <input
                     type="text"
                     value={form.plat_nomor}
@@ -646,25 +712,36 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Tipe Kendaraan</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Tipe Kendaraan</label>
                   <select
                     value={form.tipe_id}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) => setField('tipe_id', e.target.value)}
                     disabled={!form.kategori_id}
-                    className={`${inputClass} disabled:bg-gray-50 disabled:text-ink-400`}
+                    className={`${inputClass} disabled:bg-canvas disabled:text-black-400`}
                   >
                     <option value="">{form.kategori_id ? 'Pilih Tipe' : 'Pilih kategori dulu'}</option>
                     {tipes
-                      .filter((t) => t.aktif !== false)
+                      .filter((t) => t.aktif !== false && t.kategori_id?.toString() === form.kategori_id)
                       .map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.nama_tipe}
                         </option>
                       ))}
                   </select>
+                  {canManageMaster && (
+                    <button
+                      type="button"
+                      onClick={() => setQuickCreate('tipe')}
+                      disabled={!form.kategori_id}
+                      className="mt-1.5 flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors disabled:text-black-300 disabled:cursor-not-allowed"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      Tipe Baru
+                    </button>
+                  )}
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Merek *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Merek *</label>
                   <input
                     type="text"
                     value={form.merek}
@@ -674,28 +751,19 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Model *</label>
-                  <input
-                    type="text"
-                    value={form.model}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setField('model', e.target.value)}
-                    required
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Tahun *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Tahun *</label>
                   <input
                     type="number"
                     value={form.tahun}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setField('tahun', Number(e.target.value))}
                     required
                     min={1990}
+                    max={new Date().getFullYear() + 1}
                     className={inputClass}
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Warna *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Warna *</label>
                   <input
                     type="text"
                     value={form.warna}
@@ -705,7 +773,7 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Kapasitas *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Kapasitas *</label>
                   <input
                     type="number"
                     value={form.kapasitas_penumpang}
@@ -716,44 +784,66 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-ink-700">Harga/Hari (Rp) *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Harga/Hari (Rp) *</label>
                   <input
                     type="number"
                     value={form.harga_sewa_per_hari}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setField('harga_sewa_per_hari', e.target.value)}
                     required
-                    min={0}
+                    min={1}
                     className={inputClass}
                   />
                 </div>
+                {form.garasi_partner_id && (
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-black-700">
+                      Harga Beli/Hari (Rp) <span className="text-error-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={form.harga_partner_per_hari}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setField('harga_partner_per_hari', e.target.value)}
+                      required
+                      min={1}
+                      className={inputClass}
+                    />
+                    <p className="mt-1 text-xs text-black-400">Harga yang dibayar ke garasi partner per hari</p>
+                    {form.harga_sewa_per_hari && form.harga_partner_per_hari && (
+                      <p className="mt-1.5 text-sm font-medium text-accent-600">
+                        Margin: {formatRupiah(Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari))}/hari
+                        ({(Math.round(((Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari)) / Number(form.harga_sewa_per_hari)) * 100))}%)
+                      </p>
+                    )}
+                  </div>
+                )}
                 {editItem && (
                   <div>
-                    <label className="mb-1 block text-sm font-medium text-ink-700">Status *</label>
+                    <label className="mb-1 block text-sm font-medium text-black-700">Status *</label>
                     <select
                       value={form.status}
                       onChange={(e: ChangeEvent<HTMLSelectElement>) => setField('status', e.target.value as StatusKendaraan)}
                       disabled={editItem.status === 'disewa'}
                       required
-                      className={`${inputClass} ${editItem.status === 'disewa' ? 'cursor-not-allowed bg-gray-50 text-ink-400' : ''}`}
+                      className={`${inputClass} ${editItem.status === 'disewa' ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
                     >
-                      {statuses.map((s) => (
+                      {VEHICLE_STATUSES.map((s) => (
                         <option key={s} value={s}>
-                          {statusLabels[s]}
+                          {vehicleStatusLabels[s]}
                         </option>
                       ))}
                     </select>
                     {editItem.status === 'disewa' && (
-                      <p className="mt-1 text-xs text-amber-600">Status dikendalikan oleh order aktif. Selesaikan atau batalkan order terlebih dahulu.</p>
+                      <p className="mt-1 text-xs text-accent-600">Status dikendalikan oleh order aktif. Selesaikan atau batalkan order terlebih dahulu.</p>
                     )}
                   </div>
                 )}
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-ink-700">Foto Kendaraan</label>
+                <label className="mb-1 block text-sm font-medium text-black-700">Foto Kendaraan</label>
                 <div className="flex items-start gap-4">
-                  <label className="flex flex-1 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-ink-200 px-4 py-6 transition-colors hover:border-brand-400 hover:bg-brand-50/50">
+                  <label className="flex flex-1 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-black-200 px-4 py-6 transition-colors hover:border-primary-400 hover:bg-primary-50/50">
                     <div className="text-center">
-                      <svg className="mx-auto mb-1 h-8 w-8 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="mx-auto mb-1 h-8 w-8 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -761,8 +851,8 @@ export default function Kendaraan() {
                           d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                         />
                       </svg>
-                      <p className="text-xs text-ink-400">{fotoFile ? fotoFile.name : 'Klik atau seret foto ke sini'}</p>
-                      <p className="mt-0.5 text-xs text-ink-400">JPG, PNG, maks 2MB</p>
+                      <p className="text-xs text-black-400">{fotoFile ? fotoFile.name : 'Klik atau seret foto ke sini'}</p>
+                      <p className="mt-0.5 text-xs text-black-400">JPG, PNG, maks 2MB</p>
                     </div>
                     <input
                       type="file"
@@ -771,22 +861,57 @@ export default function Kendaraan() {
                       onChange={(e: ChangeEvent<HTMLInputElement>) => {
                         const f = e.target.files?.[0];
                         if (f) {
+                          const err = fotoFileError(f);
+                          if (err) {
+                            toast.error(err);
+                            e.target.value = '';
+                            return;
+                          }
                           setFotoFile(f);
                           setFotoPreview(URL.createObjectURL(f));
+                          setHapusFoto(false);
                         }
                       }}
                     />
                   </label>
+                  {editItem?.foto && !fotoFile && !hapusFoto && (
+                    <div className="flex shrink-0 flex-col items-center gap-1">
+                      <img src={fotoUrl(editItem.foto)} alt="Foto lama" className="h-24 w-24 rounded-lg border border-black-200 object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFotoPreview(null);
+                          setHapusFoto(true);
+                        }}
+                        className="text-xs font-medium text-error-600 underline-offset-2 hover:underline"
+                      >
+                        Hapus Foto
+                      </button>
+                    </div>
+                  )}
+                  {editItem?.foto && hapusFoto && !fotoFile && (
+                    <div className="flex shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-error-300 bg-error-50 px-3 py-2">
+                      <span className="text-xs text-error-600">Foto lama akan dihapus</span>
+                      <button
+                        type="button"
+                        onClick={() => setHapusFoto(false)}
+                        className="text-xs font-medium text-black-700 underline-offset-2 hover:underline"
+                      >
+                        Urungkan
+                      </button>
+                    </div>
+                  )}
                   {fotoPreview && (
                     <div className="relative shrink-0">
-                      <img src={fotoPreview} alt="Preview" className="h-24 w-24 rounded-lg border border-ink-200 object-cover" />
+                      <img src={fotoPreview} alt="Preview" className="h-24 w-24 rounded-lg border border-black-200 object-cover" />
                       <button
                         type="button"
                         onClick={() => {
                           setFotoFile(null);
                           setFotoPreview(null);
+                          if (editItem?.foto) setHapusFoto(true);
                         }}
-                        className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-maint-500 text-white transition-colors hover:bg-maint-600"
+                        className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-error-500 text-white transition-colors hover:bg-error-600"
                         aria-label="Hapus foto"
                       >
                         <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -798,7 +923,7 @@ export default function Kendaraan() {
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-ink-700">Catatan</label>
+                <label className="mb-1 block text-sm font-medium text-black-700">Catatan</label>
                 <textarea
                   value={form.catatan}
                   onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setField('catatan', e.target.value)}
@@ -806,15 +931,16 @@ export default function Kendaraan() {
                   className={`${inputClass} resize-none`}
                 />
               </div>
-              <div className="flex justify-end gap-3 border-t border-ink-200 pt-4">
+              <div className="flex justify-end gap-3 border-t border-black-200 pt-4">
                 <button
                   type="button"
                   onClick={() => {
                     setShowForm(false);
                     setEditItem(null);
+                    setHapusFoto(false);
                     setLastAdded(false);
                   }}
-                  className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-gray-50"
+                  className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas"
                 >
                   Batal
                 </button>
@@ -822,7 +948,7 @@ export default function Kendaraan() {
                   <button
                     type="button"
                     onClick={() => setLastAdded(false)}
-                    className="flex items-center gap-2 rounded-lg bg-avail-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-avail-600"
+                    className="flex items-center gap-2 rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success-600"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -833,7 +959,7 @@ export default function Kendaraan() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex items-center gap-2 rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600 disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
                   >
                     {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
                     {editItem ? 'Simpan' : 'Tambah'}
@@ -849,10 +975,10 @@ export default function Kendaraan() {
       {detailItem && (
         <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4" onClick={() => setDetailItem(null)}>
           <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-200 bg-white p-6">
-              <h2 className="text-lg font-semibold text-ink-900">Detail Kendaraan</h2>
-              <button onClick={() => setDetailItem(null)} className="rounded-lg p-1 transition-colors hover:bg-gray-50" aria-label="Tutup">
-                <svg className="h-5 w-5 text-ink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black-200 bg-white p-6">
+              <h2 className="text-lg font-semibold text-black-900">Detail Kendaraan</h2>
+              <button onClick={() => setDetailItem(null)} className="rounded-lg p-1 transition-colors hover:bg-canvas" aria-label="Tutup">
+                <svg className="h-5 w-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -865,11 +991,11 @@ export default function Kendaraan() {
                   <img
                     src={fotoUrl(detailItem.foto) as string}
                     alt={detailItem.nama_kendaraan}
-                    className="aspect-square w-full rounded-xl border border-ink-200 object-cover sm:h-64 sm:w-64"
+                    className={`aspect-square w-full rounded-xl border border-black-200 object-cover sm:h-64 sm:w-64 ${statusPhotoClass(detailItem.status)}`}
                   />
                 ) : (
-                  <div className="flex aspect-square w-full items-center justify-center rounded-xl bg-gray-50 sm:h-64 sm:w-64">
-                    <svg className="h-14 w-14 text-ink-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="flex aspect-square w-full items-center justify-center rounded-xl bg-canvas sm:h-64 sm:w-64">
+                    <svg className="h-14 w-14 text-black-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -880,18 +1006,18 @@ export default function Kendaraan() {
                   </div>
                 )}
                 <span
-                  className={`mt-3 inline-block w-full rounded-full px-2 py-1.5 text-center text-xs font-medium ${statusStyles[detailItem.status as StatusKendaraan]}`}
+                  className={`mt-3 inline-block w-full rounded-full px-2 py-1.5 text-center text-xs font-medium ${vehicleStatusStyles[detailItem.status as StatusKendaraan]}`}
                 >
-                  {statusLabels[detailItem.status as StatusKendaraan]}
+                  {vehicleStatusLabels[detailItem.status as StatusKendaraan]}
                 </span>
               </div>
 
               {/* Detail — di kanan */}
               <div className="flex-1 space-y-4">
                 <div>
-                  <div className="text-lg font-semibold text-ink-900">{detailItem.nama_kendaraan}</div>
-                  <div className="text-sm text-ink-400">
-                    {detailItem.merek} {detailItem.model} · {detailItem.tahun}
+                  <div className="text-lg font-semibold text-black-900">{detailItem.nama_kendaraan}</div>
+                  <div className="text-sm text-black-400">
+                    {detailItem.merek} · {detailItem.tahun}
                   </div>
                 </div>
 
@@ -906,10 +1032,10 @@ export default function Kendaraan() {
                   {detailItem.catatan && <DetailField label="Catatan" value={detailItem.catatan} full />}
                 </div>
 
-                <div className="flex justify-end gap-3 border-t border-ink-200 pt-4">
+                <div className="flex justify-end gap-3 border-t border-black-200 pt-4">
                   <button
                     onClick={() => setDetailItem(null)}
-                    className="rounded-lg border border-ink-200 px-4 py-2 text-sm font-medium text-ink-700 transition-colors hover:bg-gray-50"
+                    className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas"
                   >
                     Tutup
                   </button>
@@ -919,7 +1045,7 @@ export default function Kendaraan() {
                       setDetailItem(null);
                       handleEdit(item);
                     }}
-                    className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-600"
+                    className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600"
                   >
                     Edit Kendaraan
                   </button>
@@ -966,8 +1092,8 @@ export default function Kendaraan() {
         }}
       >
         <div>
-          <label className="mb-1 block text-sm font-medium text-ink-700">
-            Catatan servis <span className="font-normal text-ink-400">(opsional)</span>
+          <label className="mb-1 block text-sm font-medium text-black-700">
+            Catatan servis <span className="font-normal text-black-400">(opsional)</span>
           </label>
           <textarea
             value={maintenanceNote}
@@ -979,15 +1105,29 @@ export default function Kendaraan() {
         </div>
       </ConfirmModal>
 
+      {quickCreate && (
+        <KategoriTipeQuickCreate
+          mode={quickCreate}
+          kategoriId={form.kategori_id}
+          kategoriName={
+            quickCreate === 'tipe'
+              ? kategoris.find((k) => k.id?.toString() === form.kategori_id)?.nama_kategori
+              : undefined
+          }
+          onClose={() => setQuickCreate(null)}
+          onCreated={handleQuickCreateCreated}
+        />
+      )}
+
       {/* Grid Card Kendaraan */}
       {loading ? (
-        <div className="rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-ink-200">
-          <div className="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
-          <p className="text-sm text-ink-400">Memuat data...</p>
+        <div className="rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-black-200">
+          <div className="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
+          <p className="text-sm text-black-400">Memuat data...</p>
         </div>
-      ) : filteredItems.length === 0 ? (
-        <div className="rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-ink-200">
-          <svg className="mx-auto mb-3 h-12 w-12 text-ink-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      ) : items.length === 0 ? (
+        <div className="rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-black-200">
+          <svg className="mx-auto mb-3 h-12 w-12 text-black-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -995,24 +1135,33 @@ export default function Kendaraan() {
               d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18M3 11v6a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-6"
             />
           </svg>
-          <p className="font-medium text-ink-700">Tidak ada data kendaraan</p>
-          <p className="mt-1 text-sm text-ink-400">Mulai dengan menambahkan kendaraan baru</p>
+          {search || filterKategori || filterTipe || activeTab !== 'semua' ? (
+            <>
+              <p className="font-medium text-black-700">Tidak ada kendaraan yang cocok</p>
+              <p className="mt-1 text-sm text-black-400">Coba ubah kata kunci atau saringan yang dipilih</p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium text-black-700">Tidak ada data kendaraan</p>
+              <p className="mt-1 text-sm text-black-400">Mulai dengan menambahkan kendaraan baru</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredItems.map((item) => (
+          {items.map((item) => (
             <div
               key={item.id}
               onClick={() => setDetailItem(item)}
-              className="cursor-pointer overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-ink-200 transition-all hover:shadow-md"
+              className="cursor-pointer overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black-200 transition-all hover:shadow-md"
             >
               {/* Foto + badge status + tombol edit/hapus */}
-              <div className="relative aspect-[4/3] bg-gray-50">
+              <div className="relative aspect-[4/3] bg-canvas">
                 {fotoUrl(item.foto) ? (
-                  <img src={fotoUrl(item.foto) as string} alt={item.nama_kendaraan} className="h-full w-full object-cover" />
+                  <img src={fotoUrl(item.foto) as string} alt={item.nama_kendaraan} className={`h-full w-full object-cover ${statusPhotoClass(item.status)}`} />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <svg className="h-10 w-10 text-ink-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className={`flex h-full w-full items-center justify-center ${statusPhotoClass(item.status)}`}>
+                    <svg className="h-10 w-10 text-black-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -1022,13 +1171,13 @@ export default function Kendaraan() {
                     </svg>
                   </div>
                 )}
-                <span className={`absolute left-2.5 top-2.5 rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[item.status as StatusKendaraan]}`}>
-                  {statusLabels[item.status as StatusKendaraan]}
+                <span className={`absolute left-2.5 top-2.5 rounded-full px-2.5 py-1 text-xs font-semibold ${vehicleStatusStyles[item.status as StatusKendaraan]}`}>
+                  {vehicleStatusLabels[item.status as StatusKendaraan]}
                 </span>
                 <div className="absolute right-2.5 top-2.5 flex gap-1" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => handleEdit(item)}
-                    className="rounded-lg bg-white/90 p-1.5 text-ink-700 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-brand-600"
+                    className="rounded-lg bg-white/90 p-1.5 text-black-700 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-primary-600"
                     title="Edit"
                     aria-label="Edit kendaraan"
                   >
@@ -1037,7 +1186,7 @@ export default function Kendaraan() {
                   {item.status !== 'disewa' && (
                     <button
                       onClick={() => setConfirmDelete(item)}
-                      className="rounded-lg bg-white/90 p-1.5 text-ink-700 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-maint-600"
+                      className="rounded-lg bg-white/90 p-1.5 text-black-700 shadow-sm backdrop-blur transition-colors hover:bg-white hover:text-error-600"
                       title="Hapus"
                       aria-label="Hapus kendaraan"
                     >
@@ -1050,43 +1199,60 @@ export default function Kendaraan() {
               {/* Info */}
               <div className="p-4">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <p className="truncate font-semibold text-ink-900">
-                    {item.merek} {item.model}
+                  <p className="truncate font-semibold text-black-900">
+                    {item.nama_kendaraan}
                   </p>
-                  <span className="shrink-0 rounded-md bg-ink-900 px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-white">
+                  <span className="shrink-0 rounded-md bg-black-900 px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-white">
                     {item.plat_nomor}
                   </span>
                 </div>
-                <p className="mb-2 truncate text-xs text-ink-400">{item.nama_kendaraan}</p>
+                <p className="mb-2 truncate text-xs text-black-400">{item.merek} · {item.tahun}</p>
 
-                <div className="mb-3 flex flex-wrap gap-1.5 text-xs text-ink-400">
-                  {item.kategori?.nama_kategori && <span className="rounded-full bg-gray-50 px-2 py-0.5">{item.kategori.nama_kategori}</span>}
-                  {item.tipe?.nama_tipe && <span className="rounded-full bg-gray-50 px-2 py-0.5">{item.tipe.nama_tipe}</span>}
-                  {item.garasi_partner?.nama_partner && <span className="rounded-full bg-gray-50 px-2 py-0.5">{item.garasi_partner.nama_partner}</span>}
+                <div className="mb-3 flex flex-wrap gap-1.5 text-xs text-black-400">
+                  {item.kategori?.nama_kategori && <span className="rounded-full bg-canvas px-2 py-0.5">{item.kategori.nama_kategori}</span>}
+                  {item.tipe?.nama_tipe && <span className="rounded-full bg-canvas px-2 py-0.5">{item.tipe.nama_tipe}</span>}
+                  {item.garasi_partner?.nama_partner && (
+                    <>
+                      <span className="rounded-full bg-canvas px-2 py-0.5">{item.garasi_partner.nama_partner}</span>
+                      {canManageMaster && item.harga_partner_per_hari && item.margin_per_hari !== null && item.margin_per_hari !== undefined && (
+                        <span className="rounded-full bg-accent-50 text-accent-700 px-2 py-0.5 font-medium flex items-center gap-1">
+                          <span className="text-[10px]">💰</span>
+                          Margin: {formatRupiah(item.margin_per_hari)} ({item.margin_persen}%)
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {item.warna && (
+                    <span className="flex items-center gap-1.5 rounded-full bg-canvas px-2 py-0.5">
+                      <span
+                        className="h-3 w-3 shrink-0 rounded-full border border-black-200"
+                        style={{ backgroundColor: warnaKendaraanHex(item.warna) || '#E5E7EB' }}
+                      />
+                      {item.warna}
+                    </span>
+                  )}
                 </div>
 
-                <p className="mb-3 text-sm font-bold text-brand-600">{formatRupiah(item.harga_sewa_per_hari)}/hari</p>
+                <p className="mb-3 text-sm font-bold text-primary-600">{formatRupiah(item.harga_sewa_per_hari)}/hari</p>
 
                 {/* 3 aksi cepat status */}
-                <div className="grid grid-cols-3 gap-1.5 border-t border-ink-200 pt-3" onClick={(e) => e.stopPropagation()}>
+                <div className="grid grid-cols-3 gap-1.5 border-t border-black-200 pt-3" onClick={(e) => e.stopPropagation()}>
                   <QuickStatusButton
                     label="Tersedia"
                     active={item.status === 'tersedia'}
-                    activeClass="bg-avail-500 text-white"
-                    disabled={item.status === 'disewa'}
+                    activeClass="bg-success-500 text-white"
                     onClick={() => handleQuickStatus(item, 'tersedia')}
                   />
                   <QuickStatusButton
                     label="Tidak Tersedia"
-                    active={item.status === 'disewa'}
-                    activeClass="bg-rented-500 text-white"
-                    onClick={() => handleQuickStatus(item, 'disewa')}
+                    active={item.status === 'tidak_tersedia'}
+                    activeClass="bg-error-500 text-white"
+                    onClick={() => handleQuickStatus(item, 'tidak_tersedia')}
                   />
                   <QuickStatusButton
                     label="Servis"
                     active={item.status === 'maintenance'}
-                    activeClass="bg-amber-500 text-white"
-                    disabled={item.status === 'disewa'}
+                    activeClass="bg-accent-500 text-white"
                     onClick={() => handleQuickStatus(item, 'maintenance')}
                   />
                 </div>
@@ -1096,7 +1262,7 @@ export default function Kendaraan() {
                     e.stopPropagation();
                     setDetailItem(item);
                   }}
-                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-ink-400 transition-colors hover:bg-gray-50 hover:text-ink-700"
+                  className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-black-400 transition-colors hover:bg-canvas hover:text-black-700"
                 >
                   <Eye size={13} />
                   Lihat Detail
@@ -1105,6 +1271,28 @@ export default function Kendaraan() {
             </div>
           ))}
         </div>
+      )}
+
+      {meta && meta.last_page > 1 && (
+        <nav className="flex items-center justify-center gap-2" aria-label="Paginasi">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-3 py-2 text-sm font-medium border border-black-200 rounded-lg hover:bg-canvas disabled:opacity-40 transition-colors"
+          >
+            Sebelumnya
+          </button>
+          <span className="text-sm text-black-600 px-3">
+            Halaman {page} dari {meta.last_page}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
+            disabled={page === meta.last_page}
+            className="px-3 py-2 text-sm font-medium border border-black-200 rounded-lg hover:bg-canvas disabled:opacity-40 transition-colors"
+          >
+            Selanjutnya
+          </button>
+        </nav>
       )}
     </div>
   );
@@ -1116,11 +1304,11 @@ export default function Kendaraan() {
 
 function StatCard({ label, value, icon, iconClass }: { label: string; value: number; icon: ReactNode; iconClass: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-ink-200">
+    <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-black-200">
       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white ${iconClass}`}>{icon}</div>
       <div>
-        <div className="text-xs text-ink-400">{label}</div>
-        <div className="text-xl font-bold text-ink-900">{value}</div>
+        <div className="text-xs text-black-400">{label}</div>
+        <div className="text-xl font-bold text-black-900">{value}</div>
       </div>
     </div>
   );
@@ -1129,8 +1317,8 @@ function StatCard({ label, value, icon, iconClass }: { label: string; value: num
 function DetailField({ label, value, mono, full }: { label: string; value: string; mono?: boolean; full?: boolean }) {
   return (
     <div className={full ? 'col-span-2' : ''}>
-      <div className="mb-0.5 text-xs text-ink-400">{label}</div>
-      <div className={`text-sm text-ink-900 ${mono ? 'font-mono' : ''}`}>{value}</div>
+      <div className="mb-0.5 text-xs text-black-400">{label}</div>
+      <div className={`text-sm text-black-900 ${mono ? 'font-mono' : ''}`}>{value}</div>
     </div>
   );
 }
@@ -1139,24 +1327,21 @@ function QuickStatusButton({
   label,
   active,
   activeClass,
-  disabled,
   onClick,
 }: {
   label: string;
   active: boolean;
   activeClass: string;
-  disabled?: boolean;
   onClick: () => void;
 }) {
-  const isDisabled = active || disabled;
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={isDisabled}
-      title={active ? `Sudah berstatus ${label}` : disabled ? 'Status dikendalikan oleh order aktif' : `Tandai sebagai ${label}`}
+      disabled={active}
+      title={active ? `Sudah berstatus ${label}` : `Tandai sebagai ${label}`}
       className={`rounded-lg px-1.5 py-1.5 text-[11px] font-medium leading-tight transition-colors ${
-        isDisabled ? `${active ? activeClass : 'bg-gray-100 text-ink-300'} cursor-default` : 'bg-gray-50 text-ink-400 hover:bg-gray-100 hover:text-ink-700'
+        active ? `${activeClass} cursor-default` : 'bg-canvas text-black-400 hover:bg-accent-100 hover:text-black-700'
       }`}
     >
       {label}

@@ -80,3 +80,64 @@ export function nowWIB(): string {
   const parts = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).split(' ');
   return `${parts[0]}T${parts[1].slice(0, 5)}`;
 }
+
+/**
+ * Mendapatkan waktu sekarang dalam format HH:MM (Asia/Jakarta).
+ * Dipakai sebagai batas minimal input jam (mis. jam mulai order
+ * hari ini tidak boleh sudah lewat).
+ */
+export function nowWIBTime(): string {
+  return new Date().toLocaleTimeString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 5);
+}
+
+/**
+ * Kamus nama warna kendaraan (Indonesia/umum) → kode hex.
+ * Warna kendaraan di database disimpan sebagai teks bebas ("Putih",
+ * "Hitam", dst.) yang tidak bisa langsung dipakai sebagai nilai CSS,
+ * jadi perlu diterjemahkan dulu untuk menampilkan lingkaran warna.
+ */
+const WARNA_KENDARAAN_HEX: Record<string, string> = {
+  putih: '#F5F5F5',
+  hitam: '#1F2937',
+  abu: '#9CA3AF',
+  'abu-abu': '#9CA3AF',
+  grey: '#9CA3AF',
+  gray: '#9CA3AF',
+  silver: '#C0C4CC',
+  perak: '#C0C4CC',
+  merah: '#DC2626',
+  'merah marun': '#9F1239',
+  maroon: '#9F1239',
+  marun: '#9F1239',
+  biru: '#2563EB',
+  'biru tua': '#1D4ED8',
+  'biru muda': '#60A5FA',
+  navy: '#1E3A8A',
+  hijau: '#16A34A',
+  'hijau tua': '#15803D',
+  'hijau muda': '#4ADE80',
+  kuning: '#EAB308',
+  orange: '#F97316',
+  oranye: '#F97316',
+  coklat: '#92400E',
+  cokelat: '#92400E',
+  ungu: '#7C3AED',
+  pink: '#EC4899',
+  emas: '#D4AF37',
+  gold: '#D4AF37',
+  krem: '#F5F5DC',
+  cream: '#F5F5DC',
+  beige: '#D6C9A9',
+};
+
+/**
+ * Terjemahkan nama warna kendaraan menjadi kode hex untuk dijadikan
+ * background lingkaran warna. Mengembalikan null kalau warna kosong
+ * atau tidak dikenal (caller bebas memilih fallback/abu-abu).
+ */
+export function warnaKendaraanHex(warna: string | null | undefined): string | null {
+  if (!warna) return null;
+  const normalized = warna.trim();
+  if (normalized.startsWith('#')) return normalized;
+  return WARNA_KENDARAAN_HEX[normalized.toLowerCase()] ?? null;
+}

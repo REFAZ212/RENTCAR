@@ -17,6 +17,10 @@ class CustomerController extends Controller
 
         $query = Customer::query();
 
+        if ($request->boolean('trashed')) {
+            $query->onlyTrashed();
+        }
+
         if ($request->search) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -155,5 +159,20 @@ class CustomerController extends Controller
         $customer->delete();
 
         return response()->json(['message' => 'Customer berhasil dihapus']);
+    }
+
+    public function restore(Customer $customer): JsonResponse
+    {
+        $this->authorize('delete', $customer);
+
+        if (! $customer->trashed()) {
+            return response()->json([
+                'message' => 'Customer tidak dalam status arsip.',
+            ], 422);
+        }
+
+        $customer->restore();
+
+        return response()->json(['message' => 'Customer berhasil dipulihkan']);
     }
 }

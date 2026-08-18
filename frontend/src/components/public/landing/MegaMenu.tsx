@@ -81,7 +81,7 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const location = useLocation();
 
-  useEffect(() => { onClose(); }, [location.pathname]);
+  useEffect(() => { onClose(); }, [location.pathname, onClose]);
 
   if (!open) return null;
 

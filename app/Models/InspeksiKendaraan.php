@@ -22,6 +22,7 @@ class InspeksiKendaraan extends Model
     protected $fillable = [
         'order_id',
         'jenis',
+        'status',
         'odometer',
         'fuel_level',
         'kondisi_body',
@@ -33,13 +34,22 @@ class InspeksiKendaraan extends Model
         'deskripsi_kondisi',
         'catatan',
         'foto',
+        'fotos',
+        'videos',
+        'checklist_serah_terima',
+        'ttd_customer',
+        'ttd_petugas',
+        'biaya_kerusakan',
         'inspeksi_oleh',
         'admin_id',
     ];
 
     protected $casts = [
-        'odometer' => 'integer',
         'ada_damagenya' => 'boolean',
+        'biaya_kerusakan' => 'decimal:2',
+        'fotos' => 'array',
+        'videos' => 'array',
+        'checklist_serah_terima' => 'array',
     ];
 
     public function order(): BelongsTo

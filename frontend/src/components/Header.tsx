@@ -3,6 +3,13 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Menu, Search, Bell, ChevronDown, Plus, LogOut, CheckCheck } from 'lucide-react';
 import { notificationAPI, type AppNotification } from '../services/api';
+import { useToast } from '../contexts/ToastContext';
+
+/** Interval polling badge notifikasi (ms). */
+const POLL_INTERVAL_MS = 15000;
+
+/** Tipe notifikasi yang layak dimunculkan sebagai toast instan. */
+const TOASTABLE_TYPES = new Set(['task_inspeksi_petugas', 'kendaraan_dikembalikan', 'order_baru', 'garasi_baru']);
 
 const NOTIF_LINK_MAP: Record<string, string> = {
   order_baru: '/orders',
@@ -92,34 +99,76 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
   const [unreadCount, setUnreadCount] = useState(0);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
+  const prevCountRef = useRef<number | null>(null);
+  const toast = useToast();
+
+  const fetchNotifications = useCallback(async () => {
+    setLoadingNotifications(true);
+    try {
+      const res = await notificationAPI.list({ per_page: 15 });
+      const items = Array.isArray(res.data) ? res.data : (res.data as unknown as { data: AppNotification[] }).data ?? [];
+      setNotifications(items);
+    } catch {
+      // silent
+    } finally {
+      setLoadingNotifications(false);
+    }
+  }, []);
+
+  const handleNewNotifications = useCallback(() => {
+    if (showNotifications) fetchNotifications();
+
+    notificationAPI
+      .list({ per_page: 5 })
+      .then((res) => {
+        const items = Array.isArray(res.data) ? res.data : (res.data as unknown as { data: AppNotification[] }).data ?? [];
+        const newest = items[0];
+        if (newest && !newest.read_at && TOASTABLE_TYPES.has(newest.type)) {
+          toast.info(newest.title);
+        }
+      })
+      .catch(() => {});
+  }, [showNotifications, fetchNotifications, toast]);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
       const res = await notificationAPI.unreadCount();
-      setUnreadCount(res.data.count);
+      const count = res.data.count;
+      const prev = prevCountRef.current;
+      prevCountRef.current = count;
+
+      if (prev !== null && count > prev) {
+        handleNewNotifications();
+      }
     } catch {
       // silent
     }
-  }, []);
+  }, [handleNewNotifications]);
 
   useEffect(() => {
     fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      if (!document.hidden) fetchUnreadCount();
+    }, POLL_INTERVAL_MS);
+
+    const onFocus = () => fetchUnreadCount();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') fetchUnreadCount();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [fetchUnreadCount]);
 
   useEffect(() => {
     if (!showNotifications) return;
-    setLoadingNotifications(true);
-    notificationAPI
-      .list({ per_page: 15 })
-      .then((res) => {
-        const items = Array.isArray(res.data) ? res.data : (res.data as unknown as { data: AppNotification[] }).data ?? [];
-        setNotifications(items);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingNotifications(false));
-  }, [showNotifications]);
+    fetchNotifications();
+  }, [showNotifications, fetchNotifications]);
 
   useEffect(() => {
     if (!showNotifications) return;

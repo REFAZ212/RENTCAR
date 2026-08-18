@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Kategori;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class KategoriController extends Controller
 {
@@ -31,15 +32,39 @@ class KategoriController extends Controller
     {
         $this->authorize('create', Kategori::class);
 
+        $request->merge([
+            'nama_kategori' => (string) preg_replace('/\s+/', ' ', trim((string) $request->input('nama_kategori'))),
+        ]);
+
         $validated = $request->validate([
             'nama_kategori' => 'required|string|max:255|unique:kategoris,nama_kategori',
             'deskripsi' => 'nullable|string|max:500',
             'aktif' => 'boolean',
+            'tipes' => 'nullable|array',
+            'tipes.*' => 'required|string|max:255',
         ]);
 
-        $kategori = Kategori::create($validated);
+        $tipes = array_values(array_unique(array_filter(array_map(
+            fn ($nama) => (string) preg_replace('/\s+/', ' ', trim((string) $nama)),
+            $validated['tipes'] ?? [],
+        ), fn ($nama) => $nama !== '')));
 
-        return response()->json($kategori, 201);
+        unset($validated['tipes']);
+
+        $kategori = DB::transaction(function () use ($validated, $tipes) {
+            $kategori = Kategori::create($validated);
+
+            foreach ($tipes as $nama) {
+                $kategori->tipes()->create([
+                    'nama_tipe' => $nama,
+                    'aktif' => true,
+                ]);
+            }
+
+            return $kategori;
+        });
+
+        return response()->json($kategori->load('tipes'), 201);
     }
 
     public function show(Kategori $kategori): JsonResponse
@@ -54,6 +79,12 @@ class KategoriController extends Controller
     public function update(Request $request, Kategori $kategori): JsonResponse
     {
         $this->authorize('update', $kategori);
+
+        if ($request->has('nama_kategori')) {
+            $request->merge([
+                'nama_kategori' => (string) preg_replace('/\s+/', ' ', trim((string) $request->input('nama_kategori'))),
+            ]);
+        }
 
         $validated = $request->validate([
             'nama_kategori' => 'required|string|max:255|unique:kategoris,nama_kategori,'.$kategori->id,
@@ -72,6 +103,10 @@ class KategoriController extends Controller
 
         if ($kategori->kendaraans()->count() > 0) {
             return response()->json(['message' => 'Kategori masih digunakan oleh kendaraan'], 422);
+        }
+
+        if ($kategori->tipes()->count() > 0) {
+            return response()->json(['message' => 'Kategori masih memiliki tipe. Hapus atau pindahkan tipe terlebih dahulu.'], 422);
         }
 
         $kategori->delete();

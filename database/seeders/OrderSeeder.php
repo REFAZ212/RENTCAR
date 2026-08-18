@@ -15,37 +15,26 @@ class OrderSeeder extends Seeder
     public function run(): void
     {
         $admin = User::where('role', 'admin_utama')->first();
-        $petugas1 = User::where('email', 'petugas@cvpilar.com')->first();
-        $petugas2 = User::where('email', 'petugas@cvpilar.com')->first();
+        $petugas = User::where('role', 'petugas')->first();
 
         $customers = Customer::all();
+        $kendaraans = Kendaraan::all();
+        $supirs = SupirCalo::where('jenis', 'supir')->where('status', 'active')->get();
+        $calos = SupirCalo::where('jenis', 'calo')->where('status', 'active')->get();
 
-        $supir1 = SupirCalo::where('jenis', 'supir')->where('nama', 'Andi Kurniawan')->first();
-        $supir2 = SupirCalo::where('jenis', 'supir')->where('nama', 'Budi Hartono')->first();
-        $calo1 = SupirCalo::where('jenis', 'calo')->where('nama', 'Eka Putri')->first();
-        $calo2 = SupirCalo::where('jenis', 'calo')->where('nama', 'Fadli Ramadhan')->first();
-
-        $hrv = Kendaraan::where('nama_kendaraan', 'Honda HR-V')->first();
-        $avanza = Kendaraan::where('nama_kendaraan', 'Toyota Avanza Veloz')->first();
-        $fortuner = Kendaraan::where('nama_kendaraan', 'Toyota Fortuner VRZ')->first();
-        $innova = Kendaraan::where('nama_kendaraan', 'Toyota Kijang Innova Reborn')->first();
-        $xenia = Kendaraan::where('nama_kendaraan', 'Daihatsu Xenia')->first();
-        $vios = Kendaraan::where('nama_kendaraan', 'Toyota Vios')->first();
-        $colt = Kendaraan::where('nama_kendaraan', 'Mitsubishi Colt Diesel')->first();
-        $camry = Kendaraan::where('nama_kendaraan', 'Toyota Camry')->first();
-        $brio = Kendaraan::where('nama_kendaraan', 'Honda Brio Satya')->first();
-        $vario = Kendaraan::where('nama_kendaraan', 'Honda Vario 160')->first();
+        if ($customers->isEmpty() || $kendaraans->isEmpty()) {
+            return;
+        }
 
         $orders = [
-            // 1 ─ ACTIVE: supir + calo, transfer, paid, dalam_penyewaan
-            //    Skenario: customer sedang menyewa, supir mengemudi, calo mengurus administrasi
+            // 1 — ACTIVE: supir + calo, transfer, paid, dalam_penyewaan
             [
                 'source' => 'admin',
                 'customer_id' => $customers[0]->id,
-                'kendaraan_id' => $hrv->id,
+                'kendaraan_id' => $kendaraans->where('status', 'tersedia')->first()->id ?? $kendaraans[0]->id,
                 'admin_id' => $admin->id,
-                'supir_id' => $supir1->id,
-                'calo_id' => $calo1->id,
+                'supir_id' => $supirs[0]->id ?? null,
+                'calo_id' => $calos[0]->id ?? null,
                 'tanggal_mulai' => Carbon::now()->subDay()->toDateString(),
                 'tanggal_selesai' => Carbon::now()->addDays(2)->toDateString(),
                 'jam_mulai' => '08:00',
@@ -62,14 +51,13 @@ class OrderSeeder extends Seeder
                 'catatan' => 'Customer minta jemput di bandara, antar ke hotel',
             ],
 
-            // 2 ─ COMPLETED: supir only, cash, paid, selesai + tanggal_pengembalian_aktual
-            //    Skenario: sudah selesai, dikembalikan tepat waktu
+            // 2 — COMPLETED: supir only, cash, paid, selesai
             [
                 'source' => 'admin',
                 'customer_id' => $customers[1]->id,
-                'kendaraan_id' => $avanza->id,
-                'admin_id' => $petugas1->id,
-                'supir_id' => $supir2->id,
+                'kendaraan_id' => $kendaraans[1]->id,
+                'admin_id' => $petugas->id,
+                'supir_id' => $supirs[1]->id ?? $supirs[0]->id ?? null,
                 'calo_id' => null,
                 'tanggal_mulai' => Carbon::now()->subDays(10)->toDateString(),
                 'tanggal_selesai' => Carbon::now()->subDays(7)->toDateString(),
@@ -87,15 +75,14 @@ class OrderSeeder extends Seeder
                 'tanggal_pengembalian_aktual' => Carbon::now()->subDays(7)->setTime(17, 50),
             ],
 
-            // 3 ─ PENDING: calo only, unpaid, belum_diambil
-            //    Skenario: baru masuk, menunggu konfirmasi garasi
+            // 3 — PENDING: calo only, unpaid, belum_diambil
             [
                 'source' => 'admin',
                 'customer_id' => $customers[2]->id,
-                'kendaraan_id' => $fortuner->id,
-                'admin_id' => $petugas1->id,
+                'kendaraan_id' => $kendaraans[2]->id,
+                'admin_id' => $petugas->id,
                 'supir_id' => null,
-                'calo_id' => $calo2->id,
+                'calo_id' => $calos[1]->id ?? $calos[0]->id ?? null,
                 'tanggal_mulai' => Carbon::now()->addDays(3)->toDateString(),
                 'tanggal_selesai' => Carbon::now()->addDays(5)->toDateString(),
                 'jam_mulai' => '08:00',
@@ -111,14 +98,13 @@ class OrderSeeder extends Seeder
                 'catatan' => 'Menunggu konfirmasi dari garasi',
             ],
 
-            // 4 ─ CONFIRMED: supir only, transfer, partial, sudah_diantarkan
-            //    Skenario: sudah dikonfirmasi, DP dibayar, kendaraan sudah diantarkan
+            // 4 — CONFIRMED: supir only, transfer, partial, sudah_diantarkan
             [
                 'source' => 'admin',
                 'customer_id' => $customers[3]->id,
-                'kendaraan_id' => $innova->id,
+                'kendaraan_id' => $kendaraans[3]->id,
                 'admin_id' => $admin->id,
-                'supir_id' => $supir1->id,
+                'supir_id' => $supirs[2]->id ?? $supirs[0]->id ?? null,
                 'calo_id' => null,
                 'tanggal_mulai' => Carbon::now()->addDay()->toDateString(),
                 'tanggal_selesai' => Carbon::now()->addDays(4)->toDateString(),
@@ -136,15 +122,14 @@ class OrderSeeder extends Seeder
                 'catatan' => 'DP 50% sudah dibayar, pelunasan saat serah terima',
             ],
 
-            // 5 ─ CANCELLED: calo only, unpaid, belum_diambil
-            //    Skenario: customer membatalkan sebelum kendaraan disiapkan
+            // 5 — CANCELLED: tanpa supir/calo
             [
                 'source' => 'admin',
                 'customer_id' => $customers[4]->id,
-                'kendaraan_id' => $xenia->id,
-                'admin_id' => $petugas2->id,
+                'kendaraan_id' => $kendaraans[4]->id,
+                'admin_id' => $petugas->id,
                 'supir_id' => null,
-                'calo_id' => $calo1->id,
+                'calo_id' => null,
                 'tanggal_mulai' => Carbon::now()->subDays(5)->toDateString(),
                 'tanggal_selesai' => Carbon::now()->subDays(3)->toDateString(),
                 'durasi_hari' => 2,
@@ -156,15 +141,14 @@ class OrderSeeder extends Seeder
                 'catatan' => 'Customer membatalkan, pindah jadwal',
             ],
 
-            // 6 ─ COMPLETED + OVERTIME: supir + calo, qris, paid + denda
-            //    Skenario: dikembalikan terlambat, ada denda overtime
+            // 6 — COMPLETED + OVERTIME: supir + calo, qris, paid + denda
             [
                 'source' => 'admin',
                 'customer_id' => $customers[5]->id,
-                'kendaraan_id' => $vios->id,
-                'admin_id' => $petugas1->id,
-                'supir_id' => $supir2->id,
-                'calo_id' => $calo2->id,
+                'kendaraan_id' => $kendaraans[5]->id,
+                'admin_id' => $petugas->id,
+                'supir_id' => $supirs[3]->id ?? $supirs[0]->id ?? null,
+                'calo_id' => $calos[2]->id ?? $calos[0]->id ?? null,
                 'tanggal_mulai' => Carbon::now()->subDays(15)->toDateString(),
                 'tanggal_selesai' => Carbon::now()->subDays(12)->toDateString(),
                 'jam_mulai' => '06:00',
@@ -184,15 +168,14 @@ class OrderSeeder extends Seeder
                 'catatan' => 'Pengembalian terlambat 2 jam, denda Rp 50.000',
             ],
 
-            // 7 ─ ACTIVE (long rental): supir + calo, transfer, paid, 7 hari
-            //    Skenario: sewa panjang untuk acara pernikahan
+            // 7 — ACTIVE (long rental): supir + calo, transfer, paid
             [
                 'source' => 'admin',
                 'customer_id' => $customers[6]->id,
-                'kendaraan_id' => $colt->id,
+                'kendaraan_id' => $kendaraans[6]->id,
                 'admin_id' => $admin->id,
-                'supir_id' => $supir1->id,
-                'calo_id' => $calo1->id,
+                'supir_id' => $supirs[4]->id ?? $supirs[0]->id ?? null,
+                'calo_id' => $calos[0]->id ?? null,
                 'tanggal_mulai' => Carbon::now()->toDateString(),
                 'tanggal_selesai' => Carbon::now()->addDays(7)->toDateString(),
                 'jam_mulai' => '06:00',
@@ -209,13 +192,12 @@ class OrderSeeder extends Seeder
                 'catatan' => 'Sewa untuk acara pernikahan, butuh supir seharian',
             ],
 
-            // 8 ─ PENDING (no supir/calo): lainnya, unpaid
-            //    Skenario: customer mau ambil sendiri, bayar di tempat
+            // 8 — PENDING (no supir/calo): customer ambil sendiri
             [
                 'source' => 'admin',
                 'customer_id' => $customers[7]->id,
-                'kendaraan_id' => $camry->id,
-                'admin_id' => $petugas2->id,
+                'kendaraan_id' => $kendaraans[7]->id,
+                'admin_id' => $petugas->id,
                 'supir_id' => null,
                 'calo_id' => null,
                 'tanggal_mulai' => Carbon::now()->addDays(5)->toDateString(),
@@ -225,8 +207,6 @@ class OrderSeeder extends Seeder
                 'durasi_hari' => 1,
                 'harga_per_hari' => 750000,
                 'harga_total' => 750000,
-                'alamat_jemput' => null,
-                'tujuan' => null,
                 'status_order' => 'pending',
                 'metode_pembayaran' => 'lainnya',
                 'status_pembayaran' => 'unpaid',
@@ -234,20 +214,19 @@ class OrderSeeder extends Seeder
                 'catatan' => 'Customer ambil sendiri, bayar saat jemput',
             ],
 
-            // 9 ─ COMPLETED (katalog source): no supir/calo, transfer, paid
-            //    Skenario: order dari halaman katalog publik, customer ambil sendiri
+            // 9 — COMPLETED (katalog source): no supir/calo, transfer, paid
             [
                 'source' => 'katalog',
                 'customer_id' => $customers[8]->id,
-                'kendaraan_id' => $vario->id,
+                'kendaraan_id' => $kendaraans[8]->id,
                 'admin_id' => $admin->id,
                 'supir_id' => null,
                 'calo_id' => null,
                 'tanggal_mulai' => Carbon::now()->subDays(8)->toDateString(),
                 'tanggal_selesai' => Carbon::now()->subDays(6)->toDateString(),
                 'durasi_hari' => 2,
-                'harga_per_hari' => 75000,
-                'harga_total' => 150000,
+                'harga_per_hari' => 350000,
+                'harga_total' => 700000,
                 'status_order' => 'completed',
                 'metode_pembayaran' => 'transfer',
                 'status_pembayaran' => 'paid',
@@ -256,14 +235,13 @@ class OrderSeeder extends Seeder
                 'catatan' => 'Order via katalog online, customer ambil sendiri',
             ],
 
-            // 10 ─ ACTIVE: supir only, cash, paid + alamat_jemput/tujuan
-            //     Skenario: sewa harian dengan supir, bayar cash
+            // 10 — ACTIVE: supir only, cash, paid
             [
                 'source' => 'admin',
                 'customer_id' => $customers[9]->id,
-                'kendaraan_id' => $brio->id,
-                'admin_id' => $petugas2->id,
-                'supir_id' => $supir2->id,
+                'kendaraan_id' => $kendaraans[9]->id,
+                'admin_id' => $petugas->id,
+                'supir_id' => $supirs[5]->id ?? $supirs[0]->id ?? null,
                 'calo_id' => null,
                 'tanggal_mulai' => Carbon::now()->subHours(6)->toDateString(),
                 'tanggal_selesai' => Carbon::now()->addDay()->toDateString(),
@@ -279,6 +257,50 @@ class OrderSeeder extends Seeder
                 'status_pembayaran' => 'paid',
                 'status_pengiriman' => 'dalam_penyewaan',
                 'catatan' => 'Sewa harian dengan supir, bayar cash di muka',
+            ],
+
+            // 11 — COMPLETED: lepas kunci, transfer, paid
+            [
+                'source' => 'admin',
+                'customer_id' => $customers[10]->id,
+                'kendaraan_id' => $kendaraans[10]->id,
+                'admin_id' => $admin->id,
+                'supir_id' => null,
+                'calo_id' => $calos[3]->id ?? $calos[0]->id ?? null,
+                'tanggal_mulai' => Carbon::now()->subDays(20)->toDateString(),
+                'tanggal_selesai' => Carbon::now()->subDays(18)->toDateString(),
+                'jam_mulai' => '08:00',
+                'jam_selesai' => '18:00',
+                'durasi_hari' => 2,
+                'harga_per_hari' => 450000,
+                'harga_total' => 900000,
+                'status_order' => 'completed',
+                'metode_pembayaran' => 'transfer',
+                'status_pembayaran' => 'paid',
+                'status_pengiriman' => 'selesai',
+                'tanggal_pengembalian_aktual' => Carbon::now()->subDays(18)->setTime(17, 45),
+                'catatan' => 'Sewa lepas kunci untuk liburan keluarga',
+            ],
+
+            // 12 — PENDING: calo, belum bayar
+            [
+                'source' => 'admin',
+                'customer_id' => $customers[11]->id,
+                'kendaraan_id' => $kendaraans[11]->id,
+                'admin_id' => $petugas->id,
+                'supir_id' => null,
+                'calo_id' => $calos[4]->id ?? $calos[0]->id ?? null,
+                'tanggal_mulai' => Carbon::now()->addDays(7)->toDateString(),
+                'tanggal_selesai' => Carbon::now()->addDays(9)->toDateString(),
+                'jam_mulai' => '06:00',
+                'jam_selesai' => '20:00',
+                'durasi_hari' => 2,
+                'harga_per_hari' => 650000,
+                'harga_total' => 1300000,
+                'status_order' => 'pending',
+                'status_pembayaran' => 'unpaid',
+                'status_pengiriman' => 'belum_diambil',
+                'catatan' => 'Customer mau sewa untuk acara kantor',
             ],
         ];
 

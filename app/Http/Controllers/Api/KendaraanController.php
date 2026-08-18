@@ -23,7 +23,6 @@ class KendaraanController extends Controller
                 whereLikeEscaped($q, 'nama_kendaraan', $search);
                 $q->orWhereRaw("plat_nomor LIKE ? ESCAPE '#'", ['%'.escapeLike($search).'%']);
                 $q->orWhereRaw("merek LIKE ? ESCAPE '#'", ['%'.escapeLike($search).'%']);
-                $q->orWhereRaw("model LIKE ? ESCAPE '#'", ['%'.escapeLike($search).'%']);
             });
         }
 
@@ -43,14 +42,36 @@ class KendaraanController extends Controller
             $query->where('garasi_partner_id', $request->garasi_partner_id);
         }
 
+        // select() menimpa daftar kolom bawaan (termasuk `kendaraans.*` dan
+        // subquery active_orders_count dari withCount) agar query GROUP BY tetap
+        // valid di MySQL dengan sql_mode=ONLY_FULL_GROUP_BY.
+        $statusCounts = (clone $query)
+            ->select('status')
+            ->selectRaw('COUNT(*) as total')
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
         $kendaraan = $query->orderBy('created_at', 'desc')->paginate(15);
 
-        return response()->json($kendaraan);
+        $response = $kendaraan->toArray();
+        $response['counts'] = [
+            'total' => (int) array_sum($statusCounts->all()),
+            'tersedia' => (int) ($statusCounts['tersedia'] ?? 0),
+            'disewa' => (int) ($statusCounts['disewa'] ?? 0),
+            'maintenance' => (int) ($statusCounts['maintenance'] ?? 0),
+            'tidak_tersedia' => (int) ($statusCounts['tidak_tersedia'] ?? 0),
+        ];
+
+        return response()->json($response);
     }
 
     public function store(Request $request): JsonResponse
     {
         $this->authorize('create', Kendaraan::class);
+
+        $request->merge([
+            'plat_nomor' => mb_strtoupper((string) preg_replace('/\s+/', ' ', trim((string) $request->input('plat_nomor')))),
+        ]);
 
         $validated = $request->validate([
             'garasi_partner_id' => 'required|exists:garasi_partners,id',
@@ -59,12 +80,12 @@ class KendaraanController extends Controller
             'nama_kendaraan' => 'required|string|max:255',
             'plat_nomor' => 'required|string|unique:kendaraans,plat_nomor',
             'merek' => 'required|string|max:255',
-            'model' => 'required|string|max:255',
             'tahun' => 'required|integer|min:1990|max:'.(date('Y') + 1),
             'warna' => 'required|string|max:255',
             'kapasitas_penumpang' => 'required|integer|min:1|max:50',
-            'harga_sewa_per_hari' => 'required|numeric|min:0',
-            'status' => 'nullable|in:tersedia,disewa,maintenance',
+            'harga_sewa_per_hari' => 'required|numeric|min:1',
+            'harga_partner_per_hari' => 'required_if:garasi_partner_id,!=,null|nullable|numeric|min:0',
+            'status' => 'nullable|in:tersedia,disewa,maintenance,tidak_tersedia',
             'foto' => 'nullable|image|max:2048',
             'catatan' => 'nullable|string',
         ]);
@@ -95,6 +116,12 @@ class KendaraanController extends Controller
     {
         $this->authorize('update', $kendaraan);
 
+        if ($request->has('plat_nomor')) {
+            $request->merge([
+                'plat_nomor' => mb_strtoupper((string) preg_replace('/\s+/', ' ', trim((string) $request->input('plat_nomor')))),
+            ]);
+        }
+
         $validated = $request->validate([
             'garasi_partner_id' => 'sometimes|required|exists:garasi_partners,id',
             'kategori_id' => 'nullable|exists:kategoris,id',
@@ -102,13 +129,14 @@ class KendaraanController extends Controller
             'nama_kendaraan' => 'sometimes|required|string|max:255',
             'plat_nomor' => 'sometimes|required|string|unique:kendaraans,plat_nomor,'.$kendaraan->id,
             'merek' => 'sometimes|required|string|max:255',
-            'model' => 'sometimes|required|string|max:255',
             'tahun' => 'sometimes|required|integer|min:1990|max:'.(date('Y') + 1),
             'warna' => 'sometimes|required|string|max:255',
             'kapasitas_penumpang' => 'sometimes|required|integer|min:1|max:50',
-            'harga_sewa_per_hari' => 'sometimes|required|numeric|min:0',
-            'status' => 'sometimes|required|in:tersedia,disewa,maintenance',
+            'harga_sewa_per_hari' => 'sometimes|required|numeric|min:1',
+            'harga_partner_per_hari' => 'sometimes|required_if:garasi_partner_id,!=,null|nullable|numeric|min:0',
+            'status' => 'sometimes|required|in:tersedia,disewa,maintenance,tidak_tersedia',
             'foto' => 'nullable|image|max:2048',
+            'hapus_foto' => 'nullable|boolean',
             'catatan' => 'nullable|string',
         ]);
 
@@ -138,7 +166,12 @@ class KendaraanController extends Controller
                 Storage::disk('public')->delete($kendaraan->foto);
             }
             $validated['foto'] = $request->file('foto')->store('kendaraan', 'public');
+        } elseif (! empty($validated['hapus_foto']) && $kendaraan->foto) {
+            Storage::disk('public')->delete($kendaraan->foto);
+            $validated['foto'] = null;
         }
+
+        unset($validated['hapus_foto']);
 
         $kendaraan->update($validated);
 

@@ -5,46 +5,34 @@ namespace App\Console\Commands;
 use App\Models\Notification;
 use App\Models\Order;
 use App\Models\Setting;
+use App\Models\WhatsappLog;
 use App\Services\WhatsAppService;
-use Carbon\Carbon;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
 #[Signature('order:reminder-payment')]
-#[Description('Send payment due date reminders to customers via WhatsApp')]
+#[Description('Send payment reminders to customers with unpaid or partially paid active/completed orders')]
 class OrderReminderPayment extends Command
 {
     public function handle(): int
     {
-        $today = now()->timezone('Asia/Jakarta')->startOfDay();
-
-        $ordersWithDueDate = Order::whereNotNull('tanggal_jatuh_tempo')
-            ->whereIn('status_order', ['pending', 'confirmed', 'active'])
-            ->whereIn('status_pembayaran', ['unpaid', 'partial'])
-            ->with(['customer', 'kendaraan'])
-            ->get()
-            ->filter(function (Order $order) use ($today) {
-                $jatuhTempo = Carbon::parse($order->tanggal_jatuh_tempo);
-                $hari = (int) $today->diffInDays($jatuhTempo->startOfDay(), false);
-
-                return $hari >= -3 && $hari <= 3;
-            })
-            ->values();
-
-        if ($ordersWithDueDate->isEmpty()) {
-            $this->info('Tidak ada order dengan pembayaran mendekati jatuh tempo.');
+        if (Setting::get('notif_pengingat_bayar', '1') === '0') {
+            $this->info('Pengingat pembayaran nonaktif — dilewati.');
 
             return self::SUCCESS;
         }
 
-        $waEnabled = Setting::get('notif_pengingat_pembayaran', '1') === '1';
-        $sentCount = 0;
+        $orders = Order::whereIn('status_order', ['confirmed', 'active'])
+            ->whereIn('status_pembayaran', ['unpaid', 'partial'])
+            ->with(['customer', 'kendaraan'])
+            ->get();
 
-        foreach ($ordersWithDueDate as $order) {
+        $sentCount = 0;
+        $wa = app(WhatsAppService::class);
+
+        foreach ($orders as $order) {
             $customer = $order->customer;
-            $jatuhTempo = Carbon::parse($order->tanggal_jatuh_tempo);
-            $hari = (int) now()->timezone('Asia/Jakarta')->startOfDay()->diffInDays($jatuhTempo->startOfDay(), false);
 
             if (! $customer || ! $customer->no_hp) {
                 $this->warn("Order {$order->kode_order}: customer tanpa no HP, skip.");
@@ -52,46 +40,42 @@ class OrderReminderPayment extends Command
                 continue;
             }
 
-            $totalBayar = (float) $order->pembayarans()->whereNull('deleted_at')->where('status', '!=', 'refund')->sum('jumlah');
-            $kurangBayar = (float) $order->harga_total - $totalBayar;
+            $alreadySentToday = WhatsappLog::where('order_id', $order->id)
+                ->where('type', 'reminder_pembayaran')
+                ->whereDate('created_at', now()->toDateString())
+                ->exists();
 
-            if ($kurangBayar <= 0) {
+            if ($alreadySentToday) {
                 continue;
             }
 
-            $statusHari = match (true) {
-                $hari < 0 => 'telat '.abs($hari).' hari',
-                $hari === 0 => 'hari ini',
-                $hari === 1 => 'besok',
-                default => "dalam {$hari} hari",
-            };
-
-            if ($waEnabled) {
-                $wa = app(WhatsAppService::class);
-                $pesan = "Halo {$customer->nama_lengkap},\n\n"
-                    ."Pengingat pembayaran untuk order *{$order->kode_order}*\n"
-                    .'Kurang bayar: *Rp '.number_format($kurangBayar, 0, ',', '.')."*\n"
-                    ."Jatuh tempo: *{$jatuhTempo->format('d/m/Y')}* ({$statusHari})\n\n"
-                    .'Mohon segera lakukan pembayaran. Terima kasih.';
-                $wa->kirimPesanAsync($customer->no_hp, $pesan);
-                $sentCount++;
-            }
+            $template = Setting::get(
+                'template_pengingat_bayar',
+                'Halo {nama_customer}, kami ingin mengingatkan pembayaran untuk order {kode_order} (kendaraan {nama_kendaraan}) senilai {total}. Terima kasih.'
+            );
+            $pesan = $wa->renderTemplate($template, [
+                'nama_customer' => $customer->nama_lengkap,
+                'kode_order' => $order->kode_order,
+                'nama_kendaraan' => $order->kendaraan?->nama_kendaraan ?? '-',
+                'total' => 'Rp '.number_format((float) $order->harga_total, 0, ',', '.'),
+            ]);
+            $wa->kirimPesanAsync($customer->no_hp, $pesan, 'reminder_pembayaran', $order->id);
+            $sentCount++;
 
             Notification::create([
                 'type' => 'reminder_pembayaran',
                 'title' => 'Pengingat Pembayaran',
-                'message' => "Order {$order->kode_order} ({$customer->nama_lengkap}): kurang bayar Rp ".number_format($kurangBayar, 0, ',', '.')." jatuh tempo {$statusHari}.",
+                'message' => "Order {$order->kode_order} ({$customer->nama_lengkap}) masih {$order->status_pembayaran}. Total: Rp ".number_format((float) $order->harga_total, 0, ',', '.'),
                 'data' => [
                     'order_id' => $order->id,
                     'kode_order' => $order->kode_order,
-                    'kurang_bayar' => $kurangBayar,
-                    'tanggal_jatuh_tempo' => $jatuhTempo->toDateString(),
+                    'status_pembayaran' => $order->status_pembayaran,
                     'link' => '/orders/'.$order->id,
                 ],
             ]);
         }
 
-        $this->info("{$ordersWithDueDate->count()} order perlu pengingat pembayaran. {$sentCount} pesan WA terkirim.");
+        $this->info("{$orders->count()} order dengan pembayaran belum lunas. {$sentCount} pesan WA terkirim.");
 
         return self::SUCCESS;
     }

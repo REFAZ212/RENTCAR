@@ -9,6 +9,7 @@ use App\Models\Pembayaran;
 use App\Models\SupirCalo;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -93,12 +94,14 @@ class OrderPaymentLogTest extends TestCase
             $t->string('bukti_pengiriman')->nullable();
             $t->string('bukti_pengembalian')->nullable();
             $t->string('status_pengiriman')->nullable();
+            $t->string('metode_penyerahan')->nullable()->default('ambil');
             $t->string('alamat_jemput')->nullable();
             $t->string('tujuan')->nullable();
             $t->string('jam_mulai')->nullable();
             $t->string('jam_selesai')->nullable();
             $t->foreignId('supir_id')->nullable();
             $t->foreignId('calo_id')->nullable();
+            $t->enum('opsi_supir', ['dengan_supir', 'lepas_kunci'])->nullable();
             $t->decimal('komisi_calo', 12, 2)->nullable();
             $t->decimal('denda_overtime', 14, 2)->default(0);
             $t->integer('jam_overtime')->default(0);
@@ -107,6 +110,10 @@ class OrderPaymentLogTest extends TestCase
             $t->date('tanggal_jatuh_tempo')->nullable();
             $t->decimal('biaya_pembatalan', 14, 2)->nullable();
             $t->decimal('total_refund', 14, 2)->nullable();
+            $t->foreignId('operator_id')->nullable();
+            $t->decimal('biaya_kerusakan', 14, 2)->nullable();
+            $t->timestamp('waktu_perlu_verifikasi')->nullable();
+            $t->timestamp('waktu_klaim')->nullable();
             $t->timestamps();
             $t->softDeletes();
         });
@@ -153,6 +160,16 @@ class OrderPaymentLogTest extends TestCase
             $t->timestamps();
             $t->softDeletes();
         });
+        Schema::create('whatsapp_logs', function ($t) {
+            $t->id();
+            $t->string('type')->default('garasi');
+            $t->foreignId('order_id')->nullable();
+            $t->string('nomor_tujuan');
+            $t->text('pesan');
+            $t->string('status_kirim')->default('pending');
+            $t->text('response')->nullable();
+            $t->timestamps();
+        });
 
         $this->admin = User::create(['name' => 'Admin', 'email' => 'admin@test.com', 'password' => 'password', 'role' => 'admin_utama']);
         $this->customer = Customer::create(['nama_lengkap' => 'Budi', 'no_hp' => '6281234567890', 'no_sim' => 'SIM123']);
@@ -181,8 +198,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_alamat' => 'Jakarta',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'tujuan' => 'Bandung',
             'status_pembayaran' => 'partial',
             'metode_pembayaran' => 'transfer',
@@ -212,8 +229,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_alamat' => 'Jakarta',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'tujuan' => 'Bandung',
             'status_pembayaran' => 'unpaid',
         ]);
@@ -231,8 +248,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'durasi_hari' => 3,
             'harga_per_hari' => 500000,
             'harga_total' => 1500000,
@@ -266,8 +283,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'durasi_hari' => 3,
             'harga_per_hari' => 500000,
             'harga_total' => 1500000,
@@ -301,8 +318,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'durasi_hari' => 3,
             'harga_per_hari' => 500000,
             'harga_total' => 1500000,
@@ -325,8 +342,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'durasi_hari' => 3,
             'harga_per_hari' => 500000,
             'harga_total' => 1500000,
@@ -354,8 +371,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'durasi_hari' => 3,
             'harga_per_hari' => 500000,
             'harga_total' => 1500000,
@@ -378,6 +395,70 @@ class OrderPaymentLogTest extends TestCase
         });
     }
 
+    public function test_index_orders_overdue_filter_returns_only_overdue_orders(): void
+    {
+        Order::create([
+            'kode_order' => 'ORD-OVD001',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => Carbon::today()->subDays(3)->toDateString(),
+            'tanggal_selesai' => Carbon::today()->subDays(1)->toDateString(),
+            'durasi_hari' => 1,
+            'jam_selesai' => '08:00',
+            'harga_per_hari' => 500000,
+            'harga_total' => 500000,
+            'status_order' => 'active',
+            'status_pembayaran' => 'unpaid',
+        ]);
+
+        Order::create([
+            'kode_order' => 'ORD-OVD002',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => Carbon::today()->toDateString(),
+            'tanggal_selesai' => Carbon::today()->addDays(3)->toDateString(),
+            'durasi_hari' => 3,
+            'jam_selesai' => '23:59',
+            'harga_per_hari' => 500000,
+            'harga_total' => 1500000,
+            'status_order' => 'active',
+            'status_pembayaran' => 'unpaid',
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson('/api/orders?overdue=1');
+
+        $response->assertOk();
+        $response->assertJsonCount(1, 'data');
+        $response->assertJsonPath('data.0.kode_order', 'ORD-OVD001');
+    }
+
+    public function test_index_orders_honors_per_page(): void
+    {
+        foreach (range(1, 17) as $i) {
+            Order::create([
+                'kode_order' => sprintf('ORD-PER%02d', $i),
+                'customer_id' => $this->customer->id,
+                'kendaraan_id' => $this->kendaraan->id,
+                'admin_id' => $this->admin->id,
+                'tanggal_mulai' => '2026-12-01',
+                'tanggal_selesai' => '2026-12-04',
+                'durasi_hari' => 3,
+                'harga_per_hari' => 500000,
+                'harga_total' => 1500000,
+                'status_order' => 'pending',
+                'status_pembayaran' => 'unpaid',
+            ]);
+        }
+
+        $response = $this->actingAs($this->admin)->getJson('/api/orders?per_page=30');
+
+        $response->assertOk();
+        $response->assertJsonCount(17, 'data');
+        $response->assertJsonPath('meta.per_page', 30);
+    }
+
     public function test_delete_completed_order_is_blocked(): void
     {
         $order = Order::create([
@@ -385,8 +466,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'durasi_hari' => 3,
             'harga_per_hari' => 500000,
             'harga_total' => 1500000,
@@ -407,8 +488,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'durasi_hari' => 3,
             'harga_per_hari' => 500000,
             'harga_total' => 1500000,
@@ -432,8 +513,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_alamat' => 'Jakarta',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'tujuan' => 'Bandung',
             'status_pembayaran' => 'partial',
             'metode_pembayaran' => 'transfer',
@@ -449,7 +530,7 @@ class OrderPaymentLogTest extends TestCase
         $this->assertSame($this->admin->id, $pembayaran->admin_id);
     }
 
-    // ── Fase 2: State transition validation ──
+    // â”€â”€ Fase 2: State transition validation â”€â”€
 
     public function test_invalid_state_transition_pending_to_completed_is_rejected(): void
     {
@@ -458,8 +539,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'durasi_hari' => 3,
             'harga_per_hari' => 500000,
             'harga_total' => 1500000,
@@ -483,8 +564,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'durasi_hari' => 3,
             'harga_per_hari' => 500000,
             'harga_total' => 1500000,
@@ -507,8 +588,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'durasi_hari' => 3,
             'harga_per_hari' => 500000,
             'harga_total' => 1500000,
@@ -524,7 +605,7 @@ class OrderPaymentLogTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status_order' => 'confirmed']);
     }
 
-    // ── Fase 2: jumlah_bayar validation ──
+    // â”€â”€ Fase 2: jumlah_bayar validation â”€â”€
 
     public function test_store_rejects_jumlah_bayar_exceeds_harga_total(): void
     {
@@ -536,8 +617,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_alamat' => 'Jakarta',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'tujuan' => 'Bandung',
             'status_pembayaran' => 'partial',
             'jumlah_bayar' => 3000000,
@@ -556,8 +637,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_alamat' => 'Jakarta',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'tujuan' => 'Bandung',
             'status_pembayaran' => 'partial',
             'jumlah_bayar' => 0,
@@ -573,8 +654,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'durasi_hari' => 3,
             'harga_per_hari' => 500000,
             'harga_total' => 1500000,
@@ -590,7 +671,7 @@ class OrderPaymentLogTest extends TestCase
         $response->assertStatus(422);
     }
 
-    // ── Fase 2: jam format validation ──
+    // â”€â”€ Fase 2: jam format validation â”€â”€
 
     public function test_store_rejects_invalid_jam_mulai_format(): void
     {
@@ -600,8 +681,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_alamat' => 'Jakarta',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'tujuan' => 'Bandung',
             'jam_mulai' => '08.00',
         ]);
@@ -618,8 +699,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_alamat' => 'Jakarta',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'tujuan' => 'Bandung',
             'jam_mulai' => '08:00',
             'jam_selesai' => '17:30',
@@ -631,18 +712,239 @@ class OrderPaymentLogTest extends TestCase
         $this->assertSame('17:30', $order->jam_selesai);
     }
 
-    // ── Fase 3: Datetime-aware overlap check ──
+    // â”€â”€ Fase 8: Jam yang sudah terlewat di hari yang sama â”€â”€
+
+    public function test_store_rejects_jam_mulai_past_for_today(): void
+    {
+        Carbon::setTestNow('2026-12-01 10:00:00');
+        try {
+            $response = $this->actingAs($this->admin)->postJson('/api/orders', [
+                'customer_id' => $this->customer->id,
+                'customer_no_hp' => '6281234567890',
+                'customer_alamat' => 'Jakarta',
+                'customer_no_sim' => 'SIM123',
+                'kendaraan_id' => $this->kendaraan->id,
+                'tanggal_mulai' => '2026-12-01',
+                'tanggal_selesai' => '2026-12-04',
+                'tujuan' => 'Bandung',
+                'jam_mulai' => '08:00',
+                'jam_selesai' => '17:30',
+            ]);
+
+            $response->assertStatus(422);
+            $response->assertJsonValidationErrors('jam_mulai');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_store_accepts_jam_mulai_later_today(): void
+    {
+        Carbon::setTestNow('2026-12-01 10:00:00');
+        try {
+            $response = $this->actingAs($this->admin)->postJson('/api/orders', [
+                'customer_id' => $this->customer->id,
+                'customer_no_hp' => '6281234567890',
+                'customer_alamat' => 'Jakarta',
+                'customer_no_sim' => 'SIM123',
+                'kendaraan_id' => $this->kendaraan->id,
+                'tanggal_mulai' => '2026-12-01',
+                'tanggal_selesai' => '2026-12-04',
+                'tujuan' => 'Bandung',
+                'jam_mulai' => '11:00',
+                'jam_selesai' => '17:30',
+            ]);
+
+            $response->assertStatus(201);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_store_rejects_jam_selesai_that_for_today(): void
+    {
+        Carbon::setTestNow('2026-12-01 10:00:00');
+        try {
+            $response = $this->actingAs($this->admin)->postJson('/api/orders', [
+                'customer_id' => $this->customer->id,
+                'customer_no_hp' => '6281234567890',
+                'customer_alamat' => 'Jakarta',
+                'customer_no_sim' => 'SIM123',
+                'kendaraan_id' => $this->kendaraan->id,
+                'tanggal_mulai' => '2026-12-01',
+                'tanggal_selesai' => '2026-12-01',
+                'tujuan' => 'Bandung',
+                'jam_mulai' => '11:00',
+                'jam_selesai' => '09:00',
+            ]);
+
+            $response->assertStatus(422);
+            $response->assertJsonValidationErrors('jam_selesai');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_store_accepts_past_jam_for_future_date(): void
+    {
+        Carbon::setTestNow('2026-12-01 10:00:00');
+        try {
+            $response = $this->actingAs($this->admin)->postJson('/api/orders', [
+                'customer_id' => $this->customer->id,
+                'customer_no_hp' => '6281234567890',
+                'customer_alamat' => 'Jakarta',
+                'customer_no_sim' => 'SIM123',
+                'kendaraan_id' => $this->kendaraan->id,
+                'tanggal_mulai' => '2026-12-02',
+                'tanggal_selesai' => '2026-12-04',
+                'tujuan' => 'Bandung',
+                'jam_mulai' => '08:00',
+                'jam_selesai' => '17:30',
+            ]);
+
+            $response->assertStatus(201);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_update_rejects_jam_mulai_that_for_today(): void
+    {
+        Carbon::setTestNow('2026-12-01 10:00:00');
+        try {
+            $order = Order::create([
+                'kode_order' => 'ORD-JAM0001',
+                'customer_id' => $this->customer->id,
+                'kendaraan_id' => $this->kendaraan->id,
+                'admin_id' => $this->admin->id,
+                'tanggal_mulai' => '2026-12-01',
+                'tanggal_selesai' => '2026-12-04',
+                'durasi_hari' => 3,
+                'harga_per_hari' => 500000,
+                'harga_total' => 1500000,
+                'jam_mulai' => '08:00',
+                'jam_selesai' => '17:30',
+            ]);
+
+            $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+                'jam_mulai' => '08:00',
+                'jam_selesai' => '17:30',
+            ]);
+
+            $response->assertStatus(422);
+            $response->assertJsonValidationErrors('jam_mulai');
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_update_accepts_jam_mulai_later_today(): void
+    {
+        Carbon::setTestNow('2026-12-01 10:00:00');
+        try {
+            $order = Order::create([
+                'kode_order' => 'ORD-JAM0002',
+                'customer_id' => $this->customer->id,
+                'kendaraan_id' => $this->kendaraan->id,
+                'admin_id' => $this->admin->id,
+                'tanggal_mulai' => '2026-12-01',
+                'tanggal_selesai' => '2026-12-04',
+                'durasi_hari' => 3,
+                'harga_per_hari' => 500000,
+                'harga_total' => 1500000,
+                'jam_mulai' => '08:00',
+                'jam_selesai' => '17:30',
+            ]);
+
+            $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+                'jam_mulai' => '11:00',
+                'jam_selesai' => '17:30',
+            ]);
+
+            $response->assertStatus(200);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    // â”€â”€ Serialisasi tanggal API (jangan sampai berubah jadi UTC ISO) â”€â”€
+
+    public function test_api_serializes_tanggal_mulai_as_plain_date(): void
+    {
+        $response = $this->actingAs($this->admin)->postJson('/api/orders', [
+            'customer_id' => $this->customer->id,
+            'customer_no_hp' => '6281234567890',
+            'customer_alamat' => 'Jakarta',
+            'customer_no_sim' => 'SIM123',
+            'kendaraan_id' => $this->kendaraan->id,
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
+            'tujuan' => 'Bandung',
+        ]);
+
+        $response->assertStatus(201);
+        $this->assertSame('2026-12-01', $response->json('tanggal_mulai'));
+        $this->assertSame('2026-12-04', $response->json('tanggal_selesai'));
+        $this->assertStringNotContainsString('T', $response->json('tanggal_mulai'));
+        $this->assertStringNotContainsString('Z', $response->json('tanggal_mulai'));
+    }
+
+    public function test_api_keeps_datetime_columns_as_iso(): void
+    {
+        $response = $this->actingAs($this->admin)->postJson('/api/orders', [
+            'customer_id' => $this->customer->id,
+            'customer_no_hp' => '6281234567890',
+            'customer_alamat' => 'Jakarta',
+            'customer_no_sim' => 'SIM123',
+            'kendaraan_id' => $this->kendaraan->id,
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
+            'tujuan' => 'Bandung',
+        ]);
+
+        $response->assertStatus(201);
+        $createdAt = $response->json('created_at');
+        $this->assertNotNull($createdAt);
+        $this->assertStringContainsString('T', $createdAt);
+        $this->assertStringEndsWith('Z', $createdAt);
+    }
+
+    public function test_api_list_serializes_tanggal_as_plain_date(): void
+    {
+        Order::create([
+            'kode_order' => 'ORD-SER0001',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
+            'durasi_hari' => 3,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1500000,
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson('/api/orders');
+
+        $response->assertStatus(200);
+        $item = $response->json('data.0');
+        $this->assertSame('2026-12-01', $item['tanggal_mulai']);
+        $this->assertSame('2026-12-04', $item['tanggal_selesai']);
+        $this->assertStringNotContainsString('T', $item['tanggal_mulai']);
+        $this->assertStringNotContainsString('Z', $item['tanggal_mulai']);
+    }
+
+    // â”€â”€ Fase 3: Datetime-aware overlap check â”€â”€
 
     public function test_same_day_different_times_does_not_overlap(): void
     {
-        // Order 1: Aug 1 08:00 – Aug 1 12:00
+        // Order 1: Aug 1 08:00 â€“ Aug 1 12:00
         Order::create([
             'kode_order' => 'ORD-OVL0001',
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-01',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-01',
             'durasi_hari' => 1,
             'harga_per_hari' => 500000,
             'harga_total' => 500000,
@@ -651,15 +953,15 @@ class OrderPaymentLogTest extends TestCase
             'status_order' => 'active',
         ]);
 
-        // Order 2: Aug 1 13:00 – Aug 1 17:00 (no overlap)
+        // Order 2: Aug 1 13:00 â€“ Aug 1 17:00 (no overlap)
         $response = $this->actingAs($this->admin)->postJson('/api/orders', [
             'customer_id' => $this->customer->id,
             'customer_no_hp' => '6281234567890',
             'customer_alamat' => 'Jakarta',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-01',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-01',
             'tujuan' => 'Bandung',
             'jam_mulai' => '13:00',
             'jam_selesai' => '17:00',
@@ -670,14 +972,14 @@ class OrderPaymentLogTest extends TestCase
 
     public function test_same_day_overlapping_times_is_rejected(): void
     {
-        // Order 1: Aug 1 08:00 – Aug 1 14:00
+        // Order 1: Aug 1 08:00 â€“ Aug 1 14:00
         Order::create([
             'kode_order' => 'ORD-OVL0002',
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-01',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-01',
             'durasi_hari' => 1,
             'harga_per_hari' => 500000,
             'harga_total' => 500000,
@@ -686,15 +988,15 @@ class OrderPaymentLogTest extends TestCase
             'status_order' => 'active',
         ]);
 
-        // Order 2: Aug 1 13:00 – Aug 1 17:00 (overlaps by 1 hour)
+        // Order 2: Aug 1 13:00 â€“ Aug 1 17:00 (overlaps by 1 hour)
         $response = $this->actingAs($this->admin)->postJson('/api/orders', [
             'customer_id' => $this->customer->id,
             'customer_no_hp' => '6281234567890',
             'customer_alamat' => 'Jakarta',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-01',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-01',
             'tujuan' => 'Bandung',
             'jam_mulai' => '13:00',
             'jam_selesai' => '17:00',
@@ -705,14 +1007,14 @@ class OrderPaymentLogTest extends TestCase
 
     public function test_existing_order_without_times_blocks_whole_day(): void
     {
-        // Order 1: Aug 1 – Aug 1 (no times → defaults to 00:00–23:59)
+        // Order 1: Aug 1 â€“ Aug 1 (no times â†’ defaults to 00:00â€“23:59)
         Order::create([
             'kode_order' => 'ORD-OVL0003',
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-01',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-01',
             'durasi_hari' => 1,
             'harga_per_hari' => 500000,
             'harga_total' => 500000,
@@ -721,15 +1023,15 @@ class OrderPaymentLogTest extends TestCase
             'status_order' => 'active',
         ]);
 
-        // Order 2: Aug 1 13:00 – Aug 1 17:00 (should be blocked)
+        // Order 2: Aug 1 13:00 â€“ Aug 1 17:00 (should be blocked)
         $response = $this->actingAs($this->admin)->postJson('/api/orders', [
             'customer_id' => $this->customer->id,
             'customer_no_hp' => '6281234567890',
             'customer_alamat' => 'Jakarta',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-01',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-01',
             'tujuan' => 'Bandung',
             'jam_mulai' => '13:00',
             'jam_selesai' => '17:00',
@@ -740,14 +1042,14 @@ class OrderPaymentLogTest extends TestCase
 
     public function test_back_to_back_orders_with_times_allowed(): void
     {
-        // Order 1: Aug 1 08:00 – Aug 2 12:00
+        // Order 1: Aug 1 08:00 â€“ Aug 2 12:00
         Order::create([
             'kode_order' => 'ORD-OVL0004',
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-02',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-02',
             'durasi_hari' => 1,
             'harga_per_hari' => 500000,
             'harga_total' => 500000,
@@ -756,15 +1058,15 @@ class OrderPaymentLogTest extends TestCase
             'status_order' => 'active',
         ]);
 
-        // Order 2: Aug 2 13:00 – Aug 3 (starts after Order 1 ends → OK)
+        // Order 2: Aug 2 13:00 â€“ Aug 3 (starts after Order 1 ends â†’ OK)
         $response = $this->actingAs($this->admin)->postJson('/api/orders', [
             'customer_id' => $this->customer->id,
             'customer_no_hp' => '6281234567890',
             'customer_alamat' => 'Jakarta',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-08-02',
-            'tanggal_selesai' => '2026-08-03',
+            'tanggal_mulai' => '2026-12-02',
+            'tanggal_selesai' => '2026-12-03',
             'tujuan' => 'Bandung',
             'jam_mulai' => '13:00',
             'jam_selesai' => '18:00',
@@ -782,8 +1084,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-03',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-03',
             'durasi_hari' => 2,
             'harga_per_hari' => 500000,
             'harga_total' => 1000000,
@@ -794,8 +1096,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-03',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-03',
             'durasi_hari' => 2,
             'harga_per_hari' => 500000,
             'harga_total' => 1000000,
@@ -817,8 +1119,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-03',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-03',
             'durasi_hari' => 2,
             'harga_per_hari' => 500000,
             'harga_total' => 1000000,
@@ -829,8 +1131,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-03',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-03',
             'durasi_hari' => 2,
             'harga_per_hari' => 500000,
             'harga_total' => 1000000,
@@ -843,9 +1145,9 @@ class OrderPaymentLogTest extends TestCase
         $this->assertEquals('ORD-TEST_123', $orders[0]['kode_order']);
     }
 
-    // ── Fase 8: HIGH severity bug fixes ──
+    // â”€â”€ Fase 8: HIGH severity bug fixes â”€â”€
 
-    public function test_store_forces_status_order_to_pending(): void
+    public function test_store_forces_status_order_to_confirmed(): void
     {
         $response = $this->actingAs($this->admin)->postJson('/api/orders', [
             'customer_id' => $this->customer->id,
@@ -853,15 +1155,15 @@ class OrderPaymentLogTest extends TestCase
             'customer_alamat' => 'Jakarta',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'tujuan' => 'Bandung',
             'status_order' => 'completed',
         ]);
 
         $response->assertStatus(201);
         $order = Order::where('customer_id', $this->customer->id)->first();
-        $this->assertSame('pending', $order->status_order);
+        $this->assertSame('confirmed', $order->status_order);
     }
 
     public function test_updating_bukti_transfer_without_jumlah_bayar_does_not_create_ghost_pembayaran(): void
@@ -873,8 +1175,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-04',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
             'durasi_hari' => 3,
             'harga_per_hari' => 500000,
             'harga_total' => 1500000,
@@ -907,8 +1209,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-03',
+            'tanggal_mulai' => '2026-07-01',
+            'tanggal_selesai' => '2026-07-03',
             'durasi_hari' => 2,
             'harga_per_hari' => 500000,
             'harga_total' => 1000000 + (100000 * 2),
@@ -918,7 +1220,7 @@ class OrderPaymentLogTest extends TestCase
 
         $supir->forceDelete();
 
-        $order->selesaikanSewa();
+        $order->selesaikanSewa(Carbon::parse('2026-07-03 10:00:00'));
         $order->save();
 
         // The supir record is deleted, so supirTarif defaults to 0.
@@ -933,8 +1235,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-03',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-03',
             'durasi_hari' => 2,
             'harga_per_hari' => 500000,
             'harga_total' => 1000000,
@@ -962,8 +1264,10 @@ class OrderPaymentLogTest extends TestCase
 
         $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order1->id}", [
             'status_order' => 'completed',
+            'status_pembayaran' => 'paid',
+            'jumlah_bayar' => 1000000,
             'bukti_pengembalian' => UploadedFile::fake()->image('pengembalian.jpg'),
-            'tanggal_pengembalian_aktual' => '2026-08-02 10:00:00',
+            'tanggal_pengembalian_aktual' => '2026-12-02 10:00:00',
         ]);
 
         $response->assertOk();
@@ -978,8 +1282,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-03',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-03',
             'durasi_hari' => 2,
             'harga_per_hari' => 500000,
             'harga_total' => 1000000,
@@ -993,8 +1297,10 @@ class OrderPaymentLogTest extends TestCase
 
         $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
             'status_order' => 'completed',
+            'status_pembayaran' => 'paid',
+            'jumlah_bayar' => 1000000,
             'bukti_pengembalian' => UploadedFile::fake()->image('pengembalian.jpg'),
-            'tanggal_pengembalian_aktual' => '2026-08-02 10:00:00',
+            'tanggal_pengembalian_aktual' => '2026-12-02 10:00:00',
         ]);
 
         $response->assertOk();
@@ -1009,8 +1315,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-01',
-            'tanggal_selesai' => '2026-08-03',
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-03',
             'durasi_hari' => 2,
             'harga_per_hari' => 500000,
             'harga_total' => 1000000,
@@ -1026,5 +1332,144 @@ class OrderPaymentLogTest extends TestCase
         $order->refresh();
         $this->assertSame('bukti-transfer/test.jpg', $order->bukti_transfer);
         $this->assertSame('bukti-pengiriman/test.jpg', $order->bukti_pengiriman);
+    }
+
+    // â”€â”€ Fase 9: H1â€“H7 payment rules â”€â”€
+
+    public function test_store_order_can_be_paid_directly(): void
+    {
+        Storage::fake('public');
+
+        $response = $this->actingAs($this->admin)->postJson('/api/orders', [
+            'customer_id' => $this->customer->id,
+            'customer_no_hp' => '6281234567890',
+            'customer_alamat' => 'Jakarta',
+            'customer_no_sim' => 'SIM123',
+            'kendaraan_id' => $this->kendaraan->id,
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
+            'tujuan' => 'Bandung',
+            'status_pembayaran' => 'paid',
+            'metode_pembayaran' => 'cash',
+            'jumlah_bayar' => 2000000,
+        ]);
+
+        $response->assertStatus(201);
+
+        $order = Order::where('customer_id', $this->customer->id)->first();
+        $this->assertNotNull($order);
+        $this->assertSame('paid', $order->status_pembayaran);
+
+        $pembayaran = Pembayaran::where('order_id', $order->id)->first();
+        $this->assertNotNull($pembayaran);
+        $this->assertSame('pelunasan', $pembayaran->status);
+        $this->assertSame('2000000.00', $pembayaran->jumlah);
+    }
+
+    public function test_store_rejects_paid_with_insufficient_jumlah_bayar(): void
+    {
+        Storage::fake('public');
+
+        $response = $this->actingAs($this->admin)->postJson('/api/orders', [
+            'customer_id' => $this->customer->id,
+            'customer_no_hp' => '6281234567890',
+            'customer_alamat' => 'Jakarta',
+            'customer_no_sim' => 'SIM123',
+            'kendaraan_id' => $this->kendaraan->id,
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
+            'tujuan' => 'Bandung',
+            'status_pembayaran' => 'paid',
+            'metode_pembayaran' => 'cash',
+            'jumlah_bayar' => 1000000,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('jumlah_bayar');
+    }
+
+    public function test_update_rejects_paid_without_any_payment(): void
+    {
+        $order = Order::create([
+            'kode_order' => 'ORD-H4T0001',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
+            'durasi_hari' => 3,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1500000,
+            'status_order' => 'active',
+            'status_pembayaran' => 'unpaid',
+        ]);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_pembayaran' => 'paid',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('jumlah_bayar');
+
+        $order->refresh();
+        $this->assertSame('unpaid', $order->status_pembayaran);
+    }
+
+    public function test_update_rejects_paid_with_shortfall(): void
+    {
+        $order = Order::create([
+            'kode_order' => 'ORD-H4T0002',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
+            'durasi_hari' => 3,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1500000,
+            'status_order' => 'active',
+            'status_pembayaran' => 'unpaid',
+        ]);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_pembayaran' => 'paid',
+            'jumlah_bayar' => 750000,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('jumlah_bayar');
+    }
+
+    public function test_complete_order_requires_full_payment(): void
+    {
+        Storage::fake('public');
+
+        $order = Order::create([
+            'kode_order' => 'ORD-H2T0001',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-04',
+            'durasi_hari' => 3,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1500000,
+            'status_order' => 'active',
+            'status_pembayaran' => 'unpaid',
+        ]);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_order' => 'completed',
+            'status_pembayaran' => 'paid',
+            'jumlah_bayar' => 1000000,
+            'bukti_pengembalian' => UploadedFile::fake()->image('pengembalian.jpg'),
+            'tanggal_pengembalian_aktual' => '2026-12-04 10:00:00',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('jumlah_bayar');
+
+        $order->refresh();
+        $this->assertSame('active', $order->status_order);
     }
 }

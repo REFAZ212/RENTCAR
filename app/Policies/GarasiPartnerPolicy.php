@@ -19,7 +19,7 @@ class GarasiPartnerPolicy
 
     public function create(User $user): bool
     {
-        return in_array($user->role, ['admin_utama', 'admin_operasional', 'petugas']);
+        return in_array($user->role, ['admin_utama', 'admin_operasional']);
     }
 
     public function update(User $user, GarasiPartner $garasiPartner): bool

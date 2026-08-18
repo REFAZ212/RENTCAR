@@ -17,7 +17,7 @@ export default function GarasiPartner() {
   const [editItem, setEditItem] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     clearTimeout(debounceRef.current);

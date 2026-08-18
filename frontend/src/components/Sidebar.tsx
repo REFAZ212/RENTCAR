@@ -3,7 +3,6 @@ import {
   LayoutGrid,
   ClipboardList,
   Car,
-  Tags,
   Users,
   MapPin,
   FileBarChart,
@@ -14,8 +13,9 @@ import {
   History,
   ClipboardCheck,
   Shield,
+  MessageSquareWarning,
 } from 'lucide-react';
-import logo from '../assets/logo.png';
+import logo from '../assets/logorentcar.png';
 import { useAuth } from '../contexts/AuthContext';
 
 const ROLES_ADMIN = ['admin_utama', 'admin_operasional'];
@@ -38,16 +38,15 @@ const navGroups: NavGroup[] = [
     title: 'Umum',
     items: [
       { path: '/admin', label: 'Dashboard', icon: LayoutGrid, roles: ROLES_ALL },
-      { path: '/orders', label: 'Orders', icon: ClipboardList, roles: ROLES_ALL },
-      { path: '/customers', label: 'Customers', icon: Users, roles: ROLES_ALL },
+      { path: '/orders', label: 'Orders', icon: ClipboardList, roles: ROLES_ADMIN },
+      { path: '/customers', label: 'Customers', icon: Users, roles: ROLES_ADMIN },
     ],
   },
   {
     title: 'Kendaraan',
     items: [
-      { path: '/kendaraan', label: 'Kendaraan', icon: Car, roles: ROLES_ALL },
-      { path: '/kategori-tipe', label: 'Kategori & Tipe', icon: Tags, roles: ROLES_ADMIN },
-      { path: '/inspeksi', label: 'Inspeksi', icon: ClipboardCheck, roles: ROLES_ADMIN },
+      { path: '/kendaraan', label: 'Kendaraan', icon: Car, roles: ROLES_ADMIN },
+      { path: '/inspeksi', label: 'Inspeksi', icon: ClipboardCheck, roles: ROLES_ALL },
     ],
   },
   {
@@ -62,9 +61,10 @@ const navGroups: NavGroup[] = [
     title: 'Lainnya',
     items: [
       { path: '/laporan', label: 'Laporan', icon: FileBarChart, roles: ROLES_ADMIN },
-      { path: '/pengaturan', label: 'Pengaturan', icon: Settings, roles: ['admin_utama'] },
+      { path: '/wa-logs', label: 'WA Log', icon: MessageSquareWarning, roles: ROLES_ADMIN },
       { path: '/users', label: 'Users', icon: Shield, roles: ['admin_utama'] },
       { path: '/activity-log', label: 'Aktivitas', icon: History, roles: ['admin_utama'] },
+      { path: '/pengaturan', label: 'Pengaturan', icon: Settings, roles: ['admin_utama'] },
     ],
   },
 ];
@@ -97,20 +97,20 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       )}
 
       <aside
-        className={`fixed top-0 left-0 z-40 flex h-screen w-64 flex-col bg-ink-900 text-white transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed top-0 left-0 z-40 flex h-screen w-64 flex-col bg-white text-black-700 transition-transform duration-200 lg:translate-x-0 ${
           open ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Logo */}
-        <div className="flex h-16 items-center border-b border-ink-800 px-6 shrink-0">
+        <div className="flex h-16 items-center border-b border-black-200 px-6 shrink-0">
           <img
             src={logo}
-            alt="Pilar Karya Production"
+            alt="logo"
             className="h-8 w-auto"
           />
           <button
             onClick={onClose}
-            className="ml-auto text-ink-400 transition-colors hover:text-white lg:hidden"
+            className="ml-auto text-black-400 transition-colors hover:text-primary-600 lg:hidden"
           >
             <X size={20} />
           </button>
@@ -127,7 +127,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
             return (
               <div key={group.title} className="mb-4">
-                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-widest text-ink-400">
+                <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-widest text-black-400">
                   {group.title}
                 </p>
                 <div className="space-y-1">
@@ -140,16 +140,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         onClick={onClose}
                         className={`relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                           active
-                            ? 'bg-ink-800 text-brand-400'
-                            : 'text-ink-200 hover:bg-ink-800 hover:text-white'
+                            ? 'bg-primary-50 text-primary-600'
+                            : 'text-black-500 hover:bg-primary-50 hover:text-primary-600'
                         }`}
                       >
                         {active && (
-                          <div className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r bg-brand-500" />
+                          <div className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r bg-primary-500" />
                         )}
                         <item.icon
                           size={18}
-                          className={active ? 'text-brand-400' : 'text-ink-400'}
+                          className={active ? 'text-primary-500' : 'text-black-400'}
                         />
                         {item.label}
                       </Link>

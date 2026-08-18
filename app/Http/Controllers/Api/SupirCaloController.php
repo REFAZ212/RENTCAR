@@ -74,7 +74,7 @@ class SupirCaloController extends Controller
     {
         $this->authorize('view', $supirCalo);
 
-        $supirCalo->load(['ordersAsSupir' => function ($q) {
+        $supirCalo->load(['user', 'ordersAsSupir' => function ($q) {
             $q->with('kendaraan')->latest()->limit(10);
         }, 'ordersAsCalo' => function ($q) {
             $q->with('kendaraan')->latest()->limit(10);
@@ -86,6 +86,12 @@ class SupirCaloController extends Controller
     public function update(Request $request, SupirCalo $supirCalo): JsonResponse
     {
         $this->authorize('update', $supirCalo);
+
+        if ($supirCalo->user_id) {
+            return response()->json([
+                'message' => 'Data supir dari user petugas dikelola di halaman Manajemen User.',
+            ], 422);
+        }
 
         $validated = $request->validate([
             'jenis' => 'sometimes|required|in:supir,calo',
@@ -123,6 +129,12 @@ class SupirCaloController extends Controller
     public function destroy(SupirCalo $supirCalo): JsonResponse
     {
         $this->authorize('delete', $supirCalo);
+
+        if ($supirCalo->user_id) {
+            return response()->json([
+                'message' => 'Data supir dari user petugas dikelola di halaman Manajemen User.',
+            ], 422);
+        }
 
         $hasActiveOrder = Order::where(function ($q) use ($supirCalo) {
             $q->where('supir_id', $supirCalo->id)

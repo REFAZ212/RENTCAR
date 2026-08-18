@@ -72,7 +72,7 @@ class ReportService
         $utilization = $totalVehicles > 0 ? round(($rentedVehicles / $totalVehicles) * 100, 1) : 0;
 
         $newVehicles = Kendaraan::whereBetween('created_at', [$start, $end])->count();
-        $newCustomers = Customer::whereBetween('created_at', [$start, $end])->count();
+        $newCustomers = Customer::withTrashed()->whereBetween('created_at', [$start, $end])->count();
         $newGarageRequests = GarasiRequest::whereBetween('created_at', [$start, $end])->count();
 
         $pendingGarageRequests = GarasiRequest::where('status_permintaan', 'pending')->count();
@@ -164,7 +164,7 @@ class ReportService
         $kendaraanTerpopuler = collect();
 
         if ($topIds->isNotEmpty()) {
-            $kendaraanMap = Kendaraan::whereIn('id', $topIds)->get()->keyBy('id');
+            $kendaraanMap = Kendaraan::with('kategori')->whereIn('id', $topIds)->get()->keyBy('id');
 
             $stats = Order::whereIn('kendaraan_id', $topIds)
                 ->selectRaw('kendaraan_id, COUNT(*) as order_count, SUM(CASE WHEN status_order = "completed" THEN harga_total ELSE 0 END) as total_revenue, AVG(durasi_hari) as avg_duration')
@@ -180,6 +180,8 @@ class ReportService
                     'kendaraan_id' => $id,
                     'nama_kendaraan' => $k->nama_kendaraan ?? '-',
                     'plat_nomor' => $k->plat_nomor ?? '-',
+                    'kategori' => $k->kategori?->nama_kategori ?? null,
+                    'harga_sewa_per_hari' => (float) ($k->harga_sewa_per_hari ?? 0),
                     'order_count' => $s->order_count ?? 0,
                     'total_revenue' => (float) ($s->total_revenue ?? 0),
                     'avg_duration' => round((float) ($s->avg_duration ?? 0), 1),
@@ -218,7 +220,7 @@ class ReportService
         $topCustomers = collect();
 
         if ($topIds->isNotEmpty()) {
-            $customerMap = Customer::whereIn('id', $topIds)->get()->keyBy('id');
+            $customerMap = Customer::withTrashed()->whereIn('id', $topIds)->get()->keyBy('id');
 
             $stats = Order::whereIn('customer_id', $topIds)
                 ->selectRaw('customer_id, COUNT(*) as order_count, SUM(CASE WHEN status_order = "completed" THEN harga_total ELSE 0 END) as total_spend, AVG(durasi_hari) as avg_duration')
@@ -241,10 +243,10 @@ class ReportService
             });
         }
 
-        $totalCustomers = Customer::count();
-        $newCustomers = Customer::whereBetween('created_at', [$start, $end])->count();
+        $totalCustomers = Customer::withTrashed()->count();
+        $newCustomers = Customer::withTrashed()->whereBetween('created_at', [$start, $end])->count();
         $activeCustomers = Order::whereBetween('created_at', [$start, $end])->distinct('customer_id')->count('customer_id');
-        $repeatCustomers = Customer::has('orders', '>', 1)->count();
+        $repeatCustomers = Customer::withTrashed()->has('orders', '>', 1)->count();
 
         return [
             'customer_top' => $topCustomers,
@@ -271,6 +273,9 @@ class ReportService
 
         return [
             'total_orders' => $totalOrders,
+            'total_pendapatan' => (float) Order::where('status_order', 'completed')->sum('harga_total'),
+            'total_denda' => (float) Order::sum('denda_overtime'),
+            'rata_rata_durasi' => round((float) (Order::avg('durasi_hari') ?? 0), 1),
             'by_status' => $byStatus,
             'by_pembayaran' => $byPembayaran,
             'by_pengiriman' => $byPengiriman,
@@ -299,6 +304,7 @@ class ReportService
             $results[] = [
                 'garasi_partner_id' => $partner->id,
                 'nama_garasi' => $partner->nama_garasi,
+                'nama_pemilik' => $partner->nama_pemilik,
                 'persentase' => $partner->persentase_bagi_hasil,
                 'total_orders' => $orders->count(),
                 'total_revenue' => (float) $revenue,
@@ -337,6 +343,7 @@ class ReportService
             $results[] = [
                 'calo_id' => $calo->id,
                 'nama' => $calo->nama,
+                'no_hp' => $calo->no_hp,
                 'total_orders' => $orders->count(),
                 'total_revenue' => (float) $revenue,
                 'total_komisi' => (float) $komisi,

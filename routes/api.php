@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\GarasiPartnerController;
 use App\Http\Controllers\Api\GarasiRequestController;
+use App\Http\Controllers\Api\GpsController;
 use App\Http\Controllers\Api\InspeksiKendaraanController;
 use App\Http\Controllers\Api\InvoiceController;
 use App\Http\Controllers\Api\KatalogOrderRequestController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\SupirCaloController;
 use App\Http\Controllers\Api\TipeController;
 use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\WhatsAppLogController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
@@ -29,6 +31,8 @@ Route::get('/katalog/kategoris', [KatalogPublicController::class, 'kategoris'])-
 Route::get('/katalog/tipes', [KatalogPublicController::class, 'tipes'])->middleware('throttle:120,1');
 Route::post('/katalog/order-request', [KatalogOrderRequestController::class, 'store'])->middleware('throttle:5,1');
 Route::get('/katalog/{kendaraan}', [KatalogPublicController::class, 'show'])->middleware('throttle:120,1');
+
+Route::post('/gps/push', [GpsController::class, 'push'])->middleware('throttle:60,1');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
@@ -40,7 +44,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/garasi-saya', [GarasiPartnerController::class, 'garasiSaya']);
     Route::apiResource('garasi-partners', GarasiPartnerController::class);
     Route::apiResource('kendaraans', KendaraanController::class)->middleware('throttle:60,1');
-    Route::apiResource('customers', CustomerController::class)->middleware('throttle:60,1');
+    Route::apiResource('customers', CustomerController::class)->withTrashed()->middleware('throttle:60,1');
+    Route::post('/customers/{customer}/restore', [CustomerController::class, 'restore'])->withTrashed()->middleware('throttle:60,1');
     Route::apiResource('orders', OrderController::class)->middleware('throttle:60,1');
     Route::get('/orders/{order}/invoice', [InvoiceController::class, 'download']);
     Route::apiResource('garasi-requests', GarasiRequestController::class)->middleware('throttle:60,1');
@@ -49,14 +54,27 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/tipes/{tipe}/kendaraans', [TipeController::class, 'kendaraans']);
     Route::apiResource('supir-calos', SupirCaloController::class)->middleware('throttle:60,1');
     Route::apiResource('inspeksi-kendaraans', InspeksiKendaraanController::class)->middleware('throttle:60,1');
+    Route::post('/inspeksi-kendaraans/{inspeksi}/perbaiki-ttd', [InspeksiKendaraanController::class, 'perbaikiTtd'])->middleware('throttle:20,1');
     Route::get('/orders/{order}/inspeksi', [InspeksiKendaraanController::class, 'byOrder']);
+    Route::get('/inspeksi-tasks', [InspeksiKendaraanController::class, 'tasks']);
+    Route::post('/orders/{order}/claim', [OrderController::class, 'claim']);
+    Route::post('/orders/{order}/release', [OrderController::class, 'release']);
+    Route::post('/orders/{order}/kirim', [InspeksiKendaraanController::class, 'kirimKendaraan'])->middleware('throttle:20,1');
+    Route::post('/orders/{order}/kembali', [InspeksiKendaraanController::class, 'kembalikanKendaraan'])->middleware('throttle:20,1');
+
+    Route::get('/gps/latest', [GpsController::class, 'latest']);
+    Route::get('/gps/kendaraans/{kendaraan}/history', [GpsController::class, 'history']);
+    Route::apiResource('gps-devices', GpsController::class)->except(['create', 'edit'])->middleware('throttle:60,1');
 
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
     Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markAsRead']);
     Route::patch('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 
-    Route::prefix('laporan')->group(function () {
+    Route::get('/whatsapp-logs', [WhatsAppLogController::class, 'index']);
+    Route::post('/whatsapp-logs/{log}/retry', [WhatsAppLogController::class, 'retry']);
+
+    Route::middleware('role:admin_utama,admin_operasional')->prefix('laporan')->group(function () {
         Route::get('ringkasan', [ReportController::class, 'ringkasan']);
         Route::get('pendapatan', [ReportController::class, 'pendapatan']);
         Route::get('kendaraan', [ReportController::class, 'kendaraan']);

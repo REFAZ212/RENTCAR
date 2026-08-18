@@ -97,12 +97,14 @@ class VehicleOverlapTest extends TestCase
             $t->string('bukti_pengiriman')->nullable();
             $t->string('bukti_pengembalian')->nullable();
             $t->string('status_pengiriman')->nullable();
+            $t->string('metode_penyerahan')->nullable()->default('ambil');
             $t->string('alamat_jemput')->nullable();
             $t->string('tujuan')->nullable();
             $t->string('jam_mulai')->nullable();
             $t->string('jam_selesai')->nullable();
             $t->foreignId('supir_id')->nullable();
             $t->foreignId('calo_id')->nullable();
+            $t->enum('opsi_supir', ['dengan_supir', 'lepas_kunci'])->nullable();
             $t->decimal('komisi_calo', 12, 2)->nullable();
             $t->decimal('denda_overtime', 14, 2)->default(0);
             $t->integer('jam_overtime')->default(0);
@@ -111,6 +113,10 @@ class VehicleOverlapTest extends TestCase
             $t->date('tanggal_jatuh_tempo')->nullable();
             $t->decimal('biaya_pembatalan', 14, 2)->nullable();
             $t->decimal('total_refund', 14, 2)->nullable();
+            $t->foreignId('operator_id')->nullable();
+            $t->decimal('biaya_kerusakan', 14, 2)->nullable();
+            $t->timestamp('waktu_perlu_verifikasi')->nullable();
+            $t->timestamp('waktu_klaim')->nullable();
             $t->timestamps();
             $t->softDeletes();
         });
@@ -156,6 +162,16 @@ class VehicleOverlapTest extends TestCase
             $t->text('catatan')->nullable();
             $t->timestamps();
             $t->softDeletes();
+        });
+        Schema::create('whatsapp_logs', function ($t) {
+            $t->id();
+            $t->string('type')->default('garasi');
+            $t->foreignId('order_id')->nullable();
+            $t->string('nomor_tujuan');
+            $t->text('pesan');
+            $t->string('status_kirim')->default('pending');
+            $t->text('response')->nullable();
+            $t->timestamps();
         });
 
         $this->admin = User::create([

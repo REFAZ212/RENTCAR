@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Order;
+use App\Models\SupirCalo;
 use App\Models\User;
 use App\Services\WatermarkService;
 use Illuminate\Http\JsonResponse;
@@ -13,6 +15,63 @@ use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller
 {
+    private static function nyambiRules(): array
+    {
+        return [
+            'phone' => 'required|string|max:20',
+            'no_sim' => 'required|string|max:64',
+            'tarif_per_hari' => 'required|numeric|min:0',
+        ];
+    }
+
+    /**
+     * Sinkronkan record SupirCalo (jenis supir) milik user.
+     * One-way sync: nama & no_hp selalu mengikuti user.
+     */
+    private function syncSupirCalo(User $user, bool $nyambi, array $data): void
+    {
+        $supir = $user->supirCalo;
+
+        if (! $nyambi) {
+            if (! $supir) {
+                return;
+            }
+
+            $hasActiveOrder = Order::where('supir_id', $supir->id)
+                ->whereIn('status_order', ['pending', 'confirmed', 'active'])
+                ->exists();
+
+            if ($hasActiveOrder) {
+                $supir->update(['user_id' => null]);
+            } else {
+                $supir->delete();
+            }
+
+            return;
+        }
+
+        $payload = [
+            'user_id' => $user->id,
+            'jenis' => 'supir',
+            'nama' => $user->name,
+            'no_hp' => $user->phone ?? '',
+            'status' => 'active',
+        ];
+
+        if (array_key_exists('no_sim', $data)) {
+            $payload['no_sim'] = $data['no_sim'];
+        }
+        if (array_key_exists('tarif_per_hari', $data)) {
+            $payload['tarif_per_hari'] = $data['tarif_per_hari'];
+        }
+
+        if ($supir) {
+            $supir->update($payload);
+        } else {
+            SupirCalo::create($payload);
+        }
+    }
+
     public function index(Request $request): JsonResponse
     {
         $this->authorize('viewAny', User::class);
@@ -31,7 +90,7 @@ class UserController extends Controller
             });
         }
 
-        $users = $query->withCount('orders')->orderBy('created_at', 'desc')->paginate(15);
+        $users = $query->withCount('orders')->with('supirCalo')->orderBy('created_at', 'desc')->paginate(15);
 
         return response()->json($users);
     }
@@ -47,7 +106,16 @@ class UserController extends Controller
             'role' => 'required|in:admin_utama,admin_operasional,petugas',
             'password' => ['required', 'confirmed', Password::min(8)],
             'avatar' => 'nullable|image|max:2048',
+            'nyambi_supir' => 'nullable|boolean',
+            'no_sim' => 'nullable|string|max:64',
+            'tarif_per_hari' => 'nullable|numeric|min:0',
         ]);
+
+        $nyambi = (bool) ($validated['nyambi_supir'] ?? false);
+
+        if ($nyambi) {
+            $validated = array_merge($validated, $request->validate(self::nyambiRules()));
+        }
 
         $validated['password'] = Hash::make($validated['password']);
 
@@ -62,6 +130,10 @@ class UserController extends Controller
         }
 
         $user = User::create($validated);
+
+        if ($nyambi) {
+            $this->syncSupirCalo($user, true, $validated);
+        }
 
         return response()->json($user, 201);
     }
@@ -84,9 +156,20 @@ class UserController extends Controller
             'email' => 'sometimes|required|email|unique:users,email,'.$user->id,
             'phone' => 'nullable|string|max:20',
             'role' => 'sometimes|required|in:admin_utama,admin_operasional,petugas',
-            'password' => 'nullable|confirmed|Password::min(8)',
+            'password' => ['nullable', 'confirmed', Password::min(8)],
             'avatar' => 'nullable|image|max:2048',
+            'nyambi_supir' => 'nullable|boolean',
+            'no_sim' => 'nullable|string|max:64',
+            'tarif_per_hari' => 'nullable|numeric|min:0',
         ]);
+
+        $nyambi = $request->has('nyambi_supir')
+            ? $request->boolean('nyambi_supir')
+            : $user->supirCalo !== null;
+
+        if ($nyambi && ($request->has('no_sim') || $request->has('tarif_per_hari') || $request->has('nyambi_supir'))) {
+            $validated = array_merge($validated, $request->validate(self::nyambiRules()));
+        }
 
         if (! empty($validated['password'])) {
             $validated['password'] = Hash::make($validated['password']);
@@ -108,6 +191,8 @@ class UserController extends Controller
         }
 
         $user->update($validated);
+
+        $this->syncSupirCalo($user, $nyambi, $validated);
 
         return response()->json($user);
     }

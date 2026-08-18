@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\OvertimeCalculator;
 use Carbon\Carbon;
+use DateTimeInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -40,6 +41,8 @@ class Order extends Model
         'alamat_jemput',
         'tujuan',
         'admin_id',
+        'operator_id',
+        'waktu_klaim',
         'tanggal_mulai',
         'tanggal_selesai',
         'jam_mulai',
@@ -51,6 +54,7 @@ class Order extends Model
         'metode_pembayaran',
         'status_pembayaran',
         'status_pengiriman',
+        'metode_penyerahan',
         'bukti_transfer',
         'bukti_pengiriman',
         'bukti_pengembalian',
@@ -61,17 +65,21 @@ class Order extends Model
         'catatan',
         'alasan_pembatalan',
         'tanggal_pengembalian_aktual',
+        'waktu_perlu_verifikasi',
         'tanggal_jatuh_tempo',
         'jam_overtime',
         'denda_overtime',
         'biaya_pembatalan',
         'total_refund',
+        'biaya_kerusakan',
     ];
 
     protected $casts = [
         'tanggal_mulai' => 'date',
         'tanggal_selesai' => 'date',
         'tanggal_pengembalian_aktual' => 'datetime',
+        'waktu_perlu_verifikasi' => 'datetime',
+        'waktu_klaim' => 'datetime',
         'tanggal_jatuh_tempo' => 'date',
         'durasi_hari' => 'integer',
         'harga_per_hari' => 'decimal:2',
@@ -81,7 +89,29 @@ class Order extends Model
         'denda_overtime' => 'decimal:2',
         'biaya_pembatalan' => 'decimal:2',
         'total_refund' => 'decimal:2',
+        'biaya_kerusakan' => 'decimal:2',
     ];
+
+    /**
+     * Serialisasi tanggal untuk response JSON.
+     *
+     * Kolom bertipe DATE (tanggal_mulai, tanggal_selesai, tanggal_jatuh_tempo)
+     * selalu tengah malam WIB, jadi dikirim polos "Y-m-d" supaya frontend
+     * menampilkan tanggal yang sama dengan yang dipilih user. Kalau dibiarkan
+     * default (ISO8601 UTC), tanggal 05 00:00 WIB berubah jadi "04T17:00Z" dan
+     * tampil mundur 1 hari di admin panel.
+     *
+     * Kolom bertipe DATETIME (created_at, updated_at, dsb.) tetap dikirim
+     * ISO8601 supaya `new Date(...)` di JavaScript bisa parse dengan benar.
+     */
+    protected function serializeDate(DateTimeInterface $date): string
+    {
+        $wib = Carbon::instance($date)->setTimezone(config('app.timezone'));
+
+        return $wib->format('H:i:s') === '00:00:00'
+            ? $wib->format('Y-m-d')
+            : $date->toJSON();
+    }
 
     /**
      * Selalu ikut dikirim di response JSON, supaya frontend tidak perlu
@@ -111,7 +141,7 @@ class Order extends Model
 
     public function customer(): BelongsTo
     {
-        return $this->belongsTo(Customer::class);
+        return $this->belongsTo(Customer::class)->withTrashed();
     }
 
     public function kendaraan(): BelongsTo
@@ -122,6 +152,11 @@ class Order extends Model
     public function admin(): BelongsTo
     {
         return $this->belongsTo(User::class, 'admin_id');
+    }
+
+    public function operator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'operator_id');
     }
 
     public function supir(): BelongsTo
@@ -150,6 +185,54 @@ class Order extends Model
     }
 
     /**
+     * Jenis task yang sedang menanti petugas: 'pickup' (order dikonfirmasi,
+     * belum ada inspeksi pickup), 'return' (order aktif/perlu verifikasi,
+     * belum ada inspeksi return), atau null (tidak ada task).
+     */
+    public function taskJenis(): ?string
+    {
+        if ($this->status_order === 'confirmed' && ! $this->inspeksis()->where('jenis', 'pickup')->exists()) {
+            return 'pickup';
+        }
+
+        if (in_array($this->status_order, ['active', 'perlu_verifikasi']) && ! $this->inspeksis()->where('jenis', 'return')->exists()) {
+            return 'return';
+        }
+
+        return null;
+    }
+
+    /**
+     * Apakah task order ini sudah diklaim petugas (operator) lain?
+     */
+    public function isTaskClaimed(): bool
+    {
+        return $this->operator_id !== null;
+    }
+
+    /**
+     * Apakah user yang diberikan adalah pemegang klaim task ini?
+     */
+    public function isClaimant(int $userId): bool
+    {
+        return $this->operator_id === $userId;
+    }
+
+    /**
+     * Apakah klaim sudah melewati batas waktu eksekusi (setting durasi_klaim_menit)?
+     */
+    public function isClaimExpired(): bool
+    {
+        if (! $this->waktu_klaim) {
+            return false;
+        }
+
+        $durasiMenit = (int) Setting::get('durasi_klaim_menit', 30);
+
+        return $this->waktu_klaim->copy()->addMinutes($durasiMenit)->lessThan(now());
+    }
+
+    /**
      * Peta transisi status_order yang diizinkan.
      * Kunci = status asal, nilai = array status tujuan yang valid.
      * Order yang sudah "terminal" (completed/cancelled) tidak boleh berubah.
@@ -157,7 +240,8 @@ class Order extends Model
     private const ALLOWED_TRANSITIONS = [
         'pending' => ['confirmed', 'active', 'cancelled'],
         'confirmed' => ['active', 'cancelled'],
-        'active' => ['completed', 'cancelled'],
+        'active' => ['perlu_verifikasi', 'completed', 'cancelled'],
+        'perlu_verifikasi' => ['active', 'completed', 'cancelled'],
     ];
 
     /**
@@ -174,17 +258,17 @@ class Order extends Model
 
     /**
      * Batas waktu order ini seharusnya sudah dikembalikan.
-     * Dihitung dari tanggal_mulai + durasi_hari + jam_selesai,
-     * bukan dari tanggal_selesai langsung karena tanggal_selesai
-     * bisa salah input (mis. sama dengan tanggal_mulai).
+     * Dihitung langsung dari tanggal_selesai (kesepakatan) + jam_selesai.
+     * durasi_hari tidak dipakai di sini karena sifatnya tagihan (pembulatan
+     * ke atas per 24 jam) — bukan penunjuk tanggal kalender.
      */
     public function batasWaktuKembali(): ?Carbon
     {
-        if (! $this->tanggal_mulai || ! $this->durasi_hari) {
+        if (! $this->tanggal_selesai) {
             return null;
         }
 
-        $batas = Carbon::parse($this->tanggal_mulai)->addDays($this->durasi_hari);
+        $batas = Carbon::parse($this->tanggal_selesai);
 
         if ($this->jam_selesai) {
             $batas->setTimeFromTimeString($this->jam_selesai);
@@ -207,8 +291,10 @@ class Order extends Model
     {
         $batas = $this->batasWaktuKembali();
 
-        // For completed/cancelled orders, return the stored final value
-        if (in_array($this->status_order, ['completed', 'cancelled'])) {
+        // For terminal/frozen orders, return the stored final value.
+        // "perlu_verifikasi" sudah di-freeze oleh OrderVerifyOverdue, jadi
+        // denda tidak boleh terus membengkak sebelum admin menindaklanjuti.
+        if (in_array($this->status_order, ['completed', 'cancelled', 'perlu_verifikasi'])) {
             return (int) $this->getOriginal('jam_overtime', 0);
         }
 
@@ -223,14 +309,78 @@ class Order extends Model
 
     public function getDendaOvertimeSaatIniAttribute(): float
     {
-        // For completed/cancelled orders, return the stored final value
-        if (in_array($this->status_order, ['completed', 'cancelled'])) {
+        // For terminal/frozen orders, return the stored final value.
+        if (in_array($this->status_order, ['completed', 'cancelled', 'perlu_verifikasi'])) {
             return (float) $this->getOriginal('denda_overtime', 0);
         }
 
         $s = Setting::getOvertimeSettings();
 
         return OvertimeCalculator::hitungDenda($this->jam_overtime_saat_ini, $s['rate']);
+    }
+
+    /**
+     * Proyeksi nilai final saat sewa diselesaikan: jam & denda keterlambatan,
+     * harga total (sudah termasuk denda & tarif supir), dan durasi aktual.
+     *
+     * Satu-satunya sumber kebenaran untuk perhitungan penyelesaian — dipakai
+     * oleh selesaikanSewa() (penyimpanan final) DAN oleh OrderService untuk
+     * validasi "kurang bayar" sebelum order di-complete, supaya angkanya
+     * selalu konsisten.
+     *
+     * @param  Carbon|null  $waktuAktual  Waktu kendaraan benar-benar dikembalikan.
+     *                                    null = fallback ke now().
+     * @return array{jam_overtime: int, denda_overtime: float, harga_total: float, durasi_hari: int}
+     */
+    public function proyeksiSelesai(?Carbon $waktuAktual = null): array
+    {
+        $batas = $this->batasWaktuKembali();
+        $s = Setting::getOvertimeSettings();
+        $waktuAktual = $waktuAktual ?? now();
+        $durasiAktual = (int) $this->durasi_hari;
+
+        $hargaDasar = (float) $this->harga_per_hari * $durasiAktual;
+
+        $supirTarif = 0;
+        if ($this->supir_id) {
+            $supir = SupirCalo::find($this->supir_id);
+            $supirTarif = (float) ($supir?->tarif_per_hari ?? 0);
+        } elseif ($this->opsi_supir === 'dengan_supir') {
+            $supirTarif = (float) Setting::getTarifDenganDriverPerHari();
+        }
+
+        // Order yang pernah di-freeze oleh OrderVerifyOverdue (perlu_verifikasi):
+        // denda mengikuti JANJI freeze yang sudah disampaikan, bukan dihitung
+        // ulang dari nol. Hitungan aktual di waktu pengembalian dipakai hanya
+        // jika LEBIH KECIL (tidak pernah menagih melebihi janji). Deteksi via
+        // getOriginal() karena pemanggil (auto-complete) mengosongkan atribut
+        // `waktu_perlu_verifikasi` sebelum memanggil metode ini.
+        if ($this->getOriginal('waktu_perlu_verifikasi')) {
+            $hitungAktual = $batas
+                ? OvertimeCalculator::hitung($batas, $waktuAktual, $s['rate'], $s['grace'])
+                : ['jam_overtime' => 0, 'denda_overtime' => 0];
+
+            $jam = min((int) $this->getOriginal('jam_overtime', 0), $hitungAktual['jam_overtime']);
+            $denda = min((float) $this->getOriginal('denda_overtime', 0), $hitungAktual['denda_overtime']);
+
+            return [
+                'jam_overtime' => $jam,
+                'denda_overtime' => $denda,
+                'harga_total' => $hargaDasar + ($supirTarif * $durasiAktual) + $denda,
+                'durasi_hari' => $durasiAktual,
+            ];
+        }
+
+        $hasil = $batas
+            ? OvertimeCalculator::hitung($batas, $waktuAktual, $s['rate'], $s['grace'])
+            : ['jam_overtime' => 0, 'denda_overtime' => 0];
+
+        return [
+            'jam_overtime' => $hasil['jam_overtime'],
+            'denda_overtime' => $hasil['denda_overtime'],
+            'harga_total' => $hargaDasar + ($supirTarif * $durasiAktual) + $hasil['denda_overtime'],
+            'durasi_hari' => $durasiAktual,
+        ];
     }
 
     /**
@@ -242,7 +392,7 @@ class Order extends Model
      * dalam satu kali save.
      *
      * Idempotent: aman dipanggil ulang, hasilnya selalu dihitung dari harga
-     * dasar (harga_per_hari × durasi_hari), bukan menambah denda berkali-kali
+     * dasar (harga_per_hari × durasi aktual), bukan menambah denda berkali-kali
      * ke harga_total yang sudah ada.
      *
      * Contoh pakai di controller:
@@ -257,32 +407,23 @@ class Order extends Model
      */
     public function selesaikanSewa(?Carbon $waktuAktual = null): void
     {
-        $batas = $this->batasWaktuKembali();
         $s = Setting::getOvertimeSettings();
         $waktuAktual = $waktuAktual ?? now();
-        $hasil = $batas
-            ? OvertimeCalculator::hitung($batas, $waktuAktual, $s['rate'], $s['grace'])
-            : ['jam_overtime' => 0, 'denda_overtime' => 0];
+        $proyeksi = $this->proyeksiSelesai($waktuAktual);
+        $batas = $this->batasWaktuKembali();
 
-        $hargaDasar = (float) $this->harga_per_hari * (int) $this->durasi_hari;
-
-        $supirTarif = 0;
-        if ($this->supir_id) {
-            $supir = SupirCalo::find($this->supir_id);
-            $supirTarif = (float) ($supir?->tarif_per_hari ?? 0);
-        }
-
-        $this->jam_overtime = $hasil['jam_overtime'];
-        $this->denda_overtime = $hasil['denda_overtime'];
-        $this->harga_total = $hargaDasar + ($supirTarif * (int) $this->durasi_hari) + $hasil['denda_overtime'];
+        $this->jam_overtime = $proyeksi['jam_overtime'];
+        $this->denda_overtime = $proyeksi['denda_overtime'];
+        $this->harga_total = $proyeksi['harga_total'];
+        $this->durasi_hari = $proyeksi['durasi_hari'];
         $this->tanggal_pengembalian_aktual = $waktuAktual;
 
-        if ($hasil['jam_overtime'] > 0) {
+        if ($proyeksi['jam_overtime'] > 0 && $batas) {
             $waktuSelesai = $batas->format('d/m/Y H:i');
             $overtimeNote = "Kendaraan terlambat dikembalikan. Batas pengembalian: {$waktuSelesai} WIB. "
-                ."Dikenakan denda keterlambatan {$hasil['jam_overtime']} jam × "
+                ."Dikenakan denda keterlambatan {$proyeksi['jam_overtime']} jam × "
                 .number_format($s['rate'], 0, ',', '.')
-                .' = Rp '.number_format($hasil['denda_overtime'], 0, ',', '.').'.';
+                .' = Rp '.number_format($proyeksi['denda_overtime'], 0, ',', '.').'.';
             // Idempotent: don't append if the note is already present (e.g. called twice).
             $existingNotes = $this->catatan ?? '';
             if (strpos($existingNotes, 'Dikenakan denda keterlambatan') === false) {
@@ -353,44 +494,20 @@ class Order extends Model
     }
 
     /**
-     * Hitung refund untuk pengembalian awal (early return).
-     * Harga dihitung ulang berdasarkan hari aktual penggunaan.
+     * Jumlah hari pengembalian lebih awal dari kesepakatan (tanggal_selesai).
+     * 0 = tepat waktu atau telat.
      *
-     * @return array{harga_baru: float, refund: float, durasi_aktual: int, keterangan: string}
+     * Kebijakan: pengembalian lebih awal TIDAK menghasilkan refund — tagihan
+     * tetap sesuai kesepakatan (durasi penuh). Nilai ini hanya dipakai untuk
+     * catatan otomatis di order & pesan WhatsApp.
      */
-    public function hitungEarlyReturn(?Carbon $tanggalKembali = null): array
+    public function hariLebihAwal(?Carbon $tanggalKembali = null): int
     {
-        $tanggalMulai = Carbon::parse($this->tanggal_mulai);
-        $tanggalKembali = $tanggalKembali ?? now();
-        $durasiAktual = max(1, (int) $tanggalMulai->startOfDay()->diffInDays($tanggalKembali->startOfDay()) + 1);
-        $durasiOriginal = (int) $this->durasi_hari;
+        $kembali = ($tanggalKembali ?? now())->copy()->startOfDay();
 
-        if ($durasiAktual >= $durasiOriginal) {
-            return [
-                'harga_baru' => (float) $this->harga_total,
-                'refund' => 0,
-                'durasi_aktual' => $durasiAktual,
-                'keterangan' => 'Tidak ada pengembalian awal.',
-            ];
-        }
-
-        $hargaBaru = (float) $this->harga_per_hari * $durasiAktual;
-
-        $supirTarif = 0;
-        if ($this->supir_id) {
-            $supir = SupirCalo::find($this->supir_id);
-            $supirTarif = (float) ($supir?->tarif_per_hari ?? 0);
-            $hargaBaru += $supirTarif * $durasiAktual;
-        }
-
-        $hargaBaru += (float) $this->denda_overtime;
-        $refund = max(0, (float) $this->harga_total - $hargaBaru);
-
-        return [
-            'harga_baru' => $hargaBaru,
-            'refund' => $refund,
-            'durasi_aktual' => $durasiAktual,
-            'keterangan' => "Pengembalian {$durasiAktual} hari (dari {$durasiOriginal} hari). Refund: Rp ".number_format($refund, 0, ',', '.'),
-        ];
+        // diffInDays(..., false) = selisih bertanda (tanggal_selesai − kembali):
+        // positif bila kembali lebih awal dari tanggal_selesai, negatif/0 bila
+        // tepat waktu atau telat.
+        return max(0, (int) $kembali->diffInDays($this->tanggal_selesai->startOfDay(), false));
     }
 }
