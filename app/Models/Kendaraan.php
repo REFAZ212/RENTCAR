@@ -27,6 +27,7 @@ class Kendaraan extends Model
         'nama_kendaraan',
         'plat_nomor',
         'merek',
+        'model',
         'tahun',
         'warna',
         'kapasitas_penumpang',

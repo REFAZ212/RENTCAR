@@ -53,6 +53,7 @@ export interface Kendaraan {
   margin_persen?: number | null;
   status: string;
   merek?: string;
+  model?: string;
   tahun?: number;
   kapasitas_penumpang?: number;
   kategori_id?: number;

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Kendaraan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 class KendaraanController extends Controller
@@ -23,6 +24,7 @@ class KendaraanController extends Controller
                 whereLikeEscaped($q, 'nama_kendaraan', $search);
                 $q->orWhereRaw("plat_nomor LIKE ? ESCAPE '#'", ['%'.escapeLike($search).'%']);
                 $q->orWhereRaw("merek LIKE ? ESCAPE '#'", ['%'.escapeLike($search).'%']);
+                $q->orWhereRaw("model LIKE ? ESCAPE '#'", ['%'.escapeLike($search).'%']);
             });
         }
 
@@ -80,6 +82,7 @@ class KendaraanController extends Controller
             'nama_kendaraan' => 'required|string|max:255',
             'plat_nomor' => 'required|string|unique:kendaraans,plat_nomor',
             'merek' => 'required|string|max:255',
+            'model' => 'required|string|max:255',
             'tahun' => 'required|integer|min:1990|max:'.(date('Y') + 1),
             'warna' => 'required|string|max:255',
             'kapasitas_penumpang' => 'required|integer|min:1|max:50',
@@ -129,6 +132,7 @@ class KendaraanController extends Controller
             'nama_kendaraan' => 'sometimes|required|string|max:255',
             'plat_nomor' => 'sometimes|required|string|unique:kendaraans,plat_nomor,'.$kendaraan->id,
             'merek' => 'sometimes|required|string|max:255',
+            'model' => 'sometimes|required|string|max:255',
             'tahun' => 'sometimes|required|integer|min:1990|max:'.(date('Y') + 1),
             'warna' => 'sometimes|required|string|max:255',
             'kapasitas_penumpang' => 'sometimes|required|integer|min:1|max:50',
@@ -182,21 +186,26 @@ class KendaraanController extends Controller
     {
         $this->authorize('delete', $kendaraan);
 
-        $hasAnyOrder = $kendaraan->orders()
-            ->whereIn('status_order', ['pending', 'confirmed', 'active', 'completed', 'cancelled'])
+        $hasActiveOrder = $kendaraan->orders()
+            ->whereIn('status_order', ['pending', 'confirmed', 'active'])
             ->exists();
 
-        if ($hasAnyOrder) {
+        if ($hasActiveOrder) {
             return response()->json([
-                'message' => 'Tidak bisa menghapus kendaraan yang memiliki riwayat order. Selesaikan atau batalkan semua order terlebih dahulu.',
+                'message' => 'Tidak bisa menghapus kendaraan yang masih memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.',
             ], 422);
         }
 
-        if ($kendaraan->foto) {
-            Storage::disk('public')->delete($kendaraan->foto);
-        }
+        DB::transaction(function () use ($kendaraan) {
+            // Putuskan referensi order historis sebelum menghapus kendaraan
+            $kendaraan->orders()->update(['kendaraan_id' => null]);
 
-        $kendaraan->delete();
+            if ($kendaraan->foto) {
+                Storage::disk('public')->delete($kendaraan->foto);
+            }
+
+            $kendaraan->delete();
+        });
 
         return response()->json(['message' => 'Kendaraan berhasil dihapus']);
     }

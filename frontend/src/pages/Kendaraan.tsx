@@ -42,6 +42,7 @@ interface KendaraanFormState {
   nama_kendaraan: string;
   plat_nomor: string;
   merek: string;
+  model: string;
   tahun: number;
   warna: string;
   kapasitas_penumpang: number;
@@ -88,6 +89,7 @@ const emptyForm: KendaraanFormState = {
   nama_kendaraan: '',
   plat_nomor: '',
   merek: '',
+  model: '',
   tahun: new Date().getFullYear(),
   warna: '',
   kapasitas_penumpang: 7,
@@ -304,6 +306,7 @@ export default function Kendaraan() {
       nama_kendaraan: item.nama_kendaraan,
       plat_nomor: item.plat_nomor,
       merek: item.merek || '',
+      model: item.model || '',
       tahun: item.tahun || new Date().getFullYear(),
       warna: item.warna,
       kapasitas_penumpang: item.kapasitas_penumpang || 1,
@@ -751,6 +754,16 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Model *</label>
+                  <input
+                    type="text"
+                    value={form.model}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setField('model', e.target.value)}
+                    required
+                    className={inputClass}
+                  />
+                </div>
+                <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Tahun *</label>
                   <input
                     type="number"
@@ -1017,7 +1030,7 @@ export default function Kendaraan() {
                 <div>
                   <div className="text-lg font-semibold text-black-900">{detailItem.nama_kendaraan}</div>
                   <div className="text-sm text-black-400">
-                    {detailItem.merek} · {detailItem.tahun}
+                    {detailItem.merek} {detailItem.model} · {detailItem.tahun}
                   </div>
                 </div>
 
@@ -1206,7 +1219,7 @@ export default function Kendaraan() {
                     {item.plat_nomor}
                   </span>
                 </div>
-                <p className="mb-2 truncate text-xs text-black-400">{item.merek} · {item.tahun}</p>
+                <p className="mb-2 truncate text-xs text-black-400">{item.merek} {item.model} · {item.tahun}</p>
 
                 <div className="mb-3 flex flex-wrap gap-1.5 text-xs text-black-400">
                   {item.kategori?.nama_kategori && <span className="rounded-full bg-canvas px-2 py-0.5">{item.kategori.nama_kategori}</span>}

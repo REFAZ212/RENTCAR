@@ -52,6 +52,7 @@ class KendaraanTest extends TestCase
             $t->string('nama_kendaraan');
             $t->string('plat_nomor')->unique();
             $t->string('merek')->nullable();
+            $t->string('model')->nullable();
             $t->integer('tahun')->nullable();
             $t->string('warna')->nullable();
             $t->integer('kapasitas_penumpang')->nullable();
@@ -89,6 +90,7 @@ class KendaraanTest extends TestCase
             'nama_kendaraan' => 'Avanza',
             'plat_nomor' => 'B 1234 CD',
             'merek' => 'Toyota',
+            'model' => 'Avanza',
             'tahun' => 2021,
             'warna' => 'Putih',
             'kapasitas_penumpang' => 7,
