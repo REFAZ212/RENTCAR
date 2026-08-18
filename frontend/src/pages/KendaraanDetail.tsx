@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { katalogAPI, type KatalogItem } from '../services/api';
 import { formatRupiah, ADMIN_WA } from '../lib/format';
@@ -200,7 +200,7 @@ export default function KendaraanDetail() {
   useEffect(() => {
     if (!item) return;
     const previous = document.title;
-    document.title = `${item.nama_kendaraan} ÔÇö UDIN RENTCAR`;
+    document.title = `${item.nama_kendaraan} — UDIN RENTCAR`;
     return () => {
       document.title = previous;
     };
@@ -239,7 +239,7 @@ export default function KendaraanDetail() {
 
   const handleShare = async () => {
     const url = window.location.href;
-    const teks = `${item.nama_kendaraan} (${item.tahun}) ÔÇö ${formatRupiah(item.harga_sewa_per_hari)}/hari`;
+    const teks = `${item.nama_kendaraan} (${item.tahun}) — ${formatRupiah(item.harga_sewa_per_hari)}/hari`;
     if (navigator.share) {
       await navigator.share({ title: item.nama_kendaraan, text: teks, url }).catch(() => undefined);
       return;
