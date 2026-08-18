@@ -6,14 +6,18 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
 
-class SupirCalo extends Model
+class SupirCalo extends Authenticatable
 {
-    use HasFactory;
+    use HasApiTokens, HasFactory;
 
     protected $fillable = [
         'jenis',
         'nama',
+        'email',
+        'password',
         'no_hp',
         'alamat',
         'status',
@@ -24,7 +28,13 @@ class SupirCalo extends Model
         'catatan',
     ];
 
+    protected $hidden = [
+        'password',
+        'remember_token',
+    ];
+
     protected $casts = [
+        'password' => 'hashed',
         'tarif_per_hari' => 'decimal:2',
         'komisi' => 'decimal:2',
     ];

@@ -17,12 +17,14 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PengaturanController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\SettingController;
+use App\Http\Controllers\Api\SupirAuthController;
 use App\Http\Controllers\Api\SupirCaloController;
 use App\Http\Controllers\Api\TipeController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/supir/login', [SupirAuthController::class, 'login'])->middleware('throttle:10,1');
 
 Route::get('/katalog', [KatalogPublicController::class, 'index'])->middleware('throttle:120,1');
 Route::get('/katalog/kategoris', [KatalogPublicController::class, 'kategoris'])->middleware('throttle:120,1');
@@ -33,6 +35,9 @@ Route::get('/katalog/{kendaraan}', [KatalogPublicController::class, 'show'])->mi
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+
+    Route::post('/supir/logout', [SupirAuthController::class, 'logout']);
+    Route::get('/supir/me', [SupirAuthController::class, 'me']);
 
     Route::get('/dashboard', [DashboardController::class, 'index']);
     Route::get('/dashboard/chart', [DashboardController::class, 'chart']);
