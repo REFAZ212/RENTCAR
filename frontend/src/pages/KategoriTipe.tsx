@@ -2,22 +2,11 @@ import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { kategoriAPI, tipeAPI, kendaraanAPI, type Kendaraan } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { formatRupiah } from '../lib/format';
+import { vehicleStatusStyles, vehicleStatusLabels, type StatusKendaraan } from '../lib/vehicleStatus';
 import ConfirmModal from '../components/ConfirmModal';
 
 const emptyKategori = { nama_kategori: '', deskripsi: '', aktif: true };
 const emptyTipe = { kategori_id: '', nama_tipe: '', deskripsi: '', aktif: true };
-
-const vehicleStatusStyles: Record<string, string> = {
-  tersedia: 'bg-accent-100 text-accent-700',
-  disewa: 'bg-primary-100 text-primary-700',
-  maintenance: 'bg-accent-100 text-accent-700',
-};
-
-const vehicleStatusLabels: Record<string, string> = {
-  tersedia: 'Tersedia',
-  disewa: 'Disewa',
-  maintenance: 'Maintenance',
-};
 
 const TipeSuggestions = {
   Mobil: ['MPV', 'SUV', 'Sedan', 'Hatchback', 'Pickup', 'Minibus', 'Van', 'Truk'],
@@ -124,11 +113,10 @@ export default function KategoriTipe() {
         await kategoriAPI.update(editKategori.id, kategoriForm);
         toast.success('Kategori berhasil diperbarui');
       } else {
-        const { data: newKategori } = await kategoriAPI.create(kategoriForm);
-        const validTipes = tipeNames.filter((n) => n.trim());
-        for (const nama of validTipes) {
-          await tipeAPI.create({ kategori_id: newKategori.data.id, nama_tipe: nama.trim(), aktif: true });
-        }
+        const validTipes = tipeNames
+          .map((n) => n.replace(/\s+/g, ' ').trim())
+          .filter((n) => n.length > 0);
+        await kategoriAPI.create({ ...kategoriForm, tipes: validTipes });
         toast.success(validTipes.length > 0
           ? `Kategori dan ${validTipes.length} tipe berhasil ditambahkan`
           : 'Kategori berhasil ditambahkan');
@@ -298,17 +286,13 @@ export default function KategoriTipe() {
             <form onSubmit={handleTipeSubmit} className="p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-black-700 mb-1">Kategori *</label>
-                {editTipe ? (
-                  <div className="w-full px-3 py-2 bg-canvas border border-black-200 rounded-lg text-sm text-black-700">
-                    {items.find((k) => k.id === tipeForm.kategori_id)?.nama_kategori || '-'}
-                  </div>
-                ) : (
-                  <select value={tipeForm.kategori_id} onChange={(e) => setTipeField('kategori_id', e.target.value)} required
-                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
-                    <option value="">Pilih Kategori</option>
-                    {items.filter((k) => k.aktif).map((k) => <option key={k.id} value={k.id}>{k.nama_kategori}</option>)}
-                  </select>
-                )}
+                <select value={tipeForm.kategori_id} onChange={(e) => setTipeField('kategori_id', e.target.value)} required
+                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+                  <option value="">Pilih Kategori</option>
+                  {items
+                    .filter((k) => k.aktif || k.id === Number(tipeForm.kategori_id))
+                    .map((k) => <option key={k.id} value={k.id}>{k.nama_kategori}{k.aktif ? '' : ' (nonaktif)'}</option>)}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-black-700 mb-1">Nama Tipe *</label>
@@ -510,14 +494,14 @@ export default function KategoriTipe() {
                                                     </td>
                                                     <td className="px-4 py-2.5">
                                                       <div className="font-medium text-black-900">{k.nama_kendaraan}</div>
-                                                      <div className="text-xs text-black-400">{k.merek} {k.model} {k.tahun}</div>
+                                                      <div className="text-xs text-black-400">{k.merek} · {k.tahun}</div>
                                                     </td>
                                                     <td className="px-4 py-2.5 font-mono text-sm text-black-700">{k.plat_nomor}</td>
                                                     <td className="px-4 py-2.5 text-black-400">{k.kategori?.nama_kategori || '-'}</td>
                                                     <td className="px-4 py-2.5 text-black-700">{formatRupiah(k.harga_sewa_per_hari)}</td>
                                                     <td className="px-4 py-2.5">
-                                                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${vehicleStatusStyles[k.status] || ''}`}>
-                                                        {vehicleStatusLabels[k.status] || k.status}
+                                                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${vehicleStatusStyles[k.status as StatusKendaraan] || ''}`}>
+                                                        {vehicleStatusLabels[k.status as StatusKendaraan] || k.status}
                                                       </span>
                                                     </td>
                                                   </tr>

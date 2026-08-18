@@ -9,6 +9,7 @@ use App\Models\Notification;
 use App\Models\Order;
 use App\Models\Setting;
 use App\Models\User;
+use App\Rules\JamBelumTerlewat;
 use App\Services\WhatsAppService;
 use Carbon\Carbon;
 use Illuminate\Database\QueryException;
@@ -28,8 +29,8 @@ class KatalogOrderRequestController extends Controller
             'kendaraan_id' => 'required|exists:kendaraans,id',
             'tanggal_mulai' => 'required|date|after_or_equal:today',
             'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
-            'jam_mulai' => 'nullable|date_format:H:i',
-            'jam_selesai' => 'nullable|date_format:H:i|required_with:jam_mulai',
+            'jam_mulai' => ['nullable', 'date_format:H:i', new JamBelumTerlewat($request->input('tanggal_mulai'))],
+            'jam_selesai' => ['nullable', 'date_format:H:i', 'required_with:jam_mulai', new JamBelumTerlewat($request->input('tanggal_selesai'))],
             'opsi_supir' => 'nullable|in:dengan_supir,lepas_kunci',
             'catatan' => 'nullable|string|max:500',
         ]);
@@ -175,7 +176,7 @@ class KatalogOrderRequestController extends Controller
                 'tanggal' => $tanggalMulai->format('d/m/Y'),
                 'status' => 'Baru Masuk',
             ]);
-            $wa->kirimKeOwnerAsync("[BOOKING BARU] {$pesan}");
+            $wa->kirimKeOwnerAsync("[BOOKING BARU] {$pesan}", 'booking_baru', $order->id);
         }
 
         $waMessage = $this->buildWALink(
@@ -194,8 +195,24 @@ class KatalogOrderRequestController extends Controller
             $validated['catatan'] ?? null
         );
 
+        // Data pribadi partner & margin internal tidak boleh bocor ke publik
+        // di respons konfirmasi pemesanan.
+        $order->load(['customer', 'kendaraan.tipe', 'kendaraan.kategori', 'kendaraan.garasiPartner']);
+        $order->kendaraan?->makeHidden(['catatan', 'margin_per_hari', 'margin_persen', 'harga_partner_per_hari']);
+        $order->kendaraan?->garasiPartner?->makeHidden([
+            'nama_pemilik',
+            'alamat',
+            'no_hp',
+            'email',
+            'status_aktif',
+            'is_own',
+            'metode_bagi_hasil',
+            'persentase_bagi_hasil',
+            'catatan',
+        ]);
+
         return response()->json([
-            'order' => $order->load(['customer', 'kendaraan.tipe', 'kendaraan.kategori', 'kendaraan.garasiPartner']),
+            'order' => $order,
             'wa_link' => $waMessage,
         ], 201);
     }
@@ -219,7 +236,7 @@ class KatalogOrderRequestController extends Controller
 
         $pesan = "Halo, saya ingin memesan kendaraan:\n\n"
             ."*Kendaraan*\n"
-            ."{$kendaraan->nama_kendaraan} ({$kendaraan->merek} {$kendaraan->model} {$kendaraan->tahun})\n"
+            ."{$kendaraan->nama_kendaraan} ({$kendaraan->tahun})\n"
             ."Plat: {$kendaraan->plat_nomor}\n"
             .'Harga: Rp '.number_format($hargaTotal / $durasi, 0, ',', '.')."/hari\n\n"
             ."*Tanggal Sewa*\n"

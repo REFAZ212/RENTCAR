@@ -13,7 +13,15 @@ class GarasiPartnerController extends Controller
     {
         $this->authorize('viewAny', GarasiPartner::class);
 
-        $query = GarasiPartner::where('is_own', false);
+        $query = GarasiPartner::query();
+
+        // Secara default list garasi-partner hanya menampilkan garasi mitra
+        // eksternal (is_own = false); garasi "Milik Sendiri" dikelola lewat
+        // endpoint /garasi-saya. Kalau caller butuh SEMUA garasi (mis. dropdown
+        // tambah kendaraan), lewatkan filter ini dengan include_own=true.
+        if (! $request->boolean('include_own')) {
+            $query->where('is_own', false);
+        }
 
         if ($request->search) {
             $search = $request->search;

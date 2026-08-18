@@ -151,21 +151,29 @@ export default function SupirCalo() {
 
   useEffect(() => { load(); }, [load]);
 
+  const buildPayload = () => {
+    const fd = new FormData();
+    fd.append('jenis', activeTab);
+    Object.entries(form).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, v); });
+    if (fotoFile) fd.append('foto', fotoFile);
+    return fd;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      const fd = new FormData();
-      fd.append('jenis', activeTab);
-      Object.entries(form).forEach(([k, v]) => { if (v !== null && v !== undefined) fd.append(k, v); });
-      if (fotoFile) fd.append('foto', fotoFile);
-
       if (editItem) {
-        fd.append('_method', 'PUT');
-        await supirCaloAPI.update(editItem.id, fd);
+        // PUT multipart tidak di-parse Laravel — pakai method spoofing
+        // (POST + _method=PUT) hanya saat ada foto; tanpa foto cukup JSON.
+        if (fotoFile) {
+          await supirCaloAPI.updateWithFile(editItem.id, buildPayload());
+        } else {
+          await supirCaloAPI.update(editItem.id, { ...form, jenis: activeTab });
+        }
         toast.success('Data berhasil diperbarui');
       } else {
-        await supirCaloAPI.create(fd);
+        await supirCaloAPI.create(buildPayload());
         toast.success('Data berhasil ditambahkan');
       }
       setShowForm(false);
@@ -183,6 +191,10 @@ export default function SupirCalo() {
   };
 
   const handleEdit = (item) => {
+    if (item.user_id) {
+      toast.error('Data supir dari user petugas dikelola di halaman Manajemen User.');
+      return;
+    }
     setForm({
       nama: item.nama,
       no_hp: item.no_hp,
@@ -200,6 +212,11 @@ export default function SupirCalo() {
   };
 
   const handleDelete = async () => {
+    if (confirmDelete?.user_id) {
+      toast.error('Data supir dari user petugas dikelola di halaman Manajemen User.');
+      setConfirmDelete(null);
+      return;
+    }
     try {
       await supirCaloAPI.delete(confirmDelete.id);
       toast.success('Data berhasil dihapus');
@@ -491,6 +508,11 @@ export default function SupirCalo() {
                   }`}>
                     {item.status === 'active' ? 'Aktif' : 'Nonaktif'}
                   </span>
+                  {item.user_id && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ml-1 bg-primary-50 text-primary-600" title="Data dari user petugas">
+                      User
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -535,15 +557,21 @@ export default function SupirCalo() {
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); handleEdit(item); }}
-                  title="Edit"
-                  className="p-1.5 text-black-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                  title={item.user_id ? 'Dikelola dari Manajemen User' : 'Edit'}
+                  disabled={!!item.user_id}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    item.user_id ? 'text-black-200 cursor-not-allowed' : 'text-black-400 hover:text-primary-600 hover:bg-primary-50'
+                  }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setConfirmDelete(item); }}
-                  title="Hapus"
-                  className="p-1.5 text-black-400 hover:text-error-600 hover:bg-error-50 rounded-lg transition-colors"
+                  title={item.user_id ? 'Dikelola dari Manajemen User' : 'Hapus'}
+                  disabled={!!item.user_id}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    item.user_id ? 'text-black-200 cursor-not-allowed' : 'text-black-400 hover:text-error-600 hover:bg-error-50'
+                  }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>

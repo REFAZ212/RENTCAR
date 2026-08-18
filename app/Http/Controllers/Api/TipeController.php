@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tipe;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class TipeController extends Controller
 {
@@ -32,9 +33,18 @@ class TipeController extends Controller
     {
         $this->authorize('create', Tipe::class);
 
+        $request->merge([
+            'nama_tipe' => (string) preg_replace('/\s+/', ' ', trim((string) $request->input('nama_tipe'))),
+        ]);
+
         $validated = $request->validate([
-            'kategori_id' => 'nullable|exists:kategoris,id',
-            'nama_tipe' => 'required|string|max:255|unique:tipes,nama_tipe',
+            'kategori_id' => 'required|exists:kategoris,id',
+            'nama_tipe' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('tipes', 'nama_tipe')->where('kategori_id', $request->input('kategori_id')),
+            ],
             'deskripsi' => 'nullable|string|max:500',
             'aktif' => 'boolean',
         ]);
@@ -58,9 +68,22 @@ class TipeController extends Controller
     {
         $this->authorize('update', $tipe);
 
+        if ($request->has('nama_tipe')) {
+            $request->merge([
+                'nama_tipe' => (string) preg_replace('/\s+/', ' ', trim((string) $request->input('nama_tipe'))),
+            ]);
+        }
+
+        $kategoriId = $request->filled('kategori_id') ? $request->input('kategori_id') : $tipe->kategori_id;
+
         $validated = $request->validate([
-            'kategori_id' => 'nullable|exists:kategoris,id',
-            'nama_tipe' => 'required|string|max:255|unique:tipes,nama_tipe,'.$tipe->id,
+            'kategori_id' => 'sometimes|required|exists:kategoris,id',
+            'nama_tipe' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('tipes', 'nama_tipe')->ignore($tipe->id)->where('kategori_id', $kategoriId),
+            ],
             'deskripsi' => 'nullable|string|max:500',
             'aktif' => 'boolean',
         ]);

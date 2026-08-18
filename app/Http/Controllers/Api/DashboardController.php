@@ -8,6 +8,7 @@ use App\Models\GarasiPartner;
 use App\Models\GarasiRequest;
 use App\Models\Kendaraan;
 use App\Models\Order;
+use App\Models\SupirCalo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -18,25 +19,27 @@ class DashboardController extends Controller
     public function index(Request $request): JsonResponse
     {
         $today = Carbon::today();
+        $isPetugas = $request->user()->role === 'petugas';
 
         $stats = [
             'total_kendaraan' => Kendaraan::count(),
             'kendaraan_tersedia' => Kendaraan::where('status', 'tersedia')->count(),
             'kendaraan_disewa' => Kendaraan::where('status', 'disewa')->count(),
             'kendaraan_maintenance' => Kendaraan::where('status', 'maintenance')->count(),
+            'kendaraan_tidak_tersedia' => Kendaraan::where('status', 'tidak_tersedia')->count(),
 
-            'total_customer' => Customer::count(),
+            'total_customer' => Customer::withTrashed()->count(),
             'total_garasi' => GarasiPartner::where('status_aktif', true)->count(),
 
             'orders_hari_ini' => Order::whereDate('created_at', $today)->count(),
             'orders_aktif' => Order::where('status_order', 'active')->count(),
             'orders_pending' => Order::where('status_order', 'pending')->count(),
 
-            'pendapatan_hari_ini' => Order::whereDate('created_at', $today)
+            'pendapatan_hari_ini' => $isPetugas ? null : Order::whereDate('created_at', $today)
                 ->where('status_pembayaran', 'paid')
                 ->sum('harga_total'),
 
-            'pendapatan_bulan_ini' => Order::whereMonth('created_at', $today->month)
+            'pendapatan_bulan_ini' => $isPetugas ? null : Order::whereMonth('created_at', $today->month)
                 ->whereYear('created_at', $today->year)
                 ->where('status_pembayaran', 'paid')
                 ->sum('harga_total'),
@@ -56,16 +59,30 @@ class DashboardController extends Controller
             ->limit(10)
             ->get();
 
+        $orders_saya_supiri = $isPetugas
+            ? Order::whereIn('supir_id', SupirCalo::where('user_id', $request->user()->id)->pluck('id'))
+                ->whereIn('status_order', ['confirmed', 'active', 'perlu_verifikasi'])
+                ->with(['customer', 'kendaraan'])
+                ->latest()
+                ->limit(5)
+                ->get()
+            : [];
+
         return response()->json([
             'stats' => $stats,
             'recent_orders' => $recent_orders,
             'recent_garasi_requests' => $recent_garasi_requests,
-            'chart_pendapatan' => $this->getChartPendapatan('bulanan'),
+            'orders_saya_supiri' => $orders_saya_supiri,
+            'chart_pendapatan' => $isPetugas ? [] : $this->getChartPendapatan('bulanan'),
         ]);
     }
 
     public function chart(Request $request): JsonResponse
     {
+        if ($request->user()->role === 'petugas') {
+            return response()->json([]);
+        }
+
         $periode = $request->query('periode', 'bulanan');
         $allowed = ['harian', 'mingguan', 'bulanan'];
 

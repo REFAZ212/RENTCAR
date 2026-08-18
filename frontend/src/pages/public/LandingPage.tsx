@@ -6,16 +6,13 @@ import {
   Shield,
   Clock,
   Star,
-  Phone,
   Search,
   Calendar,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Zap,
   Users,
-  Wrench,
   Key,
   Plane,
   Building2,
@@ -23,7 +20,7 @@ import {
   Quote,
   AlertCircle,
 } from 'lucide-react';
-import { katalogAPI, type KatalogItem, type KategoriKendaraan } from '../../services/api';
+import { katalogAPI, type KatalogItem } from '../../services/api';
 import { formatRupiah, ADMIN_WA } from '../../lib/format';
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
 import heroVideo from '../../assets/hero.mp4';
@@ -346,7 +343,7 @@ export default function LandingPage() {
                           {item.nama_kendaraan}
                         </h3>
                         <p className="text-sm text-black-400 mt-0.5">
-                          {item.merek} {item.model} &middot; {item.tahun}
+                          {item.merek} &middot; {item.tahun}
                         </p>
                         <div className="flex items-center gap-1 mt-2">
                           {[...Array(5)].map((_, i) => (

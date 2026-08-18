@@ -129,6 +129,11 @@ class PengaturanController extends Controller
             'biaya_jemput_flat' => (float) Setting::get('biaya_jemput_flat', 25000),
             'biaya_dengan_driver_per_hari' => (float) Setting::get('biaya_dengan_driver_per_hari', 150000),
             'minimal_dp_persen' => (int) Setting::get('minimal_dp_persen', 30),
+            'wajib_bayar_sebelum_antar' => Setting::get('wajib_bayar_sebelum_antar', '0') === '1',
+            'auto_verify_enabled' => Setting::get('auto_verify_enabled', '1') === '1',
+            'auto_verify_after_hours' => (int) Setting::get('auto_verify_after_hours', 24),
+            'auto_complete_enabled' => Setting::get('auto_complete_enabled', '1') === '1',
+            'auto_complete_after_hours' => (int) Setting::get('auto_complete_after_hours', 72),
         ]);
     }
 
@@ -139,9 +144,27 @@ class PengaturanController extends Controller
             'biaya_jemput_flat' => 'required|numeric|min:0',
             'biaya_dengan_driver_per_hari' => 'required|numeric|min:0',
             'minimal_dp_persen' => 'required|integer|min:0|max:100',
+            'wajib_bayar_sebelum_antar' => 'boolean',
+            'auto_verify_enabled' => 'boolean',
+            'auto_verify_after_hours' => 'nullable|integer|min:1',
+            'auto_complete_enabled' => 'boolean',
+            'auto_complete_after_hours' => 'nullable|integer|min:1',
         ]);
 
+        Setting::set('wajib_bayar_sebelum_antar', ! empty($validated['wajib_bayar_sebelum_antar']) ? '1' : '0');
+        Setting::set('auto_verify_enabled', ! empty($validated['auto_verify_enabled']) ? '1' : '0');
+        Setting::set('auto_complete_enabled', ! empty($validated['auto_complete_enabled']) ? '1' : '0');
+        if (! empty($validated['auto_verify_after_hours'])) {
+            Setting::set('auto_verify_after_hours', $validated['auto_verify_after_hours']);
+        }
+        if (! empty($validated['auto_complete_after_hours'])) {
+            Setting::set('auto_complete_after_hours', $validated['auto_complete_after_hours']);
+        }
+
         foreach ($validated as $key => $value) {
+            if (in_array($key, ['wajib_bayar_sebelum_antar', 'auto_verify_enabled', 'auto_complete_enabled', 'auto_verify_after_hours', 'auto_complete_after_hours'])) {
+                continue;
+            }
             Setting::set($key, $value);
         }
 
@@ -161,10 +184,18 @@ class PengaturanController extends Controller
             'nomor_wa_owner' => Setting::get('nomor_wa_owner', ''),
             'notif_booking_baru' => Setting::get('notif_booking_baru', '1') === '1',
             'notif_penugasan_driver' => Setting::get('notif_penugasan_driver', '1') === '1',
+            'notif_task_petugas' => Setting::get('notif_task_petugas', '1') === '1',
             'notif_pembayaran_masuk' => Setting::get('notif_pembayaran_masuk', '1') === '1',
-            'notif_kendaraan_terlambat' => Setting::get('notif_kendaraan_terlambat', '1') === '1',
+            'notif_pengingat_bayar' => Setting::get('notif_pengingat_bayar', '1') === '1',
+            'notif_perlu_verifikasi' => Setting::get('notif_perlu_verifikasi', '1') === '1',
+            'notif_order_selesai' => Setting::get('notif_order_selesai', '1') === '1',
+            'notif_pengingat_kembali' => Setting::get('notif_pengingat_kembali', '1') === '1',
+            'kirim_hasil_inspeksi_ke_customer' => Setting::get('kirim_hasil_inspeksi_ke_customer', '1') === '1',
             'template_penugasan_driver' => Setting::get('template_penugasan_driver', ''),
             'template_notifikasi_owner' => Setting::get('template_notifikasi_owner', ''),
+            'template_pengingat_bayar' => Setting::get('template_pengingat_bayar', ''),
+            'template_pengingat_kembali' => Setting::get('template_pengingat_kembali', ''),
+            'template_perlu_verifikasi' => Setting::get('template_perlu_verifikasi', ''),
         ]);
     }
 
@@ -175,24 +206,41 @@ class PengaturanController extends Controller
             'nomor_wa_owner' => 'nullable|string',
             'notif_booking_baru' => 'boolean',
             'notif_penugasan_driver' => 'boolean',
+            'notif_task_petugas' => 'boolean',
             'notif_pembayaran_masuk' => 'boolean',
-            'notif_kendaraan_terlambat' => 'boolean',
+            'notif_pengingat_bayar' => 'boolean',
+            'notif_perlu_verifikasi' => 'boolean',
+            'notif_order_selesai' => 'boolean',
+            'notif_pengingat_kembali' => 'boolean',
+            'kirim_hasil_inspeksi_ke_customer' => 'boolean',
             'template_penugasan_driver' => 'nullable|string',
             'template_notifikasi_owner' => 'nullable|string',
+            'template_pengingat_bayar' => 'nullable|string',
+            'template_pengingat_kembali' => 'nullable|string',
+            'template_perlu_verifikasi' => 'nullable|string',
         ]);
 
-        $booleanFields = ['notif_booking_baru', 'notif_penugasan_driver', 'notif_pembayaran_masuk', 'notif_kendaraan_terlambat'];
+        $booleanFields = ['notif_booking_baru', 'notif_penugasan_driver', 'notif_task_petugas', 'notif_pembayaran_masuk', 'notif_pengingat_bayar', 'notif_perlu_verifikasi', 'notif_order_selesai', 'notif_pengingat_kembali', 'kirim_hasil_inspeksi_ke_customer'];
         foreach ($booleanFields as $field) {
             if (isset($validated[$field])) {
                 Setting::set($field, $validated[$field] ? '1' : '0');
             }
         }
 
-        $stringFields = ['fonnte_token', 'nomor_wa_owner', 'template_penugasan_driver', 'template_notifikasi_owner'];
+        $stringFields = ['fonnte_token', 'nomor_wa_owner', 'template_penugasan_driver', 'template_notifikasi_owner', 'template_pengingat_bayar', 'template_pengingat_kembali', 'template_perlu_verifikasi'];
         foreach ($stringFields as $field) {
-            if (array_key_exists($field, $validated)) {
-                Setting::set($field, $validated[$field] ?? '');
+            if (! array_key_exists($field, $validated)) {
+                continue;
             }
+
+            // Token gateway dikirim dari frontend dalam keadaan ter-mask (****abcd)
+            // supaya rahasia tidak terbaca. Kalau masih ter-mask berarti bukan token
+            // baru dari admin, jadi JANGAN ditimpa — biarkan token asli tetap aman.
+            if ($field === 'fonnte_token' && str_contains((string) $validated[$field], '*')) {
+                continue;
+            }
+
+            Setting::set($field, $validated[$field] ?? '');
         }
 
         return response()->json(['message' => 'Pengaturan notifikasi berhasil disimpan.']);
@@ -232,6 +280,7 @@ class PengaturanController extends Controller
             'zona_waktu' => Setting::get('zona_waktu', 'Asia/Jakarta'),
             'format_tanggal' => Setting::get('format_tanggal', 'DD/MM/YYYY'),
             'prefix_kode_order' => Setting::get('prefix_kode_order', 'ORD'),
+            'durasi_klaim_menit' => (int) Setting::get('durasi_klaim_menit', 30),
         ]);
     }
 
@@ -242,6 +291,7 @@ class PengaturanController extends Controller
             'zona_waktu' => 'required|in:Asia/Jakarta,Asia/Makassar,Asia/Jayapura',
             'format_tanggal' => 'required|in:DD/MM/YYYY,DD-MM-YYYY,YYYY-MM-DD',
             'prefix_kode_order' => 'required|string|max:5',
+            'durasi_klaim_menit' => 'nullable|integer|min:1|max:1440',
         ]);
 
         foreach ($validated as $key => $value) {

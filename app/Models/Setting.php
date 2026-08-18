@@ -10,6 +10,8 @@ class Setting extends Model
 {
     use HasFactory;
 
+    public const DEFAULT_BIAYA_DENGAN_DRIVER_PER_HARI = 150000;
+
     protected $fillable = [
         'key',
         'value',
@@ -48,5 +50,13 @@ class Setting extends Model
             'rate' => (int) static::get('overtime_rate_per_hour', 25000),
             'grace' => (int) static::get('grace_period_minutes', 0),
         ];
+    }
+
+    /**
+     * Tarif supir global untuk opsi "dengan supir" (per hari).
+     */
+    public static function getTarifDenganDriverPerHari(): int
+    {
+        return (int) static::get('biaya_dengan_driver_per_hari', self::DEFAULT_BIAYA_DENGAN_DRIVER_PER_HARI);
     }
 }

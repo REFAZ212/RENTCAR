@@ -13,7 +13,6 @@
         "laravel/framework": "^13.8",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
-        "openspout/openspout": "*",
         "phpoffice/phpspreadsheet": "^5.9",
         "spatie/laravel-activitylog": "4.12"
     },
@@ -52,7 +51,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"cmd /c \\\"cd frontend && npm run dev\\\"\" --names=server,queue,vite --kill-others"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fdba74,#86efac\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan schedule:work\" \"cmd /c \\\"cd frontend && npm run dev\\\"\" --names=server,queue,scheduler,vite --kill-others"
         ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",

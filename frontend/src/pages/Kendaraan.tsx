@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { isAxiosError } from 'axios';
-import { formatRupiah } from '../lib/format';
+import { formatRupiah, warnaKendaraanHex } from '../lib/format';
+import { fotoFileError } from '../lib/file';
+import { statusPhotoClass } from '../lib/katalogStatus';
+import { vehicleStatusStyles, vehicleStatusLabels, VEHICLE_STATUSES, type StatusKendaraan } from '../lib/vehicleStatus';
 import {
   kendaraanAPI,
   garasiPartnerAPI,
@@ -12,10 +15,10 @@ import {
   type TipeKendaraan,
 } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from '../components/ConfirmModal';
+import KategoriTipeQuickCreate from '../components/KategoriTipeQuickCreate';
 import { RotateCcw, Pencil, Trash2, Eye } from 'lucide-react';
-
-export type StatusKendaraan = 'tersedia' | 'disewa' | 'maintenance';
 
 type Kendaraan = ApiKendaraan & {
   garasi_partner?: { nama_partner: string };
@@ -39,11 +42,11 @@ interface KendaraanFormState {
   nama_kendaraan: string;
   plat_nomor: string;
   merek: string;
-  model: string;
   tahun: number;
   warna: string;
   kapasitas_penumpang: number;
   harga_sewa_per_hari: string | number;
+  harga_partner_per_hari: string | number;
   status: StatusKendaraan;
   catatan: string;
 }
@@ -58,30 +61,24 @@ interface ConfirmActionState {
 
 type FilterTab = 'semua' | StatusKendaraan;
 
+interface KendaraanCounts {
+  total: number;
+  tersedia: number;
+  disewa: number;
+  maintenance: number;
+  tidak_tersedia: number;
+}
+
 /* ------------------------------------------------------------------ */
 /* Constants                                                          */
 /* ------------------------------------------------------------------ */
-
-const statuses: StatusKendaraan[] = ['tersedia', 'disewa', 'maintenance'];
-
-// Badge status — disamakan tema (avail/rented/amber untuk maintenance/perhatian)
-const statusStyles: Record<StatusKendaraan, string> = {
-  tersedia: 'bg-success-50 text-success-600',
-  disewa: 'bg-primary-50 text-primary-500',
-  maintenance: 'bg-accent-100 text-accent-700',
-};
-
-const statusLabels: Record<StatusKendaraan, string> = {
-  tersedia: 'Tersedia',
-  disewa: 'Disewa',
-  maintenance: 'Servis',
-};
 
 const filterTabs: { key: FilterTab; label: string }[] = [
   { key: 'semua', label: 'Semua' },
   { key: 'tersedia', label: 'Tersedia' },
   { key: 'disewa', label: 'Disewa' },
   { key: 'maintenance', label: 'Servis' },
+  { key: 'tidak_tersedia', label: 'Tidak Tersedia' },
 ];
 
 const emptyForm: KendaraanFormState = {
@@ -91,11 +88,11 @@ const emptyForm: KendaraanFormState = {
   nama_kendaraan: '',
   plat_nomor: '',
   merek: '',
-  model: '',
   tahun: new Date().getFullYear(),
   warna: '',
   kapasitas_penumpang: 7,
   harga_sewa_per_hari: '',
+  harga_partner_per_hari: '',
   status: 'tersedia',
   catatan: '',
 };
@@ -111,8 +108,13 @@ const inputClass =
 
 export default function Kendaraan() {
   const toast = useToast();
+  const { user } = useAuth();
+  const canManageMaster = ['admin_utama', 'admin_operasional'].includes(user?.role ?? '');
 
   const [items, setItems] = useState<Kendaraan[]>([]);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
+  const [counts, setCounts] = useState<KendaraanCounts | undefined>(undefined);
   const [garasi, setGarasi] = useState<GarasiPartnerLocal[]>([]);
   const [kategoris, setKategoris] = useState<(KategoriKendaraan & { aktif?: boolean })[]>([]);
   const [tipes, setTipes] = useState<(TipeKendaraan & { aktif?: boolean })[]>([]);
@@ -130,6 +132,7 @@ export default function Kendaraan() {
   const [form, setForm] = useState<KendaraanFormState>(emptyForm);
   const [fotoFile, setFotoFile] = useState<File | null>(null);
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [hapusFoto, setHapusFoto] = useState(false);
   useEffect(() => {
     return () => { if (fotoPreview) URL.revokeObjectURL(fotoPreview); };
   }, [fotoPreview]);
@@ -144,13 +147,32 @@ export default function Kendaraan() {
 
   const [detailItem, setDetailItem] = useState<Kendaraan | null>(null);
 
+  const [quickCreate, setQuickCreate] = useState<'kategori' | 'tipe' | null>(null);
+
   /* ---------------------------- data loading --------------------------- */
 
   const load = useCallback(() => {
     setLoading(true);
     kendaraanAPI
-      .list({ search })
-      .then(({ data }) => setItems(data.data as Kendaraan[]))
+      .list({
+        search,
+        page,
+        status: activeTab === 'semua' ? undefined : activeTab,
+        kategori_id: filterKategori || undefined,
+        tipe_id: filterTipe || undefined,
+      })
+      .then(({ data }) => {
+        const res = data as unknown as {
+          data: Kendaraan[];
+          current_page: number;
+          last_page: number;
+          total: number;
+          counts?: KendaraanCounts;
+        };
+        setItems(res.data);
+        setCounts(res.counts);
+        setMeta({ current_page: res.current_page, last_page: res.last_page, total: res.total });
+      })
       .catch(() => toast.error('Gagal memuat data kendaraan'))
       .finally(() => setLoading(false));
     // 'toast' sengaja tidak dimasukkan ke dependency array. Objek `toast` dari
@@ -159,15 +181,19 @@ export default function Kendaraan() {
     // memicu useEffect di bawah untuk fetch ulang SEMUA data — persis setelah
     // toast sukses muncul. Itu penyebab data terasa "refresh 2 kali".
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, page, activeTab, filterKategori, filterTipe]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   useEffect(() => {
+    setPage(1);
+  }, [search, activeTab, filterKategori, filterTipe]);
+
+  useEffect(() => {
     garasiPartnerAPI
-      .list({})
+      .list({ include_own: true })
       .then(({ data }) => setGarasi(data.data as unknown as GarasiPartnerLocal[]))
       .catch(() => {});
     // Catatan: /kategoris dan /tipes mengembalikan array LANGSUNG (tidak
@@ -183,27 +209,35 @@ export default function Kendaraan() {
       .catch(() => {});
   }, []);
 
+  const handleQuickCreateCreated = (newId: number | string) => {
+    if (quickCreate === 'kategori') {
+      setField('kategori_id', String(newId));
+      setField('tipe_id', '');
+    } else if (quickCreate === 'tipe') {
+      setField('tipe_id', String(newId));
+    }
+    setQuickCreate(null);
+    kategoriAPI
+      .list({})
+      .then(({ data }) => setKategoris(data as unknown as (KategoriKendaraan & { aktif?: boolean })[]))
+      .catch(() => {});
+    tipeAPI
+      .list({})
+      .then(({ data }) => setTipes(data as unknown as (TipeKendaraan & { aktif?: boolean })[]))
+      .catch(() => {});
+  };
+
   /* ------------------------------ derived ------------------------------ */
 
   const stats = useMemo(
     () => ({
-      total: items.length,
-      tersedia: items.filter((i) => i.status === 'tersedia').length,
-      disewa: items.filter((i) => i.status === 'disewa').length,
-      maintenance: items.filter((i) => i.status === 'maintenance').length,
+      total: counts?.total ?? meta?.total ?? items.length,
+      tersedia: counts?.tersedia ?? items.filter((i) => i.status === 'tersedia').length,
+      disewa: counts?.disewa ?? items.filter((i) => i.status === 'disewa').length,
+      maintenance: counts?.maintenance ?? items.filter((i) => i.status === 'maintenance').length,
+      tidakTersedia: counts?.tidak_tersedia ?? items.filter((i) => i.status === 'tidak_tersedia').length,
     }),
-    [items]
-  );
-
-  const filteredItems = useMemo(
-    () =>
-      items.filter(
-        (i) =>
-          (activeTab === 'semua' || i.status === activeTab) &&
-          (!filterKategori || i.kategori_id?.toString() === filterKategori) &&
-          (!filterTipe || i.tipe_id?.toString() === filterTipe)
-      ),
-    [items, activeTab, filterKategori, filterTipe]
+    [counts, items, meta?.total]
   );
 
   /* ------------------------------ handlers ------------------------------ */
@@ -220,13 +254,15 @@ export default function Kendaraan() {
         });
         fd.append('foto', fotoFile as File);
         if (editItem) {
-          await kendaraanAPI.update(Number(editItem.id), fd);
+          await kendaraanAPI.updateWithFile(Number(editItem.id), fd);
         } else {
           await kendaraanAPI.create(fd);
         }
       } else {
         if (editItem) {
-          await kendaraanAPI.update(Number(editItem.id), form as unknown as Record<string, unknown>);
+          const payload = { ...(form as unknown as Record<string, unknown>) };
+          if (hapusFoto) payload.hapus_foto = true;
+          await kendaraanAPI.update(Number(editItem.id), payload);
         } else {
           await kendaraanAPI.create(form as unknown as Record<string, unknown>);
         }
@@ -238,11 +274,13 @@ export default function Kendaraan() {
         setForm(emptyForm);
         setFotoFile(null);
         setFotoPreview(null);
+        setHapusFoto(false);
         setLastAdded(false);
       } else {
         setForm({ ...emptyForm, garasi_partner_id: form.garasi_partner_id });
         setFotoFile(null);
         setFotoPreview(null);
+        setHapusFoto(false);
         setLastAdded(true);
       }
       load();
@@ -266,16 +304,17 @@ export default function Kendaraan() {
       nama_kendaraan: item.nama_kendaraan,
       plat_nomor: item.plat_nomor,
       merek: item.merek || '',
-      model: item.model || '',
       tahun: item.tahun || new Date().getFullYear(),
       warna: item.warna,
       kapasitas_penumpang: item.kapasitas_penumpang || 1,
       harga_sewa_per_hari: item.harga_sewa_per_hari,
+      harga_partner_per_hari: item.harga_partner_per_hari ?? '',
       status: item.status as StatusKendaraan,
       catatan: item.catatan || '',
     });
     setFotoFile(null);
     setFotoPreview(fotoUrl(item.foto));
+    setHapusFoto(false);
     setEditItem(item);
     setShowForm(true);
   };
@@ -308,7 +347,7 @@ export default function Kendaraan() {
           item.id === id ? { ...item, status, ...(catatan !== undefined ? { catatan } : {}) } : item
         )
       );
-      toast.success(`Status kendaraan diubah menjadi "${statusLabels[status]}"`);
+      toast.success(`Status kendaraan diubah menjadi "${vehicleStatusLabels[status]}"`);
       return true;
     } catch (err) {
       console.error('Gagal mengubah status kendaraan:', err);
@@ -370,13 +409,13 @@ export default function Kendaraan() {
       return;
     }
 
-    // target === 'disewa' (Tidak Tersedia)
+    // target === 'tidak_tersedia'
     setConfirmAction({
       title: 'Tandai Tidak Tersedia',
       message: `Tandai "${item.nama_kendaraan}" sebagai Tidak Tersedia? Kendaraan tidak akan muncul sebagai pilihan saat membuat booking baru.`,
       confirmLabel: 'Tandai Tidak Tersedia',
       danger: true,
-      onConfirm: () => handleStatusChange(item.id, 'disewa'),
+      onConfirm: () => handleStatusChange(item.id, 'tidak_tersedia'),
     });
   };
 
@@ -388,6 +427,7 @@ export default function Kendaraan() {
     setEditItem(null);
     setFotoFile(null);
     setFotoPreview(null);
+    setHapusFoto(false);
     setLastAdded(false);
     setShowForm(true);
   };
@@ -414,7 +454,7 @@ export default function Kendaraan() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
         <StatCard
           label="Total Unit"
           value={stats.total}
@@ -470,6 +510,21 @@ export default function Kendaraan() {
           }
           iconClass="bg-accent-500"
         />
+        <StatCard
+          label="Tidak Tersedia"
+          value={stats.tidakTersedia}
+          icon={
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          }
+          iconClass="bg-error-500"
+        />
       </div>
 
       {/* Search + filter tabs */}
@@ -481,7 +536,7 @@ export default function Kendaraan() {
             </svg>
             <input
               type="text"
-              placeholder="Cari plat, model, tipe, atau lokasi..."
+              placeholder="Cari nama, plat, merek, tipe..."
               value={search}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
               className={`${inputClass} pl-10`}
@@ -590,7 +645,7 @@ export default function Kendaraan() {
               )}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-black-700">Garasi Partner *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Garasi *</label>
                   <select
                     value={form.garasi_partner_id}
                     onChange={(e: ChangeEvent<HTMLSelectElement>) => setField('garasi_partner_id', e.target.value)}
@@ -601,6 +656,7 @@ export default function Kendaraan() {
                     {garasi.map((g) => (
                       <option key={g.id} value={g.id}>
                         {g.nama_garasi}
+                        {g.status_aktif === false ? ' (nonaktif)' : ''}
                       </option>
                     ))}
                   </select>
@@ -624,6 +680,16 @@ export default function Kendaraan() {
                         </option>
                       ))}
                   </select>
+                  {canManageMaster && (
+                    <button
+                      type="button"
+                      onClick={() => setQuickCreate('kategori')}
+                      className="mt-1.5 flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      Kategori Baru
+                    </button>
+                  )}
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Nama Kendaraan *</label>
@@ -655,13 +721,24 @@ export default function Kendaraan() {
                   >
                     <option value="">{form.kategori_id ? 'Pilih Tipe' : 'Pilih kategori dulu'}</option>
                     {tipes
-                      .filter((t) => t.aktif !== false)
+                      .filter((t) => t.aktif !== false && t.kategori_id?.toString() === form.kategori_id)
                       .map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.nama_tipe}
                         </option>
                       ))}
                   </select>
+                  {canManageMaster && (
+                    <button
+                      type="button"
+                      onClick={() => setQuickCreate('tipe')}
+                      disabled={!form.kategori_id}
+                      className="mt-1.5 flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700 transition-colors disabled:text-black-300 disabled:cursor-not-allowed"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      Tipe Baru
+                    </button>
+                  )}
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Merek *</label>
@@ -674,16 +751,6 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-black-700">Model *</label>
-                  <input
-                    type="text"
-                    value={form.model}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setField('model', e.target.value)}
-                    required
-                    className={inputClass}
-                  />
-                </div>
-                <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Tahun *</label>
                   <input
                     type="number"
@@ -691,6 +758,7 @@ export default function Kendaraan() {
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setField('tahun', Number(e.target.value))}
                     required
                     min={1990}
+                    max={new Date().getFullYear() + 1}
                     className={inputClass}
                   />
                 </div>
@@ -722,10 +790,32 @@ export default function Kendaraan() {
                     value={form.harga_sewa_per_hari}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => setField('harga_sewa_per_hari', e.target.value)}
                     required
-                    min={0}
+                    min={1}
                     className={inputClass}
                   />
                 </div>
+                {form.garasi_partner_id && (
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-black-700">
+                      Harga Beli/Hari (Rp) <span className="text-error-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={form.harga_partner_per_hari}
+                      onChange={(e: ChangeEvent<HTMLInputElement>) => setField('harga_partner_per_hari', e.target.value)}
+                      required
+                      min={1}
+                      className={inputClass}
+                    />
+                    <p className="mt-1 text-xs text-black-400">Harga yang dibayar ke garasi partner per hari</p>
+                    {form.harga_sewa_per_hari && form.harga_partner_per_hari && (
+                      <p className="mt-1.5 text-sm font-medium text-accent-600">
+                        Margin: {formatRupiah(Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari))}/hari
+                        ({(Math.round(((Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari)) / Number(form.harga_sewa_per_hari)) * 100))}%)
+                      </p>
+                    )}
+                  </div>
+                )}
                 {editItem && (
                   <div>
                     <label className="mb-1 block text-sm font-medium text-black-700">Status *</label>
@@ -736,9 +826,9 @@ export default function Kendaraan() {
                       required
                       className={`${inputClass} ${editItem.status === 'disewa' ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
                     >
-                      {statuses.map((s) => (
+                      {VEHICLE_STATUSES.map((s) => (
                         <option key={s} value={s}>
-                          {statusLabels[s]}
+                          {vehicleStatusLabels[s]}
                         </option>
                       ))}
                     </select>
@@ -771,12 +861,46 @@ export default function Kendaraan() {
                       onChange={(e: ChangeEvent<HTMLInputElement>) => {
                         const f = e.target.files?.[0];
                         if (f) {
+                          const err = fotoFileError(f);
+                          if (err) {
+                            toast.error(err);
+                            e.target.value = '';
+                            return;
+                          }
                           setFotoFile(f);
                           setFotoPreview(URL.createObjectURL(f));
+                          setHapusFoto(false);
                         }
                       }}
                     />
                   </label>
+                  {editItem?.foto && !fotoFile && !hapusFoto && (
+                    <div className="flex shrink-0 flex-col items-center gap-1">
+                      <img src={fotoUrl(editItem.foto)} alt="Foto lama" className="h-24 w-24 rounded-lg border border-black-200 object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFotoPreview(null);
+                          setHapusFoto(true);
+                        }}
+                        className="text-xs font-medium text-error-600 underline-offset-2 hover:underline"
+                      >
+                        Hapus Foto
+                      </button>
+                    </div>
+                  )}
+                  {editItem?.foto && hapusFoto && !fotoFile && (
+                    <div className="flex shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-error-300 bg-error-50 px-3 py-2">
+                      <span className="text-xs text-error-600">Foto lama akan dihapus</span>
+                      <button
+                        type="button"
+                        onClick={() => setHapusFoto(false)}
+                        className="text-xs font-medium text-black-700 underline-offset-2 hover:underline"
+                      >
+                        Urungkan
+                      </button>
+                    </div>
+                  )}
                   {fotoPreview && (
                     <div className="relative shrink-0">
                       <img src={fotoPreview} alt="Preview" className="h-24 w-24 rounded-lg border border-black-200 object-cover" />
@@ -785,6 +909,7 @@ export default function Kendaraan() {
                         onClick={() => {
                           setFotoFile(null);
                           setFotoPreview(null);
+                          if (editItem?.foto) setHapusFoto(true);
                         }}
                         className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-error-500 text-white transition-colors hover:bg-error-600"
                         aria-label="Hapus foto"
@@ -812,6 +937,7 @@ export default function Kendaraan() {
                   onClick={() => {
                     setShowForm(false);
                     setEditItem(null);
+                    setHapusFoto(false);
                     setLastAdded(false);
                   }}
                   className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas"
@@ -865,7 +991,7 @@ export default function Kendaraan() {
                   <img
                     src={fotoUrl(detailItem.foto) as string}
                     alt={detailItem.nama_kendaraan}
-                    className="aspect-square w-full rounded-xl border border-black-200 object-cover sm:h-64 sm:w-64"
+                    className={`aspect-square w-full rounded-xl border border-black-200 object-cover sm:h-64 sm:w-64 ${statusPhotoClass(detailItem.status)}`}
                   />
                 ) : (
                   <div className="flex aspect-square w-full items-center justify-center rounded-xl bg-canvas sm:h-64 sm:w-64">
@@ -880,9 +1006,9 @@ export default function Kendaraan() {
                   </div>
                 )}
                 <span
-                  className={`mt-3 inline-block w-full rounded-full px-2 py-1.5 text-center text-xs font-medium ${statusStyles[detailItem.status as StatusKendaraan]}`}
+                  className={`mt-3 inline-block w-full rounded-full px-2 py-1.5 text-center text-xs font-medium ${vehicleStatusStyles[detailItem.status as StatusKendaraan]}`}
                 >
-                  {statusLabels[detailItem.status as StatusKendaraan]}
+                  {vehicleStatusLabels[detailItem.status as StatusKendaraan]}
                 </span>
               </div>
 
@@ -891,7 +1017,7 @@ export default function Kendaraan() {
                 <div>
                   <div className="text-lg font-semibold text-black-900">{detailItem.nama_kendaraan}</div>
                   <div className="text-sm text-black-400">
-                    {detailItem.merek} {detailItem.model} · {detailItem.tahun}
+                    {detailItem.merek} · {detailItem.tahun}
                   </div>
                 </div>
 
@@ -979,13 +1105,27 @@ export default function Kendaraan() {
         </div>
       </ConfirmModal>
 
+      {quickCreate && (
+        <KategoriTipeQuickCreate
+          mode={quickCreate}
+          kategoriId={form.kategori_id}
+          kategoriName={
+            quickCreate === 'tipe'
+              ? kategoris.find((k) => k.id?.toString() === form.kategori_id)?.nama_kategori
+              : undefined
+          }
+          onClose={() => setQuickCreate(null)}
+          onCreated={handleQuickCreateCreated}
+        />
+      )}
+
       {/* Grid Card Kendaraan */}
       {loading ? (
         <div className="rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-black-200">
           <div className="mx-auto mb-2 h-6 w-6 animate-spin rounded-full border-2 border-primary-500 border-t-transparent" />
           <p className="text-sm text-black-400">Memuat data...</p>
         </div>
-      ) : filteredItems.length === 0 ? (
+      ) : items.length === 0 ? (
         <div className="rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-black-200">
           <svg className="mx-auto mb-3 h-12 w-12 text-black-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -995,12 +1135,21 @@ export default function Kendaraan() {
               d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18M3 11v6a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-6"
             />
           </svg>
-          <p className="font-medium text-black-700">Tidak ada data kendaraan</p>
-          <p className="mt-1 text-sm text-black-400">Mulai dengan menambahkan kendaraan baru</p>
+          {search || filterKategori || filterTipe || activeTab !== 'semua' ? (
+            <>
+              <p className="font-medium text-black-700">Tidak ada kendaraan yang cocok</p>
+              <p className="mt-1 text-sm text-black-400">Coba ubah kata kunci atau saringan yang dipilih</p>
+            </>
+          ) : (
+            <>
+              <p className="font-medium text-black-700">Tidak ada data kendaraan</p>
+              <p className="mt-1 text-sm text-black-400">Mulai dengan menambahkan kendaraan baru</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredItems.map((item) => (
+          {items.map((item) => (
             <div
               key={item.id}
               onClick={() => setDetailItem(item)}
@@ -1009,9 +1158,9 @@ export default function Kendaraan() {
               {/* Foto + badge status + tombol edit/hapus */}
               <div className="relative aspect-[4/3] bg-canvas">
                 {fotoUrl(item.foto) ? (
-                  <img src={fotoUrl(item.foto) as string} alt={item.nama_kendaraan} className="h-full w-full object-cover" />
+                  <img src={fotoUrl(item.foto) as string} alt={item.nama_kendaraan} className={`h-full w-full object-cover ${statusPhotoClass(item.status)}`} />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center">
+                  <div className={`flex h-full w-full items-center justify-center ${statusPhotoClass(item.status)}`}>
                     <svg className="h-10 w-10 text-black-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
@@ -1022,8 +1171,8 @@ export default function Kendaraan() {
                     </svg>
                   </div>
                 )}
-                <span className={`absolute left-2.5 top-2.5 rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[item.status as StatusKendaraan]}`}>
-                  {statusLabels[item.status as StatusKendaraan]}
+                <span className={`absolute left-2.5 top-2.5 rounded-full px-2.5 py-1 text-xs font-semibold ${vehicleStatusStyles[item.status as StatusKendaraan]}`}>
+                  {vehicleStatusLabels[item.status as StatusKendaraan]}
                 </span>
                 <div className="absolute right-2.5 top-2.5 flex gap-1" onClick={(e) => e.stopPropagation()}>
                   <button
@@ -1051,18 +1200,37 @@ export default function Kendaraan() {
               <div className="p-4">
                 <div className="mb-1 flex items-center justify-between gap-2">
                   <p className="truncate font-semibold text-black-900">
-                    {item.merek} {item.model}
+                    {item.nama_kendaraan}
                   </p>
                   <span className="shrink-0 rounded-md bg-black-900 px-2 py-0.5 font-mono text-xs font-semibold tracking-wide text-white">
                     {item.plat_nomor}
                   </span>
                 </div>
-                <p className="mb-2 truncate text-xs text-black-400">{item.nama_kendaraan}</p>
+                <p className="mb-2 truncate text-xs text-black-400">{item.merek} · {item.tahun}</p>
 
                 <div className="mb-3 flex flex-wrap gap-1.5 text-xs text-black-400">
                   {item.kategori?.nama_kategori && <span className="rounded-full bg-canvas px-2 py-0.5">{item.kategori.nama_kategori}</span>}
                   {item.tipe?.nama_tipe && <span className="rounded-full bg-canvas px-2 py-0.5">{item.tipe.nama_tipe}</span>}
-                  {item.garasi_partner?.nama_partner && <span className="rounded-full bg-canvas px-2 py-0.5">{item.garasi_partner.nama_partner}</span>}
+                  {item.garasi_partner?.nama_partner && (
+                    <>
+                      <span className="rounded-full bg-canvas px-2 py-0.5">{item.garasi_partner.nama_partner}</span>
+                      {canManageMaster && item.harga_partner_per_hari && item.margin_per_hari !== null && item.margin_per_hari !== undefined && (
+                        <span className="rounded-full bg-accent-50 text-accent-700 px-2 py-0.5 font-medium flex items-center gap-1">
+                          <span className="text-[10px]">💰</span>
+                          Margin: {formatRupiah(item.margin_per_hari)} ({item.margin_persen}%)
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {item.warna && (
+                    <span className="flex items-center gap-1.5 rounded-full bg-canvas px-2 py-0.5">
+                      <span
+                        className="h-3 w-3 shrink-0 rounded-full border border-black-200"
+                        style={{ backgroundColor: warnaKendaraanHex(item.warna) || '#E5E7EB' }}
+                      />
+                      {item.warna}
+                    </span>
+                  )}
                 </div>
 
                 <p className="mb-3 text-sm font-bold text-primary-600">{formatRupiah(item.harga_sewa_per_hari)}/hari</p>
@@ -1077,9 +1245,9 @@ export default function Kendaraan() {
                   />
                   <QuickStatusButton
                     label="Tidak Tersedia"
-                    active={item.status === 'disewa'}
-                    activeClass="bg-primary-500 text-white"
-                    onClick={() => handleQuickStatus(item, 'disewa')}
+                    active={item.status === 'tidak_tersedia'}
+                    activeClass="bg-error-500 text-white"
+                    onClick={() => handleQuickStatus(item, 'tidak_tersedia')}
                   />
                   <QuickStatusButton
                     label="Servis"
@@ -1103,6 +1271,28 @@ export default function Kendaraan() {
             </div>
           ))}
         </div>
+      )}
+
+      {meta && meta.last_page > 1 && (
+        <nav className="flex items-center justify-center gap-2" aria-label="Paginasi">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-3 py-2 text-sm font-medium border border-black-200 rounded-lg hover:bg-canvas disabled:opacity-40 transition-colors"
+          >
+            Sebelumnya
+          </button>
+          <span className="text-sm text-black-600 px-3">
+            Halaman {page} dari {meta.last_page}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
+            disabled={page === meta.last_page}
+            className="px-3 py-2 text-sm font-medium border border-black-200 rounded-lg hover:bg-canvas disabled:opacity-40 transition-colors"
+          >
+            Selanjutnya
+          </button>
+        </nav>
       )}
     </div>
   );

@@ -6,11 +6,10 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Kendaraan from './pages/Kendaraan';
+import KendaraanPage from './pages/KendaraanPage';
 import Customers from './pages/Customers';
 import Orders from './pages/Orders';
 import GarasiPage from './pages/GarasiPage';
-import KategoriTipe from './pages/KategoriTipe';
 import NotFound from './pages/NotFound';
 import SupirCalo from './pages/SupirCalo';
 
@@ -23,6 +22,8 @@ const ActivityLog = lazy(() => import('./pages/ActivityLog'));
 const Inspeksi = lazy(() => import('./pages/Inspeksi'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const CustomerDetail = lazy(() => import('./pages/CustomerDetail'));
+const OrderDetail = lazy(() => import('./pages/OrderDetail'));
+const WhatsappLogs = lazy(() => import('./pages/WhatsappLogs'));
 
 //public route will redirect to / if user is logged in, private route will redirect to /login if user is not logged in
 
@@ -99,19 +100,20 @@ export default function App() {
 
           {/* Admin routes — auth required */}
           <Route path="/admin" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-          <Route path="/kendaraan" element={<PrivateRoute><Kendaraan /></PrivateRoute>} />
-          <Route path="/kategori-tipe" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><KategoriTipe /></RoleRoute></PrivateRoute>} />
-          <Route path="/customers" element={<PrivateRoute><Customers /></PrivateRoute>} />
-          <Route path="/customers/:id" element={<PrivateRoute><CustomerDetail /></PrivateRoute>} />
+          <Route path="/kendaraan" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><KendaraanPage /></RoleRoute></PrivateRoute>} />
+          <Route path="/customers" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><Customers /></RoleRoute></PrivateRoute>} />
+          <Route path="/customers/:id" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><CustomerDetail /></RoleRoute></PrivateRoute>} />
           <Route path="/supir-calo" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><SupirCalo /></RoleRoute></PrivateRoute>} />
           <Route path="/orders" element={<PrivateRoute><Orders /></PrivateRoute>} />
+          <Route path="/orders/:id" element={<PrivateRoute><OrderDetail /></PrivateRoute>} />
           <Route path="/gps" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><GpsPage /></RoleRoute></PrivateRoute>} />
           <Route path="/laporan" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><Laporan /></RoleRoute></PrivateRoute>} />
           <Route path="/garasi" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><GarasiPage /></RoleRoute></PrivateRoute>} />
-          <Route path="/inspeksi" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><Inspeksi /></RoleRoute></PrivateRoute>} />
+          <Route path="/inspeksi" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional', 'petugas']}><Inspeksi /></RoleRoute></PrivateRoute>} />
           <Route path="/pengaturan" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama']}><Pengaturan /></RoleRoute></PrivateRoute>} />
           <Route path="/users" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama']}><UserManagement /></RoleRoute></PrivateRoute>} />
           <Route path="/activity-log" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama']}><ActivityLog /></RoleRoute></PrivateRoute>} />
+          <Route path="/wa-logs" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><WhatsappLogs /></RoleRoute></PrivateRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />

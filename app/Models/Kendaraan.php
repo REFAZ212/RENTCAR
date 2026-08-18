@@ -27,11 +27,11 @@ class Kendaraan extends Model
         'nama_kendaraan',
         'plat_nomor',
         'merek',
-        'model',
         'tahun',
         'warna',
         'kapasitas_penumpang',
         'harga_sewa_per_hari',
+        'harga_partner_per_hari',
         'status',
         'foto',
         'catatan',
@@ -41,7 +41,28 @@ class Kendaraan extends Model
         'tahun' => 'integer',
         'kapasitas_penumpang' => 'integer',
         'harga_sewa_per_hari' => 'decimal:2',
+        'harga_partner_per_hari' => 'decimal:2',
     ];
+
+    protected $appends = ['margin_per_hari', 'margin_persen'];
+
+    public function getMarginPerHariAttribute(): ?float
+    {
+        if (! $this->harga_partner_per_hari) {
+            return null;
+        }
+
+        return $this->harga_sewa_per_hari - $this->harga_partner_per_hari;
+    }
+
+    public function getMarginPersenAttribute(): ?float
+    {
+        if (! $this->harga_partner_per_hari || $this->harga_sewa_per_hari == 0) {
+            return null;
+        }
+
+        return round(($this->margin_per_hari / $this->harga_sewa_per_hari) * 100, 1);
+    }
 
     public function garasiPartner(): BelongsTo
     {
@@ -66,5 +87,10 @@ class Kendaraan extends Model
     public function activeOrders(): HasMany
     {
         return $this->hasMany(Order::class)->whereIn('status_order', ['pending', 'confirmed', 'active']);
+    }
+
+    public function gpsDevices(): HasMany
+    {
+        return $this->hasMany(GpsDevice::class);
     }
 }

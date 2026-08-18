@@ -4,7 +4,7 @@ use App\Http\Controllers\GarasiResponseController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return redirect('http://localhost:5173');
+    return redirect(config('app.frontend_url'));
 });
 
 Route::get('/garasi/{token}', [GarasiResponseController::class, 'show'])->name('garasi-response.show');

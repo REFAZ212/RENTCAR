@@ -1,16 +1,17 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { customerAPI, type Customer, type Order } from '../services/api';
+import { customerAPI, type Customer } from '../services/api';
+import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import { formatHpDisplay, formatHpWa, formatRupiah } from '../lib/format';
-import { ArrowLeft, Phone, Search, X, FileText } from 'lucide-react';
-
-const inputClass =
-    'w-full rounded-lg border border-black-200 px-3 py-2 text-sm text-black-900 outline-none transition-colors focus:border-primary-500 focus:ring-1 focus:ring-primary-500';
+import ConfirmModal from '../components/ConfirmModal';
+import { ArrowLeft, Phone, Search, X, FileText, Trash2, RotateCcw } from 'lucide-react';
 
 const statusOrderLabels: Record<string, string> = {
     pending: 'Menunggu',
     confirmed: 'Dikonfirmasi',
     active: 'Aktif',
+    perlu_verifikasi: 'Perlu Verifikasi',
     completed: 'Selesai',
     cancelled: 'Dibatalkan',
 };
@@ -19,6 +20,7 @@ const statusColors: Record<string, string> = {
     pending: 'bg-accent-100 text-accent-700',
     confirmed: 'bg-primary-50 text-primary-500',
     active: 'bg-accent-50 text-accent-600',
+    perlu_verifikasi: 'bg-amber-50 text-amber-700',
     completed: 'bg-black-200 text-black-700',
     cancelled: 'bg-error-50 text-error-600',
 };
@@ -61,14 +63,20 @@ function FotoModal({ src, alt, onClose }: { src: string; alt: string; onClose: (
 export default function CustomerDetail() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
+    const toast = useToast();
+    const { user } = useAuth();
     const [customer, setCustomer] = useState<Customer | null>(null);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
     const [statusFilter, setStatusFilter] = useState('all');
     const [zoomImage, setZoomImage] = useState<string | null>(null);
     const [zoomAlt, setZoomAlt] = useState('');
+    const [confirmDelete, setConfirmDelete] = useState(false);
+    const [confirmRestore, setConfirmRestore] = useState(false);
 
-    useEffect(() => {
+    const canManageArchive = user?.role === 'admin_utama';
+
+    const load = useCallback(() => {
         if (!id) {
             setNotFound(true);
             setLoading(false);
@@ -84,6 +92,35 @@ export default function CustomerDetail() {
             .catch(() => setNotFound(true))
             .finally(() => setLoading(false));
     }, [id]);
+
+    useEffect(() => {
+        load();
+    }, [load]);
+
+    const handleDelete = async () => {
+        if (!customer) return;
+        try {
+            await customerAPI.delete(customer.id);
+            toast.success('Customer berhasil dihapus');
+            navigate('/customers');
+        } catch {
+            toast.error('Gagal menghapus customer');
+            setConfirmDelete(false);
+        }
+    };
+
+    const handleRestore = async () => {
+        if (!customer) return;
+        try {
+            await customerAPI.restore(customer.id);
+            toast.success('Customer berhasil dipulihkan');
+            setConfirmRestore(false);
+            load();
+        } catch {
+            toast.error('Gagal memulihkan customer');
+            setConfirmRestore(false);
+        }
+    };
 
     const filteredOrders = useMemo(() => {
         if (!customer?.orders) return [];
@@ -145,6 +182,20 @@ export default function CustomerDetail() {
                 <ArrowLeft size={16} /> Kembali ke Daftar Pelanggan
             </Link>
 
+            {customer.deleted_at && (
+                <div className="flex items-center justify-between gap-3 rounded-2xl border border-error-200 bg-error-50 px-5 py-3">
+                    <p className="text-sm font-medium text-error-700">Customer ini sedang berada di arsip (dihapus).</p>
+                    {canManageArchive && (
+                        <button
+                            onClick={() => setConfirmRestore(true)}
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-accent-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-600"
+                        >
+                            <RotateCcw size={14} /> Pulihkan
+                        </button>
+                    )}
+                </div>
+            )}
+
             {/* Data Diri */}
             <div className="rounded-2xl border border-black-200 bg-white p-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -169,14 +220,33 @@ export default function CustomerDetail() {
                             <p className="rounded-lg bg-accent-50 px-3 py-2 text-sm text-black-600">{customer.catatan}</p>
                         )}
                     </div>
-                    <a
-                        href={waLink}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-accent-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-600"
-                    >
-                        <Phone size={16} /> Hubungi
-                    </a>
+                    <div className="flex shrink-0 items-center gap-2">
+                        {canManageArchive && (
+                            customer.deleted_at ? (
+                                <button
+                                    onClick={() => setConfirmRestore(true)}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-600"
+                                >
+                                    <RotateCcw size={16} /> Pulihkan
+                                </button>
+                            ) : (
+                                <button
+                                    onClick={() => setConfirmDelete(true)}
+                                    className="inline-flex items-center gap-2 rounded-lg bg-error-50 px-4 py-2.5 text-sm font-medium text-error-600 hover:bg-error-100"
+                                >
+                                    <Trash2 size={16} /> Hapus
+                                </button>
+                            )
+                        )}
+                        <a
+                            href={waLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-accent-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-600"
+                        >
+                            <Phone size={16} /> Hubungi
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -305,8 +375,26 @@ export default function CustomerDetail() {
                             </tbody>
                         </table>
                     </div>
-                )}
+)}
             </div>
-        </div>
-    );
+
+        <ConfirmModal
+            open={confirmDelete}
+            title="Hapus Customer"
+            message={`Yakin ingin menghapus "${customer.nama_lengkap}"? Data riwayat transaksinya tetap tersimpan dan bisa dipulihkan dari tab Arsip.`}
+            onConfirm={handleDelete}
+            onCancel={() => setConfirmDelete(false)}
+        />
+
+        <ConfirmModal
+            open={confirmRestore}
+            title="Pulihkan Customer"
+            message={`Pulihkan customer "${customer.nama_lengkap}" dari arsip?`}
+            confirmLabel="Pulihkan"
+            danger={false}
+            onConfirm={handleRestore}
+            onCancel={() => setConfirmRestore(false)}
+        />
+    </div>
+);
 }

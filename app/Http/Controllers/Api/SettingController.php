@@ -16,6 +16,7 @@ class SettingController extends Controller
         return response()->json([
             'overtime_rate_per_hour' => $settings['rate'],
             'grace_period_minutes' => $settings['grace'],
+            'biaya_dengan_driver_per_hari' => (float) Setting::get('biaya_dengan_driver_per_hari', Setting::DEFAULT_BIAYA_DENGAN_DRIVER_PER_HARI),
         ]);
     }
 

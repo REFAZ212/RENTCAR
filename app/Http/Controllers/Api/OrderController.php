@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Rules\JamBelumTerlewat;
 use App\Services\OrderService;
 use App\Services\WatermarkService;
 use Illuminate\Http\JsonResponse;
@@ -17,7 +18,7 @@ class OrderController extends Controller
 
         $service = app(OrderService::class);
         $orders = $service->list($request->only([
-            'search', 'status_order', 'status_pembayaran', 'status_pengiriman', 'tanggal_mulai', 'tanggal_selesai',
+            'search', 'status_order', 'status_pembayaran', 'status_pengiriman', 'tanggal_mulai', 'tanggal_selesai', 'overdue', 'per_page',
         ]));
 
         return response()->json($orders);
@@ -43,15 +44,17 @@ class OrderController extends Controller
             'tujuan' => 'required|string|max:500',
             'tanggal_mulai' => 'required|date|after_or_equal:today',
             'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
-            'jam_mulai' => 'nullable|date_format:H:i',
-            'jam_selesai' => 'nullable|date_format:H:i',
+            'jam_mulai' => ['nullable', 'date_format:H:i', new JamBelumTerlewat($request->input('tanggal_mulai'))],
+            'jam_selesai' => ['nullable', 'date_format:H:i', new JamBelumTerlewat($request->input('tanggal_selesai'))],
             'metode_pembayaran' => 'nullable|in:cash,transfer,qris,lainnya',
             'status_pembayaran' => 'nullable|in:unpaid,partial,paid',
             'status_pengiriman' => 'nullable|in:belum_diambil,sudah_diantarkan,dalam_penyewaan,selesai',
+            'metode_penyerahan' => 'nullable|in:ambil,antar',
             'bukti_transfer' => 'nullable|image|max:2048',
             'bukti_pengiriman' => 'nullable|image|max:2048',
             'bukti_pengembalian' => 'nullable|image|max:2048',
             'supir_id' => 'nullable|exists:supir_calos,id',
+            'opsi_supir' => 'nullable|in:dengan_supir,lepas_kunci',
             'calo_id' => 'nullable|exists:supir_calos,id',
             'komisi_calo' => 'nullable|numeric|min:0',
             'catatan' => 'nullable|string',
@@ -107,19 +110,21 @@ class OrderController extends Controller
             'tujuan' => 'sometimes|required|string|max:500',
             'tanggal_mulai' => 'sometimes|date|after_or_equal:today',
             'tanggal_selesai' => 'sometimes|date|after_or_equal:tanggal_mulai',
-            'jam_mulai' => 'nullable|date_format:H:i',
-            'jam_selesai' => 'nullable|date_format:H:i',
+            'jam_mulai' => ['nullable', 'date_format:H:i', new JamBelumTerlewat($request->input('tanggal_mulai', $order->tanggal_mulai->format('Y-m-d')))],
+            'jam_selesai' => ['nullable', 'date_format:H:i', new JamBelumTerlewat($request->input('tanggal_selesai', $order->tanggal_selesai->format('Y-m-d')))],
             'tanggal_pengembalian_aktual' => 'nullable|date',
-            'status_order' => 'nullable|in:pending,confirmed,active,completed,cancelled',
+            'status_order' => 'nullable|in:pending,confirmed,active,perlu_verifikasi,completed,cancelled',
             'alasan_pembatalan' => 'nullable|string|max:500',
             'tanggal_jatuh_tempo' => 'nullable|date',
             'metode_pembayaran' => 'nullable|in:cash,transfer,qris,lainnya',
             'status_pembayaran' => 'nullable|in:unpaid,partial,paid',
             'status_pengiriman' => 'nullable|in:belum_diambil,sudah_diantarkan,dalam_penyewaan,selesai',
+            'metode_penyerahan' => 'nullable|in:ambil,antar',
             'bukti_transfer' => 'nullable|image|max:2048',
             'bukti_pengiriman' => 'nullable|image|max:2048',
             'bukti_pengembalian' => 'nullable|image|max:2048',
             'supir_id' => 'nullable|exists:supir_calos,id',
+            'opsi_supir' => 'nullable|in:dengan_supir,lepas_kunci',
             'calo_id' => 'nullable|exists:supir_calos,id',
             'komisi_calo' => 'nullable|numeric|min:0',
             'catatan' => 'nullable|string',
@@ -145,6 +150,39 @@ class OrderController extends Controller
         $service->delete($order);
 
         return response()->json(['message' => 'Order berhasil dihapus']);
+    }
+
+    /**
+     * Klaim task inspeksi (pickup/return) — siapa cepat dia dapat.
+     * Task yang sudah diklaim petugas lain ditolak (409).
+     */
+    public function claim(Request $request, Order $order): JsonResponse
+    {
+        $this->authorize('claim', $order);
+
+        $service = app(OrderService::class);
+        $order = $service->claimTask($order, $request->user());
+
+        return response()->json([
+            'message' => 'Task berhasil diambil.',
+            'order' => $order,
+        ]);
+    }
+
+    /**
+     * Lepas klaim task — oleh pemegang klaim atau admin.
+     */
+    public function release(Request $request, Order $order): JsonResponse
+    {
+        $this->authorize('release', $order);
+
+        $service = app(OrderService::class);
+        $order = $service->releaseTask($order, $request->user());
+
+        return response()->json([
+            'message' => 'Task dilepas dan kembali ke daftar tugas.',
+            'order' => $order,
+        ]);
     }
 
     private function storeUploadedFiles(Request $request): array

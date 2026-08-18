@@ -83,6 +83,123 @@
             </div>
         @endif
 
+        @if($inspeksiPickup || $inspeksiReturn)
+            <div style="margin-bottom: 20px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; background: #f8fafc;">
+                <h3 style="font-size: 10px; text-transform: uppercase; color: #2563eb; margin-bottom: 8px;">Serah Terima Kendaraan</h3>
+                @if($inspeksiPickup)
+                    <div style="margin-bottom: 12px;">
+                        <h4 style="font-size: 10px; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px;">Awal (Pickup)</h4>
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 6px;">
+                            <tr>
+                                <td style="padding: 3px 6px; font-size: 10px; color: #64748b; width: 110px;">Waktu</td>
+                                <td style="padding: 3px 6px; font-size: 10px;">{{ $inspeksiPickup->created_at->format('d/m/Y H:i') }}</td>
+                                <td style="padding: 3px 6px; font-size: 10px; color: #64748b; width: 110px;">Odometer</td>
+                                <td style="padding: 3px 6px; font-size: 10px;">{{ $inspeksiPickup->odometer ? number_format((float) $inspeksiPickup->odometer, 0, ',', '.').' km' : '-' }}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 3px 6px; font-size: 10px; color: #64748b;">BBM</td>
+                                <td style="padding: 3px 6px; font-size: 10px;">{{ $inspeksiPickup->fuel_level }}</td>
+                                <td style="padding: 3px 6px; font-size: 10px; color: #64748b;">Petugas</td>
+                                <td style="padding: 3px 6px; font-size: 10px;">{{ $inspeksiPickup->inspeksi_oleh ?? $inspeksiPickup->admin?->name ?? '-' }}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 3px 6px; font-size: 10px; color: #64748b;">Kondisi</td>
+                                <td style="padding: 3px 6px; font-size: 10px;">Body: {{ $inspeksiPickup->kondisi_body }} | Interior: {{ $inspeksiPickup->kondisi_interior }} | Ban: {{ $inspeksiPickup->kondisi_ban }} | AC: {{ $inspeksiPickup->kondisi_ac }} | Lampu: {{ $inspeksiPickup->kondisi_lampu }}</td>
+                                <td style="padding: 3px 6px; font-size: 10px; color: #64748b;">Kerusakan</td>
+                                <td style="padding: 3px 6px; font-size: 10px;">{{ $inspeksiPickup->ada_damagenya ? 'Ya' : 'Tidak' }}</td>
+                            </tr>
+                            @if($inspeksiPickup->checklist_serah_terima)
+                                <tr>
+                                    <td style="padding: 3px 6px; font-size: 10px; color: #64748b;">Kelengkapan</td>
+                                    <td colspan="3" style="padding: 3px 6px; font-size: 10px;">{{ collect($inspeksiPickup->checklist_serah_terima)->map(fn ($k) => ['kunci' => 'Kunci', 'stnk' => 'STNK', 'kunci_roda' => 'Kunci Roda', 'dongkrak' => 'Dongkrak', 'ban_serep' => 'Ban Serep', 'ac' => 'AC'][$k] ?? $k)->implode(' | ') }}</td>
+                                </tr>
+                            @endif
+                            @if($inspeksiPickup->deskripsi_kondisi)
+                                <tr>
+                                    <td style="padding: 3px 6px; font-size: 10px; color: #64748b;">Deskripsi</td>
+                                    <td colspan="3" style="padding: 3px 6px; font-size: 10px;">{{ $inspeksiPickup->deskripsi_kondisi }}</td>
+                                </tr>
+                            @endif
+                        </table>
+                        @php
+                            $fotoPickup = $inspeksiPickup->foto && \Illuminate\Support\Facades\Storage::disk('public')->exists($inspeksiPickup->foto)
+                                ? base64_encode(\Illuminate\Support\Facades\Storage::disk('public')->get($inspeksiPickup->foto)) : null;
+                            $fotoMultimediaPickup = collect($inspeksiPickup->fotos ?? [])
+                                ->filter(fn ($path) => $path && \Illuminate\Support\Facades\Storage::disk('public')->exists($path))
+                                ->map(fn ($path) => base64_encode(\Illuminate\Support\Facades\Storage::disk('public')->get($path)));
+                            $ttdPickup = $inspeksiPickup->ttd_customer && \Illuminate\Support\Facades\Storage::disk('public')->exists($inspeksiPickup->ttd_customer)
+                                ? base64_encode(\Illuminate\Support\Facades\Storage::disk('public')->get($inspeksiPickup->ttd_customer)) : null;
+                        @endphp
+                        @foreach($fotoMultimediaPickup as $fotoMultimedia)
+                            <img src="data:image/jpeg;base64,{{ $fotoMultimedia }}" style="max-width: 160px; max-height: 110px; border-radius: 4px; margin-right: 8px;" />
+                        @endforeach
+                        @if($fotoPickup)
+                            <img src="data:image/jpeg;base64,{{ $fotoPickup }}" style="max-width: 160px; max-height: 110px; border-radius: 4px; margin-right: 8px;" />
+                        @endif
+                        @if($ttdPickup)
+                            <img src="data:image/jpeg;base64,{{ $ttdPickup }}" style="max-width: 140px; max-height: 80px; border-radius: 4px;" />
+                        @endif
+                    </div>
+                @endif
+
+                @if($inspeksiReturn)
+                    <div>
+                        <h4 style="font-size: 10px; text-transform: uppercase; color: #94a3b8; margin-bottom: 6px;">Akhir (Return)</h4>
+                        <table style="width: 100%; border-collapse: collapse; margin-bottom: 6px;">
+                            <tr>
+                                <td style="padding: 3px 6px; font-size: 10px; color: #64748b; width: 110px;">Waktu</td>
+                                <td style="padding: 3px 6px; font-size: 10px;">{{ $inspeksiReturn->created_at->format('d/m/Y H:i') }}</td>
+                                <td style="padding: 3px 6px; font-size: 10px; color: #64748b; width: 110px;">Odometer</td>
+                                <td style="padding: 3px 6px; font-size: 10px;">{{ $inspeksiReturn->odometer ? number_format((float) $inspeksiReturn->odometer, 0, ',', '.').' km' : '-' }}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 3px 6px; font-size: 10px; color: #64748b;">BBM</td>
+                                <td style="padding: 3px 6px; font-size: 10px;">{{ $inspeksiReturn->fuel_level }}</td>
+                                <td style="padding: 3px 6px; font-size: 10px; color: #64748b;">Petugas</td>
+                                <td style="padding: 3px 6px; font-size: 10px;">{{ $inspeksiReturn->inspeksi_oleh ?? $inspeksiReturn->admin?->name ?? '-' }}</td>
+                            </tr>
+                            <tr>
+                                <td style="padding: 3px 6px; font-size: 10px; color: #64748b;">Kondisi</td>
+                                <td style="padding: 3px 6px; font-size: 10px;">Body: {{ $inspeksiReturn->kondisi_body }} | Interior: {{ $inspeksiReturn->kondisi_interior }} | Ban: {{ $inspeksiReturn->kondisi_ban }} | AC: {{ $inspeksiReturn->kondisi_ac }} | Lampu: {{ $inspeksiReturn->kondisi_lampu }}</td>
+                                <td style="padding: 3px 6px; font-size: 10px; color: #64748b;">Kerusakan</td>
+                                <td style="padding: 3px 6px; font-size: 10px;">{{ $inspeksiReturn->ada_damagenya ? 'Ya' : 'Tidak' }}</td>
+                            </tr>
+                            @if($inspeksiReturn->checklist_serah_terima)
+                                <tr>
+                                    <td style="padding: 3px 6px; font-size: 10px; color: #64748b;">Kelengkapan</td>
+                                    <td colspan="3" style="padding: 3px 6px; font-size: 10px;">{{ collect($inspeksiReturn->checklist_serah_terima)->map(fn ($k) => ['kunci' => 'Kunci', 'stnk' => 'STNK', 'kunci_roda' => 'Kunci Roda', 'dongkrak' => 'Dongkrak', 'ban_serep' => 'Ban Serep', 'ac' => 'AC'][$k] ?? $k)->implode(' | ') }}</td>
+                                </tr>
+                            @endif
+                            @if($inspeksiReturn->deskripsi_kondisi)
+                                <tr>
+                                    <td style="padding: 3px 6px; font-size: 10px; color: #64748b;">Deskripsi</td>
+                                    <td colspan="3" style="padding: 3px 6px; font-size: 10px;">{{ $inspeksiReturn->deskripsi_kondisi }}</td>
+                                </tr>
+                            @endif
+                        </table>
+                        @php
+                            $fotoReturn = $inspeksiReturn->foto && \Illuminate\Support\Facades\Storage::disk('public')->exists($inspeksiReturn->foto)
+                                ? base64_encode(\Illuminate\Support\Facades\Storage::disk('public')->get($inspeksiReturn->foto)) : null;
+                            $fotoMultimediaReturn = collect($inspeksiReturn->fotos ?? [])
+                                ->filter(fn ($path) => $path && \Illuminate\Support\Facades\Storage::disk('public')->exists($path))
+                                ->map(fn ($path) => base64_encode(\Illuminate\Support\Facades\Storage::disk('public')->get($path)));
+                            $ttdReturn = $inspeksiReturn->ttd_customer && \Illuminate\Support\Facades\Storage::disk('public')->exists($inspeksiReturn->ttd_customer)
+                                ? base64_encode(\Illuminate\Support\Facades\Storage::disk('public')->get($inspeksiReturn->ttd_customer)) : null;
+                        @endphp
+                        @foreach($fotoMultimediaReturn as $fotoMultimedia)
+                            <img src="data:image/jpeg;base64,{{ $fotoMultimedia }}" style="max-width: 160px; max-height: 110px; border-radius: 4px; margin-right: 8px;" />
+                        @endforeach
+                        @if($fotoReturn)
+                            <img src="data:image/jpeg;base64,{{ $fotoReturn }}" style="max-width: 160px; max-height: 110px; border-radius: 4px; margin-right: 8px;" />
+                        @endif
+                        @if($ttdReturn)
+                            <img src="data:image/jpeg;base64,{{ $ttdReturn }}" style="max-width: 140px; max-height: 80px; border-radius: 4px;" />
+                        @endif
+                    </div>
+                @endif
+            </div>
+        @endif
+
         <table>
             <thead>
                 <tr>
@@ -115,6 +232,14 @@
                         <td>Rp {{ number_format((float) $order->denda_overtime, 0, ',', '.') }}</td>
                     </tr>
                 @endif
+                @if($order->biaya_kerusakan > 0)
+                    <tr>
+                        <td>Biaya Kerusakan</td>
+                        <td>1</td>
+                        <td>Rp {{ number_format((float) $order->biaya_kerusakan, 0, ',', '.') }}</td>
+                        <td>Rp {{ number_format((float) $order->biaya_kerusakan, 0, ',', '.') }}</td>
+                    </tr>
+                @endif
             </tbody>
         </table>
 
@@ -139,7 +264,7 @@
                     </tr>
                     <tr class="total-row">
                         <td class="label">TOTAL</td>
-                        <td class="value">Rp {{ number_format((float) $order->harga_total, 0, ',', '.') }}</td>
+                        <td class="value">Rp {{ number_format((float) ($order->harga_total + ($order->biaya_kerusakan ?? 0)), 0, ',', '.') }}</td>
                     </tr>
                 </tbody>
             </table>

@@ -3,7 +3,6 @@ import {
   LayoutGrid,
   ClipboardList,
   Car,
-  Tags,
   Users,
   MapPin,
   FileBarChart,
@@ -14,6 +13,7 @@ import {
   History,
   ClipboardCheck,
   Shield,
+  MessageSquareWarning,
 } from 'lucide-react';
 import logo from '../assets/logorentcar.png';
 import { useAuth } from '../contexts/AuthContext';
@@ -38,16 +38,15 @@ const navGroups: NavGroup[] = [
     title: 'Umum',
     items: [
       { path: '/admin', label: 'Dashboard', icon: LayoutGrid, roles: ROLES_ALL },
-      { path: '/orders', label: 'Orders', icon: ClipboardList, roles: ROLES_ALL },
-      { path: '/customers', label: 'Customers', icon: Users, roles: ROLES_ALL },
+      { path: '/orders', label: 'Orders', icon: ClipboardList, roles: ROLES_ADMIN },
+      { path: '/customers', label: 'Customers', icon: Users, roles: ROLES_ADMIN },
     ],
   },
   {
     title: 'Kendaraan',
     items: [
-      { path: '/kendaraan', label: 'Kendaraan', icon: Car, roles: ROLES_ALL },
-      { path: '/kategori-tipe', label: 'Kategori & Tipe', icon: Tags, roles: ROLES_ADMIN },
-      //{ path: '/inspeksi', label: 'Inspeksi', icon: ClipboardCheck, roles: ROLES_ADMIN },
+      { path: '/kendaraan', label: 'Kendaraan', icon: Car, roles: ROLES_ADMIN },
+      { path: '/inspeksi', label: 'Inspeksi', icon: ClipboardCheck, roles: ROLES_ALL },
     ],
   },
   {
@@ -62,7 +61,7 @@ const navGroups: NavGroup[] = [
     title: 'Lainnya',
     items: [
       { path: '/laporan', label: 'Laporan', icon: FileBarChart, roles: ROLES_ADMIN },
-      
+      { path: '/wa-logs', label: 'WA Log', icon: MessageSquareWarning, roles: ROLES_ADMIN },
       { path: '/users', label: 'Users', icon: Shield, roles: ['admin_utama'] },
       { path: '/activity-log', label: 'Aktivitas', icon: History, roles: ['admin_utama'] },
       { path: '/pengaturan', label: 'Pengaturan', icon: Settings, roles: ['admin_utama'] },

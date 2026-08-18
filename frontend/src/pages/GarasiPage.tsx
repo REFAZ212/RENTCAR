@@ -22,6 +22,9 @@ import {
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 import { formatHpDisplay, formatRupiah } from '../lib/format';
+import { fotoFileError } from '../lib/file';
+import { statusPhotoClass } from '../lib/katalogStatus';
+import { vehicleStatusStyles, vehicleStatusLabels, VEHICLE_STATUSES, type StatusKendaraan } from '../lib/vehicleStatus';
 
 const emptyPartnerForm = {
   nama_garasi: '',
@@ -32,20 +35,6 @@ const emptyPartnerForm = {
   status_aktif: true,
   is_own: false,
   catatan: '',
-};
-
-const vehicleStatusStyles: Record<string, string> = {
-  tersedia: 'bg-success-50 text-success-500',
-  disewa: 'bg-primary-50 text-primary-500',
-  maintenance: 'bg-error-50 text-error-500',
-};
-
-const vehicleStatuses = ['tersedia', 'disewa', 'maintenance'] as const;
-
-const vehicleStatusLabels: Record<string, string> = {
-  tersedia: 'Tersedia',
-  disewa: 'Disewa',
-  maintenance: 'Servis',
 };
 
 /* ───────────────────────────────────────────────────────────── */
@@ -201,7 +190,6 @@ function GarasiPartnerTab() {
       nama_kendaraan: k.nama_kendaraan,
       plat_nomor: k.plat_nomor,
       merek: k.merek,
-      model: k.model,
       tahun: k.tahun,
       warna: k.warna,
       kapasitas_penumpang: k.kapasitas_penumpang,
@@ -249,7 +237,6 @@ function GarasiPartnerTab() {
       nama_kendaraan: '',
       plat_nomor: '',
       merek: '',
-      model: '',
       tahun: new Date().getFullYear(),
       warna: '',
       kapasitas_penumpang: 7,
@@ -274,8 +261,7 @@ function GarasiPartnerTab() {
         });
         fd.append('foto', kendaraanFotoFile);
         if (editKendaraanItem) {
-          fd.append('_method', 'PUT');
-          await kendaraanAPI.update(editKendaraanItem.id, fd);
+          await kendaraanAPI.updateWithFile(editKendaraanItem.id, fd);
         } else {
           await kendaraanAPI.create(fd);
         }
@@ -416,7 +402,7 @@ function GarasiPartnerTab() {
                     disabled={!kendaraanForm.kategori_id}
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm disabled:bg-accent-100 disabled:text-black-400">
                     <option value="">{kendaraanForm.kategori_id ? 'Pilih Tipe' : 'Pilih kategori dulu'}</option>
-                    {tipes.filter((t) => t.aktif).map((t) => <option key={t.id} value={t.id}>{t.nama_tipe}</option>)}
+                    {tipes.filter((t) => t.aktif && t.kategori_id?.toString() === kendaraanForm.kategori_id).map((t) => <option key={t.id} value={t.id}>{t.nama_tipe}</option>)}
                   </select>
                 </div>
                 <div>
@@ -432,11 +418,6 @@ function GarasiPartnerTab() {
                 <div>
                   <label className="block text-sm font-medium text-black-700 mb-1">Merek *</label>
                   <input type="text" value={kendaraanForm.merek || ''} onChange={(e) => setKendaraanField('merek', e.target.value)} required
-                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-black-700 mb-1">Model *</label>
-                  <input type="text" value={kendaraanForm.model || ''} onChange={(e) => setKendaraanField('model', e.target.value)} required
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
                 </div>
                 <div>
@@ -477,7 +458,15 @@ function GarasiPartnerTab() {
                     <input type="file" accept="image/*" className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f) { setKendaraanFotoFile(f); setKendaraanFotoPreview(URL.createObjectURL(f)); }
+                        if (f) {
+                          const err = fotoFileError(f);
+                          if (err) {
+                            toast.error(err);
+                            e.target.value = '';
+                            return;
+                          }
+                          setKendaraanFotoFile(f); setKendaraanFotoPreview(URL.createObjectURL(f));
+                        }
                       }} />
                   </label>
                   {kendaraanFotoPreview && (
@@ -626,7 +615,7 @@ function GarasiPartnerTab() {
                                           <img
                                             src={k.foto.startsWith('http') ? k.foto : `/storage/${k.foto}`}
                                             alt={k.nama_kendaraan}
-                                            className="w-12 h-12 object-cover rounded-lg border border-black-200"
+                                            className={`w-12 h-12 object-cover rounded-lg border border-black-200 ${statusPhotoClass(k.status)}`}
                                           />
                                         ) : (
                                           <div className="w-12 h-12 bg-accent-100 rounded-lg border border-black-200 flex items-center justify-center">
@@ -636,14 +625,14 @@ function GarasiPartnerTab() {
                                       </td>
                                       <td className="px-4 py-2.5">
                                         <div className="font-medium text-black-900">{k.nama_kendaraan}</div>
-                                        <div className="text-xs text-black-400">{k.merek} {k.model} {k.tahun}</div>
+                                        <div className="text-xs text-black-400">{k.merek} · {k.tahun}</div>
                                       </td>
                                       <td className="px-4 py-2.5 font-mono text-sm text-black-700">{k.plat_nomor}</td>
                                       <td className="px-4 py-2.5 text-black-400">{k.kategori?.nama_kategori || '-'}</td>
                                       <td className="px-4 py-2.5 text-black-700">{formatRupiah(k.harga_sewa_per_hari)}</td>
                                       <td className="px-4 py-2.5">
-                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${vehicleStatusStyles[k.status] || ''}`}>
-                                          {vehicleStatusLabels[k.status] || k.status}
+                                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${vehicleStatusStyles[k.status as StatusKendaraan] || ''}`}>
+                                          {vehicleStatusLabels[k.status as StatusKendaraan] || k.status}
                                         </span>
                                       </td>
                                       <td className="px-4 py-2.5 text-right">
@@ -694,11 +683,11 @@ function makeEmptyKendaraanForm(garasiId: number | string | undefined) {
     nama_kendaraan: '',
     plat_nomor: '',
     merek: '',
-    model: '',
     tahun: new Date().getFullYear(),
     warna: '',
     kapasitas_penumpang: 7,
     harga_sewa_per_hari: '',
+    harga_partner_per_hari: '',
     status: 'tersedia',
     catatan: '',
   };
@@ -854,11 +843,11 @@ function GarasiSayaTab() {
       nama_kendaraan: item.nama_kendaraan,
       plat_nomor: item.plat_nomor,
       merek: item.merek,
-      model: item.model,
       tahun: item.tahun,
       warna: item.warna,
       kapasitas_penumpang: item.kapasitas_penumpang,
       harga_sewa_per_hari: item.harga_sewa_per_hari,
+      harga_partner_per_hari: item.harga_partner_per_hari ?? '',
       status: item.status,
       catatan: item.catatan || '',
     });
@@ -975,14 +964,14 @@ function GarasiSayaTab() {
             className="w-full pl-10 pr-4 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm transition" />
         </div>
         <div className="flex gap-1.5 overflow-x-auto">
-          {['', 'tersedia', 'disewa', 'maintenance'].map((s) => (
+          {['', 'tersedia', 'disewa', 'maintenance', 'tidak_tersedia'].map((s) => (
             <button key={s} onClick={() => setFilterStatus(s)}
               className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors ${
                 filterStatus === s
                   ? 'bg-primary-500 text-white'
                   : 'bg-white text-black-400 border border-black-200 hover:border-primary-400 hover:text-primary-600'
               }`}>
-              {s ? vehicleStatusLabels[s] : `Semua (${stats.total})`}
+              {s ? vehicleStatusLabels[s as StatusKendaraan] : `Semua (${stats.total})`}
             </button>
           ))}
         </div>
@@ -1022,7 +1011,7 @@ function GarasiSayaTab() {
                     disabled={!form.kategori_id}
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm disabled:bg-accent-100 disabled:text-black-400">
                     <option value="">{form.kategori_id ? 'Pilih Tipe' : 'Pilih kategori dulu'}</option>
-                    {tipes.filter((t) => t.aktif).map((t) => <option key={t.id} value={t.id}>{t.nama_tipe}</option>)}
+                    {tipes.filter((t) => t.aktif && t.kategori_id?.toString() === form.kategori_id).map((t) => <option key={t.id} value={t.id}>{t.nama_tipe}</option>)}
                   </select>
                 </div>
                 <div>
@@ -1038,11 +1027,6 @@ function GarasiSayaTab() {
                 <div>
                   <label className="block text-sm font-medium text-black-700 mb-1">Merek *</label>
                   <input type="text" value={form.merek} onChange={(e) => setField('merek', e.target.value)} required
-                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-black-700 mb-1">Model *</label>
-                  <input type="text" value={form.model} onChange={(e) => setField('model', e.target.value)} required
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
                 </div>
                 <div>
@@ -1065,12 +1049,28 @@ function GarasiSayaTab() {
                   <input type="number" value={form.harga_sewa_per_hari} onChange={(e) => setField('harga_sewa_per_hari', e.target.value)} required min={0}
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
                 </div>
+                {form.garasi_partner_id && (
+                  <div>
+                    <label className="block text-sm font-medium text-black-700 mb-1">
+                      Harga Beli/Hari (Rp) <span className="text-error-500">*</span>
+                    </label>
+                    <input type="number" value={form.harga_partner_per_hari} onChange={(e) => setField('harga_partner_per_hari', e.target.value)} required min={1}
+                      className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
+                    <p className="mt-1 text-xs text-black-400">Harga yang dibayar ke garasi partner per hari</p>
+                    {form.harga_sewa_per_hari && form.harga_partner_per_hari && (
+                      <p className="mt-1.5 text-sm font-medium text-accent-600">
+                        Margin: {formatRupiah(Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari))}/hari
+                        ({(Math.round(((Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari)) / Number(form.harga_sewa_per_hari)) * 100))}%)
+                      </p>
+                    )}
+                  </div>
+                )}
                 {editItem && (
                   <div>
                     <label className="block text-sm font-medium text-black-700 mb-1">Status *</label>
                     <select value={form.status} onChange={(e) => setField('status', e.target.value)} required
                       className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm capitalize">
-                      {vehicleStatuses.map((s) => <option key={s} value={s}>{vehicleStatusLabels[s]}</option>)}
+                      {VEHICLE_STATUSES.map((s) => <option key={s} value={s}>{vehicleStatusLabels[s]}</option>)}
                     </select>
                   </div>
                 )}
@@ -1087,7 +1087,15 @@ function GarasiSayaTab() {
                     <input type="file" accept="image/*" className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0];
-                        if (f) { setFotoFile(f); setFotoPreview(URL.createObjectURL(f)); }
+                        if (f) {
+                          const err = fotoFileError(f);
+                          if (err) {
+                            toast.error(err);
+                            e.target.value = '';
+                            return;
+                          }
+                          setFotoFile(f); setFotoPreview(URL.createObjectURL(f));
+                        }
                       }} />
                   </label>
                   {fotoPreview && (
@@ -1159,15 +1167,15 @@ function GarasiSayaTab() {
                 <tr key={item.id} className="hover:bg-canvas/50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="font-medium text-black-900">{item.nama_kendaraan}</div>
-                    <div className="text-xs text-black-400">{item.merek} {item.model} {item.tahun}</div>
+                    <div className="text-xs text-black-400">{item.merek} · {item.tahun}</div>
                   </td>
                   <td className="px-4 py-3 font-mono text-sm text-black-700">{item.plat_nomor}</td>
                   <td className="px-4 py-3 text-black-400">{item.kategori?.nama_kategori || '-'}</td>
                   <td className="px-4 py-3 text-black-700">{formatRupiah(item.harga_sewa_per_hari)}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${vehicleStatusStyles[item.status] || ''}`}>
-                      {vehicleStatusLabels[item.status] || item.status}
-                    </span>
+<span className={`px-2 py-1 text-xs font-medium rounded-full ${vehicleStatusStyles[item.status as StatusKendaraan] || ''}`}>
+                                          {vehicleStatusLabels[item.status as StatusKendaraan] || item.status}
+                                        </span>
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">

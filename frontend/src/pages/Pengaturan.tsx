@@ -80,6 +80,11 @@ interface HargaForm {
   minimal_dp_persen: number;
   denda_keterlambatan_per_jam: number;
   toleransi_keterlambatan_menit: number;
+  wajib_bayar_sebelum_antar: boolean;
+  auto_verify_enabled: boolean;
+  auto_verify_after_hours: number;
+  auto_complete_enabled: boolean;
+  auto_complete_after_hours: number;
 }
 
 interface NotifikasiForm {
@@ -88,9 +93,15 @@ interface NotifikasiForm {
   notif_booking_baru: boolean;
   notif_penugasan_driver: boolean;
   notif_pembayaran_masuk: boolean;
-  notif_kendaraan_terlambat: boolean;
+  notif_pengingat_bayar: boolean;
+  notif_perlu_verifikasi: boolean;
+  notif_order_selesai: boolean;
+  notif_pengingat_kembali: boolean;
   template_penugasan_driver: string;
   template_notifikasi_owner: string;
+  template_pengingat_bayar: string;
+  template_pengingat_kembali: string;
+  template_perlu_verifikasi: string;
 }
 
 interface SistemForm {
@@ -112,6 +123,9 @@ const HARI_DEFAULT: JamOperasional[] = [
 
 const TEMPLATE_VARS_DRIVER = ['{nama_driver}', '{customer}', '{kendaraan}', '{plat_nomor}', '{tanggal}', '{jam}'];
 const TEMPLATE_VARS_OWNER = ['{kendaraan}', '{customer}', '{driver}', '{tanggal}', '{status}'];
+const TEMPLATE_VARS_PAYMENT = ['{nama_customer}', '{kode_order}', '{kendaraan}', '{total}'];
+const TEMPLATE_VARS_KEMBALI = ['{nama_customer}', '{nama_kendaraan}', '{kode_order}', '{tanggal_kembali}', '{jam_kembali}'];
+const TEMPLATE_VARS_VERIFIKASI = ['{kode_order}', '{nama_customer}', '{nama_kendaraan}', '{total}'];
 
 /* ─────────────────────────────────────────────────────────────
  * KOMPONEN DASAR (dibagi antar tab)
@@ -623,6 +637,11 @@ function HargaTab() {
     minimal_dp_persen: 30,
     denda_keterlambatan_per_jam: 25000,
     toleransi_keterlambatan_menit: 0,
+    wajib_bayar_sebelum_antar: false,
+    auto_verify_enabled: true,
+    auto_verify_after_hours: 24,
+    auto_complete_enabled: true,
+    auto_complete_after_hours: 72,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -659,6 +678,11 @@ function HargaTab() {
           biaya_jemput_flat: form.biaya_jemput_flat,
           biaya_dengan_driver_per_hari: form.biaya_dengan_driver_per_hari,
           minimal_dp_persen: form.minimal_dp_persen,
+          wajib_bayar_sebelum_antar: form.wajib_bayar_sebelum_antar,
+          auto_verify_enabled: form.auto_verify_enabled,
+          auto_verify_after_hours: form.auto_verify_after_hours,
+          auto_complete_enabled: form.auto_complete_enabled,
+          auto_complete_after_hours: form.auto_complete_after_hours,
         }),
         settingsAPI.update({
           overtime_rate_per_hour: form.denda_keterlambatan_per_jam,
@@ -741,6 +765,62 @@ function HargaTab() {
           </Field>
         </div>
 
+        <div className="divide-y divide-black-200">
+          <ToggleSwitch
+            checked={form.wajib_bayar_sebelum_antar}
+            onChange={(v) => setForm({ ...form, wajib_bayar_sebelum_antar: v })}
+            label="Wajib Bayar Sebelum Diantar"
+            description="Hanya berlaku untuk order yang masih unpaid. Catat DP/pelunasan dulu sebelum kendaraan diserahkan kepada customer."
+          />
+        </div>
+
+        <div className="divide-y divide-black-200">
+          <ToggleSwitch
+            checked={form.auto_verify_enabled}
+            onChange={(v) => setForm({ ...form, auto_verify_enabled: v })}
+            label="Auto-Verifikasi (Perlu Verifikasi)"
+            description="Order yang lewat batas waktu + jam setelahnya otomatis diubah ke status 'Perlu Verifikasi' dan denda dikunci."
+          />
+          {form.auto_verify_enabled && (
+            <div className="pt-4">
+              <Field label="Tenggat Masuk Perlu Verifikasi (setelah batas waktu)" hint="Berapa jam setelah batas waktu kembali sistem menandai order sebagai perlu verifikasi">
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={1}
+                    value={form.auto_verify_after_hours}
+                    onChange={setNum('auto_verify_after_hours')}
+                    className={`${inputClass()} pr-16`}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-black-400">jam</span>
+                </div>
+              </Field>
+            </div>
+          )}
+          <ToggleSwitch
+            checked={form.auto_complete_enabled}
+            onChange={(v) => setForm({ ...form, auto_complete_enabled: v })}
+            label="Auto-Selesai (Jaring Terakhir)"
+            description="Order 'Perlu Verifikasi' yang tidak ditindakkan otomatis ditandai Selesai. Donga mobil dilepas ke tersedia dan owner mendapatkan notifikasi."
+          />
+          {form.auto_complete_enabled && (
+            <div className="pt-4">
+              <Field label="Tampai Auto-Selesai (setelah masuk Perlu Verifikasi)" hint="Berapa jam order perlu verifikasi dibiarkan sebelum otomatis diselesaikan">
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={1}
+                    value={form.auto_complete_after_hours}
+                    onChange={setNum('auto_complete_after_hours')}
+                    className={`${inputClass()} pr-16`}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-black-400">jam</span>
+                </div>
+              </Field>
+            </div>
+          )}
+        </div>
+
         <div className="mt-6 flex justify-end border-t border-black-200 pt-5">
           <SaveButton loading={saving} />
         </div>
@@ -792,10 +872,19 @@ function NotifikasiTab() {
     notif_booking_baru: true,
     notif_penugasan_driver: true,
     notif_pembayaran_masuk: true,
-    notif_kendaraan_terlambat: true,
+    notif_pengingat_bayar: true,
+    notif_perlu_verifikasi: true,
+    notif_order_selesai: true,
+    notif_pengingat_kembali: true,
     template_penugasan_driver:
       'Halo {nama_driver}, ada tugas baru:\nAntar {customer} — {kendaraan} ({plat_nomor})\n{tanggal} pukul {jam}\n\nBalas SIAP jika bisa, atau TIDAK jika berhalangan.',
     template_notifikasi_owner: '[BOOKING] {kendaraan} untuk {customer}\nDriver: {driver} — {tanggal}\nStatus: {status}',
+    template_pengingat_bayar:
+      'Halo {nama_customer}, ini pengingat untuk pembayaran sewa {kendaraan} (Order {kode_order}).\nTotal: {total}\n\nSegera lakukan pembayaran agar proses berjalan lancar. Terima kasih!',
+    template_pengingat_kembali:
+      'Halo {nama_customer}, ini pengingat bahwa kendaraan {nama_kendaraan} ({kode_order}) harus dikembalikan pada {tanggal_kembali} pukul {jam_kembali}. Terima kasih.',
+    template_perlu_verifikasi:
+      'Halo, order {kode_order} ({nama_customer} — {nama_kendaraan}) melewati batas waktu pengembalian dan belum dikonfirmasi. Denda difreeze: {total}. Mohon segera verifikasi di aplikasi.',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -908,10 +997,28 @@ function NotifikasiTab() {
             description="Notifikasi saat status pembayaran berubah jadi DP atau Lunas"
           />
           <ToggleSwitch
-            checked={form.notif_kendaraan_terlambat}
-            onChange={(v) => setForm({ ...form, notif_kendaraan_terlambat: v })}
-            label="Kendaraan Terlambat Kembali"
-            description="Peringatan otomatis jika kendaraan melewati batas waktu sewa"
+            checked={form.notif_pengingat_bayar}
+            onChange={(v) => setForm({ ...form, notif_pengingat_bayar: v })}
+            label="Pengingat Pembayaran Harian"
+            description="Pengingat otomatis setiap pagi ke customer yang masih belum lunas"
+          />
+          <ToggleSwitch
+            checked={form.notif_perlu_verifikasi}
+            onChange={(v) => setForm({ ...form, notif_perlu_verifikasi: v })}
+            label="Perlu Verifikasi Pengembalian"
+            description="Notifikasi + WhatsApp harian ke owner selama ada order belum dikonfirmasi kembali"
+          />
+          <ToggleSwitch
+            checked={form.notif_order_selesai}
+            onChange={(v) => setForm({ ...form, notif_order_selesai: v })}
+            label="Order Selesai"
+            description="Notifikasi ke customer saat order ditandai selesai"
+          />
+          <ToggleSwitch
+            checked={form.notif_pengingat_kembali}
+            onChange={(v) => setForm({ ...form, notif_pengingat_kembali: v })}
+            label="Pengingat Pengembalian H-1"
+            description="Pengingat otomatis ke customer satu hari sebelum batas waktu pengembalian"
           />
         </div>
       </SectionCard>
@@ -929,6 +1036,24 @@ function NotifikasiTab() {
             value={form.template_notifikasi_owner}
             onChange={(v) => setForm({ ...form, template_notifikasi_owner: v })}
             variables={TEMPLATE_VARS_OWNER}
+          />
+          <TemplateEditor
+            label="Template Pengingat Pembayaran"
+            value={form.template_pengingat_bayar}
+            onChange={(v) => setForm({ ...form, template_pengingat_bayar: v })}
+            variables={TEMPLATE_VARS_PAYMENT}
+          />
+          <TemplateEditor
+            label="Template Pengingat Pengembalian H-1"
+            value={form.template_pengingat_kembali}
+            onChange={(v) => setForm({ ...form, template_pengingat_kembali: v })}
+            variables={TEMPLATE_VARS_KEMBALI}
+          />
+          <TemplateEditor
+            label="Template Perlu Verifikasi Pengembalian"
+            value={form.template_perlu_verifikasi}
+            onChange={(v) => setForm({ ...form, template_perlu_verifikasi: v })}
+            variables={TEMPLATE_VARS_VERIFIKASI}
           />
         </div>
 

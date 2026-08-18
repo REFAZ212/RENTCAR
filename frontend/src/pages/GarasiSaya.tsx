@@ -2,22 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { kendaraanAPI, garasiPartnerAPI, kategoriAPI, tipeAPI, type Kendaraan, type GarasiPartner } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { formatRupiah } from '../lib/format';
+import { statusPhotoClass } from '../lib/katalogStatus';
+import { vehicleStatusStyles, vehicleStatusLabels, type StatusKendaraan } from '../lib/vehicleStatus';
 import ConfirmModal from '../components/ConfirmModal';
 
-const statusStyles = {
-  tersedia: 'bg-accent-100 text-accent-700',
-  disewa: 'bg-primary-100 text-primary-700',
-  maintenance: 'bg-accent-100 text-accent-700',
-};
-
-const statusLabels = {
-  tersedia: 'Tersedia',
-  disewa: 'Disewa',
-  maintenance: 'Maintenance',
-};
-
 function makeEmptyForm(garasiId) {
-  return { garasi_partner_id: garasiId || '', kategori_id: '', tipe_id: '', nama_kendaraan: '', plat_nomor: '', merek: '', model: '', tahun: new Date().getFullYear(), warna: '', kapasitas_penumpang: 7, harga_sewa_per_hari: '', status: 'tersedia', catatan: '' };
+  return { garasi_partner_id: garasiId || '', kategori_id: '', tipe_id: '', nama_kendaraan: '', plat_nomor: '', merek: '', tahun: new Date().getFullYear(), warna: '', kapasitas_penumpang: 7, harga_sewa_per_hari: '', harga_partner_per_hari: '', status: 'tersedia', catatan: '' };
 }
 
 interface GarasiWithKendaraan extends GarasiPartner {
@@ -32,11 +22,11 @@ interface KendaraanForm {
   nama_kendaraan: string;
   plat_nomor: string;
   merek: string;
-  model: string;
   tahun: number | string;
   warna: string;
   kapasitas_penumpang: number | string;
   harga_sewa_per_hari: number | string;
+  harga_partner_per_hari: number | string;
   status: string;
   catatan: string;
 }
@@ -99,6 +89,7 @@ export default function GarasiSaya() {
     tersedia: items.filter((k) => k.status === 'tersedia').length,
     disewa: items.filter((k) => k.status === 'disewa').length,
     maintenance: items.filter((k) => k.status === 'maintenance').length,
+    tidak_tersedia: items.filter((k) => k.status === 'tidak_tersedia').length,
   };
 
   const openCreate = () => {
@@ -120,7 +111,7 @@ export default function GarasiSaya() {
         Object.entries(form).forEach(([k, v]) => { if (v !== '' && v !== null && v !== undefined) fd.append(k, v); });
         fd.append('foto', fotoFile);
         if (editItem) {
-          await kendaraanAPI.update(editItem.id, fd);
+          await kendaraanAPI.updateWithFile(editItem.id, fd);
         } else {
           await kendaraanAPI.create(fd);
         }
@@ -158,9 +149,9 @@ export default function GarasiSaya() {
       garasi_partner_id: item.garasi_partner_id, kategori_id: item.kategori_id || '',
       tipe_id: item.tipe_id || '',
       nama_kendaraan: item.nama_kendaraan,
-      plat_nomor: item.plat_nomor, merek: item.merek, model: item.model,
+      plat_nomor: item.plat_nomor, merek: item.merek,
       tahun: item.tahun, warna: item.warna, kapasitas_penumpang: item.kapasitas_penumpang,
-      harga_sewa_per_hari: item.harga_sewa_per_hari, status: item.status, catatan: item.catatan || '',
+      harga_sewa_per_hari: item.harga_sewa_per_hari, harga_partner_per_hari: item.harga_partner_per_hari ?? '', status: item.status, catatan: item.catatan || '',
     });
     setFotoFile(null);
     setFotoPreview(item.foto ? (item.foto.startsWith('http') ? item.foto : `/storage/${item.foto}`) : null);
@@ -185,7 +176,7 @@ export default function GarasiSaya() {
     return (
       <div className="space-y-6">
         <div className="h-8 w-48 bg-black-200 rounded animate-pulse" />
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+<div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {[1, 2, 3, 4].map((i) => <div key={i} className="h-24 bg-black-200 rounded-xl animate-pulse" />)}
         </div>
         <div className="h-64 bg-black-200 rounded-xl animate-pulse" />
@@ -235,7 +226,11 @@ export default function GarasiSaya() {
         </div>
         <div className="bg-white rounded-xl shadow-sm border border-black-200 p-4">
           <div className="text-2xl font-bold text-accent-600">{stats.maintenance}</div>
-          <div className="text-sm text-black-400">Maintenance</div>
+          <div className="text-sm text-black-400">Servis</div>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border border-black-200 p-4">
+          <div className="text-2xl font-bold text-error-600">{stats.tidak_tersedia}</div>
+          <div className="text-sm text-black-400">Tidak Tersedia</div>
         </div>
       </div>
 
@@ -247,14 +242,14 @@ export default function GarasiSaya() {
             className="w-full pl-10 pr-4 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm transition" />
         </div>
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {['', 'tersedia', 'disewa', 'maintenance'].map((s) => (
+          {['', 'tersedia', 'disewa', 'maintenance', 'tidak_tersedia'].map((s) => (
             <button key={s} onClick={() => setFilterStatus(s)}
               className={`px-4 py-2 text-sm font-medium rounded-full whitespace-nowrap transition-colors ${
                 filterStatus === s
                   ? 'bg-primary-600 text-white'
                   : 'bg-white text-black-400 border border-black-200 hover:border-primary-300 hover:text-primary-600'
               }`}>
-              {s ? statusLabels[s] : `Semua (${stats.total})`}
+              {s ? vehicleStatusLabels[s as StatusKendaraan] : `Semua (${stats.total})`}
             </button>
           ))}
         </div>
@@ -295,7 +290,7 @@ export default function GarasiSaya() {
                     disabled={!form.kategori_id}
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm disabled:bg-accent-100 disabled:text-black-400">
                     <option value="">{form.kategori_id ? 'Pilih Tipe' : 'Pilih kategori dulu'}</option>
-                    {tipes.filter((t) => t.aktif).map((t) => <option key={t.id} value={t.id}>{t.nama_tipe}</option>)}
+                    {tipes.filter((t) => t.aktif && t.kategori_id?.toString() === form.kategori_id).map((t) => <option key={t.id} value={t.id}>{t.nama_tipe}</option>)}
                   </select>
                 </div>
                 <div>
@@ -311,11 +306,6 @@ export default function GarasiSaya() {
                 <div>
                   <label className="block text-sm font-medium text-black-700 mb-1">Merek *</label>
                   <input type="text" value={form.merek} onChange={(e) => setField('merek', e.target.value)} required
-                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-black-700 mb-1">Model *</label>
-                  <input type="text" value={form.model} onChange={(e) => setField('model', e.target.value)} required
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
                 </div>
                 <div>
@@ -338,6 +328,22 @@ export default function GarasiSaya() {
                   <input type="number" value={form.harga_sewa_per_hari} onChange={(e) => setField('harga_sewa_per_hari', e.target.value)} required min="0"
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
                 </div>
+                {form.garasi_partner_id && (
+                  <div>
+                    <label className="block text-sm font-medium text-black-700 mb-1">
+                      Harga Beli/Hari (Rp) <span className="text-error-500">*</span>
+                    </label>
+                    <input type="number" value={form.harga_partner_per_hari} onChange={(e) => setField('harga_partner_per_hari', e.target.value)} required min="1"
+                      className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
+                    <p className="mt-1 text-xs text-black-400">Harga yang dibayar ke garasi partner per hari</p>
+                    {form.harga_sewa_per_hari && form.harga_partner_per_hari && (
+                      <p className="mt-1.5 text-sm font-medium text-accent-600">
+                        Margin: {formatRupiah(Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari))}/hari
+                        ({(Math.round(((Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari)) / Number(form.harga_sewa_per_hari)) * 100))}%)
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-black-700 mb-1">Foto Kendaraan</label>
@@ -434,7 +440,7 @@ export default function GarasiSaya() {
                     <div className="flex items-center gap-3">
                       {item.foto ? (
                         <img src={item.foto.startsWith('http') ? item.foto : `/storage/${item.foto}`}
-                          alt={item.nama_kendaraan} className="w-10 h-10 rounded-lg object-cover border border-black-200 shrink-0" />
+                          alt={item.nama_kendaraan} className={`w-10 h-10 rounded-lg object-cover border border-black-200 shrink-0 ${statusPhotoClass(item.status)}`} />
                       ) : (
                         <div className="w-10 h-10 bg-accent-100 rounded-lg flex items-center justify-center shrink-0">
                           <svg className="w-5 h-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -444,7 +450,7 @@ export default function GarasiSaya() {
                       )}
                       <div>
                         <div className="font-medium text-black-900">{item.nama_kendaraan}</div>
-                        <div className="text-xs text-black-400">{item.merek} {item.model} {item.tahun}</div>
+                        <div className="text-xs text-black-400">{item.merek} · {item.tahun}</div>
                       </div>
                     </div>
                   </td>
@@ -453,8 +459,8 @@ export default function GarasiSaya() {
                   <td className="px-4 py-3 text-black-400">{item.tipe?.nama_tipe || '-'}</td>
                   <td className="px-4 py-3 text-black-700">{formatRupiah(item.harga_sewa_per_hari)}</td>
                   <td className="px-4 py-3">
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusStyles[item.status] || ''}`}>
-                      {statusLabels[item.status] || item.status}
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${vehicleStatusStyles[item.status as StatusKendaraan] || ''}`}>
+                      {vehicleStatusLabels[item.status as StatusKendaraan] || item.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">

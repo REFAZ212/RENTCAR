@@ -18,6 +18,7 @@ import {
 import { laporanAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { formatHpDisplay, formatRupiah, formatRupiahShort } from '../lib/format';
+import { vehicleStatusStyles, vehicleStatusLabels, type StatusKendaraan } from '../lib/vehicleStatus';
 
 /**
  * ─────────────────────────────────────────────────────────────
@@ -35,15 +36,16 @@ import { formatHpDisplay, formatRupiah, formatRupiahShort } from '../lib/format'
  * dengan app.css, tidak ada duplikasi hex code.
  */
 
-type StatusOrder = 'pending' | 'confirmed' | 'active' | 'completed' | 'cancelled';
+type StatusOrder = 'pending' | 'confirmed' | 'active' | 'perlu_verifikasi' | 'completed' | 'cancelled';
 type StatusPembayaran = 'unpaid' | 'partial' | 'paid';
-type StatusPengiriman = 'belum_diambil' | 'sudah_diantarkan' | 'dalam_penyewaan' | 'selesai';
+type StatusPengiriman = 'belum_diambil' | 'sudah_diantarkan' | 'dalam_penyewaan' | 'selesai' | 'sudah_dikembalikan';
 type MetodeBayar = 'cash' | 'transfer' | 'qris' | 'lainnya';
 
 const statusOrderLabels: Record<StatusOrder, string> = {
   pending: 'Menunggu',
   confirmed: 'Dikonfirmasi',
   active: 'Aktif',
+  perlu_verifikasi: 'Perlu Verifikasi',
   completed: 'Selesai',
   cancelled: 'Dibatalkan',
 };
@@ -59,6 +61,7 @@ const statusPengirimanLabels: Record<StatusPengiriman, string> = {
   sudah_diantarkan: 'Sudah Diantarkan',
   dalam_penyewaan: 'Dalam Penyewaan',
   selesai: 'Selesai',
+  sudah_dikembalikan: 'Sudah Dikembalikan',
 };
 
 const metodeBayarLabels: Record<MetodeBayar, string> = {
@@ -82,9 +85,7 @@ const statusColors: Record<string, string> = {
   sudah_diantarkan: 'bg-primary-50 text-primary-500',
   dalam_penyewaan: 'bg-primary-100 text-primary-600',
   selesai: 'bg-black-200 text-black-700',
-  tersedia: 'bg-success-50 text-success-600',
-  disewa: 'bg-primary-50 text-primary-500',
-  maintenance: 'bg-error-50 text-error-600',
+  ...vehicleStatusStyles,
 };
 
 // Warna ikon StatCard — dipetakan by makna, bukan asal warna
@@ -212,7 +213,6 @@ interface KendaraanTerpopulerRow {
   plat_nomor: string;
   kategori?: { nama_kategori: string };
   merek: string;
-  model: string;
   tahun: number;
   harga_sewa_per_hari: number;
   orders_count: number;
@@ -302,6 +302,69 @@ interface KomisiCaloRow {
 interface KomisiCaloData {
   data: KomisiCaloRow[];
   ringkasan: { grand_total_pendapatan: number; grand_total_komisi: number; jumlah_calo: number };
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * TYPE — bentuk respons mentah dari backend.
+ * ReportController membungkus SEMUA endpoint laporan dalam
+ * { data, periode } — interface ini mencerminkan isi `data`
+ * yang dikembalikan ReportService saat ini.
+ * ───────────────────────────────────────────────────────────── */
+interface PendapatanApiResponse {
+  summary: { total_revenue: number; total_fines: number; total_orders: number; distinct_customers: number; avg_order: number };
+  pendapatan_periode: { periode: string; revenue: number; denda: number | null; orders: number }[];
+  metode_pembayaran: { metode_pembayaran: MetodeBayar; revenue: number; orders: number }[];
+  pendapatan_kategori: { nama_kategori: string; revenue: number; denda: number | null; orders: number }[];
+}
+
+interface KendaraanApiResponse {
+  kendaraan_terpopuler: {
+    kendaraan_id: number;
+    nama_kendaraan: string;
+    plat_nomor: string;
+    kategori: string | null;
+    harga_sewa_per_hari: number;
+    order_count: number;
+    total_revenue: number;
+    avg_duration: number;
+  }[];
+  status_kendaraan: { status: string; count: number }[];
+  kategori_stats: { nama_kategori: string; total: number; rented: number; available: number }[];
+}
+
+interface CustomerApiResponse {
+  customer_top: { customer_id: number; nama_lengkap: string; no_hp: string; order_count: number; total_spend: number; avg_duration: number }[];
+  ringkasan: { total_customers: number; new_customers: number; active_customers: number; repeat_customers: number };
+}
+
+interface OrderApiResponse {
+  total_orders: number;
+  total_pendapatan: number;
+  total_denda: number;
+  rata_rata_durasi: number;
+  by_status: { status_order: StatusOrder; count: number }[];
+  by_pembayaran: { status_pembayaran: StatusPembayaran; count: number }[];
+  by_pengiriman: { status_pengiriman: StatusPengiriman; count: number }[];
+  recent_orders: OrderTerbaruRow[];
+}
+
+interface BagiHasilApiResponse {
+  partners: {
+    garasi_partner_id: number;
+    nama_garasi: string;
+    nama_pemilik: string;
+    persentase: number;
+    total_orders: number;
+    total_revenue: number;
+    total_fines: number;
+    partner_share: number;
+  }[];
+  grand_total: { total_revenue: number; total_share: number };
+}
+
+interface KomisiCaloApiResponse {
+  calos: { calo_id: number; nama: string; no_hp: string | null; total_orders: number; total_revenue: number; total_komisi: number }[];
+  grand_total: { total_revenue: number; total_komisi: number };
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -482,6 +545,7 @@ const STATUS_ORDER_COLOR_VAR: Record<StatusOrder, string> = {
   pending: '#FFC20F', // accent gold
   confirmed: 'var(--color-primary-500)',
   active: 'var(--color-accent-500)',
+  perlu_verifikasi: '#F59E0B',
   completed: 'var(--color-black-700)',
   cancelled: 'var(--color-error-500)',
 };
@@ -644,7 +708,38 @@ function PendapatanTab({ params }: { params: DateParams }) {
     setLoading(true);
     laporanAPI
       .pendapatan(params)
-      .then((res) => setData(res.data as PendapatanData))
+      .then((res) => {
+        const d = (res.data as { data: PendapatanApiResponse }).data;
+        setData({
+          ringkasan: {
+            total_pendapatan: d.summary.total_revenue,
+            total_denda: d.summary.total_fines,
+            total_order: d.summary.total_orders,
+            total_customer: d.summary.distinct_customers,
+            rata_rata_order: d.summary.avg_order,
+          },
+          pendapatan_periode: d.pendapatan_periode.map((p) => ({
+            periode: p.periode,
+            total_order: p.orders,
+            total_pendapatan: p.revenue,
+            total_denda: p.denda ?? 0,
+            rata_rata: 0,
+          })),
+          metode_pembayaran: d.metode_pembayaran.map((m) => ({
+            metode_pembayaran: m.metode_pembayaran,
+            total_order: m.orders,
+            total_pendapatan: m.revenue,
+            rata_rata: 0,
+          })),
+          pendapatan_kategori: d.pendapatan_kategori.map((k) => ({
+            nama_kategori: k.nama_kategori,
+            total_order: k.orders,
+            total_pendapatan: k.revenue,
+            total_denda: k.denda ?? 0,
+            rata_rata: 0,
+          })),
+        });
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params]);
@@ -748,7 +843,30 @@ function KendaraanTab({ params }: { params: DateParams }) {
     setLoading(true);
     laporanAPI
       .kendaraan(params)
-      .then((res) => setData(res.data as KendaraanData))
+      .then((res) => {
+        const d = (res.data as { data: KendaraanApiResponse }).data;
+        setData({
+          kendaraan_terpopuler: d.kendaraan_terpopuler.map((k) => ({
+            id: k.kendaraan_id,
+            nama_kendaraan: k.nama_kendaraan,
+            plat_nomor: k.plat_nomor,
+            kategori: k.kategori ? { nama_kategori: k.kategori } : undefined,
+            merek: '',
+            tahun: 0,
+            harga_sewa_per_hari: k.harga_sewa_per_hari,
+            orders_count: k.order_count,
+            orders_sum_harga_total: k.total_revenue,
+            orders_avg_durasi_hari: k.avg_duration,
+          })),
+          status_kendaraan: d.status_kendaraan.map((s) => ({ status: s.status, total: s.count })),
+          kategori_stats: d.kategori_stats.map((k) => ({
+            nama_kategori: k.nama_kategori,
+            total_kendaraan: k.total,
+            disewa: k.rented,
+            tersedia: k.available,
+          })),
+        });
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params]);
@@ -773,10 +891,10 @@ function KendaraanTab({ params }: { params: DateParams }) {
         {status_kendaraan.map((s) => (
           <StatCard
             key={s.status}
-            label={<span className="capitalize">{s.status}</span>}
+            label={vehicleStatusLabels[s.status as StatusKendaraan] ?? <span className="capitalize">{s.status}</span>}
             value={s.total}
             icon={ICONS.car}
-            iconBg={s.status === 'tersedia' ? ICON_BG.avail : s.status === 'maintenance' ? ICON_BG.maint : ICON_BG.rented}
+            iconBg={s.status === 'tersedia' ? ICON_BG.avail : s.status === 'maintenance' || s.status === 'tidak_tersedia' ? ICON_BG.maint : ICON_BG.rented}
           />
         ))}
       </div>
@@ -833,7 +951,27 @@ function CustomerTab({ params }: { params: DateParams }) {
     setLoading(true);
     laporanAPI
       .customer(params)
-      .then((res) => setData(res.data as CustomerData))
+      .then((res) => {
+        const d = (res.data as { data: CustomerApiResponse }).data;
+        setData({
+          customer_top: d.customer_top.map((c) => ({
+            id: c.customer_id,
+            nama_lengkap: c.nama_lengkap,
+            no_hp: c.no_hp,
+            email: undefined,
+            alamat: undefined,
+            orders_count: c.order_count,
+            orders_sum_harga_total: c.total_spend,
+            rata_rata_durasi_hari: c.avg_duration,
+          })),
+          ringkasan: {
+            total_customer: d.ringkasan.total_customers,
+            customer_baru: d.ringkasan.new_customers,
+            customer_aktif: d.ringkasan.active_customers,
+            customer_repeat: d.ringkasan.repeat_customers,
+          },
+        });
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params]);
@@ -894,7 +1032,21 @@ function OrderTab({ params }: { params: DateParams }) {
     setLoading(true);
     laporanAPI
       .order(params)
-      .then((res) => setData(res.data as OrderData))
+      .then((res) => {
+        const d = (res.data as { data: OrderApiResponse }).data;
+        setData({
+          order: {
+            total_order: d.total_orders,
+            total_pendapatan: d.total_pendapatan,
+            total_denda: d.total_denda,
+            rata_rata_durasi: d.rata_rata_durasi,
+            status_order: d.by_status.map((s) => ({ status_order: s.status_order, total: s.count })),
+            status_pembayaran: d.by_pembayaran.map((s) => ({ status_pembayaran: s.status_pembayaran, total: s.count })),
+            status_pengiriman: d.by_pengiriman.map((s) => ({ status_pengiriman: s.status_pengiriman, total: s.count })),
+          },
+          order_terbaru: d.recent_orders,
+        });
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params]);
@@ -1030,7 +1182,26 @@ function BagiHasilTab({ params }: { params: DateParams }) {
     setLoading(true);
     laporanAPI
       .bagiHasil(params)
-      .then((res) => setData(res.data as BagiHasilData))
+      .then((res) => {
+        const d = (res.data as { data: BagiHasilApiResponse }).data;
+        setData({
+          data: d.partners.map((p) => ({
+            partner_id: p.garasi_partner_id,
+            nama_garasi: p.nama_garasi,
+            nama_pemilik: p.nama_pemilik,
+            persentase: p.persentase,
+            total_order: p.total_orders,
+            total_pendapatan: p.total_revenue,
+            total_denda: p.total_fines,
+            total_bagi_hasil: p.partner_share,
+          })),
+          ringkasan: {
+            grand_total_pendapatan: d.grand_total.total_revenue,
+            grand_total_bagi_hasil: d.grand_total.total_share,
+            jumlah_partner: d.partners.length,
+          },
+        });
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params]);
@@ -1112,7 +1283,24 @@ function KomisiCaloTab({ params }: { params: DateParams }) {
     setLoading(true);
     laporanAPI
       .komisiCalo(params)
-      .then((res) => setData(res.data as KomisiCaloData))
+      .then((res) => {
+        const d = (res.data as { data: KomisiCaloApiResponse }).data;
+        setData({
+          data: d.calos.map((c) => ({
+            calo_id: c.calo_id,
+            nama: c.nama,
+            no_hp: c.no_hp ?? '-',
+            total_order: c.total_orders,
+            total_pendapatan: c.total_revenue,
+            total_komisi: c.total_komisi,
+          })),
+          ringkasan: {
+            grand_total_pendapatan: d.grand_total.total_revenue,
+            grand_total_komisi: d.grand_total.total_komisi,
+            jumlah_calo: d.calos.length,
+          },
+        });
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [params]);

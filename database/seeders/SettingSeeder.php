@@ -35,16 +35,23 @@ class SettingSeeder extends Seeder
         Setting::set('zona_waktu', 'Asia/Jakarta');
         Setting::set('format_tanggal', 'DD/MM/YYYY');
         Setting::set('prefix_kode_order', 'ORD');
+        Setting::set('durasi_klaim_menit', 30);
+        Setting::set('wajib_bayar_sebelum_antar', '0');
+        Setting::set('notif_task_petugas', '1');
 
         Setting::set('fonnte_token', '');
         Setting::set('nomor_wa_owner', '');
         Setting::set('notif_booking_baru', '1');
         Setting::set('notif_penugasan_driver', '1');
         Setting::set('notif_pembayaran_masuk', '1');
-        Setting::set('notif_kendaraan_terlambat', '1');
+        Setting::set('notif_order_selesai', '1');
+        Setting::set('notif_pengingat_bayar', '1');
         Setting::set('notif_pengingat_kembali', '1');
+        Setting::set('notif_perlu_verifikasi', '1');
         Setting::set('template_penugasan_driver', 'Halo *{nama_driver}*, ada tugas baru:\nAntar {customer} — {kendaraan} ({plat_nomor})\n{tanggal} pukul {jam}\n\nBalas *SIAP* jika bisa, atau *TIDAK* jika berhalangan.');
         Setting::set('template_notifikasi_owner', '*[BOOKING]* {kendaraan} untuk {customer}\nDriver: {driver} — {tanggal}\nStatus: {status}');
+        Setting::set('template_pengingat_bayar', 'Halo {nama_customer}, kami ingin mengingatkan pembayaran untuk order {kode_order} (kendaraan {nama_kendaraan}) senilai {total}. Terima kasih.');
         Setting::set('template_pengingat_kembali', 'Halo *{nama_customer}*, ini pengingat bahwa kendaraan {nama_kendaraan} (*{kode_order}*) harus dikembalikan pada *{tanggal_kembali}* pukul *{jam_kembali}*. Terima kasih.');
+        Setting::set('template_perlu_verifikasi', 'Halo, order {kode_order} ({nama_customer} — {nama_kendaraan}) melewati batas waktu pengembalian dan belum dikonfirmasi. Denda difreeze: {total}. Mohon segera verifikasi di aplikasi.');
     }
 }

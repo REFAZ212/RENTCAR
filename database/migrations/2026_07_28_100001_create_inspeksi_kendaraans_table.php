@@ -22,7 +22,7 @@ return new class extends Migration
             $table->boolean('ada_damagenya')->default(false);
             $table->text('deskripsi_kondisi')->nullable()->comment('Deskripsi detail kondisi kendaraan');
             $table->text('catatan')->nullable()->comment('Catatan tambahan dari petugas');
-            $table->string('foto')->nullable()->path('inspeksi');
+            $table->string('foto')->nullable();
             $table->string('inspeksi_oleh')->nullable()->comment('Nama petugas yang melakukan inspeksi');
             $table->foreignId('admin_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();

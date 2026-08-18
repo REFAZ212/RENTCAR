@@ -22,7 +22,9 @@ class OrderSeeder extends Seeder
         $supirs = SupirCalo::where('jenis', 'supir')->where('status', 'active')->get();
         $calos = SupirCalo::where('jenis', 'calo')->where('status', 'active')->get();
 
-        if ($customers->isEmpty() || $kendaraans->isEmpty()) return;
+        if ($customers->isEmpty() || $kendaraans->isEmpty()) {
+            return;
+        }
 
         $orders = [
             // 1 — ACTIVE: supir + calo, transfer, paid, dalam_penyewaan

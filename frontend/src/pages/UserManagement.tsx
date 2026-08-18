@@ -27,6 +27,9 @@ interface UserForm {
   role: string;
   password: string;
   password_confirmation: string;
+  nyambi_supir: boolean;
+  no_sim: string;
+  tarif_per_hari: string;
 }
 
 const emptyForm: UserForm = {
@@ -36,6 +39,9 @@ const emptyForm: UserForm = {
   role: 'petugas',
   password: '',
   password_confirmation: '',
+  nyambi_supir: false,
+  no_sim: '',
+  tarif_per_hari: '',
 };
 
 export default function UserManagement() {
@@ -82,6 +88,9 @@ export default function UserManagement() {
       role: item.role,
       password: '',
       password_confirmation: '',
+      nyambi_supir: !!item.supir_calo,
+      no_sim: item.supir_calo?.no_sim ?? '',
+      tarif_per_hari: item.supir_calo?.tarif_per_hari != null ? String(item.supir_calo.tarif_per_hari) : '',
     });
     setShowForm(true);
   };
@@ -91,12 +100,17 @@ export default function UserManagement() {
     setSubmitting(true);
     try {
       if (editTarget) {
-        const payload: Record<string, string> = {
+        const payload: Record<string, string | boolean | number> = {
           name: form.name,
           email: form.email,
           phone: form.phone,
           role: form.role,
+          nyambi_supir: form.nyambi_supir,
         };
+        if (form.nyambi_supir) {
+          payload.no_sim = form.no_sim;
+          payload.tarif_per_hari = Number(form.tarif_per_hari) || 0;
+        }
         if (form.password) {
           payload.password = form.password;
           payload.password_confirmation = form.password_confirmation;
@@ -104,7 +118,20 @@ export default function UserManagement() {
         await userAPI.update(editTarget.id, payload as unknown as Record<string, unknown>);
         toastSuccess('User berhasil diperbarui.');
       } else {
-        await userAPI.create(form as unknown as Record<string, unknown>);
+        const payload: Record<string, string | boolean | number> = {
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          role: form.role,
+          password: form.password,
+          password_confirmation: form.password_confirmation,
+          nyambi_supir: form.nyambi_supir,
+        };
+        if (form.nyambi_supir) {
+          payload.no_sim = form.no_sim;
+          payload.tarif_per_hari = Number(form.tarif_per_hari) || 0;
+        }
+        await userAPI.create(payload as unknown as Record<string, unknown>);
         toastSuccess('User berhasil ditambahkan.');
       }
       setShowForm(false);
@@ -190,9 +217,16 @@ export default function UserManagement() {
                     <td className="px-4 py-3 text-black-600">{item.email}</td>
                     <td className="px-4 py-3 text-black-600">{item.phone || '-'}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${roleColors[item.role] ?? 'bg-black-200 text-black-600'}`}>
-                        {roleLabels[item.role] ?? item.role}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${roleColors[item.role] ?? 'bg-black-200 text-black-600'}`}>
+                          {roleLabels[item.role] ?? item.role}
+                        </span>
+                        {item.supir_calo && (
+                          <span className="inline-flex rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-600" title="Nyambi sebagai supir">
+                            Supir
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -250,6 +284,33 @@ export default function UserManagement() {
                   <label className="mb-1 block text-sm font-medium text-black-700">Konfirmasi Password</label>
                   <input type="password" name="password_confirmation" value={form.password_confirmation} onChange={handleFormChange} className={inputClass} />
                 </div>
+              </div>
+              <div className="rounded-xl border border-black-200 p-4">
+                <label className="flex cursor-pointer items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-black-700">Nyambi sebagai supir</span>
+                  <input
+                    type="checkbox"
+                    name="nyambi_supir"
+                    checked={form.nyambi_supir}
+                    onChange={handleFormChange}
+                    className="h-5 w-5 rounded border-black-300 text-primary-600 accent-primary-600"
+                  />
+                </label>
+                <p className="mt-1 text-xs text-black-400">
+                  User ini juga bisa dipilih sebagai supir di order. Nama & No. HP mengikuti data user.
+                </p>
+                {form.nyambi_supir && (
+                  <div className="mt-4 grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-black-700">No. SIM <span className="text-error-500">*</span></label>
+                      <input type="text" name="no_sim" value={form.no_sim} onChange={handleFormChange} required className={inputClass} placeholder="SIM A / B I" />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-black-700">Tarif per hari <span className="text-error-500">*</span></label>
+                      <input type="number" name="tarif_per_hari" value={form.tarif_per_hari} onChange={handleFormChange} required min={0} className={inputClass} placeholder="250000" />
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-600 hover:bg-accent-50">Batal</button>

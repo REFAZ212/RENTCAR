@@ -25,6 +25,7 @@ export interface Customer {
   no_ktp: string | null;
   no_sim: string | null;
   catatan: string | null;
+  deleted_at?: string | null;
   foto_ktp: string | null;
   foto_sim: string | null;
   orders_count?: number;
@@ -47,9 +48,11 @@ export interface Kendaraan {
   warna: string;
   foto: string | null;
   harga_sewa_per_hari: number;
+  harga_partner_per_hari: number | null;
+  margin_per_hari?: number | null;
+  margin_persen?: number | null;
   status: string;
   merek?: string;
-  model?: string;
   tahun?: number;
   kapasitas_penumpang?: number;
   kategori_id?: number;
@@ -65,10 +68,12 @@ export interface Kendaraan {
 
 export interface SupirCalo {
   id: number;
+  user_id?: number | null;
   nama: string;
   no_hp: string;
   jenis: 'supir' | 'calo';
   status: string;
+  no_sim?: string | null;
   tarif_per_hari?: number;
   komisi?: number;
 }
@@ -100,11 +105,15 @@ export interface Order {
   harga_total: number;
   durasi_hari: number;
   metode_pembayaran: 'cash' | 'transfer' | 'qris' | 'lainnya' | null;
-  status_order: 'pending' | 'confirmed' | 'active' | 'completed' | 'cancelled';
+  status_order: 'pending' | 'confirmed' | 'active' | 'perlu_verifikasi' | 'completed' | 'cancelled';
   status_pembayaran: 'unpaid' | 'partial' | 'paid';
-  status_pengiriman: 'belum_diambil' | 'sudah_diantarkan' | 'dalam_penyewaan' | 'selesai';
+  status_pengiriman: 'belum_diambil' | 'sudah_diantarkan' | 'dalam_penyewaan' | 'sudah_dikembalikan' | 'selesai';
+  metode_penyerahan?: 'ambil' | 'antar' | null;
+  opsi_supir?: 'dengan_supir' | 'lepas_kunci' | null;
   supir_id: number | null;
   calo_id: number | null;
+  operator_id: number | null;
+  waktu_klaim: string | null;
   catatan: string | null;
   alasan_pembatalan: string | null;
   bukti_transfer: string | null;
@@ -117,6 +126,8 @@ export interface Order {
   tanggal_jatuh_tempo: string | null;
   biaya_pembatalan: number | null;
   total_refund: number | null;
+  biaya_kerusakan: number | null;
+  operator?: { id: number; name: string; phone: string | null };
   customer?: Customer;
   kendaraan?: Kendaraan;
   supir?: SupirCalo;
@@ -134,6 +145,7 @@ export interface GarasiPartner {
   no_hp?: string;
   alamat?: string;
   status?: string;
+  status_aktif?: boolean;
 }
 
 export interface GarasiRequest {
@@ -147,6 +159,7 @@ export interface GarasiRequest {
 export interface KategoriKendaraan {
   id: number;
   nama_kategori: string;
+  slug?: string;
   deskripsi?: string | null;
   aktif?: boolean;
 }
@@ -164,6 +177,10 @@ export interface KatalogItem extends Kendaraan {
   available_for_dates?: boolean;
   active_orders_count?: number;
   estimated_return_date?: string | null;
+  rented_from?: string | null;
+  rented_until?: string | null;
+  rented_from_time?: string | null;
+  rented_until_time?: string | null;
 }
 
 export interface DashboardSummary {
@@ -275,6 +292,12 @@ export const kendaraanAPI = {
   get: (id: number): Promise<AxiosResponse<SingleResponse<Kendaraan>>> => api.get(`/kendaraans/${id}`),
   create: (data: Payload): Promise<AxiosResponse<SingleResponse<Kendaraan>>> => api.post('/kendaraans', data),
   update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<Kendaraan>>> => api.put(`/kendaraans/${id}`, data),
+  // Laravel tidak bisa terima PUT + multipart/form-data langsung dari browser,
+  // makanya pakai POST dengan field _method=PUT (method spoofing) saat ada file.
+  updateWithFile: (id: number, data: FormData): Promise<AxiosResponse<SingleResponse<Kendaraan>>> => {
+    data.append('_method', 'PUT');
+    return api.post(`/kendaraans/${id}`, data);
+  },
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/kendaraans/${id}`),
 };
 
@@ -287,6 +310,7 @@ export const customerAPI = {
   create: (data: Payload): Promise<AxiosResponse<SingleResponse<Customer>>> => api.post('/customers', data),
   update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<Customer>>> => api.put(`/customers/${id}`, data),
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/customers/${id}`),
+  restore: (id: number): Promise<AxiosResponse<void>> => api.post(`/customers/${id}/restore`),
 };
 
 /* ─────────────────────────────────────────────────────────────
@@ -299,6 +323,12 @@ export const supirCaloAPI = {
   get: (id: number): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.get(`/supir-calos/${id}`),
   create: (data: Payload): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.post('/supir-calos', data),
   update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => api.put(`/supir-calos/${id}`, data),
+  // Laravel tidak bisa terima PUT + multipart/form-data langsung dari browser,
+  // makanya pakai POST dengan field _method=PUT (method spoofing) saat ada file.
+  updateWithFile: (id: number, data: FormData): Promise<AxiosResponse<SingleResponse<SupirCalo>>> => {
+    data.append('_method', 'PUT');
+    return api.post(`/supir-calos/${id}`, data);
+  },
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/supir-calos/${id}`),
 };
 
@@ -314,6 +344,8 @@ export const orderAPI = {
   // makanya pakai POST dengan field _method=PUT (method spoofing) saat ada file.
   updateWithFile: (id: number, data: FormData): Promise<AxiosResponse<Order>> => api.post(`/orders/${id}`, data),
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/orders/${id}`),
+  claim: (id: number): Promise<AxiosResponse<{ message: string; order: Order }>> => api.post(`/orders/${id}/claim`),
+  release: (id: number): Promise<AxiosResponse<{ message: string; order: Order }>> => api.post(`/orders/${id}/release`),
 };
 
 /* ─────────────────────────────────────────────────────────────
@@ -442,6 +474,7 @@ export const notificationAPI = {
 export interface AppSettings {
   overtime_rate_per_hour: number;
   grace_period_minutes: number;
+  biaya_dengan_driver_per_hari?: number;
 }
 
 export const settingsAPI = {
@@ -473,6 +506,33 @@ export const activityLogAPI = {
 };
 
 /* ─────────────────────────────────────────────────────────────
+ * WHATSAPP LOG (riwayat pesan yang diantri / gagal)
+ * ───────────────────────────────────────────────────────────── */
+export interface WhatsappLog {
+  id: number;
+  type: string;
+  order_id: number | null;
+  nomor_tujuan: string;
+  pesan: string;
+  status_kirim: 'diantri' | 'terkirim' | 'gagal' | 'pending';
+  response: string | null;
+  created_at: string;
+  order?: {
+    id: number;
+    kode_order: string;
+    customer?: { id: number; nama_lengkap: string };
+    kendaraan?: { id: number; nama_kendaraan: string };
+  } | null;
+}
+
+export const whatsappLogAPI = {
+  list: (params?: QueryParams): Promise<AxiosResponse<ListResponse<WhatsappLog>>> =>
+    api.get('/whatsapp-logs', { params }),
+  retry: (id: number): Promise<AxiosResponse<{ message: string }>> =>
+    api.post(`/whatsapp-logs/${id}/retry`),
+};
+
+/* ─────────────────────────────────────────────────────────────
  * USERS (admin manajemen user)
  * ───────────────────────────────────────────────────────────── */
 export interface AppUser {
@@ -482,6 +542,7 @@ export interface AppUser {
   phone: string | null;
   role: 'admin_utama' | 'admin_operasional' | 'petugas';
   avatar: string | null;
+  supir_calo?: { id: number; no_sim: string | null; tarif_per_hari: string | number | null } | null;
   created_at: string;
 }
 
@@ -500,17 +561,24 @@ export interface InspeksiKendaraan {
   id: number;
   order_id: number;
   jenis: 'pickup' | 'return';
+  status?: 'draft' | 'final';
   odometer: number | null;
-  fuel_level: 'full' | '3/4' | '1/2' | '1/4' | 'kosong';
+  fuel_level: 'kosong' | '1/8' | '1/4' | '3/8' | '1/2' | '5/8' | '3/4' | '7/8' | 'full';
   kondisi_body: 'baik' | 'lecet_ringan' | 'lecet_parah' | 'penyok' | 'retak';
-  kondisi_interior: 'baik' | 'kotor_ringan' | 'kotor_banyak' | 'rusak';
-  kondisi_ban: 'baik' | 'tipis' | 'gundul' | 'kosong';
-  kondisi_ac: 'baik' | 'tidak_baik';
-  kondisi_lampu: 'baik' | 'tidak_baik';
+  kondisi_interior: 'baik' | 'kotor_ringan' | 'kotor_banyak' | 'rusak' | null;
+  kondisi_ban: 'baik' | 'tipis' | 'gundul' | 'kosong' | null;
+  kondisi_ac: 'baik' | 'tidak_baik' | null;
+  kondisi_lampu: 'baik' | 'tidak_baik' | null;
   ada_damagenya: boolean;
   deskripsi_kondisi: string | null;
   catatan: string | null;
   foto: string | null;
+  fotos: string[] | null;
+  videos: string[] | null;
+  checklist_serah_terima: string[] | null;
+  ttd_customer: string | null;
+  ttd_petugas: string | null;
+  biaya_kerusakan: string | number | null;
   inspeksi_oleh: string | null;
   admin_id: number | null;
   admin?: { id: number; name: string };
@@ -529,4 +597,64 @@ export const inspeksiAPI = {
   },
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/inspeksi-kendaraans/${id}`),
   byOrder: (orderId: number): Promise<AxiosResponse<InspeksiKendaraan[]>> => api.get(`/orders/${orderId}/inspeksi`),
+  tasks: (): Promise<AxiosResponse<(Order & { task_jenis: 'inspeksi_pickup' | 'kirim_kendaraan' | 'return' })[]>> => api.get('/inspeksi-tasks'),
+  kirim: (orderId: number, data: FormData): Promise<AxiosResponse<InspeksiKendaraan>> => api.post(`/orders/${orderId}/kirim`, data),
+  kembali: (orderId: number, data: FormData): Promise<AxiosResponse<InspeksiKendaraan>> => api.post(`/orders/${orderId}/kembali`, data),
+  perbaikiTtd: (id: number, data: FormData): Promise<AxiosResponse<InspeksiKendaraan>> => api.post(`/inspeksi-kendaraans/${id}/perbaiki-ttd`, data),
+};
+
+/* ─────────────────────────────────────────────────────────────
+ * GPS (pelacakan kendaraan via perangkat tracker)
+ * ───────────────────────────────────────────────────────────── */
+export interface GpsVehicleLive {
+  kendaraan_id: number;
+  plat_nomor: string;
+  nama_kendaraan: string;
+  status_sewa: string;
+  driver: string | null;
+  device_id: number;
+  status: 'bergerak' | 'diam' | 'offline';
+  speed_kmh: number;
+  fuel_percent: number | null;
+  last_update: string;
+  lat: number;
+  lng: number;
+}
+
+export interface GpsHistoryPoint {
+  lat: number;
+  lng: number;
+  speed_kmh: number;
+  fuel_percent: number | null;
+  recorded_at: string;
+}
+
+export interface GpsDevice {
+  id: number;
+  kendaraan_id: number;
+  api_key: string;
+  device_identifier: string | null;
+  nama_perangkat: string | null;
+  status_aktif: boolean;
+  catatan: string | null;
+  kendaraan?: { id: number; nama_kendaraan: string; plat_nomor: string };
+  created_at: string;
+}
+
+export const gpsAPI = {
+  latest: (): Promise<AxiosResponse<{ data: GpsVehicleLive[] }>> => api.get('/gps/latest'),
+  history: (kendaraanId: number, params?: { from?: string; to?: string; limit?: number }): Promise<AxiosResponse<{ data: GpsHistoryPoint[] }>> =>
+    api.get(`/gps/kendaraans/${kendaraanId}/history`, { params }),
+  devices: (): Promise<AxiosResponse<{ data: GpsDevice[] }>> => api.get('/gps-devices'),
+  createDevice: (data: Payload): Promise<AxiosResponse<GpsDevice>> => api.post('/gps-devices', data),
+  updateDevice: (id: number, data: Payload): Promise<AxiosResponse<GpsDevice>> => api.put(`/gps-devices/${id}`, data),
+  deleteDevice: (id: number): Promise<AxiosResponse<{ message: string }>> => api.delete(`/gps-devices/${id}`),
+  push: (data: {
+    api_key: string;
+    lat: number;
+    lng: number;
+    speed_kmh?: number;
+    fuel_percent?: number;
+    recorded_at?: string;
+  }): Promise<AxiosResponse<unknown>> => api.post('/gps/push', data),
 };
