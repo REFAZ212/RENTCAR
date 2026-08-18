@@ -7,7 +7,7 @@ import { vehicleStatusStyles, vehicleStatusLabels, type StatusKendaraan } from '
 import ConfirmModal from '../components/ConfirmModal';
 
 function makeEmptyForm(garasiId) {
-  return { garasi_partner_id: garasiId || '', kategori_id: '', tipe_id: '', nama_kendaraan: '', plat_nomor: '', merek: '', tahun: new Date().getFullYear(), warna: '', kapasitas_penumpang: 7, harga_sewa_per_hari: '', harga_partner_per_hari: '', status: 'tersedia', catatan: '' };
+  return { garasi_partner_id: garasiId || '', kategori_id: '', tipe_id: '', nama_kendaraan: '', plat_nomor: '', merek: '', model: '', tahun: new Date().getFullYear(), warna: '', kapasitas_penumpang: 7, harga_sewa_per_hari: '', harga_partner_per_hari: '', status: 'tersedia', catatan: '' };
 }
 
 interface GarasiWithKendaraan extends GarasiPartner {
@@ -22,6 +22,7 @@ interface KendaraanForm {
   nama_kendaraan: string;
   plat_nomor: string;
   merek: string;
+  model: string;
   tahun: number | string;
   warna: string;
   kapasitas_penumpang: number | string;
@@ -149,7 +150,7 @@ export default function GarasiSaya() {
       garasi_partner_id: item.garasi_partner_id, kategori_id: item.kategori_id || '',
       tipe_id: item.tipe_id || '',
       nama_kendaraan: item.nama_kendaraan,
-      plat_nomor: item.plat_nomor, merek: item.merek,
+      plat_nomor: item.plat_nomor, merek: item.merek, model: item.model || '',
       tahun: item.tahun, warna: item.warna, kapasitas_penumpang: item.kapasitas_penumpang,
       harga_sewa_per_hari: item.harga_sewa_per_hari, harga_partner_per_hari: item.harga_partner_per_hari ?? '', status: item.status, catatan: item.catatan || '',
     });
@@ -309,6 +310,11 @@ export default function GarasiSaya() {
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-black-700 mb-1">Model *</label>
+                  <input type="text" value={form.model} onChange={(e) => setField('model', e.target.value)} required
+                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-black-700 mb-1">Tahun *</label>
                   <input type="number" value={form.tahun} onChange={(e) => setField('tahun', e.target.value)} required min="1990"
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
@@ -450,7 +456,7 @@ export default function GarasiSaya() {
                       )}
                       <div>
                         <div className="font-medium text-black-900">{item.nama_kendaraan}</div>
-                        <div className="text-xs text-black-400">{item.merek} · {item.tahun}</div>
+                        <div className="text-xs text-black-400">{item.merek} {item.model} · {item.tahun}</div>
                       </div>
                     </div>
                   </td>

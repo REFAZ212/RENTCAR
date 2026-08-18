@@ -63,7 +63,7 @@
             <div class="info-box">
                 <h3>Kendaraan</h3>
                 <p><span class="label">Kendaraan</span> {{ $order->kendaraan->nama_kendaraan ?? '-' }}</p>
-                <p><span class="label">Plat</span> {{ $order->kendaraan->no_polisi ?? '-' }}</p>
+                <p><span class="label">Plat</span> {{ $order->kendaraan->plat_nomor ?? '-' }}</p>
                 <p><span class="label">Kategori</span> {{ $order->kendaraan->kategori->nama_kategori ?? '-' }}</p>
             </div>
             <div class="info-box">
@@ -253,9 +253,9 @@
                     <tr>
                         <td class="label">Status Pembayaran</td>
                         <td class="value">
-                            @if($order->status_pembayaran === 'lunas')
+                            @if($order->status_pembayaran === 'paid')
                                 <span class="payment-status status-lunas">LUNAS</span>
-                            @elseif($order->status_pembayaran === 'dp')
+                            @elseif($order->status_pembayaran === 'partial')
                                 <span class="payment-status status-dp">DP</span>
                             @else
                                 <span class="payment-status status-belum">BELUM BAYAR</span>

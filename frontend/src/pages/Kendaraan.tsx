@@ -21,7 +21,7 @@ import KategoriTipeQuickCreate from '../components/KategoriTipeQuickCreate';
 import { RotateCcw, Pencil, Trash2, Eye } from 'lucide-react';
 
 type Kendaraan = ApiKendaraan & {
-  garasi_partner?: { nama_partner: string };
+  garasiPartner?: { nama_partner: string };
   garasi_partner_id?: number;
   kategori?: KategoriKendaraan;
   tipe?: TipeKendaraan;
@@ -1041,7 +1041,7 @@ export default function Kendaraan() {
                   <DetailField label="Tipe" value={detailItem.tipe?.nama_tipe || '-'} />
                   <DetailField label="Kapasitas" value={`${detailItem.kapasitas_penumpang} orang`} />
                   <DetailField label="Tarif/Hari" value={formatRupiah(detailItem.harga_sewa_per_hari)} />
-                  <DetailField label="Lokasi / Garasi" value={detailItem.garasi_partner?.nama_partner || '-'} full />
+                  <DetailField label="Lokasi / Garasi" value={detailItem.garasiPartner?.nama_partner || '-'} full />
                   {detailItem.catatan && <DetailField label="Catatan" value={detailItem.catatan} full />}
                 </div>
 
@@ -1224,9 +1224,9 @@ export default function Kendaraan() {
                 <div className="mb-3 flex flex-wrap gap-1.5 text-xs text-black-400">
                   {item.kategori?.nama_kategori && <span className="rounded-full bg-canvas px-2 py-0.5">{item.kategori.nama_kategori}</span>}
                   {item.tipe?.nama_tipe && <span className="rounded-full bg-canvas px-2 py-0.5">{item.tipe.nama_tipe}</span>}
-                  {item.garasi_partner?.nama_partner && (
+                  {item.garasiPartner?.nama_partner && (
                     <>
-                      <span className="rounded-full bg-canvas px-2 py-0.5">{item.garasi_partner.nama_partner}</span>
+                      <span className="rounded-full bg-canvas px-2 py-0.5">{item.garasiPartner.nama_partner}</span>
                       {canManageMaster && item.harga_partner_per_hari && item.margin_per_hari !== null && item.margin_per_hari !== undefined && (
                         <span className="rounded-full bg-accent-50 text-accent-700 px-2 py-0.5 font-medium flex items-center gap-1">
                           <span className="text-[10px]">💰</span>

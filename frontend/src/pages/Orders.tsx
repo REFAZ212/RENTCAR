@@ -2500,7 +2500,7 @@ export default function Orders() {
                             <p className={`truncate text-sm font-semibold leading-tight ${!available ? 'text-black-400' : 'text-black-900'}`}>{k.nama_kendaraan}</p>
                             <p className="font-mono text-xs text-black-400">{k.plat_nomor}</p>
                             <div className="flex items-center gap-1.5">
-                              <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-black-200" style={{ backgroundColor: k.warna }} />
+                              <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-black-200" style={{ backgroundColor: warnaKendaraanHex(k.warna) || '#E5E7EB' }} />
                               <span className="truncate text-xs text-black-400">{k.warna}</span>
                             </div>
                             <p className={`text-xs font-bold ${!available ? 'text-black-400' : 'text-primary-600'}`}>{formatRupiah(k.harga_sewa_per_hari)}/hari</p>

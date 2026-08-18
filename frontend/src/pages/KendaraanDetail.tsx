@@ -371,7 +371,7 @@ export default function KendaraanDetail() {
           </div>
 
           {/* Garasi */}
-          {item.garasi_partner && (
+          {item.garasiPartner && (
             <div className="mt-4 pt-4 border-t border-accent-100 flex items-center gap-2 text-sm text-black-400">
               <svg className="w-4 h-4 text-black-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -382,7 +382,7 @@ export default function KendaraanDetail() {
                 />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              Garasi: <span className="font-medium text-black-900">{item.garasi_partner.nama_garasi}</span>
+              Garasi: <span className="font-medium text-black-900">{item.garasiPartner.nama_partner}</span>
             </div>
           )}
         </section>

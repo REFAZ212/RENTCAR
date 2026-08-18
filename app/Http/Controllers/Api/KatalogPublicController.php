@@ -75,7 +75,7 @@ class KatalogPublicController extends Controller
             default => $query->orderBy('created_at', 'desc'),
         };
 
-        $perPage = min((int) $request->input('per_page', 12), 48);
+        $perPage = max(1, min((int) $request->input('per_page', 12), 48));
         $kendaraan = $query->paginate($perPage);
 
         $items = $kendaraan->items();

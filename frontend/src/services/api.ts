@@ -58,13 +58,12 @@ export interface Kendaraan {
   kapasitas_penumpang?: number;
   kategori_id?: number;
   tipe_id?: number;
-  garasiPartner?: { nama_partner: string };
+  garasiPartner?: GarasiPartner;
   active_orders_count?: number;
   catatan?: string | null;
   garasi_partner_id?: number;
   kategori?: KategoriKendaraan;
   tipe?: TipeKendaraan;
-  garasi_partner?: GarasiPartner;
 }
 
 export interface SupirCalo {

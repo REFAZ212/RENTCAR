@@ -190,6 +190,7 @@ function GarasiPartnerTab() {
       nama_kendaraan: k.nama_kendaraan,
       plat_nomor: k.plat_nomor,
       merek: k.merek,
+      model: k.model || '',
       tahun: k.tahun,
       warna: k.warna,
       kapasitas_penumpang: k.kapasitas_penumpang,
@@ -237,6 +238,7 @@ function GarasiPartnerTab() {
       nama_kendaraan: '',
       plat_nomor: '',
       merek: '',
+      model: '',
       tahun: new Date().getFullYear(),
       warna: '',
       kapasitas_penumpang: 7,
@@ -418,6 +420,11 @@ function GarasiPartnerTab() {
                 <div>
                   <label className="block text-sm font-medium text-black-700 mb-1">Merek *</label>
                   <input type="text" value={kendaraanForm.merek || ''} onChange={(e) => setKendaraanField('merek', e.target.value)} required
+                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-black-700 mb-1">Model *</label>
+                  <input type="text" value={kendaraanForm.model || ''} onChange={(e) => setKendaraanField('model', e.target.value)} required
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
                 </div>
                 <div>
@@ -625,7 +632,7 @@ function GarasiPartnerTab() {
                                       </td>
                                       <td className="px-4 py-2.5">
                                         <div className="font-medium text-black-900">{k.nama_kendaraan}</div>
-                                        <div className="text-xs text-black-400">{k.merek} · {k.tahun}</div>
+                                        <div className="text-xs text-black-400">{k.merek} {k.model} · {k.tahun}</div>
                                       </td>
                                       <td className="px-4 py-2.5 font-mono text-sm text-black-700">{k.plat_nomor}</td>
                                       <td className="px-4 py-2.5 text-black-400">{k.kategori?.nama_kategori || '-'}</td>
