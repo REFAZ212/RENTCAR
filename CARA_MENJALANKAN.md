@@ -267,6 +267,8 @@ npm run lint
 | Port 8000 sudah dipakai | Jalankan `php artisan serve --port=8001` |
 | Port 5173 sudah dipakai | Vite akan otomatis menggunakan port berikutnya |
 | Frontend tidak bisa koneksi ke API | Pastikan backend berjalan di port 8000 (proxy setting) |
+| Notifikasi WhatsApp tidak terkirim (log di `/wa-logs` mengendap status "diantri") | Pastikan **queue worker** berjalan: `php artisan queue:listen --tries=1 --timeout=0` (tergabung di `composer dev`). Cek juga token Fonnte & nomor tujuan di Pengaturan → Notifikasi |
+| Notifikasi WhatsApp gagal ("Nomor tujuan kosong") | Lengkapi nomor HP petugas (Manajemen User) / supir (Supir & Calo) yang terkait |
 | Migrasi gagal | Jalankan `php artisan migrate:fresh` untuk reset database |
 | `.env` belum ada | Jalankan `copy .env.example .env` lalu `php artisan key:generate` |
 | Node modules error | Jalankan `cd frontend && npm install` |

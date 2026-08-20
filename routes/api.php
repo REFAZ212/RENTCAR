@@ -42,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/supir/logout', [SupirAuthController::class, 'logout']);
     Route::get('/supir/me', [SupirAuthController::class, 'me']);
+    Route::post('/supir/ubah-password', [SupirAuthController::class, 'ubahPassword']);
 
     Route::get('/dashboard', [DashboardController::class, 'index']);
     Route::get('/dashboard/chart', [DashboardController::class, 'chart']);

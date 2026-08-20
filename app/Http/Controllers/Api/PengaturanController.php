@@ -4,10 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Setting;
+use App\Services\BackupService;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -33,7 +33,7 @@ class PengaturanController extends Controller
             'nama' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,'.$request->user()->id,
             'no_hp' => 'nullable|string|max:20',
-            'avatar' => 'nullable|image|max:2048',
+            'avatar' => 'nullable|image|max:2048|dimensions:max_width=10000,max_height=10000',
         ]);
 
         $user = $request->user();
@@ -185,6 +185,9 @@ class PengaturanController extends Controller
             'notif_booking_baru' => Setting::get('notif_booking_baru', '1') === '1',
             'notif_penugasan_driver' => Setting::get('notif_penugasan_driver', '1') === '1',
             'notif_task_petugas' => Setting::get('notif_task_petugas', '1') === '1',
+            'notif_supir_order_mulai' => Setting::get('notif_supir_order_mulai', '1') === '1',
+            'notif_supir_order_selesai' => Setting::get('notif_supir_order_selesai', '1') === '1',
+            'notif_pengingat_kembali_supir' => Setting::get('notif_pengingat_kembali_supir', '1') === '1',
             'notif_pembayaran_masuk' => Setting::get('notif_pembayaran_masuk', '1') === '1',
             'notif_pengingat_bayar' => Setting::get('notif_pengingat_bayar', '1') === '1',
             'notif_perlu_verifikasi' => Setting::get('notif_perlu_verifikasi', '1') === '1',
@@ -192,6 +195,10 @@ class PengaturanController extends Controller
             'notif_pengingat_kembali' => Setting::get('notif_pengingat_kembali', '1') === '1',
             'kirim_hasil_inspeksi_ke_customer' => Setting::get('kirim_hasil_inspeksi_ke_customer', '1') === '1',
             'template_penugasan_driver' => Setting::get('template_penugasan_driver', ''),
+            'template_task_petugas' => Setting::get('template_task_petugas', ''),
+            'template_supir_order_mulai' => Setting::get('template_supir_order_mulai', ''),
+            'template_supir_order_selesai' => Setting::get('template_supir_order_selesai', ''),
+            'template_pengingat_kembali_supir' => Setting::get('template_pengingat_kembali_supir', ''),
             'template_notifikasi_owner' => Setting::get('template_notifikasi_owner', ''),
             'template_pengingat_bayar' => Setting::get('template_pengingat_bayar', ''),
             'template_pengingat_kembali' => Setting::get('template_pengingat_kembali', ''),
@@ -207,6 +214,9 @@ class PengaturanController extends Controller
             'notif_booking_baru' => 'boolean',
             'notif_penugasan_driver' => 'boolean',
             'notif_task_petugas' => 'boolean',
+            'notif_supir_order_mulai' => 'boolean',
+            'notif_supir_order_selesai' => 'boolean',
+            'notif_pengingat_kembali_supir' => 'boolean',
             'notif_pembayaran_masuk' => 'boolean',
             'notif_pengingat_bayar' => 'boolean',
             'notif_perlu_verifikasi' => 'boolean',
@@ -214,20 +224,24 @@ class PengaturanController extends Controller
             'notif_pengingat_kembali' => 'boolean',
             'kirim_hasil_inspeksi_ke_customer' => 'boolean',
             'template_penugasan_driver' => 'nullable|string',
+            'template_task_petugas' => 'nullable|string',
+            'template_supir_order_mulai' => 'nullable|string',
+            'template_supir_order_selesai' => 'nullable|string',
+            'template_pengingat_kembali_supir' => 'nullable|string',
             'template_notifikasi_owner' => 'nullable|string',
             'template_pengingat_bayar' => 'nullable|string',
             'template_pengingat_kembali' => 'nullable|string',
             'template_perlu_verifikasi' => 'nullable|string',
         ]);
 
-        $booleanFields = ['notif_booking_baru', 'notif_penugasan_driver', 'notif_task_petugas', 'notif_pembayaran_masuk', 'notif_pengingat_bayar', 'notif_perlu_verifikasi', 'notif_order_selesai', 'notif_pengingat_kembali', 'kirim_hasil_inspeksi_ke_customer'];
+        $booleanFields = ['notif_booking_baru', 'notif_penugasan_driver', 'notif_task_petugas', 'notif_supir_order_mulai', 'notif_supir_order_selesai', 'notif_pengingat_kembali_supir', 'notif_pembayaran_masuk', 'notif_pengingat_bayar', 'notif_perlu_verifikasi', 'notif_order_selesai', 'notif_pengingat_kembali', 'kirim_hasil_inspeksi_ke_customer'];
         foreach ($booleanFields as $field) {
             if (isset($validated[$field])) {
                 Setting::set($field, $validated[$field] ? '1' : '0');
             }
         }
 
-        $stringFields = ['fonnte_token', 'nomor_wa_owner', 'template_penugasan_driver', 'template_notifikasi_owner', 'template_pengingat_bayar', 'template_pengingat_kembali', 'template_perlu_verifikasi'];
+        $stringFields = ['fonnte_token', 'nomor_wa_owner', 'template_penugasan_driver', 'template_task_petugas', 'template_supir_order_mulai', 'template_supir_order_selesai', 'template_pengingat_kembali_supir', 'template_notifikasi_owner', 'template_pengingat_bayar', 'template_pengingat_kembali', 'template_perlu_verifikasi'];
         foreach ($stringFields as $field) {
             if (! array_key_exists($field, $validated)) {
                 continue;
@@ -264,13 +278,20 @@ class PengaturanController extends Controller
             ."Pesan ini dikirim untuk memverifikasi koneksi WhatsApp gateway.\n"
             .'Waktu: *'.now()->format('d/m/Y H:i').' WIB*';
 
-        $success = $wa->kirimPesan($validated['nomor'], $pesan);
+        [$success, $response] = $wa->kirimPesanDetail($validated['nomor'], $pesan, 'test_gateway');
 
         if ($success) {
             return response()->json(['message' => 'Pesan test berhasil dikirim.']);
         }
 
-        return response()->json(['message' => 'Gagal mengirim pesan test. Cek token gateway.'], 422);
+        $alasan = $response['error']
+            ?? $response['reason']
+            ?? $response['detail']
+            ?? (is_string($response) ? $response : json_encode($response));
+
+        return response()->json([
+            'message' => 'Gagal mengirim pesan test: '.mb_substr((string) $alasan, 0, 200),
+        ], 422);
     }
 
     public function getSistem(): JsonResponse
@@ -301,62 +322,17 @@ class PengaturanController extends Controller
         return response()->json(['message' => 'Preferensi sistem berhasil disimpan.']);
     }
 
+    /**
+     * Download backup sanitasi: SEMUA tabel (termasuk inspeksi, TTD, log
+     * aktivitas, GPS) dengan hash password & token gateway dikosongkan.
+     * Backup lengkap otomatis tersedia via perintah terjadwal `backup:database`.
+     */
     public function backup(): BinaryFileResponse
     {
-        $timestamp = now()->format('Y-m-d_His');
-        $filename = "backup-udin-renctcar-{$timestamp}.sql";
+        $service = app(BackupService::class);
+        $path = $service->createSanitizedDump();
 
-        $tables = [
-            'users', 'orders', 'customers', 'kendaraans', 'garasi_partners',
-            'garasi_requests', 'pembayarans', 'whatsapp_logs', 'notifications',
-            'settings', 'kategoris', 'tipes', 'supir_calos',
-        ];
-
-        $sensitiveColumns = [
-            'users' => ['password'],
-            'settings' => [],
-        ];
-
-        $dump = "-- Backup UDIN RENCTCAR {$timestamp}\n-- =============================\n\n";
-
-        foreach ($tables as $table) {
-            $driver = DB::getDriverName();
-            if (in_array($driver, ['mysql', 'mariadb'])) {
-                $createTable = DB::select("SHOW CREATE TABLE `{$table}`");
-                if (! empty($createTable)) {
-                    $dump .= "DROP TABLE IF EXISTS `{$table}`;\n";
-                    $dump .= $createTable[0]->{'Create Table'}.";\n\n";
-                }
-            }
-
-            $rows = DB::table($table)->get();
-            if ($rows->isEmpty()) {
-                continue;
-            }
-
-            $columns = array_keys((array) $rows->first());
-            $excludeCols = $sensitiveColumns[$table] ?? [];
-            $columns = array_values(array_diff($columns, $excludeCols));
-            $columnList = '`'.implode('`, `', $columns).'`';
-
-            foreach ($rows as $row) {
-                $rowData = (array) $row;
-                $rowData = array_intersect_key($rowData, array_flip($columns));
-
-                if ($table === 'settings' && ($rowData['key'] ?? '') === 'fonnte_token') {
-                    $rowData['value'] = '';
-                }
-
-                $values = array_map(fn ($v) => $v === null ? 'NULL' : "'".addslashes((string) $v)."'", $rowData);
-                $dump .= "INSERT INTO `{$table}` ({$columnList}) VALUES (".implode(', ', $values).");\n";
-            }
-            $dump .= "\n";
-        }
-
-        $tempPath = storage_path("app/{$filename}");
-        file_put_contents($tempPath, $dump);
-
-        return response()->download($tempPath, $filename, [
+        return response()->download($path, basename($path), [
             'Content-Type' => 'text/plain',
         ])->deleteFileAfterSend(true);
     }

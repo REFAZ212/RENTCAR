@@ -87,7 +87,9 @@ class Kendaraan extends Model
 
     public function activeOrders(): HasMany
     {
-        return $this->hasMany(Order::class)->whereIn('status_order', ['pending', 'confirmed', 'active']);
+        return $this->hasMany(Order::class)
+            ->whereNull('deleted_at')
+            ->whereIn('status_order', ['pending', 'confirmed', 'active']);
     }
 
     public function gpsDevices(): HasMany

@@ -342,11 +342,14 @@ class Order extends Model
         $hargaDasar = (float) $this->harga_per_hari * $durasiAktual;
 
         $supirTarif = 0;
-        if ($this->supir_id) {
+        if ($this->opsi_supir === 'dengan_supir') {
+            // Harga "dengan supir" memakai tarif global — harga kesepakatan
+            // awal tidak berubah walau supirnya berbeda (misal hasil klaim).
+            $supirTarif = (float) Setting::getTarifDenganDriverPerHari();
+        } elseif ($this->supir_id) {
+            // Data lama: order "lepas kunci" yang punya supir tertentu.
             $supir = SupirCalo::find($this->supir_id);
             $supirTarif = (float) ($supir?->tarif_per_hari ?? 0);
-        } elseif ($this->opsi_supir === 'dengan_supir') {
-            $supirTarif = (float) Setting::getTarifDenganDriverPerHari();
         }
 
         // Order yang pernah di-freeze oleh OrderVerifyOverdue (perlu_verifikasi):

@@ -191,6 +191,12 @@ class OrderVerifyOverdue extends Command
             'total' => 'Rp '.number_format((float) $hitung['denda_overtime'], 0, ',', '.'),
         ]);
         $wa->kirimKeOwnerAsync($pesan, 'perlu_verifikasi_freeze', $order->id);
+
+        if ($order->customer?->no_hp) {
+            $namaKendaraan = $order->kendaraan?->nama_kendaraan ?? 'sewa Anda';
+            $pesanCustomer = "Halo {$order->customer->nama_lengkap}, kendaraan {$namaKendaraan} dengan order {$order->kode_order} sudah melewati batas waktu pengembalian. Mohon segera kembalikan kendaraan ke garasi. Denda keterlambatan terhitung: Rp ".number_format((float) $hitung['denda_overtime'], 0, ',', '.').'.';
+            $wa->kirimPesanAsync($order->customer->no_hp, $pesanCustomer, 'notifikasi_customer', $order->id);
+        }
     }
 
     private function kirimNotifikasiAutoComplete(Order $order): void
@@ -212,6 +218,12 @@ class OrderVerifyOverdue extends Command
                 .'Denda terkunci: Rp '.number_format((float) $order->denda_overtime, 0, ',', '.')."\n"
                 .'Periksa dan koreksi jika perlu.';
             $wa->kirimKeOwnerAsync($pesan, 'perlu_verifikasi_auto_complete', $order->id);
+
+            if ($order->customer?->no_hp) {
+                $namaKendaraan = $order->kendaraan?->nama_kendaraan ?? 'sewa Anda';
+                $pesanCustomer = "Halo {$order->customer->nama_lengkap}, order {$order->kode_order} ({$namaKendaraan}) telah diselesaikan karena melewati batas waktu verifikasi pengembalian. Denda keterlambatan terkunci: Rp ".number_format((float) $order->denda_overtime, 0, ',', '.').'. Hubungi kami jika ada pertanyaan.';
+                $wa->kirimPesanAsync($order->customer->no_hp, $pesanCustomer, 'notifikasi_customer', $order->id);
+            }
         }
     }
 }

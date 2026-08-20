@@ -92,12 +92,20 @@ interface NotifikasiForm {
   nomor_wa_owner: string;
   notif_booking_baru: boolean;
   notif_penugasan_driver: boolean;
+  notif_task_petugas: boolean;
+  notif_supir_order_mulai: boolean;
+  notif_supir_order_selesai: boolean;
+  notif_pengingat_kembali_supir: boolean;
   notif_pembayaran_masuk: boolean;
   notif_pengingat_bayar: boolean;
   notif_perlu_verifikasi: boolean;
   notif_order_selesai: boolean;
   notif_pengingat_kembali: boolean;
   template_penugasan_driver: string;
+  template_task_petugas: string;
+  template_supir_order_mulai: string;
+  template_supir_order_selesai: string;
+  template_pengingat_kembali_supir: string;
   template_notifikasi_owner: string;
   template_pengingat_bayar: string;
   template_pengingat_kembali: string;
@@ -122,6 +130,10 @@ const HARI_DEFAULT: JamOperasional[] = [
 ];
 
 const TEMPLATE_VARS_DRIVER = ['{nama_driver}', '{customer}', '{kendaraan}', '{plat_nomor}', '{tanggal}', '{jam}'];
+const TEMPLATE_VARS_TASK = ['{kode_order}', '{jenis_task}', '{nama_kendaraan}', '{nama_customer}', '{tanggal}', '{opsi_supir}', '{tanggal_kembali}', '{jam_kembali}'];
+const TEMPLATE_VARS_SUPIR_MULAI = ['{nama_driver}', '{kode_order}', '{nama_kendaraan}', '{plat_nomor}', '{nama_customer}', '{tanggal}', '{tanggal_selesai}', '{jam_mulai}'];
+const TEMPLATE_VARS_SUPIR_SELESAI = ['{nama_driver}', '{kode_order}', '{nama_kendaraan}', '{plat_nomor}', '{nama_customer}', '{durasi_hari}', '{tarif_per_hari}', '{total_supir}'];
+const TEMPLATE_VARS_KEMBALI_SUPIR = ['{nama_driver}', '{nama_kendaraan}', '{plat_nomor}', '{kode_order}', '{tanggal_kembali}', '{jam_kembali}'];
 const TEMPLATE_VARS_OWNER = ['{kendaraan}', '{customer}', '{driver}', '{tanggal}', '{status}'];
 const TEMPLATE_VARS_PAYMENT = ['{nama_customer}', '{kode_order}', '{kendaraan}', '{total}'];
 const TEMPLATE_VARS_KEMBALI = ['{nama_customer}', '{nama_kendaraan}', '{kode_order}', '{tanggal_kembali}', '{jam_kembali}'];
@@ -871,6 +883,10 @@ function NotifikasiTab() {
     nomor_wa_owner: '',
     notif_booking_baru: true,
     notif_penugasan_driver: true,
+    notif_task_petugas: true,
+    notif_supir_order_mulai: true,
+    notif_supir_order_selesai: true,
+    notif_pengingat_kembali_supir: true,
     notif_pembayaran_masuk: true,
     notif_pengingat_bayar: true,
     notif_perlu_verifikasi: true,
@@ -878,6 +894,14 @@ function NotifikasiTab() {
     notif_pengingat_kembali: true,
     template_penugasan_driver:
       'Halo {nama_driver}, ada tugas baru:\nAntar {customer} — {kendaraan} ({plat_nomor})\n{tanggal} pukul {jam}\n\nBalas SIAP jika bisa, atau TIDAK jika berhalangan.',
+    template_task_petugas:
+      '📋 *Task Baru untuk Petugas*\n\nOrder: *{kode_order}*\nJenis: {jenis_task}\nKendaraan: {nama_kendaraan}\nCustomer: {nama_customer}\nTanggal: {tanggal}\nSupir: {opsi_supir}\n\nBuka aplikasi → tekan *AMBIL TUGAS* untuk mengerjakan inspeksi. Siapa cepat dia dapat!',
+    template_supir_order_mulai:
+      'Halo *{nama_driver}*, tugas untuk order *{kode_order}* sudah mulai.\nKendaraan: {nama_kendaraan} ({plat_nomor})\nCustomer: {nama_customer}\nPeriode: {tanggal} s/d {tanggal_selesai}\n\nSelamat bekerja, hati-hati di jalan!',
+    template_supir_order_selesai:
+      'Halo *{nama_driver}*, order *{kode_order}* telah *SELESAI* ✅\nKendaraan: {nama_kendaraan} ({plat_nomor})\nCustomer: {nama_customer}\nDurasi: {durasi_hari} hari\nTarif: {tarif_per_hari}/hari\nTotal pendapatan: *{total_supir}*\n\nTerima kasih atas kerja samanya!',
+    template_pengingat_kembali_supir:
+      'Halo *{nama_driver}*, pengingat: kendaraan {nama_kendaraan} ({plat_nomor}) order *{kode_order}* harus dikembalikan pada *{tanggal_kembali}* pukul *{jam_kembali}*. Siapkan diri untuk proses pengembalian.',
     template_notifikasi_owner: '[BOOKING] {kendaraan} untuk {customer}\nDriver: {driver} — {tanggal}\nStatus: {status}',
     template_pengingat_bayar:
       'Halo {nama_customer}, ini pengingat untuk pembayaran sewa {kendaraan} (Order {kode_order}).\nTotal: {total}\n\nSegera lakukan pembayaran agar proses berjalan lancar. Terima kasih!',
@@ -920,6 +944,21 @@ function NotifikasiTab() {
       toast.success('Pesan test berhasil dikirim, cek WhatsApp Anda');
     } catch (err) {
       console.error(err);
+      if (isAxiosError(err) && err.response?.data) {
+        const errors = err.response.data.errors;
+        if (errors) {
+          const msg = Object.values(errors).flat().join(' ');
+          if (msg) {
+            toast.error(msg);
+            return;
+          }
+        }
+        const msg = err.response.data.message;
+        if (typeof msg === 'string' && msg) {
+          toast.error(msg);
+          return;
+        }
+      }
       toast.error('Gagal mengirim pesan test — cek token gateway');
     } finally {
       setTesting(false);
@@ -991,6 +1030,30 @@ function NotifikasiTab() {
             description="Kirim pesan tugas otomatis ke driver yang ditugaskan"
           />
           <ToggleSwitch
+            checked={form.notif_task_petugas}
+            onChange={(v) => setForm({ ...form, notif_task_petugas: v })}
+            label="Task Inspeksi ke Petugas"
+            description="Kirim WhatsApp ke petugas yang sedang bebas saat ada task inspeksi pickup/return baru"
+          />
+          <ToggleSwitch
+            checked={form.notif_supir_order_mulai}
+            onChange={(v) => setForm({ ...form, notif_supir_order_mulai: v })}
+            label="Supir Order Mulai"
+            description="Beri tahu supir via WhatsApp saat kendaraan resmi diserahkan/disewakan"
+          />
+          <ToggleSwitch
+            checked={form.notif_supir_order_selesai}
+            onChange={(v) => setForm({ ...form, notif_supir_order_selesai: v })}
+            label="Supir Order Selesai"
+            description="Kirim ringkasan tarif/komisi ke supir saat order ditandai selesai"
+          />
+          <ToggleSwitch
+            checked={form.notif_pengingat_kembali_supir}
+            onChange={(v) => setForm({ ...form, notif_pengingat_kembali_supir: v })}
+            label="Pengingat Pengembalian H-1 ke Supir"
+            description="Pengingat otomatis ke supir yang bertugas satu hari sebelum batas pengembalian"
+          />
+          <ToggleSwitch
             checked={form.notif_pembayaran_masuk}
             onChange={(v) => setForm({ ...form, notif_pembayaran_masuk: v })}
             label="Pembayaran Masuk"
@@ -1030,6 +1093,30 @@ function NotifikasiTab() {
             value={form.template_penugasan_driver}
             onChange={(v) => setForm({ ...form, template_penugasan_driver: v })}
             variables={TEMPLATE_VARS_DRIVER}
+          />
+          <TemplateEditor
+            label="Template Task Inspeksi Petugas"
+            value={form.template_task_petugas}
+            onChange={(v) => setForm({ ...form, template_task_petugas: v })}
+            variables={TEMPLATE_VARS_TASK}
+          />
+          <TemplateEditor
+            label="Template Supir Order Mulai"
+            value={form.template_supir_order_mulai}
+            onChange={(v) => setForm({ ...form, template_supir_order_mulai: v })}
+            variables={TEMPLATE_VARS_SUPIR_MULAI}
+          />
+          <TemplateEditor
+            label="Template Supir Order Selesai"
+            value={form.template_supir_order_selesai}
+            onChange={(v) => setForm({ ...form, template_supir_order_selesai: v })}
+            variables={TEMPLATE_VARS_SUPIR_SELESAI}
+          />
+          <TemplateEditor
+            label="Template Pengingat Pengembalian H-1 ke Supir"
+            value={form.template_pengingat_kembali_supir}
+            onChange={(v) => setForm({ ...form, template_pengingat_kembali_supir: v })}
+            variables={TEMPLATE_VARS_KEMBALI_SUPIR}
           />
           <TemplateEditor
             label="Template Notifikasi ke Owner"

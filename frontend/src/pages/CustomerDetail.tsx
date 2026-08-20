@@ -19,12 +19,13 @@ const statusOrderLabels: Record<string, string> = {
     cancelled: 'Dibatalkan',
 };
 
-const statusColors: Record<string, string> = {
+// Badge warna status pesanan — token tema: primary (biru), accent (amber), success (hijau), error (merah)
+const statusOrderColors: Record<string, string> = {
     pending: 'bg-accent-100 text-accent-700',
     confirmed: 'bg-primary-50 text-primary-500',
-    active: 'bg-accent-50 text-accent-600',
-    perlu_verifikasi: 'bg-amber-50 text-amber-700',
-    completed: 'bg-black-200 text-black-700',
+    active: 'bg-primary-100 text-primary-600',
+    perlu_verifikasi: 'bg-accent-50 text-accent-700',
+    completed: 'bg-success-50 text-success-600',
     cancelled: 'bg-error-50 text-error-600',
 };
 
@@ -691,7 +692,7 @@ export default function CustomerDetail() {
                                             {order.tanggal_mulai} - {order.tanggal_selesai}
                                         </td>
                                         <td className="px-6 py-3">
-                                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusColors[order.status_order] || 'bg-black-200 text-black-600'}`}>
+                                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusOrderColors[order.status_order] || 'bg-black-200 text-black-600'}`}>
                                                 {statusOrderLabels[order.status_order] || order.status_order}
                                             </span>
                                         </td>

@@ -1235,8 +1235,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-12-01',
-            'tanggal_selesai' => '2026-12-03',
+            'tanggal_mulai' => now()->subDays(5)->toDateString(),
+            'tanggal_selesai' => now()->subDays(3)->toDateString(),
             'durasi_hari' => 2,
             'harga_per_hari' => 500000,
             'harga_total' => 1000000,
@@ -1249,11 +1249,11 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-08-10',
-            'tanggal_selesai' => '2026-08-15',
-            'durasi_hari' => 5,
+            'tanggal_mulai' => now()->addDays(5)->toDateString(),
+            'tanggal_selesai' => now()->addDays(8)->toDateString(),
+            'durasi_hari' => 3,
             'harga_per_hari' => 500000,
-            'harga_total' => 2500000,
+            'harga_total' => 1500000,
             'status_order' => 'confirmed',
             'status_pembayaran' => 'unpaid',
         ]);
@@ -1267,7 +1267,7 @@ class OrderPaymentLogTest extends TestCase
             'status_pembayaran' => 'paid',
             'jumlah_bayar' => 1000000,
             'bukti_pengembalian' => UploadedFile::fake()->image('pengembalian.jpg'),
-            'tanggal_pengembalian_aktual' => '2026-12-02 10:00:00',
+            'tanggal_pengembalian_aktual' => now()->subDays(4)->format('Y-m-d').' 10:00:00',
         ]);
 
         $response->assertOk();
@@ -1282,8 +1282,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-12-01',
-            'tanggal_selesai' => '2026-12-03',
+            'tanggal_mulai' => now()->subDays(5)->toDateString(),
+            'tanggal_selesai' => now()->subDays(3)->toDateString(),
             'durasi_hari' => 2,
             'harga_per_hari' => 500000,
             'harga_total' => 1000000,
@@ -1300,7 +1300,7 @@ class OrderPaymentLogTest extends TestCase
             'status_pembayaran' => 'paid',
             'jumlah_bayar' => 1000000,
             'bukti_pengembalian' => UploadedFile::fake()->image('pengembalian.jpg'),
-            'tanggal_pengembalian_aktual' => '2026-12-02 10:00:00',
+            'tanggal_pengembalian_aktual' => now()->subDays(4)->format('Y-m-d').' 10:00:00',
         ]);
 
         $response->assertOk();
@@ -1449,8 +1449,8 @@ class OrderPaymentLogTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-12-01',
-            'tanggal_selesai' => '2026-12-04',
+            'tanggal_mulai' => now()->subDays(5)->toDateString(),
+            'tanggal_selesai' => now()->subDays(2)->toDateString(),
             'durasi_hari' => 3,
             'harga_per_hari' => 500000,
             'harga_total' => 1500000,
@@ -1463,7 +1463,7 @@ class OrderPaymentLogTest extends TestCase
             'status_pembayaran' => 'paid',
             'jumlah_bayar' => 1000000,
             'bukti_pengembalian' => UploadedFile::fake()->image('pengembalian.jpg'),
-            'tanggal_pengembalian_aktual' => '2026-12-04 10:00:00',
+            'tanggal_pengembalian_aktual' => now()->subDays(2)->format('Y-m-d').' 10:00:00',
         ]);
 
         $response->assertStatus(422);

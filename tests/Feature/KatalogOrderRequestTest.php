@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Customer;
 use App\Models\GarasiPartner;
 use App\Models\Kategori;
 use App\Models\Kendaraan;
@@ -294,5 +295,73 @@ class KatalogOrderRequestTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_order_request_rejects_jam_selesai_before_jam_mulai_same_date(): void
+    {
+        Carbon::setTestNow('2026-12-01 10:00:00');
+        try {
+            $response = $this->postJson('/api/katalog/order-request', $this->payload([
+                'tanggal_mulai' => '2026-12-01',
+                'tanggal_selesai' => '2026-12-01',
+                'jam_mulai' => '15:00',
+                'jam_selesai' => '12:00',
+            ]));
+
+            $response->assertStatus(422);
+            $response->assertJsonValidationErrors('jam_selesai');
+            $this->assertDatabaseCount('orders', 0);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_order_request_keeps_existing_customer_name(): void
+    {
+        Customer::create([
+            'nama_lengkap' => 'Nama Lama',
+            'no_hp' => '6281234567890',
+        ]);
+
+        $response = $this->postJson('/api/katalog/order-request', $this->payload([
+            'nama_lengkap' => 'Nama Baru',
+        ]));
+
+        $response->assertStatus(201);
+        $this->assertDatabaseHas('customers', [
+            'no_hp' => '6281234567890',
+            'nama_lengkap' => 'Nama Lama',
+        ]);
+        $customerId = Customer::where('no_hp', '6281234567890')->value('id');
+        $this->assertDatabaseHas('orders', [
+            'customer_id' => $customerId,
+            'source' => 'katalog',
+        ]);
+    }
+
+    public function test_order_request_throttles_per_phone_number(): void
+    {
+        $dates = [
+            ['2026-12-01', '2026-12-02'],
+            ['2026-12-05', '2026-12-06'],
+            ['2026-12-10', '2026-12-11'],
+            ['2026-12-15', '2026-12-16'],
+        ];
+
+        foreach ($dates as $i => [$mulai, $selesai]) {
+            $response = $this->postJson('/api/katalog/order-request', $this->payload([
+                'tanggal_mulai' => $mulai,
+                'tanggal_selesai' => $selesai,
+            ]));
+
+            if ($i < 3) {
+                $response->assertStatus(201);
+            } else {
+                $response->assertStatus(422);
+                $response->assertJsonValidationErrors('no_hp');
+            }
+        }
+
+        $this->assertDatabaseCount('orders', 3);
     }
 }

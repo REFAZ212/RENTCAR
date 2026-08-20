@@ -1,7 +1,9 @@
 <?php
 
+use App\Console\Commands\BackupDatabase;
 use App\Console\Commands\GarasiCheckTimeout;
 use App\Console\Commands\GpsCleanup;
+use App\Console\Commands\NotifyReturnTask;
 use App\Console\Commands\OrderCancelNoPickup;
 use App\Console\Commands\OrderCheckClaimTimeout;
 use App\Console\Commands\OrderExpirePending;
@@ -18,6 +20,7 @@ Artisan::command('inspire', function () {
 
 Schedule::command(GarasiCheckTimeout::class)->everyMinute();
 Schedule::command(OrderCheckClaimTimeout::class)->everyMinute();
+Schedule::command(NotifyReturnTask::class)->everyThirtyMinutes();
 Schedule::command(OrderExpirePending::class)->everyMinute();
 Schedule::command(OrderCancelNoPickup::class)->everyMinute();
 Schedule::command(OrderVerifyOverdue::class)->everyFifteenMinutes();
@@ -25,3 +28,4 @@ Schedule::command(OrderReminderH1::class)->dailyAt('08:00');
 Schedule::command(OrderReminderPayment::class)->dailyAt('09:00');
 Schedule::command(OrderReminderVerifikasi::class)->dailyAt('09:00');
 Schedule::command(GpsCleanup::class)->dailyAt('03:00');
+Schedule::command(BackupDatabase::class)->dailyAt('02:00');

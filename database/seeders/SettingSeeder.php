@@ -38,6 +38,9 @@ class SettingSeeder extends Seeder
         Setting::set('durasi_klaim_menit', 30);
         Setting::set('wajib_bayar_sebelum_antar', '0');
         Setting::set('notif_task_petugas', '1');
+        Setting::set('notif_supir_order_mulai', '1');
+        Setting::set('notif_supir_order_selesai', '1');
+        Setting::set('notif_pengingat_kembali_supir', '1');
 
         Setting::set('fonnte_token', '');
         Setting::set('nomor_wa_owner', '');
@@ -49,6 +52,10 @@ class SettingSeeder extends Seeder
         Setting::set('notif_pengingat_kembali', '1');
         Setting::set('notif_perlu_verifikasi', '1');
         Setting::set('template_penugasan_driver', 'Halo *{nama_driver}*, ada tugas baru:\nAntar {customer} — {kendaraan} ({plat_nomor})\n{tanggal} pukul {jam}\n\nBalas *SIAP* jika bisa, atau *TIDAK* jika berhalangan.');
+        Setting::set('template_task_petugas', "📋 *Task Baru untuk Petugas*\n\nOrder: *{kode_order}*\nJenis: {jenis_task}\nKendaraan: {nama_kendaraan}\nCustomer: {nama_customer}\nTanggal: {tanggal}\nSupir: {opsi_supir}\n\nBuka aplikasi → tekan *AMBIL TUGAS* untuk mengerjakan inspeksi. Siapa cepat dia dapat!");
+        Setting::set('template_supir_order_mulai', 'Halo *{nama_driver}*, tugas untuk order *{kode_order}* sudah mulai.\nKendaraan: {nama_kendaraan} ({plat_nomor})\nCustomer: {nama_customer}\nPeriode: {tanggal} s/d {tanggal_selesai}\n\nSelamat bekerja, hati-hati di jalan!');
+        Setting::set('template_supir_order_selesai', 'Halo *{nama_driver}*, order *{kode_order}* telah *SELESAI* ✅\nKendaraan: {nama_kendaraan} ({plat_nomor})\nCustomer: {nama_customer}\nDurasi: {durasi_hari} hari\nTarif: {tarif_per_hari}/hari\nTotal pendapatan: *{total_supir}*\n\nTerima kasih atas kerja samanya!');
+        Setting::set('template_pengingat_kembali_supir', 'Halo *{nama_driver}*, pengingat: kendaraan {nama_kendaraan} ({plat_nomor}) order *{kode_order}* harus dikembalikan pada *{tanggal_kembali}* pukul *{jam_kembali}*. Siapkan diri untuk proses pengembalian.');
         Setting::set('template_notifikasi_owner', '*[BOOKING]* {kendaraan} untuk {customer}\nDriver: {driver} — {tanggal}\nStatus: {status}');
         Setting::set('template_pengingat_bayar', 'Halo {nama_customer}, kami ingin mengingatkan pembayaran untuk order {kode_order} (kendaraan {nama_kendaraan}) senilai {total}. Terima kasih.');
         Setting::set('template_pengingat_kembali', 'Halo *{nama_customer}*, ini pengingat bahwa kendaraan {nama_kendaraan} (*{kode_order}*) harus dikembalikan pada *{tanggal_kembali}* pukul *{jam_kembali}*. Terima kasih.');

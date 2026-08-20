@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\SupirCalo;
 use App\Models\Tipe;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -106,8 +107,10 @@ class TipeController extends Controller
         return response()->json(['message' => 'Tipe berhasil dihapus']);
     }
 
-    public function kendaraans(Tipe $tipe): JsonResponse
+    public function kendaraans(Request $request, Tipe $tipe): JsonResponse
     {
+        abort_if($request->user() instanceof SupirCalo, 403, 'Akses ditolak. Anda tidak memiliki izin yang cukup.');
+
         $kendaraans = $tipe->kendaraans()
             ->with(['kategori', 'garasiPartner'])
             ->orderBy('nama_kendaraan')

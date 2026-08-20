@@ -12,7 +12,6 @@ use App\Models\User;
 use App\Rules\JamBelumTerlewat;
 use App\Services\WhatsAppService;
 use Carbon\Carbon;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +42,14 @@ class KatalogOrderRequestController extends Controller
             return response()->json(['message' => 'Kendaraan tidak ditemukan.'], 422);
         }
 
+        if (($validated['jam_mulai'] ?? null) && ($validated['jam_selesai'] ?? null)
+            && $validated['tanggal_mulai'] === $validated['tanggal_selesai']
+            && $validated['jam_mulai'] >= $validated['jam_selesai']) {
+            throw ValidationException::withMessages([
+                'jam_selesai' => ['Jam selesai harus setelah jam mulai untuk tanggal yang sama.'],
+            ]);
+        }
+
         $tanggalMulai = Carbon::parse($validated['tanggal_mulai']);
         $tanggalSelesai = Carbon::parse($validated['tanggal_selesai']);
         $hargaPerHari = (float) $kendaraan->harga_sewa_per_hari;
@@ -62,7 +69,28 @@ class KatalogOrderRequestController extends Controller
 
         $hargaTotal = $durasi * $hargaPerHari;
 
-        $result = DB::transaction(function () use ($kendaraan, $validated, $tanggalMulai, $tanggalSelesai, $durasi, $hargaPerHari, $hargaTotal, $jamMulai, $jamSelesai, $opsiSupir) {
+        $normalizedHp = preg_replace('/[^0-9]/', '', $validated['no_hp']);
+        if (str_starts_with($normalizedHp, '0')) {
+            $normalizedHp = '62'.substr($normalizedHp, 1);
+        } elseif (str_starts_with($normalizedHp, '8')) {
+            $normalizedHp = '62'.$normalizedHp;
+        }
+
+        $recentOrdersCount = Order::where('source', 'katalog')
+            ->where('created_at', '>=', now()->subHour())
+            ->whereIn('status_order', ['pending', 'confirmed', 'active'])
+            ->whereHas('customer', function ($q) use ($normalizedHp) {
+                $q->where('no_hp', $normalizedHp);
+            })
+            ->count();
+
+        if ($recentOrdersCount >= 3) {
+            throw ValidationException::withMessages([
+                'no_hp' => ['Terlalu banyak pemesanan dalam waktu singkat. Silakan coba lagi nanti.'],
+            ]);
+        }
+
+        $result = DB::transaction(function () use ($kendaraan, $validated, $tanggalMulai, $tanggalSelesai, $durasi, $hargaPerHari, $hargaTotal, $jamMulai, $jamSelesai, $opsiSupir, $normalizedHp) {
             $lockedKendaraan = Kendaraan::where('id', $kendaraan->id)->lockForUpdate()->first();
 
             if ($lockedKendaraan->status !== 'tersedia') {
@@ -70,32 +98,24 @@ class KatalogOrderRequestController extends Controller
                     'kendaraan_id' => ['Kendaraan tidak tersedia.'],
                 ]);
             }
-            $normalizedHp = preg_replace('/[^0-9]/', '', $validated['no_hp']);
-            if (str_starts_with($normalizedHp, '0')) {
-                $normalizedHp = '62'.substr($normalizedHp, 1);
-            } elseif (str_starts_with($normalizedHp, '8')) {
-                $normalizedHp = '62'.$normalizedHp;
+
+            // No. HP diperbolehkan sama antar pelanggan: kalau HP sudah dipakai
+            // tepat satu pelanggan, pakai data itu; kalau dipakai beberapa
+            // pelanggan, buat data baru — jangan menebak milik siapa.
+            $existing = Customer::where('no_hp', $normalizedHp)->get();
+
+            if ($existing->count() === 1) {
+                $customer = $existing->first();
+            } else {
+                $customer = Customer::create([
+                    'no_hp' => $normalizedHp,
+                    'nama_lengkap' => $validated['nama_lengkap'],
+                ]);
             }
 
-            try {
-                $customer = Customer::firstOrCreate(
-                    ['no_hp' => $normalizedHp],
-                    [
-                        'nama_lengkap' => $validated['nama_lengkap'],
-                    ]
-                );
-            } catch (QueryException $e) {
-                // Handle unique constraint race condition — another request inserted first
-                if ($e->errorInfo[1] == 1062) {
-                    $customer = Customer::where('no_hp', $normalizedHp)->firstOrFail();
-                } else {
-                    throw $e;
-                }
-            }
-
-            if ($customer->nama_lengkap !== $validated['nama_lengkap']) {
-                $customer->update(['nama_lengkap' => $validated['nama_lengkap']]);
-            }
+            // Nama customer lama tidak ditimpa — nama baru hanya berlaku saat
+            // customer belum pernah tercatat sebelumnya.
+            $customerNama = $customer->nama_lengkap;
 
             // Datetime-aware overlap check — matches OrderController logic.
             $newEffectiveStart = $validated['tanggal_mulai'].' '.($jamMulai ?? '00:00');
@@ -145,20 +165,21 @@ class KatalogOrderRequestController extends Controller
                 'catatan' => $validated['catatan'] ?? null,
             ]);
 
-            return ['customer' => $customer, 'order' => $order];
+            return ['customer' => $customer, 'customer_nama' => $customerNama, 'order' => $order];
         });
 
         $customer = $result['customer'];
+        $customerNama = $result['customer_nama'];
         $order = $result['order'];
 
         Notification::create([
             'type' => 'order_baru',
             'title' => 'Pesanan Baru dari Katalog',
-            'message' => "{$validated['nama_lengkap']} memesan {$kendaraan->nama_kendaraan} ({$durasi} hari, Rp ".number_format($hargaTotal, 0, ',', '.').')',
+            'message' => "{$customerNama} memesan {$kendaraan->nama_kendaraan} ({$durasi} hari, Rp ".number_format($hargaTotal, 0, ',', '.').')',
             'data' => [
                 'order_id' => $order->id,
                 'kode_order' => $order->kode_order,
-                'customer_name' => $validated['nama_lengkap'],
+                'customer_name' => $customerNama,
                 'kendaraan_name' => $kendaraan->nama_kendaraan,
                 'durasi_hari' => $durasi,
                 'harga_total' => $hargaTotal,
@@ -171,7 +192,7 @@ class KatalogOrderRequestController extends Controller
             $template = Setting::get('template_notifikasi_owner', '[BOOKING] {kendaraan} untuk {customer}\nDriver: {driver} — {tanggal}\nStatus: {status}');
             $pesan = $wa->renderTemplate($template, [
                 'kendaraan' => $kendaraan->nama_kendaraan,
-                'customer' => $validated['nama_lengkap'],
+                'customer' => $customerNama,
                 'driver' => $opsiSupir === 'dengan_supir' ? 'Diperlukan' : '-',
                 'tanggal' => $tanggalMulai->format('d/m/Y'),
                 'status' => 'Baru Masuk',
@@ -183,7 +204,7 @@ class KatalogOrderRequestController extends Controller
             $order,
             $kendaraan,
             $customer,
-            $validated['nama_lengkap'],
+            $customerNama,
             $validated['no_hp'],
             $durasi,
             $tanggalMulai,

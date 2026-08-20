@@ -18,6 +18,8 @@ class DashboardController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        abort_if($request->user() instanceof SupirCalo, 403, 'Akses ditolak. Anda tidak memiliki izin yang cukup.');
+
         $today = Carbon::today();
         $isPetugas = $request->user()->role === 'petugas';
 
@@ -79,6 +81,8 @@ class DashboardController extends Controller
 
     public function chart(Request $request): JsonResponse
     {
+        abort_if($request->user() instanceof SupirCalo, 403, 'Akses ditolak. Anda tidak memiliki izin yang cukup.');
+
         if ($request->user()->role === 'petugas') {
             return response()->json([]);
         }

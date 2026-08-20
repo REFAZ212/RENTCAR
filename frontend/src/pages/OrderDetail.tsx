@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { isAxiosError } from 'axios';
 import { orderAPI, settingsAPI, type Order } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,6 +31,7 @@ const statusPengirimanLabels: Record<string, string> = {
     sudah_diantarkan: 'Sudah Diantarkan',
     dalam_penyewaan: 'Dalam Penyewaan',
     selesai: 'Selesai',
+    sudah_dikembalikan: 'Sudah Dikembalikan',
 };
 
 const metodePembayaranLabels: Record<string, string> = {
@@ -39,20 +41,28 @@ const metodePembayaranLabels: Record<string, string> = {
     lainnya: 'Lainnya',
 };
 
-const statusColors: Record<string, string> = {
-    pending: 'bg-amber-50 text-amber-700',
+// Badge warna per domain status — token tema: primary (biru), accent (amber), success (hijau), error (merah)
+const statusOrderColors: Record<string, string> = {
+    pending: 'bg-accent-50 text-accent-700',
     confirmed: 'bg-primary-50 text-primary-500',
-    active: 'bg-accent-50 text-accent-600',
-    perlu_verifikasi: 'bg-amber-50 text-amber-700',
-    completed: 'bg-green-50 text-green-700',
+    active: 'bg-primary-100 text-primary-600',
+    perlu_verifikasi: 'bg-accent-50 text-accent-700',
+    completed: 'bg-success-50 text-success-600',
     cancelled: 'bg-error-50 text-error-600',
+};
+
+const statusPembayaranColors: Record<string, string> = {
     unpaid: 'bg-error-50 text-error-600',
-    partial: 'bg-amber-50 text-amber-600',
-    paid: 'bg-green-50 text-green-600',
+    partial: 'bg-accent-50 text-accent-600',
+    paid: 'bg-success-50 text-success-600',
+};
+
+const statusPengirimanColors: Record<string, string> = {
     belum_diambil: 'bg-accent-100 text-accent-700',
     sudah_diantarkan: 'bg-primary-50 text-primary-500',
     dalam_penyewaan: 'bg-primary-100 text-primary-600',
-    selesai: 'bg-green-50 text-green-700',
+    selesai: 'bg-success-50 text-success-600',
+    sudah_dikembalikan: 'bg-success-50 text-success-600',
 };
 
 const formatJam = (jam: number): string => {
@@ -133,31 +143,43 @@ export default function OrderDetail() {
     const [tarifSupirGlobal, setTarifSupirGlobal] = useState(150000);
     const [loading, setLoading] = useState(true);
     const [notFound, setNotFound] = useState(false);
+    const [errorMsg, setErrorMsg] = useState<string | null>(null);
     const [showInvoice, setShowInvoice] = useState(false);
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (silent = false) => {
         if (!id) return;
-        setLoading(true);
+        if (!silent) setLoading(true);
         setNotFound(false);
+        setErrorMsg(null);
         try {
             const { data } = await orderAPI.get(Number(id));
             setOrder(data);
-        } catch {
-            setNotFound(true);
+        } catch (err) {
+            if (isAxiosError(err) && err.response?.status === 404) {
+                setNotFound(true);
+            } else {
+                const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
+                setErrorMsg(typeof msg === 'string' && msg ? msg : 'Terjadi kesalahan saat memuat detail order.');
+            }
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [id]);
 
     useEffect(() => {
         load();
+        const interval = setInterval(() => void load(true), 30000);
+        return () => clearInterval(interval);
+    }, [load]);
+
+    useEffect(() => {
         settingsAPI.get().then(({ data }) => {
             setOvertimeRate(data.overtime_rate_per_hour);
             if (data.biaya_dengan_driver_per_hari != null) {
                 setTarifSupirGlobal(data.biaya_dengan_driver_per_hari);
             }
         }).catch(() => {});
-    }, [load]);
+    }, []);
 
     if (loading) {
         return (
@@ -167,6 +189,26 @@ export default function OrderDetail() {
                     <div className="skeleton mt-2 h-4 w-64 rounded" />
                 </div>
                 <DetailSkeleton />
+            </div>
+        );
+    }
+
+    if (errorMsg) {
+        return (
+            <div className="flex min-h-[50vh] flex-col items-center justify-center text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-error-50 text-error-500">
+                    <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01M4.93 19h14.14a1 1 0 00.87-1.5L12.87 4.5a1 1 0 00-1.74 0L4.06 17.5A1 1 0 004.93 19z" />
+                    </svg>
+                </div>
+                <h2 className="mt-4 text-lg font-semibold text-black-900">Gagal memuat detail order</h2>
+                <p className="mt-1 max-w-sm text-sm text-black-500">{errorMsg}</p>
+                <button
+                    onClick={() => void load()}
+                    className="mt-5 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600"
+                >
+                    Coba Lagi
+                </button>
             </div>
         );
     }
@@ -192,7 +234,11 @@ export default function OrderDetail() {
         );
     }
 
-    const isActiveOvertime = order.status_order === 'active' && order.jam_overtime_saat_ini > 0 && !order.jam_overtime;
+    const isActiveOvertime = order.status_order === 'active' && order.jam_overtime_saat_ini > 0;
+    const dendaTambahan =
+      (order.status_order === 'active' || order.status_order === 'perlu_verifikasi') && order.jam_overtime_saat_ini > 0
+        ? Number(order.denda_overtime_saat_ini || 0)
+        : 0;
 
     return (
         <div>
@@ -225,15 +271,15 @@ export default function OrderDetail() {
             <div className="max-w-2xl space-y-4">
                 {/* ── Status pills ── */}
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusColors[order.status_order]}`}>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusOrderColors[order.status_order]}`}>
                         <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                         {statusOrderLabels[order.status_order]}
                     </span>
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusColors[order.status_pembayaran]}`}>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusPembayaranColors[order.status_pembayaran]}`}>
                         <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                         {statusPembayaranLabels[order.status_pembayaran]}
                     </span>
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusColors[order.status_pengiriman]}`}>
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusPengirimanColors[order.status_pengiriman]}`}>
                         <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                         {statusPengirimanLabels[order.status_pengiriman]}
                     </span>
@@ -414,7 +460,7 @@ export default function OrderDetail() {
                     <div className="flex items-center justify-between border-t border-primary-200 pt-3">
                         <span className="text-sm font-semibold text-black-900">Total</span>
                         <span className="text-lg font-bold text-primary-600">
-                            {formatRupiah(Number(order.harga_total) + (isActiveOvertime ? Number(order.denda_overtime_saat_ini) : 0))}
+                            {formatRupiah(Number(order.harga_total) + dendaTambahan)}
                         </span>
                     </div>
                 </div>
@@ -653,22 +699,22 @@ export default function OrderDetail() {
                                     </span>
                                     <span className="text-black-900">{formatRupiah(order.durasi_hari * order.harga_per_hari)}</span>
                                 </div>
-                                {order.supir && order.supir.tarif_per_hari ? (
-                                    <div className="flex justify-between">
-                                        <span className="text-black-700">
-                                            Supir {order.durasi_hari} hari × {formatRupiah(order.supir.tarif_per_hari)}/hari
-                                        </span>
-                                        <span className="text-black-900">{formatRupiah(order.durasi_hari * order.supir.tarif_per_hari)}</span>
-                                    </div>
-                                ) : order.opsi_supir === 'dengan_supir' ? (
+                                {order.opsi_supir === 'dengan_supir' ? (
                                     <div className="flex justify-between">
                                         <span className="text-black-700">
                                             Supir {order.durasi_hari} hari × {formatRupiah(tarifSupirGlobal)}/hari
                                         </span>
                                         <span className="text-black-900">{formatRupiah(order.durasi_hari * tarifSupirGlobal)}</span>
                                     </div>
+                                ) : order.supir && order.supir.tarif_per_hari ? (
+                                    <div className="flex justify-between">
+                                        <span className="text-black-700">
+                                            Supir {order.durasi_hari} hari × {formatRupiah(order.supir.tarif_per_hari)}/hari
+                                        </span>
+                                        <span className="text-black-900">{formatRupiah(order.durasi_hari * order.supir.tarif_per_hari)}</span>
+                                    </div>
                                 ) : null}
-                                {order.jam_overtime > 0 && (
+{order.jam_overtime > 0 && order.status_order !== 'active' && (
                                     <div className="flex justify-between">
                                         <span className="text-error-600">
                                             Denda keterlambatan {formatJam(order.jam_overtime)} × {formatRupiah(overtimeRate)}

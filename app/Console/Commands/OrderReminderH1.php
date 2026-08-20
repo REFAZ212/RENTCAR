@@ -21,7 +21,7 @@ class OrderReminderH1 extends Command
         $endOfTomorrow = (clone $tomorrow)->endOfDay();
 
         $activeOrders = Order::where('status_order', 'active')
-            ->with(['customer', 'kendaraan'])
+            ->with(['customer', 'kendaraan', 'supir'])
             ->get()
             ->filter(function (Order $order) use ($tomorrow, $endOfTomorrow) {
                 $batas = $order->batasWaktuKembali();
@@ -74,6 +74,28 @@ class OrderReminderH1 extends Command
                     'jam_kembali' => $batas->format('H:i'),
                 ]);
                 $wa->kirimPesanAsync($customer->no_hp, $pesan, 'reminder_pengembalian', $order->id);
+                $sentCount++;
+            }
+
+            // ── WhatsApp reminder untuk SUPIR yang bertugas (H-1) ──
+            $supir = $order->supir;
+            if ($supir && $supir->no_hp
+                && Setting::get('notif_pengingat_kembali_supir', '1') === '1'
+                && ! WhatsappLog::where('type', 'reminder_pengembalian_supir')
+                    ->where('order_id', $order->id)
+                    ->whereDate('created_at', now()->toDateString())
+                    ->exists()) {
+                $wa = app(WhatsAppService::class);
+                $template = Setting::get('template_pengingat_kembali_supir', 'Halo *{nama_driver}*, pengingat: kendaraan {nama_kendaraan} ({plat_nomor}) order *{kode_order}* harus dikembalikan pada *{tanggal_kembali}* pukul *{jam_kembali}*. Siapkan diri untuk proses pengembalian.');
+                $pesan = $wa->renderTemplate($template, [
+                    'nama_driver' => $supir->nama,
+                    'nama_kendaraan' => $kendaraan?->nama_kendaraan ?? '-',
+                    'plat_nomor' => $kendaraan?->plat_nomor ?? '-',
+                    'kode_order' => $order->kode_order,
+                    'tanggal_kembali' => $batas->format('d/m/Y'),
+                    'jam_kembali' => $batas->format('H:i'),
+                ]);
+                $wa->kirimPesanAsync($supir->no_hp, $pesan, 'reminder_pengembalian_supir', $order->id);
                 $sentCount++;
             }
 
