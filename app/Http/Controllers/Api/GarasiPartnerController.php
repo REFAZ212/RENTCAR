@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\GarasiPartner;
+use App\Models\SupirCalo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -41,8 +42,10 @@ class GarasiPartnerController extends Controller
         return response()->json($garasi);
     }
 
-    public function garasiSaya(): JsonResponse
+    public function garasiSaya(Request $request): JsonResponse
     {
+        abort_if($request->user() instanceof SupirCalo, 403, 'Akses ditolak. Anda tidak memiliki izin yang cukup.');
+
         $garasi = GarasiPartner::where('is_own', true)
             ->with(['kendaraans.garasiPartner', 'kendaraans.kategori', 'kendaraans.tipe'])
             ->withCount('kendaraans')

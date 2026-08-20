@@ -1,4 +1,4 @@
-import axios, { type AxiosResponse } from 'axios';
+import axios, { type AxiosError, type AxiosResponse } from 'axios';
 
 /* ─────────────────────────────────────────────────────────────
  * TYPES — ENTITAS UTAMA
@@ -238,12 +238,31 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/admin/login';
+  (error: AxiosError<unknown>) => {
+    const status = error.response?.status;
+
+    if (status === 401) {
+      // Jangan redirect saat sudah di halaman login — biarkan form menampilkan pesan error.
+      if (!window.location.pathname.startsWith('/admin/login')) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/admin/login';
+      }
     }
+
+    // Normalisasi pesan error agar tidak ada yang menampilkan body mentah
+    // (HTML / teks acak dari server/proxy) sebagai pesan.
+    const body = error.response?.data;
+    const hasUsableBody =
+      body !== null && typeof body === 'object' && !(body instanceof Blob) && ('message' in body || 'errors' in body);
+
+    if (!hasUsableBody) {
+      error.message = status
+        ? 'Terjadi kesalahan server. Coba lagi nanti.'
+        : 'Tidak dapat terhubung ke server. Periksa koneksi Anda.';
+      console.error('[API]', error.config?.method, error.config?.url, status ?? 'network', error);
+    }
+
     return Promise.reject(error);
   }
 );
@@ -590,7 +609,8 @@ export interface InspeksiKendaraan {
 export const inspeksiAPI = {
   list: (params?: QueryParams): Promise<AxiosResponse<ListResponse<InspeksiKendaraan>>> => api.get('/inspeksi-kendaraans', { params }),
   get: (id: number): Promise<AxiosResponse<InspeksiKendaraan>> => api.get(`/inspeksi-kendaraans/${id}`),
-  create: (data: FormData): Promise<AxiosResponse<InspeksiKendaraan>> => api.post('/inspeksi-kendaraans', data),
+  create: (data: FormData, onUploadProgress?: (progress: number) => void): Promise<AxiosResponse<InspeksiKendaraan>> =>
+    api.post('/inspeksi-kendaraans', data, { onUploadProgress: (e) => onUploadProgress?.(e.total ? Math.round((e.loaded * 100) / e.total) : 0) }),
   update: (id: number, data: FormData): Promise<AxiosResponse<InspeksiKendaraan>> => {
     data.append('_method', 'PUT');
     return api.post(`/inspeksi-kendaraans/${id}`, data);
@@ -598,8 +618,10 @@ export const inspeksiAPI = {
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/inspeksi-kendaraans/${id}`),
   byOrder: (orderId: number): Promise<AxiosResponse<InspeksiKendaraan[]>> => api.get(`/orders/${orderId}/inspeksi`),
   tasks: (): Promise<AxiosResponse<(Order & { task_jenis: 'inspeksi_pickup' | 'kirim_kendaraan' | 'return' })[]>> => api.get('/inspeksi-tasks'),
-  kirim: (orderId: number, data: FormData): Promise<AxiosResponse<InspeksiKendaraan>> => api.post(`/orders/${orderId}/kirim`, data),
-  kembali: (orderId: number, data: FormData): Promise<AxiosResponse<InspeksiKendaraan>> => api.post(`/orders/${orderId}/kembali`, data),
+  kirim: (orderId: number, data: FormData, onUploadProgress?: (progress: number) => void): Promise<AxiosResponse<InspeksiKendaraan>> =>
+    api.post(`/orders/${orderId}/kirim`, data, { onUploadProgress: (e) => onUploadProgress?.(e.total ? Math.round((e.loaded * 100) / e.total) : 0) }),
+  kembali: (orderId: number, data: FormData, onUploadProgress?: (progress: number) => void): Promise<AxiosResponse<InspeksiKendaraan>> =>
+    api.post(`/orders/${orderId}/kembali`, data, { onUploadProgress: (e) => onUploadProgress?.(e.total ? Math.round((e.loaded * 100) / e.total) : 0) }),
   perbaikiTtd: (id: number, data: FormData): Promise<AxiosResponse<InspeksiKendaraan>> => api.post(`/inspeksi-kendaraans/${id}/perbaiki-ttd`, data),
 };
 

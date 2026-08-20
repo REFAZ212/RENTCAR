@@ -44,6 +44,20 @@ class KendaraanController extends Controller
             $query->where('garasi_partner_id', $request->garasi_partner_id);
         }
 
+        // Filter ketersediaan berdasarkan rentang tanggal: mobil yang sudah
+        // punya order (pending/confirmed/active) yang tanggalnya beririsan
+        // tidak ikut ditampilkan — sama dengan aturan checkVehicleOverlap.
+        if ($request->filled('available_from') && $request->filled('available_to')) {
+            $availableFrom = $request->available_from;
+            $availableTo = $request->available_to;
+            $query->whereDoesntHave('orders', function ($q) use ($availableFrom, $availableTo) {
+                $q->whereNull('deleted_at')
+                    ->whereIn('status_order', ['pending', 'confirmed', 'active'])
+                    ->whereDate('tanggal_mulai', '<=', $availableTo)
+                    ->whereDate('tanggal_selesai', '>=', $availableFrom);
+            });
+        }
+
         // select() menimpa daftar kolom bawaan (termasuk `kendaraans.*` dan
         // subquery active_orders_count dari withCount) agar query GROUP BY tetap
         // valid di MySQL dengan sql_mode=ONLY_FULL_GROUP_BY.
@@ -53,7 +67,11 @@ class KendaraanController extends Controller
             ->groupBy('status')
             ->pluck('total', 'status');
 
-        $kendaraan = $query->orderBy('created_at', 'desc')->paginate(15);
+        $perPage = (int) ($request->per_page ?? 15);
+        if (! in_array($perPage, [15, 30, 50, 100], true)) {
+            $perPage = 15;
+        }
+        $kendaraan = $query->orderBy('created_at', 'desc')->paginate($perPage);
 
         $response = $kendaraan->toArray();
         $response['counts'] = [

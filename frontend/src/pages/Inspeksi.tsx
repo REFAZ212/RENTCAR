@@ -124,6 +124,7 @@ biaya_kerusakan: string;
 }
 
 const MAX_MEDIA = 10;
+const MAX_VIDEO_SIZE_MB = 50;
 
 const CHECKLIST_ITEMS = [
   { key: 'kunci', label: 'Kunci' },
@@ -202,6 +203,7 @@ const [inspeksis, setInspeksis] = useState<InspeksiKendaraan[]>([]);
   const [formMode, setFormMode] = useState<'simpan' | 'kirim' | 'kembali'>('simpan');
   const [draft, setDraft] = useState<InspeksiKendaraan | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<InspeksiKendaraan | null>(null);
   const [perbaikiTarget, setPerbaikiTarget] = useState<InspeksiKendaraan | null>(null);
   const [perbaikiTtdCustomer, setPerbaikiTtdCustomer] = useState<Blob | null>(null);
@@ -327,8 +329,15 @@ const openForm = (order?: TaskOrder, jenis?: 'pickup' | 'return', draft?: Inspek
       return;
     }
 
-    const taken = files.slice(0, available);
-    if (taken.length < files.length) {
+    const maxVideoBytes = MAX_VIDEO_SIZE_MB * 1024 * 1024;
+    const oversized = files.filter((f) => f.type.startsWith('video/') && f.size > maxVideoBytes);
+    if (oversized.length > 0) {
+      toastError(`Video maksimal ${MAX_VIDEO_SIZE_MB} MB — "${oversized[0].name}" tidak ditambahkan.`);
+    }
+    const allowed = files.filter((f) => !(f.type.startsWith('video/') && f.size > maxVideoBytes));
+
+    const taken = allowed.slice(0, available);
+    if (taken.length < allowed.length) {
       toastError(`Maksimal ${MAX_MEDIA} file dokumentasi — hanya ${taken.length} file yang ditambahkan.`);
     }
 
@@ -381,7 +390,7 @@ const handleSubmit = async (e: FormEvent, action: 'simpan' | 'kirim' | 'kembali'
     const ttdCustomerTersimpan = !!draft?.ttd_customer;
     const ttdPetugasTersimpan = !!draft?.ttd_petugas;
 
-    if (action === 'kirim' && !form.ttd_customer && !form.ttd_petugas && !ttdCustomerTersimpan && !ttdPetugasTersimpan) {
+    if (action === 'kirim' && (!(form.ttd_customer || ttdCustomerTersimpan) || !(form.ttd_petugas || ttdPetugasTersimpan))) {
       toastError('Tanda tangan customer & petugas wajib dilengkapi sebelum mengirim kendaraan.');
       return;
     }
@@ -392,6 +401,7 @@ const handleSubmit = async (e: FormEvent, action: 'simpan' | 'kirim' | 'kembali'
     }
 
     setSubmitting(true);
+    setUploadProgress(null);
 
     try {
       const fd = new FormData();
@@ -426,16 +436,16 @@ const handleSubmit = async (e: FormEvent, action: 'simpan' | 'kirim' | 'kembali'
       }
 
       if (helper === 'simpan') {
-        await inspeksiAPI.create(fd);
+        await inspeksiAPI.create(fd, setUploadProgress);
         toastSuccess('Draft inspeksi tersimpan — lengkapi TTD lalu kirim lewat task "Kirim Kendaraan".');
       } else if (helper === 'kirim') {
         fd.append('inspeksi_id', String(draft?.id ?? ''));
         if (form.ttd_customer) fd.append('ttd_customer', form.ttd_customer, 'ttd-customer.png');
         if (form.ttd_petugas) fd.append('ttd_petugas', form.ttd_petugas, 'ttd-petugas.png');
-        await inspeksiAPI.kirim(Number(form.order_id), fd);
+        await inspeksiAPI.kirim(Number(form.order_id), fd, setUploadProgress);
         toastSuccess('Kendaraan berhasil dikirim.');
       } else {
-        await inspeksiAPI.kembali(Number(form.order_id), fd);
+        await inspeksiAPI.kembali(Number(form.order_id), fd, setUploadProgress);
         toastSuccess('Inspeksi akhir tersimpan — kendaraan dikembalikan. Admin akan menutup order.');
       }
 
@@ -454,6 +464,7 @@ const handleSubmit = async (e: FormEvent, action: 'simpan' | 'kirim' | 'kembali'
       toastError(msg);
     } finally {
       setSubmitting(false);
+      setUploadProgress(null);
     }
   };
 
@@ -927,7 +938,7 @@ const formatDate = (d: string) => {
                   <label className="flex w-full cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-black-300 px-4 py-4 text-center transition-colors hover:border-primary-500 hover:text-primary-500">
                     <Upload size={20} className="text-black-400" />
                     <span className="text-sm font-medium text-black-500">Upload dari Galeri</span>
-                    <span className="text-xs text-black-400">Pilih banyak file · Foto dikompres otomatis · Total maks {MAX_MEDIA} file</span>
+                    <span className="text-xs text-black-400">Pilih banyak file · Foto dikompres otomatis · Video maks {MAX_VIDEO_SIZE_MB} MB · Total maks {MAX_MEDIA} file</span>
                     <input type="file" accept="image/*,video/*" multiple onChange={handleMediaChange} className="hidden" />
                   </label>
                 </div>
@@ -1007,6 +1018,17 @@ const formatDate = (d: string) => {
               </div>
 
               {/* Submit */}
+              {uploadProgress !== null && (
+                <div className="space-y-1.5 pt-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-medium text-black-600">Mengunggah dokumentasi…</span>
+                    <span className="font-semibold text-primary-600">{uploadProgress}%</span>
+                  </div>
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-black-200">
+                    <div className="h-full rounded-full bg-primary-500 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
+                  </div>
+                </div>
+              )}
               <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
                 <button
                   type="button"

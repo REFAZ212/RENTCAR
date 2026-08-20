@@ -18,7 +18,7 @@ import {
 import { laporanAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { formatHpDisplay, formatRupiah, formatRupiahShort } from '../lib/format';
-import { vehicleStatusStyles, vehicleStatusLabels, type StatusKendaraan } from '../lib/vehicleStatus';
+import { vehicleStatusLabels, type StatusKendaraan } from '../lib/vehicleStatus';
 
 /**
  * ─────────────────────────────────────────────────────────────
@@ -71,21 +71,28 @@ const metodeBayarLabels: Record<MetodeBayar, string> = {
   lainnya: 'Lainnya',
 };
 
-// Badge status — dipetakan ke token tema (avail/rented/maint/ink + amber bawaan)
-const statusColors: Record<string, string> = {
+// Badge warna per domain status — token tema: primary (biru), accent (amber), success (hijau), error (merah)
+const statusOrderColors: Record<string, string> = {
   pending: 'bg-accent-100 text-accent-700',
   confirmed: 'bg-primary-50 text-primary-500',
-  active: 'bg-accent-50 text-accent-600',
-  completed: 'bg-black-200 text-black-700',
+  active: 'bg-primary-100 text-primary-600',
+  perlu_verifikasi: 'bg-accent-50 text-accent-700',
+  completed: 'bg-success-50 text-success-600',
   cancelled: 'bg-error-50 text-error-600',
+};
+
+const statusPembayaranColors: Record<string, string> = {
   unpaid: 'bg-error-50 text-error-600',
   partial: 'bg-accent-100 text-accent-700',
-  paid: 'bg-accent-50 text-accent-600',
+  paid: 'bg-success-50 text-success-600',
+};
+
+const statusPengirimanColors: Record<string, string> = {
   belum_diambil: 'bg-accent-100 text-accent-700',
   sudah_diantarkan: 'bg-primary-50 text-primary-500',
   dalam_penyewaan: 'bg-primary-100 text-primary-600',
-  selesai: 'bg-black-200 text-black-700',
-  ...vehicleStatusStyles,
+  selesai: 'bg-success-50 text-success-600',
+  sudah_dikembalikan: 'bg-success-50 text-success-600',
 };
 
 // Warna ikon StatCard — dipetakan by makna, bukan asal warna
@@ -415,6 +422,31 @@ function EmptyState({ label = 'Belum ada data' }: { label?: string }) {
   );
 }
 
+function ErrorState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-surface px-5 py-12 text-center shadow-sm ring-1 ring-black-200">
+      <svg className="h-9 w-9 text-error-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={1.5}
+          d="M12 9v2m0 4h.01M4.93 19h14.14a1 1 0 00.87-1.5L12.87 4.5a1 1 0 00-1.74 0L4.06 17.5A1 1 0 004.93 19z"
+        />
+      </svg>
+      <p className="text-sm font-medium text-black-700">{message}</p>
+    </div>
+  );
+}
+
+function apiErrorMessage(err: unknown, fallback = 'Gagal memuat data laporan.'): string {
+  if (isAxiosError(err)) {
+    const msg = err.response?.data?.message;
+    if (typeof msg === 'string' && msg) return msg;
+    return err.message || fallback;
+  }
+  return fallback;
+}
+
 function SectionCard({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
     <div className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-black-200">
@@ -607,9 +639,11 @@ function KategoriBarChart({ data }: { data: KategoriStatRow[] }) {
 function RingkasanTab({ params }: { params: DateParams }) {
   const [data, setData] = useState<RingkasanData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     laporanAPI
       .ringkasan(params)
       .then((res) => {
@@ -644,7 +678,7 @@ function RingkasanTab({ params }: { params: DateParams }) {
           },
         });
       })
-      .catch(() => {})
+      .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [params]);
 
@@ -658,6 +692,7 @@ function RingkasanTab({ params }: { params: DateParams }) {
     );
   }
 
+  if (error) return <ErrorState message={error} />;
   if (!data) return null;
 
   const { order: o, keuangan: k, kendaraan: v, pertumbuhan: p, garasi: g } = data;
@@ -703,9 +738,11 @@ function RingkasanTab({ params }: { params: DateParams }) {
 function PendapatanTab({ params }: { params: DateParams }) {
   const [data, setData] = useState<PendapatanData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     laporanAPI
       .pendapatan(params)
       .then((res) => {
@@ -740,7 +777,7 @@ function PendapatanTab({ params }: { params: DateParams }) {
           })),
         });
       })
-      .catch(() => {})
+      .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [params]);
 
@@ -752,6 +789,7 @@ function PendapatanTab({ params }: { params: DateParams }) {
       </div>
     );
   }
+  if (error) return <ErrorState message={error} />;
   if (!data) return null;
 
   const { ringkasan, pendapatan_periode, metode_pembayaran, pendapatan_kategori } = data;
@@ -838,9 +876,11 @@ function PendapatanTab({ params }: { params: DateParams }) {
 function KendaraanTab({ params }: { params: DateParams }) {
   const [data, setData] = useState<KendaraanData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     laporanAPI
       .kendaraan(params)
       .then((res) => {
@@ -867,7 +907,7 @@ function KendaraanTab({ params }: { params: DateParams }) {
           })),
         });
       })
-      .catch(() => {})
+      .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [params]);
 
@@ -879,6 +919,7 @@ function KendaraanTab({ params }: { params: DateParams }) {
       </div>
     );
   }
+  if (error) return <ErrorState message={error} />;
   if (!data) return null;
 
   const { kendaraan_terpopuler, status_kendaraan, kategori_stats } = data;
@@ -946,9 +987,11 @@ function KendaraanTab({ params }: { params: DateParams }) {
 function CustomerTab({ params }: { params: DateParams }) {
   const [data, setData] = useState<CustomerData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     laporanAPI
       .customer(params)
       .then((res) => {
@@ -972,11 +1015,12 @@ function CustomerTab({ params }: { params: DateParams }) {
           },
         });
       })
-      .catch(() => {})
+      .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [params]);
 
   if (loading) return <TableSkeleton />;
+  if (error) return <ErrorState message={error} />;
   if (!data) return null;
 
   const { customer_top, ringkasan } = data;
@@ -1027,9 +1071,11 @@ function CustomerTab({ params }: { params: DateParams }) {
 function OrderTab({ params }: { params: DateParams }) {
   const [data, setData] = useState<OrderData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     laporanAPI
       .order(params)
       .then((res) => {
@@ -1047,7 +1093,7 @@ function OrderTab({ params }: { params: DateParams }) {
           order_terbaru: d.recent_orders,
         });
       })
-      .catch(() => {})
+      .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [params]);
 
@@ -1059,6 +1105,7 @@ function OrderTab({ params }: { params: DateParams }) {
       </div>
     );
   }
+  if (error) return <ErrorState message={error} />;
   if (!data) return null;
 
   const { order, order_terbaru } = data;
@@ -1085,7 +1132,7 @@ function OrderTab({ params }: { params: DateParams }) {
             ) : (
               order.status_order.map((s) => (
                 <div key={s.status_order} className="flex items-center justify-between px-5 py-3">
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[s.status_order]}`}>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusOrderColors[s.status_order]}`}>
                     {statusOrderLabels[s.status_order]}
                   </span>
                   <span className="text-sm font-semibold text-black-900">{s.total}</span>
@@ -1102,7 +1149,7 @@ function OrderTab({ params }: { params: DateParams }) {
             ) : (
               order.status_pembayaran.map((s) => (
                 <div key={s.status_pembayaran} className="flex items-center justify-between px-5 py-3">
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[s.status_pembayaran]}`}>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusPembayaranColors[s.status_pembayaran]}`}>
                     {statusPembayaranLabels[s.status_pembayaran]}
                   </span>
                   <span className="text-sm font-semibold text-black-900">{s.total}</span>
@@ -1119,7 +1166,7 @@ function OrderTab({ params }: { params: DateParams }) {
             ) : (
               order.status_pengiriman.map((s) => (
                 <div key={s.status_pengiriman} className="flex items-center justify-between px-5 py-3">
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[s.status_pengiriman]}`}>
+                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusPengirimanColors[s.status_pengiriman]}`}>
                     {statusPengirimanLabels[s.status_pengiriman]}
                   </span>
                   <span className="text-sm font-semibold text-black-900">{s.total}</span>
@@ -1151,12 +1198,12 @@ function OrderTab({ params }: { params: DateParams }) {
                   <td className="px-5 py-3 text-black-700">{o.kendaraan?.nama_kendaraan}</td>
                   <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(o.harga_total)}</td>
                   <td className="px-5 py-3 text-center">
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[o.status_order]}`}>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusOrderColors[o.status_order]}`}>
                       {statusOrderLabels[o.status_order]}
                     </span>
                   </td>
                   <td className="px-5 py-3 text-center">
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[o.status_pembayaran]}`}>
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusPembayaranColors[o.status_pembayaran]}`}>
                       {statusPembayaranLabels[o.status_pembayaran]}
                     </span>
                   </td>
@@ -1177,9 +1224,11 @@ function OrderTab({ params }: { params: DateParams }) {
 function BagiHasilTab({ params }: { params: DateParams }) {
   const [data, setData] = useState<BagiHasilData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     laporanAPI
       .bagiHasil(params)
       .then((res) => {
@@ -1202,7 +1251,7 @@ function BagiHasilTab({ params }: { params: DateParams }) {
           },
         });
       })
-      .catch(() => {})
+      .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [params]);
 
@@ -1215,6 +1264,7 @@ function BagiHasilTab({ params }: { params: DateParams }) {
       </div>
     );
   }
+  if (error) return <ErrorState message={error} />;
   if (!data) return null;
 
   const { data: rows, ringkasan } = data;
@@ -1278,9 +1328,11 @@ function BagiHasilTab({ params }: { params: DateParams }) {
 function KomisiCaloTab({ params }: { params: DateParams }) {
   const [data, setData] = useState<KomisiCaloData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     laporanAPI
       .komisiCalo(params)
       .then((res) => {
@@ -1301,7 +1353,7 @@ function KomisiCaloTab({ params }: { params: DateParams }) {
           },
         });
       })
-      .catch(() => {})
+      .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
   }, [params]);
 
@@ -1314,6 +1366,7 @@ function KomisiCaloTab({ params }: { params: DateParams }) {
       </div>
     );
   }
+  if (error) return <ErrorState message={error} />;
   if (!data) return null;
 
   const { data: rows, ringkasan } = data;

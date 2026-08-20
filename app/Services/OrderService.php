@@ -4,12 +4,14 @@ namespace App\Services;
 
 use App\Models\Customer;
 use App\Models\Kendaraan;
+use App\Models\Notification;
 use App\Models\Order;
 use App\Models\Pembayaran;
 use App\Models\Setting;
 use App\Models\SupirCalo;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -56,14 +58,40 @@ class OrderService
         }
 
         // "Overdue" bukan status di database — dihitung dari batas waktu
-        // pengembalian (lihat Order::batasWaktuKembali()), diproses via PHP
-        // supaya kompatibel dengan MySQL maupun SQLite (test).
+        // pengembalian (lihat Order::batasWaktuKembali(): tanggal_selesai @
+        // jam_selesai, default 23:59). Dihitung via SQL (bukan dimuat ke
+        // memori) supaya tetap ringan walau data sudah banyak.
+        // Terlambat = tanggal_selesai sudah lewat hari ini, ATAU (hari ini
+        // dan jam_selesai <= jam sekarang; jam kosong berarti batas 23:59).
+        // whereDate() dipakai supaya kompatibel dengan MySQL (kolom DATE)
+        // maupun SQLite (kolom DATE tersimpan sebagai datetime).
+        // Grace period ikut diterapkan dengan menggeser "sekarang" ke belakang
+        // (now - grace), supaya sama persis dengan accessor jam_overtime_saat_ini.
+        $graceMinutes = (int) Setting::get('grace_period_minutes', 0);
+        $waktuBatas = now()->subMinutes($graceMinutes);
+        $nowDate = $waktuBatas->toDateString();
+        $nowTime = $waktuBatas->format('H:i');
         $aktifTerlambat = Order::where('status_order', 'active')
-            ->get(['id', 'tanggal_mulai', 'tanggal_selesai', 'jam_selesai'])
-            ->filter(fn (Order $o) => $o->batasWaktuKembali() !== null && $o->batasWaktuKembali()->lessThan(now()));
+            ->where(function ($q) use ($nowDate, $nowTime) {
+                $q->whereDate('tanggal_selesai', '<', $nowDate)
+                    ->orWhere(function ($q2) use ($nowDate, $nowTime) {
+                        $q2->whereDate('tanggal_selesai', $nowDate)
+                            ->where(function ($q3) use ($nowTime) {
+                                // Perbandingan KETAT (<): deadline tepat sama
+                                // dengan (now - grace) berarti selisih 0 detik →
+                                // belum dianggap terlambat, sama seperti accessor.
+                                $q3->where('jam_selesai', '<', $nowTime)
+                                    ->orWhere(function ($q4) use ($nowTime) {
+                                        $q4->whereNull('jam_selesai')
+                                            ->whereRaw("'23:59' < ?", [$nowTime]);
+                                    });
+                            });
+                    });
+            })
+            ->pluck('id');
 
         if (! empty($filters['overdue'])) {
-            $query->whereIn('id', $aktifTerlambat->pluck('id'));
+            $query->whereIn('id', $aktifTerlambat);
         }
 
         $perPage = (int) ($filters['per_page'] ?? 15);
@@ -264,17 +292,24 @@ class OrderService
      * Kirim WA + notifikasi sistem ke SEMUA petugas yang tidak sedang memegang
      * tugas (tidak punya order aktif/perlu_verifikasi yang masih berjalan).
      * Task diklaim ala GOJEK — petugas menekan tombol "Ambil Tugas" di aplikasi.
+     *
+     * @param  string|null  $jenis  'pickup' | 'return' | null (otomatis dari taskJenis)
      */
-    public function kirimNotifTaskOperator(Order $order): void
+    public function kirimNotifTaskOperator(Order $order, ?string $jenis = null): void
     {
         if (Setting::get('notif_task_petugas', '1') !== '1') {
             return;
         }
 
-        // Kolom operator_id baru (belum ada di skema test lama) — aman-skip.
-        if (! Schema::hasColumn('orders', 'operator_id')) {
+        // Kolom operator_id & tabel pendukung belum ada di skema test lama — aman-skip.
+        if (! Schema::hasColumn('orders', 'operator_id')
+            || ! Schema::hasTable('inspeksi_kendaraans')
+            || ! Schema::hasTable('whatsapp_logs')
+            || ! Schema::hasTable('notifications')) {
             return;
         }
+
+        $jenis = $jenis ?? $order->taskJenis() ?? 'pickup';
 
         $operatorIds = Order::whereIn('status_order', ['active', 'perlu_verifikasi'])
             ->whereNotNull('operator_id')
@@ -290,27 +325,34 @@ class OrderService
         }
 
         $opsiLabel = $order->opsi_supir === 'dengan_supir' ? 'Dengan Supir' : 'Tanpa Supir';
+        $jenisLabel = $jenis === 'return' ? 'Inspeksi Pengembalian (Return)' : 'Inspeksi & Penyerahan (Pickup)';
+        $type = $jenis === 'return' ? 'task_inspeksi_return' : 'task_inspeksi_petugas';
+        $batas = $order->batasWaktuKembali();
 
         $wa = app(WhatsAppService::class);
-        $pesan = "📋 *Task Baru: Inspeksi & Penyerahan*\n\n"
-            ."Order: *{$order->kode_order}*\n"
-            ."Kendaraan: {$order->kendaraan->nama_kendaraan}\n"
-            ."Customer: {$order->customer->nama_lengkap}\n"
-            ."Tanggal: {$order->tanggal_mulai->format('d/m/Y')} - {$order->tanggal_selesai->format('d/m/Y')}\n"
-            ."Supir: {$opsiLabel}\n\n"
-            .'Buka aplikasi → tekan *AMBIL TUGAS* untuk mengerjakan inspeksi & kirim kendaraan. Siapa cepat dia dapat!';
+        $template = Setting::get('template_task_petugas', "📋 *Task Baru untuk Petugas*\n\nOrder: *{kode_order}*\nJenis: {jenis_task}\nKendaraan: {nama_kendaraan}\nCustomer: {nama_customer}\nTanggal: {tanggal}\nSupir: {opsi_supir}\n\nBuka aplikasi → tekan *AMBIL TUGAS* untuk mengerjakan inspeksi. Siapa cepat dia dapat!");
+        $pesan = $wa->renderTemplate($template, [
+            'kode_order' => $order->kode_order,
+            'jenis_task' => $jenisLabel,
+            'nama_kendaraan' => $order->kendaraan?->nama_kendaraan ?? '-',
+            'nama_customer' => $order->customer?->nama_lengkap ?? '-',
+            'tanggal' => $order->tanggal_mulai->format('d/m/Y').' - '.$order->tanggal_selesai->format('d/m/Y'),
+            'opsi_supir' => $opsiLabel,
+            'tanggal_kembali' => $batas?->format('d/m/Y') ?? '-',
+            'jam_kembali' => $batas?->format('H:i') ?? '-',
+        ]);
 
         foreach ($petugas as $petugasUser) {
-            $wa->kirimPesanAsync($petugasUser->phone, $pesan, 'task_inspeksi_petugas', $order->id);
+            $wa->kirimPesanAsync($petugasUser->phone, $pesan, $type, $order->id);
 
             Notification::create([
                 'user_id' => $petugasUser->id,
-                'type' => 'task_inspeksi_petugas',
-                'title' => 'Task Inspeksi Baru',
-                'message' => "Order {$order->kode_order} — {$order->kendaraan->nama_kendaraan} ({$opsiLabel}) siap diinspeksi & dikirim. Ambil tugas sekarang!",
+                'type' => $type,
+                'title' => $jenis === 'return' ? 'Task Pengembalian Baru' : 'Task Inspeksi Baru',
+                'message' => "Order {$order->kode_order} — ".($order->kendaraan?->nama_kendaraan ?? '-')." ({$opsiLabel}) — {$jenisLabel}. Ambil tugas sekarang!",
                 'data' => [
                     'order_id' => $order->id,
-                    'link' => '/inspeksi/?order_id='.$order->id.'&jenis=pickup',
+                    'link' => '/inspeksi/?order_id='.$order->id.'&jenis='.$jenis,
                 ],
             ]);
         }
@@ -336,6 +378,68 @@ class OrderService
             'jam' => $order->jam_mulai ?? '00:00',
         ]);
         $wa->kirimPesanAsync($supir->no_hp, $pesan, 'penugasan_driver', $order->id);
+    }
+
+    /**
+     * WA ke supir saat kendaraan resmi diserahkan / order mulai (status active).
+     */
+    public function kirimNotifSupirOrderMulai(Order $order): void
+    {
+        if (Setting::get('notif_supir_order_mulai', '1') !== '1') {
+            return;
+        }
+
+        $supir = $order->supir;
+        if (! $supir || ! $supir->no_hp) {
+            return;
+        }
+
+        $wa = app(WhatsAppService::class);
+        $template = Setting::get('template_supir_order_mulai', 'Halo *{nama_driver}*, tugas untuk order *{kode_order}* sudah mulai.\nKendaraan: {nama_kendaraan} ({plat_nomor})\nCustomer: {nama_customer}\nPeriode: {tanggal} s/d {tanggal_selesai}\n\nSelamat bekerja, hati-hati di jalan!');
+        $pesan = $wa->renderTemplate($template, [
+            'nama_driver' => $supir->nama,
+            'kode_order' => $order->kode_order,
+            'nama_kendaraan' => $order->kendaraan?->nama_kendaraan ?? '-',
+            'plat_nomor' => $order->kendaraan?->plat_nomor ?? '-',
+            'nama_customer' => $order->customer?->nama_lengkap ?? '-',
+            'tanggal' => $order->tanggal_mulai->format('d/m/Y'),
+            'tanggal_selesai' => $order->tanggal_selesai->format('d/m/Y'),
+            'jam_mulai' => $order->jam_mulai ?? '00:00',
+        ]);
+        $wa->kirimPesanAsync($supir->no_hp, $pesan, 'supir_order_mulai', $order->id);
+    }
+
+    /**
+     * WA ke supir saat order selesai (info tarif/komisi).
+     */
+    private function kirimNotifSupirSelesai(Order $order): void
+    {
+        if (Setting::get('notif_supir_order_selesai', '1') !== '1') {
+            return;
+        }
+
+        $supir = $order->supir;
+        if (! $supir || ! $supir->no_hp) {
+            return;
+        }
+
+        $durasi = (int) $order->durasi_hari;
+        $tarif = (float) ($supir->tarif_per_hari ?? 0);
+        $total = $tarif * $durasi;
+
+        $wa = app(WhatsAppService::class);
+        $template = Setting::get('template_supir_order_selesai', 'Halo *{nama_driver}*, order *{kode_order}* telah *SELESAI* ✅\nKendaraan: {nama_kendaraan} ({plat_nomor})\nCustomer: {nama_customer}\nDurasi: {durasi_hari} hari\nTarif: {tarif_per_hari}/hari\nTotal pendapatan: *{total_supir}*\n\nTerima kasih atas kerja samanya!');
+        $pesan = $wa->renderTemplate($template, [
+            'nama_driver' => $supir->nama,
+            'kode_order' => $order->kode_order,
+            'nama_kendaraan' => $order->kendaraan?->nama_kendaraan ?? '-',
+            'plat_nomor' => $order->kendaraan?->plat_nomor ?? '-',
+            'nama_customer' => $order->customer?->nama_lengkap ?? '-',
+            'durasi_hari' => $durasi,
+            'tarif_per_hari' => 'Rp '.number_format($tarif, 0, ',', '.'),
+            'total_supir' => 'Rp '.number_format($total, 0, ',', '.'),
+        ]);
+        $wa->kirimPesanAsync($supir->no_hp, $pesan, 'supir_order_selesai', $order->id);
     }
 
     public function updateOrder(Order $order, array $validated, Request $request): Order
@@ -366,6 +470,27 @@ class OrderService
             $calo = SupirCalo::find($validated['calo_id']);
             if ($calo && $calo->jenis !== 'calo') {
                 throw ValidationException::withMessages(['calo_id' => ['ID yang dipilih bukan calo.']]);
+            }
+        }
+
+        // Tanggal pengembalian aktual dipakai menghitung denda keterlambatan
+        // FINAL. Kalau dibiarkan bebas, denda bisa dihapus diam-diam dengan
+        // backdate. Batasi: tidak boleh sebelum tanggal mulai sewa dan tidak
+        // boleh di masa depan (kecuali toleransi 5 menit karena jam device).
+        if (isset($validated['tanggal_pengembalian_aktual'])) {
+            $waktuAktual = Carbon::parse($validated['tanggal_pengembalian_aktual']);
+            $mulaiSewa = Carbon::parse($order->tanggal_mulai->format('Y-m-d'));
+
+            if ($waktuAktual->lessThan($mulaiSewa)) {
+                throw ValidationException::withMessages([
+                    'tanggal_pengembalian_aktual' => ['Tanggal pengembalian aktual tidak boleh sebelum tanggal mulai sewa.'],
+                ]);
+            }
+
+            if ($waktuAktual->greaterThan(now()->addMinutes(5))) {
+                throw ValidationException::withMessages([
+                    'tanggal_pengembalian_aktual' => ['Tanggal pengembalian aktual tidak boleh di masa depan.'],
+                ]);
             }
         }
 
@@ -605,19 +730,20 @@ class OrderService
 
     /**
      * Tarif supir per hari untuk order.
-     * Bila supir spesifik (legacy / sudah diklaim) → tarif miliknya.
-     * Selain itu (alur baru "dengan supir" tanpa supir terpilih) → tarif global
-     * dari pengaturan.
+     *
+     * Opsi "dengan supir" selalu memakai tarif global dari pengaturan —
+     * harga sudah disepakati saat order dibuat dan tidak berubah walau
+     * supirnya berbeda (misal hasil klaim task). Tarif pribadi supir hanya
+     * dipakai untuk data lama (order ber-opsi "lepas kunci" yang kebetulan
+     * punya supir tertentu).
      */
     private function hitungTarifSupir(?SupirCalo $supir, ?string $opsiSupir): float
     {
-        if ($supir) {
-            return (float) ($supir->tarif_per_hari ?? 0);
+        if ($opsiSupir === 'dengan_supir') {
+            return (float) Setting::getTarifDenganDriverPerHari();
         }
 
-        return $opsiSupir === 'dengan_supir'
-            ? (float) Setting::getTarifDenganDriverPerHari()
-            : 0;
+        return $supir ? (float) ($supir->tarif_per_hari ?? 0) : 0;
     }
 
     /**
@@ -738,6 +864,7 @@ class OrderService
                 $custUpdateData['foto_sim'] = $fotoSimPath;
             }
             if ($custUpdateData) {
+                $this->ensureUniqueIdentity($customer, $custUpdateData['no_ktp'] ?? null);
                 $customer->update($custUpdateData);
             }
 
@@ -747,10 +874,29 @@ class OrderService
         return $this->findOrCreateCustomer($validated, $fotoKtpPath, $fotoSimPath);
     }
 
+    /**
+     * Pastikan No. KTP yang akan dipasang ke pelanggan tidak sedang dipakai
+     * pelanggan lain (constraint unique di database). Kalau dipakai, hentikan
+     * dengan pesan yang jelas daripada error database mentah (500).
+     * No. HP sengaja tidak dicek — HP diperbolehkan sama antar pelanggan.
+     */
+    private function ensureUniqueIdentity(Customer $self, ?string $noKtp): void
+    {
+        if ($noKtp) {
+            $other = Customer::where('no_ktp', $noKtp)->where('id', '!=', $self->id)->first();
+            if ($other) {
+                throw ValidationException::withMessages([
+                    'customer_no_ktp' => ['No. KTP '.$noKtp.' sudah terdaftar atas nama '.$other->nama_lengkap.'.'],
+                ]);
+            }
+        }
+    }
+
     private function findOrCreateCustomer(array $validated, ?string $fotoKtpPath, ?string $fotoSimPath): Customer
     {
         $customerName = trim($validated['customer_name']);
         $normalizedHp = ! empty($validated['customer_no_hp']) ? $this->normalizePhone($validated['customer_no_hp']) : null;
+        $noKtp = ! empty($validated['customer_no_ktp']) ? trim($validated['customer_no_ktp']) : null;
 
         $query = Customer::where('nama_lengkap', $customerName);
         if ($normalizedHp) {
@@ -759,13 +905,28 @@ class OrderService
         $customer = $query->first();
 
         if (! $customer) {
+            // No. KTP punya constraint unique — kalau sudah dipakai pelanggan
+            // lain (beda nama/HP), hentikan dengan pesan yang jelas daripada
+            // membiarkan database menolak dengan error mentah.
+            if ($noKtp) {
+                $pemilikKtp = Customer::where('no_ktp', $noKtp)->first();
+                if ($pemilikKtp) {
+                    throw ValidationException::withMessages([
+                        'customer_no_ktp' => ['No. KTP '.$noKtp.' sudah terdaftar atas nama '.$pemilikKtp->nama_lengkap.'. Pilih pelanggan tersebut dari daftar, atau gunakan No. KTP yang berbeda.'],
+                    ]);
+                }
+            }
+
+            // No. HP sengaja tidak dicek — HP diperbolehkan sama antar
+            // pelanggan (mis. HP keluarga). Identitas dipegang oleh No. KTP.
+
             $customerData = [
                 'nama_lengkap' => $customerName,
                 'no_hp' => $normalizedHp,
                 'email' => $validated['customer_email'] ?? null,
                 'alamat' => $validated['customer_alamat'] ?? null,
                 'no_sim' => $validated['customer_no_sim'] ?? null,
-                'no_ktp' => $validated['customer_no_ktp'] ?? null,
+                'no_ktp' => $noKtp,
             ];
             if ($fotoKtpPath) {
                 $customerData['foto_ktp'] = $fotoKtpPath;
@@ -773,7 +934,29 @@ class OrderService
             if ($fotoSimPath) {
                 $customerData['foto_sim'] = $fotoSimPath;
             }
-            $customer = Customer::create($customerData);
+            try {
+                $customer = Customer::create($customerData);
+            } catch (QueryException $e) {
+                // Unique constraint race — pelanggan dibuat request lain lebih
+                // dulu. Beda-kan sumber duplikatnya dari pesan driver
+                // (errorInfo[2]), BUKAN getMessage() yang menyertakan SQL
+                // lengkap — kolom no_ktp selalu muncul di daftar kolom INSERT,
+                // sehingga deteksi berbasis getMessage() selalu false-positive.
+                if ($e->errorInfo[1] != 1062) {
+                    throw $e;
+                }
+
+                $pesan = $e->errorInfo[2] ?? '';
+
+                if (str_contains($pesan, 'no_ktp')) {
+                    $pemilikKtp = $noKtp ? Customer::where('no_ktp', $noKtp)->first() : null;
+                    throw ValidationException::withMessages([
+                        'customer_no_ktp' => ['No. KTP '.$noKtp.' sudah terdaftar'.($pemilikKtp ? ' atas nama '.$pemilikKtp->nama_lengkap : '').'. Pilih pelanggan tersebut dari daftar, atau gunakan No. KTP yang berbeda.'],
+                    ]);
+                }
+
+                throw $e;
+            }
         }
 
         return $customer;
@@ -810,6 +993,7 @@ class OrderService
             $custUpdateData['foto_sim'] = $fotoSimPath;
         }
         if ($custUpdateData) {
+            $this->ensureUniqueIdentity($customer, $custUpdateData['no_ktp'] ?? null);
             $customer->update($custUpdateData);
         }
     }
@@ -832,6 +1016,7 @@ class OrderService
         $newEffectiveEnd = $tanggalSelesai.' '.($jamSelesai ?? '23:59:59');
 
         $query = Order::where('kendaraan_id', $kendaraanId)
+            ->whereNull('deleted_at')
             ->whereIn('status_order', ['pending', 'confirmed', 'active'])
             ->whereDate('tanggal_mulai', '<=', $tanggalSelesai)
             ->whereDate('tanggal_selesai', '>=', $tanggalMulai);
@@ -931,6 +1116,10 @@ class OrderService
             $wa->kirimPesanAsync($nomorCustomer, $pesan, 'order_disewakan', $order->id);
         }
 
+        if ($newStatus === 'active') {
+            $this->kirimNotifSupirOrderMulai($order);
+        }
+
         if (isset($validated['supir_id']) && $validated['supir_id'] !== null && Setting::get('notif_penugasan_driver', '1') === '1') {
             $supir = SupirCalo::find($validated['supir_id']);
             if ($supir && $supir->no_hp) {
@@ -980,6 +1169,8 @@ class OrderService
                     .'Sampai jumpa di pemesanan berikutnya! 🙏';
                 $wa->kirimPesanAsync($order->customer->no_hp, $pesan, 'order_selesai', $order->id);
             }
+
+            $this->kirimNotifSupirSelesai($order);
         }
 
         if ($newStatus === 'cancelled' && $statusSebelumUpdate !== 'cancelled') {
@@ -1016,7 +1207,7 @@ class OrderService
             }
         }
 
-        if (in_array($newStatus, ['completed', 'cancelled'])) {
+        if ($newStatus === 'completed') {
             $order->update(['status_pengiriman' => 'selesai']);
         }
     }

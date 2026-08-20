@@ -9,6 +9,7 @@ use App\Models\Notification;
 use App\Models\Order;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\OrderService;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -120,7 +121,7 @@ class InspeksiKendaraanController extends Controller
             'foto' => 'nullable|image|max:5120',
             'ttd_customer' => ['nullable', Rule::requiredIf($request->input('jenis') === 'return'), 'image', 'max:2048'],
             'ttd_petugas' => ['nullable', Rule::requiredIf($request->input('jenis') === 'return'), 'image', 'max:2048'],
-            'biaya_kerusakan' => 'nullable|numeric|min:0',
+            'biaya_kerusakan' => 'nullable|numeric|min:1',
             'inspeksi_oleh' => 'nullable|string|max:255',
         ], self::INSIGNIA_RULES, self::MULTIMEDIA_RULES, $this->aturanChecklist()));
 
@@ -193,7 +194,7 @@ class InspeksiKendaraanController extends Controller
             'foto' => 'nullable|image|max:5120',
             'ttd_customer' => 'nullable|image|max:2048',
             'ttd_petugas' => 'nullable|image|max:2048',
-            'biaya_kerusakan' => 'nullable|numeric|min:0',
+            'biaya_kerusakan' => 'nullable|numeric|min:1',
             'inspeksi_oleh' => 'nullable|string|max:255',
         ], self::MULTIMEDIA_RULES, $this->aturanChecklist(false));
 
@@ -391,6 +392,15 @@ class InspeksiKendaraanController extends Controller
                 ]);
             }
 
+            // Non-tunai harus ada pembayaran (DP/lunas) tercatat sebelum
+            // kendaraan dikirim. Tunai (cash) dibayar saat serah terima.
+            $metode = $order->metode_pembayaran ?? 'cash';
+            if ($metode !== 'cash' && $order->status_pembayaran === 'unpaid') {
+                throw ValidationException::withMessages([
+                    'status_pembayaran' => ['Pembayaran (DP/lunas) wajib tercatat sebelum kendaraan dikirim untuk metode non-tunai.'],
+                ]);
+            }
+
             $draft = InspeksiKendaraan::whereKey($validated['inspeksi_id'])->first();
 
             if (! $draft || $draft->order_id !== $order->id || $draft->jenis !== 'pickup' || $draft->status !== 'draft') {
@@ -454,6 +464,9 @@ class InspeksiKendaraanController extends Controller
 
         $this->notifHasilInspeksi($order->fresh(), $inspeksi, 'pickup');
 
+        // Beri tahu supir yang ditugaskan bahwa tugasnya sudah mulai.
+        app(OrderService::class)->kirimNotifSupirOrderMulai($order->fresh());
+
         return response()->json($inspeksi->load(['order', 'admin']), 200);
     }
 
@@ -470,7 +483,7 @@ class InspeksiKendaraanController extends Controller
             'ada_damagenya' => 'nullable|boolean',
             'deskripsi_kondisi' => 'nullable|string',
             'catatan' => 'nullable|string',
-            'biaya_kerusakan' => 'nullable|numeric|min:0',
+            'biaya_kerusakan' => 'nullable|numeric|min:1',
             'foto' => 'nullable|image|max:5120',
             'ttd_customer' => 'required|image|max:2048',
             'ttd_petugas' => 'required|image|max:2048',

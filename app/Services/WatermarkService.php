@@ -29,7 +29,11 @@ class WatermarkService
             return;
         }
 
-        $image = $this->manager->read($absolutePath);
+        if ($this->isOversizedForWatermark($absolutePath)) {
+            return;
+        }
+
+        $image = $this->manager->decodePath($absolutePath);
         $width = $image->width();
         $height = $image->height();
 
@@ -39,17 +43,13 @@ class WatermarkService
 
         $fontSize = max(14, (int) ($width / 30));
 
-        $image->text($text, function (FontFactory $font) use ($fontSize) {
+        $image->text($text, (int) ($width / 2), (int) ($height / 2), function (FontFactory $font) use ($fontSize) {
             $font->filename(resource_path('fonts/Roboto-Regular.ttf'));
             $font->size($fontSize);
             $font->color('rgba(255,255,255,0.35)');
-            $font->align('center');
-            $font->valign('middle');
+            $font->align('center', 'center');
             $font->angle(-30);
-        }, [
-            (int) ($width / 2),
-            (int) ($height / 2),
-        ]);
+        });
 
         $image->save($absolutePath);
     }
@@ -66,7 +66,11 @@ class WatermarkService
             return;
         }
 
-        $image = $this->manager->read($absolutePath);
+        if ($this->isOversizedForWatermark($absolutePath)) {
+            return;
+        }
+
+        $image = $this->manager->decodePath($absolutePath);
         $width = $image->width();
         $height = $image->height();
 
@@ -76,18 +80,39 @@ class WatermarkService
 
         $fontSize = max(14, (int) ($width / 30));
 
-        $image->text($text, function (FontFactory $font) use ($fontSize) {
+        $image->text($text, (int) ($width / 2), (int) ($height / 2), function (FontFactory $font) use ($fontSize) {
             $font->filename(resource_path('fonts/Roboto-Regular.ttf'));
             $font->size($fontSize);
             $font->color('rgba(255,255,255,0.35)');
-            $font->align('center');
-            $font->valign('middle');
+            $font->align('center', 'center');
             $font->angle(-30);
-        }, [
-            (int) ($width / 2),
-            (int) ($height / 2),
-        ]);
+        });
 
         $image->save($absolutePath);
+    }
+
+    /**
+     * Gambar raksasa (mis. scan resolusi tinggi) butuh ratusan MB untuk
+     * di-decode GD dan bisa meledakkan memory_limit. Kalau dimensinya melebihi
+     * ambang, watermark dilewati — file tetap tersimpan apa adanya.
+     *
+     * @return array{0: int, 1: int}|null dimensi [w, h] kalau terlalu besar
+     */
+    private function isOversizedForWatermark(string $absolutePath): ?array
+    {
+        $info = @getimagesize($absolutePath);
+        if ($info === false) {
+            return null;
+        }
+
+        [$width, $height] = $info;
+
+        if ($width > 6000 || $height > 6000 || $width * $height > 20000000) {
+            report(new \RuntimeException('Watermark dilewati: dimensi gambar terlalu besar ('.$width.'x'.$height.' px): '.$absolutePath));
+
+            return [$width, $height];
+        }
+
+        return null;
     }
 }

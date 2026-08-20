@@ -56,12 +56,16 @@ interface DashboardData {
 
 type TaskOrder = Order & { task_jenis: 'inspeksi_pickup' | 'kirim_kendaraan' | 'return' };
 
-const statusColors: Record<string, string> = {
-  pending: 'bg-primary-50 text-primary-600',
+// Badge warna — token tema: primary (biru), accent (amber), success (hijau), error (merah)
+const statusOrderColors: Record<string, string> = {
+  pending: 'bg-accent-50 text-accent-600',
   confirmed: 'bg-primary-50 text-primary-500',
-  active: 'bg-accent-50 text-accent-500',
-  completed: 'bg-accent-100 text-black-400',
+  active: 'bg-primary-100 text-primary-600',
+  completed: 'bg-success-50 text-success-600',
   cancelled: 'bg-error-50 text-error-500',
+};
+
+const statusPermintaanColors: Record<string, string> = {
   tersedia: 'bg-success-50 text-success-500',
   tidak_terjawab: 'bg-error-50 text-error-500',
 };
@@ -115,10 +119,15 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!isPetugas) return;
-    inspeksiAPI
-      .tasks()
-      .then(({ data: res }) => setTasks(res))
-      .catch(() => setTasks([]));
+    const fetchTasks = () => {
+      inspeksiAPI
+        .tasks()
+        .then(({ data: res }) => setTasks(res))
+        .catch(() => setTasks([]));
+    };
+    fetchTasks();
+    const interval = setInterval(fetchTasks, 30000);
+    return () => clearInterval(interval);
   }, [isPetugas]);
 
   const handleRangeChange = useCallback((range: 'Harian' | 'Mingguan' | 'Bulanan') => {
@@ -130,11 +139,12 @@ export default function Dashboard() {
       .catch(() => {});
   }, []);
 
-  useEffect(() => {
+  const loadData = useCallback(() => {
     dashboardAPI
       .get()
       .then(({ data }) => {
         setData(data as unknown as DashboardData);
+        setError(null);
         setLoading(false);
       })
       .catch((err) => {
@@ -142,6 +152,12 @@ export default function Dashboard() {
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(loadData, 30000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   useEffect(() => {
     if (data?.chart_pendapatan && chartData.length === 0) {
@@ -362,7 +378,7 @@ export default function Dashboard() {
                       </div>
                       <span
                         className={`px-2.5 py-1 text-xs font-medium rounded-full shrink-0 ${
-                          statusColors[order.status_order] || 'bg-accent-100 text-black-400'
+                          statusOrderColors[order.status_order] || 'bg-accent-100 text-black-400'
                         }`}
                       >
                         {order.status_order}
@@ -403,7 +419,7 @@ export default function Dashboard() {
                     </div>
                     <span
                       className={`px-2.5 py-1 text-xs font-medium rounded-full shrink-0 ${
-                        statusColors[order.status_order] || 'bg-accent-100 text-black-400'
+                        statusOrderColors[order.status_order] || 'bg-accent-100 text-black-400'
                       }`}
                     >
                       {order.status_order}
@@ -441,7 +457,7 @@ export default function Dashboard() {
                     </div>
                     <span
                       className={`px-2.5 py-1 text-xs font-medium rounded-full shrink-0 ${
-                        statusColors[req.status_permintaan] || 'bg-accent-100 text-black-400'
+                        statusPermintaanColors[req.status_permintaan] || 'bg-accent-100 text-black-400'
                       }`}
                     >
                       {req.status_permintaan}

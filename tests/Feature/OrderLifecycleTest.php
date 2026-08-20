@@ -4,9 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Customer;
 use App\Models\GarasiPartner;
+use App\Models\InspeksiKendaraan;
 use App\Models\Kendaraan;
 use App\Models\Order;
 use App\Models\Pembayaran;
+use App\Models\Setting;
+use App\Models\SupirCalo;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -22,6 +25,7 @@ class OrderLifecycleTest extends TestCase
 
         Schema::dropIfExists('pembayarans');
         Schema::dropIfExists('garasi_requests');
+        Schema::dropIfExists('inspeksi_kendaraans');
         Schema::dropIfExists('orders');
         Schema::dropIfExists('kendaraans');
         Schema::dropIfExists('garasi_partners');
@@ -353,6 +357,48 @@ class OrderLifecycleTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status_order' => 'confirmed']);
     }
 
+    public function test_complete_order_rejects_backdated_tanggal_pengembalian(): void
+    {
+        Storage::fake('public');
+
+        $order = $this->createOrder([
+            'status_order' => 'active',
+            'status_pembayaran' => 'paid',
+            'tanggal_mulai' => now()->subDays(5)->format('Y-m-d'),
+            'tanggal_selesai' => now()->subDays(3)->format('Y-m-d'),
+        ]);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_order' => 'completed',
+            'tanggal_pengembalian_aktual' => now()->subDays(10)->format('Y-m-d').' 10:00:00',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('tanggal_pengembalian_aktual');
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status_order' => 'active']);
+    }
+
+    public function test_complete_order_rejects_future_tanggal_pengembalian(): void
+    {
+        Storage::fake('public');
+
+        $order = $this->createOrder([
+            'status_order' => 'active',
+            'status_pembayaran' => 'paid',
+            'tanggal_mulai' => now()->subDays(5)->format('Y-m-d'),
+            'tanggal_selesai' => now()->subDays(3)->format('Y-m-d'),
+        ]);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_order' => 'completed',
+            'tanggal_pengembalian_aktual' => now()->addDays(2)->format('Y-m-d').' 10:00:00',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('tanggal_pengembalian_aktual');
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status_order' => 'active']);
+    }
+
     public function test_order_can_be_cancelled_from_pending(): void
     {
         $order = $this->createOrder(['status_order' => 'pending']);
@@ -492,5 +538,386 @@ class OrderLifecycleTest extends TestCase
         // Telat bukan "pengembalian lebih awal" — catatan pengembalian awal tidak boleh muncul.
         $this->assertStringNotContainsString('Dikembalikan lebih awal', (string) $order->catatan);
         $this->assertCount(0, $order->pembayarans()->where('status', 'refund')->get());
+    }
+
+    public function test_complete_order_saves_admin_biaya_kerusakan(): void
+    {
+        Storage::fake('public');
+
+        $order = $this->createOrder([
+            'status_order' => 'active',
+            'status_pembayaran' => 'unpaid',
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-08-03',
+        ]);
+        $waktuKembali = Carbon::parse('2026-08-05 15:00:00');
+        $totalFinal = (float) $order->proyeksiSelesai($waktuKembali)['harga_total'] + 500000;
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_order' => 'completed',
+            'status_pembayaran' => 'paid',
+            'jumlah_bayar' => $totalFinal,
+            'biaya_kerusakan' => 500000,
+            'tanggal_pengembalian_aktual' => '2026-08-05 15:00:00',
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status_order' => 'completed', 'biaya_kerusakan' => 500000]);
+
+        $order->refresh();
+        $pembayarans = $order->pembayarans()->get();
+        $this->assertCount(1, $pembayarans);
+        $this->assertEquals($totalFinal, (float) $pembayarans->first()->jumlah);
+    }
+
+    public function test_complete_order_falls_back_to_inspeksi_biaya_kerusakan(): void
+    {
+        Storage::fake('public');
+
+        Schema::create('inspeksi_kendaraans', function ($t) {
+            $t->id();
+            $t->foreignId('order_id');
+            $t->string('jenis');
+            $t->string('ttd_customer')->nullable();
+            $t->string('ttd_petugas')->nullable();
+            $t->decimal('biaya_kerusakan', 14, 2)->nullable();
+            $t->timestamps();
+        });
+
+        try {
+            $order = $this->createOrder([
+                'status_order' => 'active',
+                'status_pembayaran' => 'unpaid',
+                'tanggal_mulai' => '2026-08-01',
+                'tanggal_selesai' => '2026-08-03',
+            ]);
+            InspeksiKendaraan::create([
+                'order_id' => $order->id,
+                'jenis' => 'return',
+                'ttd_customer' => 'ttd-customer.png',
+                'ttd_petugas' => 'ttd-petugas.png',
+                'biaya_kerusakan' => 300000,
+            ]);
+
+            $waktuKembali = Carbon::parse('2026-08-05 15:00:00');
+            $totalFinal = (float) $order->proyeksiSelesai($waktuKembali)['harga_total'] + 300000;
+
+            $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+                'status_order' => 'completed',
+                'status_pembayaran' => 'paid',
+                'jumlah_bayar' => $totalFinal,
+                'tanggal_pengembalian_aktual' => '2026-08-05 15:00:00',
+            ]);
+
+            $response->assertOk();
+            $this->assertDatabaseHas('orders', ['id' => $order->id, 'status_order' => 'completed', 'biaya_kerusakan' => 300000]);
+        } finally {
+            Schema::dropIfExists('inspeksi_kendaraans');
+        }
+    }
+
+    public function test_soft_deleted_order_does_not_block_rebooking(): void
+    {
+        Storage::fake('public');
+
+        $order = $this->createOrder([
+            'status_order' => 'confirmed',
+            'tanggal_mulai' => now()->addDays(1)->toDateString(),
+            'tanggal_selesai' => now()->addDays(3)->toDateString(),
+        ]);
+        $order->delete();
+
+        $response = $this->actingAs($this->admin)->postJson('/api/orders', $this->baseOrderPayload([
+            'tanggal_mulai' => now()->addDays(1)->toDateString(),
+            'tanggal_selesai' => now()->addDays(3)->toDateString(),
+        ]));
+
+        $response->assertStatus(201);
+        $this->assertDatabaseMissing('orders', ['id' => $order->id, 'deleted_at' => null]);
+    }
+
+    public function test_soft_deleted_active_order_not_counted_in_active_orders(): void
+    {
+        $order = $this->createOrder(['status_order' => 'active']);
+        $this->assertSame(1, $this->kendaraan->activeOrders()->count());
+
+        $order->delete();
+
+        $this->assertSame(0, $this->kendaraan->activeOrders()->count());
+    }
+
+    public function test_cancel_does_not_mark_status_pengiriman_selesai(): void
+    {
+        $order = $this->createOrder([
+            'status_order' => 'active',
+            'status_pengiriman' => 'dalam_penyewaan',
+        ]);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_order' => 'cancelled',
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status_order' => 'cancelled', 'status_pengiriman' => 'dalam_penyewaan']);
+    }
+
+    public function test_create_dengan_supir_order_uses_global_tarif_not_supir_personal(): void
+    {
+        Storage::fake('public');
+        Setting::set('biaya_dengan_driver_per_hari', 250000);
+
+        $supir = SupirCalo::create([
+            'nama' => 'Supir Beda Tarif',
+            'no_hp' => '6281000000001',
+            'jenis' => 'supir',
+            'status' => 'aktif',
+            'tarif_per_hari' => 100000,
+            'komisi' => 0,
+        ]);
+
+        $response = $this->actingAs($this->admin)->postJson('/api/orders', $this->baseOrderPayload([
+            'opsi_supir' => 'dengan_supir',
+            'supir_id' => $supir->id,
+        ]));
+
+        $response->assertStatus(201);
+        $order = Order::findOrFail($response->json('id'));
+        $durasi = (int) $order->durasi_hari;
+        // Harga memakai tarif GLOBAL (250000), bukan tarif pribadi supir (100000).
+        $this->assertEquals($durasi * 500000 + $durasi * 250000, (float) $order->harga_total);
+    }
+
+    public function test_complete_dengan_supir_order_uses_global_tarif_not_supir_personal(): void
+    {
+        Storage::fake('public');
+        Setting::set('biaya_dengan_driver_per_hari', 250000);
+
+        $supir = SupirCalo::create([
+            'nama' => 'Supir Beda Tarif',
+            'no_hp' => '6281000000002',
+            'jenis' => 'supir',
+            'status' => 'aktif',
+            'tarif_per_hari' => 100000,
+            'komisi' => 0,
+        ]);
+
+        $order = $this->createOrder([
+            'status_order' => 'active',
+            'status_pembayaran' => 'unpaid',
+            'supir_id' => $supir->id,
+            'opsi_supir' => 'dengan_supir',
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-08-03',
+        ]);
+
+        $waktuKembali = Carbon::parse('2026-08-05 15:00:00');
+        $proyeksi = $order->proyeksiSelesai($waktuKembali);
+        // Tarif supir tetap global (250000), bukan pribadi (100000).
+        $this->assertEquals(1000000 + 250000 * 2 + $proyeksi['denda_overtime'], $proyeksi['harga_total']);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_order' => 'completed',
+            'status_pembayaran' => 'paid',
+            'jumlah_bayar' => $proyeksi['harga_total'],
+            'tanggal_pengembalian_aktual' => '2026-08-05 15:00:00',
+        ]);
+
+        $response->assertOk();
+        $order->refresh();
+        $this->assertEquals($proyeksi['harga_total'], (float) $order->harga_total);
+    }
+
+    public function test_list_overdue_calculated_in_database(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-15 14:00:00'));
+        try {
+            $lewatKemarin = $this->createOrder([
+                'status_order' => 'active',
+                'tanggal_mulai' => '2026-08-13',
+                'tanggal_selesai' => '2026-08-14',
+            ]);
+            $lewatHariIni = $this->createOrder([
+                'status_order' => 'active',
+                'tanggal_mulai' => '2026-08-13',
+                'tanggal_selesai' => '2026-08-15',
+                'jam_selesai' => '13:00',
+            ]);
+            $belumLewatJam = $this->createOrder([
+                'status_order' => 'active',
+                'tanggal_mulai' => '2026-08-13',
+                'tanggal_selesai' => '2026-08-15',
+                'jam_selesai' => '15:00',
+            ]);
+            $belumLewatHari = $this->createOrder([
+                'status_order' => 'active',
+                'tanggal_mulai' => '2026-08-15',
+                'tanggal_selesai' => '2026-08-16',
+            ]);
+
+            $response = $this->actingAs($this->admin)->getJson('/api/orders?overdue=1');
+            $response->assertOk();
+            $ids = collect($response->json('data'))->pluck('id')->all();
+            $this->assertContains($lewatKemarin->id, $ids);
+            $this->assertContains($lewatHariIni->id, $ids);
+            $this->assertNotContains($belumLewatJam->id, $ids);
+            $this->assertNotContains($belumLewatHari->id, $ids);
+            $this->assertSame(2, $response->json('counts.overdue'));
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_active_order_payment_record_succeeds(): void
+    {
+        Storage::fake('public');
+
+        $order = $this->createOrder([
+            'status_order' => 'active',
+            'status_pembayaran' => 'partial',
+            'metode_pembayaran' => 'transfer',
+            'tanggal_mulai' => now()->subDays(1)->format('Y-m-d'),
+            'tanggal_selesai' => now()->addDays(2)->format('Y-m-d'),
+        ]);
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 400000,
+            'metode_pembayaran' => 'transfer',
+            'status' => 'dp',
+        ]);
+
+        // Hanya field yang diizinkan (status pembayaran, jumlah, metode) —
+        // tanpa data inti (customer/mobil/tanggal) yang dilarang untuk order terkunci.
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_pembayaran' => 'paid',
+            'jumlah_bayar' => 600000,
+            'metode_pembayaran' => 'transfer',
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('pembayarans', ['order_id' => $order->id, 'jumlah' => 600000, 'status' => 'pelunasan']);
+        $this->assertSame('paid', $order->fresh()->status_pembayaran);
+    }
+
+    public function test_active_order_edit_rejects_locked_customer_field(): void
+    {
+        $order = $this->createOrder(['status_order' => 'active']);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'customer_name' => 'Nama Baru',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('status_order');
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status_order' => 'active']);
+    }
+
+    public function test_complete_perlu_verifikasi_order_payment_must_cover_frozen_denda(): void
+    {
+        Storage::fake('public');
+
+        $order = $this->createOrder([
+            'status_order' => 'perlu_verifikasi',
+            'status_pembayaran' => 'unpaid',
+            'waktu_perlu_verifikasi' => now()->subHours(5),
+            'jam_overtime' => 5,
+            'denda_overtime' => 125000,
+            'tanggal_mulai' => '2026-08-01',
+            'tanggal_selesai' => '2026-08-03',
+        ]);
+        $waktuKembali = Carbon::parse('2026-08-05 15:00:00');
+        $totalFinal = (float) $order->proyeksiSelesai($waktuKembali)['harga_total'];
+        // Denda yang dibekukan (125000) masuk tagihan final.
+        $this->assertEquals(1125000, $totalFinal);
+
+        // Membayar hanya harga dasar → kurang bayar → ditolak.
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_order' => 'completed',
+            'status_pembayaran' => 'paid',
+            'jumlah_bayar' => 1000000,
+            'tanggal_pengembalian_aktual' => '2026-08-05 15:00:00',
+        ]);
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('jumlah_bayar');
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status_order' => 'perlu_verifikasi']);
+
+        // Membayar termasuk denda beku → sukses.
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_order' => 'completed',
+            'status_pembayaran' => 'paid',
+            'jumlah_bayar' => $totalFinal,
+            'tanggal_pengembalian_aktual' => '2026-08-05 15:00:00',
+        ]);
+        $response->assertOk();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status_order' => 'completed']);
+        $order->refresh();
+        $this->assertEquals($totalFinal, (float) $order->harga_total);
+        $this->assertSame('paid', $order->status_pembayaran);
+    }
+
+    public function test_kendaraan_list_filters_by_available_date_range(): void
+    {
+        $mobilLain = Kendaraan::create([
+            'garasi_partner_id' => $this->garasi->id,
+            'nama_kendaraan' => 'Honda Brio',
+            'plat_nomor' => 'B 5678 XYZ',
+            'warna' => 'Hitam',
+            'harga_sewa_per_hari' => 400000,
+            'status' => 'tersedia',
+        ]);
+
+        // Order yang sedang aktif pada rentang tanggal tertentu.
+        $this->createOrder([
+            'status_order' => 'active',
+            'kendaraan_id' => $this->kendaraan->id,
+            'tanggal_mulai' => '2026-08-10',
+            'tanggal_selesai' => '2026-08-12',
+        ]);
+
+        // Rentang beririsan dengan order → kendaraan itu disembunyikan.
+        $response = $this->actingAs($this->admin)->getJson('/api/kendaraans?available_from=2026-08-11&available_to=2026-08-13');
+        $response->assertOk();
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertNotContains($this->kendaraan->id, $ids);
+        $this->assertContains($mobilLain->id, $ids);
+
+        // Rentang tidak beririsan → semua mobil tampil.
+        $response = $this->actingAs($this->admin)->getJson('/api/kendaraans?available_from=2026-08-15&available_to=2026-08-20');
+        $response->assertOk();
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertContains($this->kendaraan->id, $ids);
+        $this->assertContains($mobilLain->id, $ids);
+    }
+
+    public function test_list_overdue_honors_grace_period_setting(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-15 14:00:00'));
+        try {
+            Setting::set('grace_period_minutes', 60);
+
+            // Jam selesai 13:00 — lewat 1 jam, masih dalam grace 60 menit.
+            $dalamGrace = $this->createOrder([
+                'status_order' => 'active',
+                'tanggal_mulai' => '2026-08-13',
+                'tanggal_selesai' => '2026-08-15',
+                'jam_selesai' => '13:00',
+            ]);
+            // Jam selesai 12:00 — lewat 2 jam, di luar grace.
+            $lewatGrace = $this->createOrder([
+                'status_order' => 'active',
+                'tanggal_mulai' => '2026-08-13',
+                'tanggal_selesai' => '2026-08-15',
+                'jam_selesai' => '12:00',
+            ]);
+
+            $response = $this->actingAs($this->admin)->getJson('/api/orders?overdue=1');
+            $response->assertOk();
+            $ids = collect($response->json('data'))->pluck('id')->all();
+            $this->assertNotContains($dalamGrace->id, $ids);
+            $this->assertContains($lewatGrace->id, $ids);
+            $this->assertSame(1, $response->json('counts.overdue'));
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 }

@@ -4,7 +4,7 @@ import { orderAPI, customerAPI, kendaraanAPI, supirCaloAPI, settingsAPI, inspeks
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from '../components/ConfirmModal';
-import { formatHpDisplay, todayJakarta, nowWIB, nowWIBTime, formatRupiah, warnaKendaraanHex } from '../lib/format';
+import { formatHpDisplay, formatHpWa, todayJakarta, nowWIB, nowWIBTime, formatRupiah, warnaKendaraanHex } from '../lib/format';
 
 /**
  * ─────────────────────────────────────────────────────────────
@@ -70,22 +70,32 @@ const metodePembayaranLabels: Record<MetodePembayaran, string> = {
   lainnya: 'Lainnya',
 };
 
-// Badge status — dipetakan ke token tema (avail/rented/maint/ink + amber bawaan untuk "menunggu")
-const statusColors: Record<string, string> = {
-  pending: 'bg-amber-50 text-amber-700',
+// Badge warna per domain status — token tema: primary (biru), accent (amber), success (hijau), error (merah)
+const statusOrderColors: Record<string, string> = {
+  pending: 'bg-accent-50 text-accent-700',
   confirmed: 'bg-primary-50 text-primary-500',
-  active: 'bg-accent-50 text-accent-600',
-  perlu_verifikasi: 'bg-amber-50 text-amber-700',
-  completed: 'bg-green-50 text-green-700',
+  active: 'bg-primary-100 text-primary-600',
+  perlu_verifikasi: 'bg-accent-50 text-accent-700',
+  completed: 'bg-success-50 text-success-600',
   cancelled: 'bg-error-50 text-error-600',
+};
+
+const statusPembayaranColors: Record<string, string> = {
   unpaid: 'bg-error-50 text-error-600',
-  partial: 'bg-amber-50 text-amber-600',
-  paid: 'bg-green-50 text-green-600',
+  partial: 'bg-accent-50 text-accent-600',
+  paid: 'bg-success-50 text-success-600',
+};
+
+const statusPengirimanColors: Record<string, string> = {
   belum_diambil: 'bg-accent-100 text-accent-700',
   sudah_diantarkan: 'bg-primary-50 text-primary-500',
   dalam_penyewaan: 'bg-primary-100 text-primary-600',
-  selesai: 'bg-green-50 text-green-700',
+  selesai: 'bg-success-50 text-success-600',
+  sudah_dikembalikan: 'bg-success-50 text-success-600',
 };
+
+// Status turunan (hasil hitung, bukan enum) — Terlambat.
+const OVERDUE_BADGE = 'bg-error-50 text-error-600';
 
 const formatJam = (jam: number): string => {
   const hari = Math.floor(jam / 24);
@@ -102,21 +112,21 @@ const inputClass =
  * TYPES — ENTITAS (di-import dari api.ts sebagai single source of truth)
  * ───────────────────────────────────────────────────────────── */
 
-const cardBorderColor: Record<string, string> = {
-  pending: 'border-t-amber-500',
+const orderCardBorderColor: Record<string, string> = {
+  pending: 'border-t-accent-500',
   confirmed: 'border-t-primary-500',
-  active: 'border-t-green-500',
-  perlu_verifikasi: 'border-t-error-500',
-  completed: 'border-t-black-300',
-  cancelled: 'border-t-black-200',
+  active: 'border-t-primary-500',
+  perlu_verifikasi: 'border-t-accent-500',
+  completed: 'border-t-success-500',
+  cancelled: 'border-t-error-500',
 };
-const statusDotColor: Record<string, string> = {
-  pending: 'bg-amber-500',
+const orderStatusDotColor: Record<string, string> = {
+  pending: 'bg-accent-500',
   confirmed: 'bg-primary-500',
-  active: 'bg-green-500',
-  perlu_verifikasi: 'bg-error-500',
-  completed: 'bg-black-400',
-  cancelled: 'bg-black-300',
+  active: 'bg-primary-500',
+  perlu_verifikasi: 'bg-accent-500',
+  completed: 'bg-success-500',
+  cancelled: 'bg-error-500',
 };
 
 interface OrderForm {
@@ -411,6 +421,9 @@ export default function Orders() {
   const [kendaraanSearch, setKendaraanSearch] = useState('');
   const [confirmDelete, setConfirmDelete] = useState<Order | null>(null);
   const [confirmAction, setConfirmAction] = useState<ConfirmActionState | null>(null);
+  const [cancelOrder, setCancelOrder] = useState<Order | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
   const [confirmComplete, setConfirmComplete] = useState<Order | null>(null);
   const [completeReturnInspeksi, setCompleteReturnInspeksi] = useState<InspeksiKendaraan | null>(null);
   const [completeInspeksiLoading, setCompleteInspeksiLoading] = useState(false);
@@ -418,6 +431,7 @@ export default function Orders() {
   const [completePaymentPreview, setCompletePaymentPreview] = useState<string | null>(null);
   const [completeReturnTime, setCompleteReturnTime] = useState(nowWIB());
   const [completePaymentAmount, setCompletePaymentAmount] = useState('');
+  const [completeKerusakanAmount, setCompleteKerusakanAmount] = useState('');
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
   const [buktiBaruFile, setBuktiBaruFile] = useState<File | null>(null);
@@ -490,14 +504,56 @@ export default function Orders() {
   const filteredCustomers = useMemo(() => {
     if (!customerSearch) return [];
     const q = customerSearch.toLowerCase();
-    return customers.filter((c) => c.nama_lengkap.toLowerCase().includes(q)).slice(0, 8);
+    return customers
+      .filter((c) => c.nama_lengkap.toLowerCase().includes(q) || (c.no_ktp ?? '').toLowerCase().includes(q))
+      .slice(0, 8);
   }, [customerSearch, customers]);
 
   const filteredEditCustomers = useMemo(() => {
     if (!editCustomerSearch) return [];
     const q = editCustomerSearch.toLowerCase();
-    return customers.filter((c) => c.nama_lengkap.toLowerCase().includes(q)).slice(0, 8);
+    return customers
+      .filter((c) => c.nama_lengkap.toLowerCase().includes(q) || (c.no_ktp ?? '').toLowerCase().includes(q))
+      .slice(0, 8);
   }, [editCustomerSearch, customers]);
+
+  const ktpConflict = useMemo(() => {
+    const ktp = (form.customer_no_ktp || '').trim();
+    if (!ktp || form.customer_id) return null;
+    return customers.find((c) => c.no_ktp && c.no_ktp.trim() === ktp) ?? null;
+  }, [form.customer_no_ktp, form.customer_id, customers]);
+
+  const editKtpConflict = useMemo(() => {
+    const ktp = (editForm.customer_no_ktp || '').trim();
+    if (!ktp || editForm.customer_id) return null;
+    return customers.find((c) => c.no_ktp && c.no_ktp.trim() === ktp) ?? null;
+  }, [editForm.customer_no_ktp, editForm.customer_id, customers]);
+
+  const nameConflict = useMemo(() => {
+    const nama = (form.customer_name || '').trim();
+    if (!nama || form.customer_id || ktpConflict) return null;
+    const hp = formatHpWa(form.customer_no_hp || '');
+    return (
+      customers.find(
+        (c) =>
+          c.nama_lengkap.trim().toLowerCase() === nama.toLowerCase() &&
+          (!c.no_hp || !hp || formatHpWa(c.no_hp) !== hp),
+      ) ?? null
+    );
+  }, [form.customer_name, form.customer_no_hp, form.customer_id, customers, ktpConflict]);
+
+  const editNameConflict = useMemo(() => {
+    const nama = (editForm.customer_name || '').trim();
+    if (!nama || editForm.customer_id || editKtpConflict) return null;
+    const hp = formatHpWa(editForm.customer_no_hp || '');
+    return (
+      customers.find(
+        (c) =>
+          c.nama_lengkap.trim().toLowerCase() === nama.toLowerCase() &&
+          (!c.no_hp || !hp || formatHpWa(c.no_hp) !== hp),
+      ) ?? null
+    );
+  }, [editForm.customer_name, editForm.customer_no_hp, editForm.customer_id, customers, editKtpConflict]);
 
 
   useEffect(() => {
@@ -591,7 +647,7 @@ export default function Orders() {
       .then(({ data }: { data: ListResponse<Customer> }) => setCustomers(data.data))
       .catch(() => toast.error('Gagal memuat data customer'));
     kendaraanAPI
-      .list()
+      .list({ per_page: 100 })
       .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
       .catch(() => toast.error('Gagal memuat data kendaraan'));
     supirCaloAPI
@@ -599,6 +655,23 @@ export default function Orders() {
       .then(({ data }: { data: ListResponse<SupirCalo> }) => setCalos(data.data))
       .catch(() => toast.error('Gagal memuat data calo'));
   }, [canManage, toast]);
+
+  // Saat modal buat order terbuka dan tanggal mulai/selesai sudah diisi,
+  // muat ulang daftar mobil yang TIDAK bertabrakan dengan rentang tanggal
+  // tersebut (server yang memfilter). Mobil dengan order masa depan yang
+  // tidak beririsan tetap bisa dipilih.
+  useEffect(() => {
+    if (!showForm || !canManage) return;
+    const from = form.tanggal_mulai;
+    const to = form.tanggal_selesai;
+    const t = setTimeout(() => {
+      kendaraanAPI
+        .list({ per_page: 100, ...(from && to ? { available_from: from, available_to: to } : {}) })
+        .then(({ data }: { data: ListResponse<Kendaraan> }) => setKendaraans(data.data))
+        .catch(() => {});
+    }, 400);
+    return () => clearTimeout(t);
+  }, [showForm, canManage, form.tanggal_mulai, form.tanggal_selesai]);
 
   // Ringkasan cepat — ambil hitungan nyata dari server (semua order, bukan cuma halaman ini).
   const stats = useMemo(
@@ -732,6 +805,10 @@ export default function Orders() {
     const today = todayJakarta();
     if (form.tanggal_mulai < today) { toast.error('Tanggal mulai tidak boleh di masa lalu'); return; }
     if (form.tanggal_selesai < form.tanggal_mulai) { toast.error('Tanggal selesai harus setelah atau sama dengan tanggal mulai'); return; }
+    if (form.tanggal_mulai === form.tanggal_selesai && form.jam_mulai && form.jam_selesai && form.jam_mulai >= form.jam_selesai) {
+      toast.error('Jam mulai harus sebelum jam selesai');
+      return;
+    }
     const nowJam = nowWIBTime();
     if (form.tanggal_mulai === today && form.jam_mulai && form.jam_mulai <= nowJam) {
       toast.error('Jam mulai hari ini sudah terlewat — pilih jam setelah sekarang');
@@ -789,7 +866,7 @@ export default function Orders() {
       closeCreateModal();
       load();
       kendaraanAPI
-        .list()
+        .list({ per_page: 100 })
         .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
         .catch(() => {});
     } catch (err) {
@@ -813,6 +890,26 @@ export default function Orders() {
       const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
       toast.error(msg || 'Gagal memperbarui order');
       load();
+    }
+  };
+
+  const handleCancelOrder = async () => {
+    if (!cancelOrder) return;
+    setCancelling(true);
+    try {
+      const { data } = await orderAPI.update(cancelOrder.id, {
+        status_order: 'cancelled',
+        alasan_pembatalan: cancelReason.trim() || null,
+      });
+      setItems((prev) => prev.map((item) => (item.id === cancelOrder.id ? { ...item, ...data } : item)));
+      toast.success('Order berhasil dibatalkan');
+      setCancelOrder(null);
+      setCancelReason('');
+    } catch (err) {
+      const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
+      toast.error(msg || 'Gagal membatalkan order');
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -943,8 +1040,8 @@ export default function Orders() {
   const supirTarifEdit = editForm.opsi_supir === 'dengan_supir' ? tarifSupirGlobal : 0;
   const editTotal = editDurasi * editHargaPerHari + supirTarifEdit * editDurasi;
 
-  // Order aktif: data inti terkunci, hanya status/pembayaran/catatan/bukti yang boleh diubah
-  const isLockedOrder = (editingOrder?.status_order === 'active' || editingOrder?.status_order === 'completed' || editingOrder?.status_order === 'cancelled') && !isSewakan && !isKonfirmasi;
+  // Order aktif/perlu verifikasi/selesai/dibatalkan: data inti terkunci, hanya status/pembayaran/catatan/bukti yang boleh diubah
+  const isLockedOrder = (editingOrder?.status_order === 'active' || editingOrder?.status_order === 'perlu_verifikasi' || editingOrder?.status_order === 'completed' || editingOrder?.status_order === 'cancelled') && !isSewakan && !isKonfirmasi;
   const isFullyLocked = (editingOrder?.status_order === 'completed' || editingOrder?.status_order === 'cancelled') && !isSewakan && !isKonfirmasi;
 
   const handleEditKendaraanSelect = (id: number) => setEditForm((prev) => ({ ...prev, kendaraan_id: String(id) }));
@@ -961,6 +1058,10 @@ export default function Orders() {
       if (!editForm.tanggal_mulai) { toast.error('Tanggal mulai wajib diisi'); return; }
       if (!editForm.tanggal_selesai) { toast.error('Tanggal selesai wajib diisi'); return; }
       if (editForm.tanggal_selesai < editForm.tanggal_mulai) { toast.error('Tanggal selesai harus setelah atau sama dengan tanggal mulai'); return; }
+      if (editForm.tanggal_mulai === editForm.tanggal_selesai && editForm.jam_mulai && editForm.jam_selesai && editForm.jam_mulai >= editForm.jam_selesai) {
+        toast.error('Jam mulai harus sebelum jam selesai');
+        return;
+      }
       const nowJam = nowWIBTime();
       if (editForm.tanggal_mulai === todayJakarta() && editForm.jam_mulai && editForm.jam_mulai <= nowJam) {
         toast.error('Jam mulai hari ini sudah terlewat — pilih jam setelah sekarang');
@@ -1011,6 +1112,18 @@ export default function Orders() {
         payload.customer_name = editForm.customer_name;
       }
 
+      // Order terkunci (aktif/perlu verifikasi/selesai/dibatalkan): data inti
+      // tidak boleh dikirim ulang — backend menolak (422) jika field terlarang
+      // ikut terkirim walau nilainya tidak berubah. Daftar sama dengan OrderService.
+      if (isLockedOrder) {
+        const lockedFields = [
+          'customer_id', 'customer_name', 'customer_no_hp', 'customer_email', 'customer_alamat', 'customer_no_ktp', 'customer_no_sim',
+          'kendaraan_id', 'tanggal_mulai', 'tanggal_selesai', 'jam_mulai', 'jam_selesai', 'alamat_jemput', 'tujuan',
+          'metode_penyerahan', 'supir_id', 'opsi_supir', 'calo_id',
+        ];
+        lockedFields.forEach((k) => delete payload[k]);
+      }
+
       // Sertakan jumlah_bayar jika form pembayaran baru diisi
       if (newPaymentAmount && isLockedOrder && !isFullyLocked) {
         const amount = Number(newPaymentAmount);
@@ -1019,10 +1132,7 @@ export default function Orders() {
           return;
         }
         const totalPaid = editingOrder.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
-        const denda =
-          editingOrder.status_order === 'active' && editingOrder.jam_overtime_saat_ini > 0 && !editingOrder.jam_overtime
-            ? Number(editingOrder.denda_overtime_saat_ini || 0)
-            : 0;
+        const denda = editingOrder.jam_overtime_saat_ini > 0 ? Number(editingOrder.denda_overtime_saat_ini || 0) : 0;
         const sisa = Number(editingOrder.harga_total) + denda - totalPaid;
         if (amount > sisa) {
           toast.error(`Jumlah pembayaran maksimal Rp ${sisa.toLocaleString('id-ID')} (termasuk denda)`);
@@ -1032,16 +1142,16 @@ export default function Orders() {
       }
 
       let res;
-      const hasFile = editBuktiFile || editBuktiPengirimanFile || editCustFotoKtpFile;
-      const needsFormData = hasFile || editCustFotoKtpDelete;
+      const hasFile = editBuktiFile || editBuktiPengirimanFile || (!isLockedOrder && editCustFotoKtpFile);
+      const needsFormData = hasFile || (!isLockedOrder && editCustFotoKtpDelete);
       if (needsFormData) {
         const fd = new FormData();
         fd.append('_method', 'PUT');
         Object.entries(payload).forEach(([k, v]) => fd.append(k, String(v)));
         if (editBuktiFile) fd.append('bukti_transfer', editBuktiFile);
         if (editBuktiPengirimanFile) fd.append('bukti_pengiriman', editBuktiPengirimanFile);
-        if (editCustFotoKtpFile) fd.append('customer_foto_ktp', editCustFotoKtpFile);
-        if (editCustFotoKtpDelete) fd.append('customer_foto_ktp_delete', '1');
+        if (!isLockedOrder && editCustFotoKtpFile) fd.append('customer_foto_ktp', editCustFotoKtpFile);
+        if (!isLockedOrder && editCustFotoKtpDelete) fd.append('customer_foto_ktp_delete', '1');
         res = await orderAPI.updateWithFile(editingOrder.id, fd);
       } else {
         res = await orderAPI.update(editingOrder.id, payload);
@@ -1051,7 +1161,7 @@ export default function Orders() {
       closeEditModal();
       load();
       kendaraanAPI
-        .list()
+        .list({ per_page: 100 })
         .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
         .catch(() => {});
     } catch (err) {
@@ -1069,7 +1179,7 @@ export default function Orders() {
   const handleCompleteOrder = async () => {
     if (!confirmComplete) return;
     const needsPaymentProof =
-      confirmComplete.status_pembayaran !== 'paid' || (confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime);
+      confirmComplete.status_pembayaran !== 'paid' || confirmComplete.jam_overtime_saat_ini > 0;
     if (needsPaymentProof && !completePaymentFile) {
       toast.error('Bukti pembayaran wajib diunggah');
       return;
@@ -1085,18 +1195,22 @@ export default function Orders() {
       // Sisa tagihan sudah termasuk denda keterlambatan yang sedang berjalan;
       // nominalnya bisa dikoreksi admin sebelum submit.
       const totalPaid = confirmComplete.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
-      const denda =
-        confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime
-          ? Number(confirmComplete.denda_overtime_saat_ini || 0)
-          : 0;
-      const sisa = Number(confirmComplete.harga_total || 0) + denda - totalPaid;
+      const denda = confirmComplete.jam_overtime_saat_ini > 0 ? Number(confirmComplete.denda_overtime_saat_ini || 0) : 0;
+      const sisa = Number(confirmComplete.harga_total || 0) + denda + Number(completeKerusakanAmount || 0) - totalPaid;
       if (sisa > 0) {
         const amount = Number(completePaymentAmount);
         if (!completePaymentAmount || isNaN(amount) || amount <= 0) {
           toast.error('Jumlah dibayar wajib diisi (lebih dari 0)');
           return;
         }
+        if (amount > sisa) {
+          toast.error(`Jumlah dibayar maksimal Rp ${sisa.toLocaleString('id-ID')}`);
+          return;
+        }
         fd.append('jumlah_bayar', String(amount));
+      }
+      if (Number(completeKerusakanAmount || 0) > 0) {
+        fd.append('biaya_kerusakan', String(Math.round(Number(completeKerusakanAmount))));
       }
       fd.append('_method', 'PUT');
       await orderAPI.updateWithFile(confirmComplete.id, fd);
@@ -1104,7 +1218,7 @@ export default function Orders() {
       closeCompleteModal();
       load();
       kendaraanAPI
-        .list()
+        .list({ per_page: 100 })
         .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
         .catch(() => {});
     } catch (err) {
@@ -1124,16 +1238,24 @@ export default function Orders() {
     setCompletePaymentPreview(null);
     setCompleteReturnTime(nowWIB());
     setCompletePaymentAmount('');
+    setCompleteKerusakanAmount('');
   };
 
-  const cekInspeksiReturn = useCallback(async (orderId: number) => {
+  const cekInspeksiReturn = useCallback(async (order: Order) => {
     setCompleteInspeksiLoading(true);
     try {
-      const { data } = await inspeksiAPI.byOrder(orderId);
+      const { data } = await inspeksiAPI.byOrder(order.id);
       // Sama dengan aturan server (OrderService): inspeksi return TERAKHIR
       // yang menentukan — wajib bertanda tangan customer & petugas.
       const latestReturn = [...data].reverse().find((i) => i.jenis === 'return') ?? null;
-      setCompleteReturnInspeksi(latestReturn && latestReturn.ttd_customer && latestReturn.ttd_petugas ? latestReturn : null);
+      const validReturn = latestReturn && latestReturn.ttd_customer && latestReturn.ttd_petugas ? latestReturn : null;
+      setCompleteReturnInspeksi(validReturn);
+      const kerusakan = validReturn && Number(validReturn.biaya_kerusakan || 0) > 0 ? String(Math.round(Number(validReturn.biaya_kerusakan))) : '';
+      setCompleteKerusakanAmount(kerusakan);
+      const totalPaid = order.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
+      const denda = order.jam_overtime_saat_ini > 0 ? Number(order.denda_overtime_saat_ini || 0) : 0;
+      const sisa = Number(order.harga_total || 0) + denda + Number(kerusakan || 0) - totalPaid;
+      setCompletePaymentAmount(sisa > 0 ? String(Math.round(sisa)) : '');
     } catch {
       setCompleteReturnInspeksi(null);
     } finally {
@@ -1144,12 +1266,10 @@ export default function Orders() {
   const openCompleteModal = async (item: Order) => {
     setConfirmComplete(item);
     setCompleteReturnInspeksi(null);
-    void cekInspeksiReturn(item.id);
+    setCompleteKerusakanAmount('');
+    void cekInspeksiReturn(item);
     const totalPaid = item.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
-    const denda =
-      item.status_order === 'active' && item.jam_overtime_saat_ini > 0 && !item.jam_overtime
-        ? Number(item.denda_overtime_saat_ini || 0)
-        : 0;
+    const denda = item.jam_overtime_saat_ini > 0 ? Number(item.denda_overtime_saat_ini || 0) : 0;
     const sisa = Number(item.harga_total || 0) + denda - totalPaid;
     setCompletePaymentAmount(sisa > 0 ? String(Math.round(sisa)) : '');
   };
@@ -1157,18 +1277,14 @@ export default function Orders() {
   const completeSisa = useMemo(() => {
     if (!confirmComplete) return 0;
     const totalPaid = confirmComplete.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
-    const denda =
-      confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime
-        ? Number(confirmComplete.denda_overtime_saat_ini || 0)
-        : 0;
-    return Number(confirmComplete.harga_total || 0) + denda - totalPaid;
-  }, [confirmComplete]);
+    const denda = confirmComplete.jam_overtime_saat_ini > 0 ? Number(confirmComplete.denda_overtime_saat_ini || 0) : 0;
+    return Number(confirmComplete.harga_total || 0) + denda + Number(completeKerusakanAmount || 0) - totalPaid;
+  }, [confirmComplete, completeKerusakanAmount]);
 
   const completeSupirFee = useMemo(() => {
     if (!confirmComplete) return 0;
     if (confirmComplete.opsi_supir !== 'dengan_supir') return 0;
-    const tarif = confirmComplete.supir ? Number(confirmComplete.supir.tarif_per_hari || 0) : tarifSupirGlobal;
-    return tarif * confirmComplete.durasi_hari;
+    return tarifSupirGlobal * confirmComplete.durasi_hari;
   }, [confirmComplete, tarifSupirGlobal]);
 
   const filteredKendaraanCreate = useMemo(() => {
@@ -1519,6 +1635,11 @@ export default function Orders() {
                   ) : form.customer_name ? (
                     <p className="mt-1.5 text-xs text-accent-600">Customer baru akan dibuat otomatis</p>
                   ) : null}
+                  {nameConflict && (
+                    <p className="mt-1.5 text-xs text-amber-600">
+                      Ada pelanggan bernama {nameConflict.nama_lengkap} (No. HP {formatHpDisplay(nameConflict.no_hp)}) — jika orang yang sama, pilih dari daftar pelanggan lalu perbarui No. HP.
+                    </p>
+                  )}
                 </div>
                 <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">No. HP *</label>
@@ -1527,6 +1648,16 @@ export default function Orders() {
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">No. KTP</label>
                       <input type="text" value={form.customer_no_ktp} onChange={(e) => setField('customer_no_ktp', e.target.value)} className={inputClass} placeholder="opsional" />
+                      {ktpConflict && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          No. KTP sudah terdaftar atas nama {ktpConflict.nama_lengkap} — pilih dari daftar pelanggan, atau periksa kembali No. KTP.
+                        </p>
+                      )}
+                      {!form.customer_id && !form.customer_no_ktp?.trim() && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          No. KTP belum diisi — sebaiknya diisi agar pelanggan bisa dikenali jika kembali.
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">No. SIM *</label>
@@ -1551,7 +1682,7 @@ export default function Orders() {
                       <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-black-200 px-3 py-6 text-center transition-colors hover:border-primary-400 hover:bg-primary-50/50">
                         <svg className="h-5 w-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                         <span className="text-xs text-black-400">{custFotoKtpFile ? custFotoKtpFile.name : 'KTP / Paspor / SIM'}</span>
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; setCustFotoKtpFile(f); setCustFotoKtpPreview(f ? URL.createObjectURL(f) : null); }} />
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0] ?? null; if (f && f.size > 2 * 1024 * 1024) { toast.error('Ukuran foto maksimal 2MB'); e.target.value = ''; return; } setCustFotoKtpFile(f); setCustFotoKtpPreview(f ? URL.createObjectURL(f) : null); }} />
                       </label>
                     </div>
               </div>
@@ -1603,7 +1734,10 @@ export default function Orders() {
                       <div className="flex gap-3 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
                         {filteredKendaraanCreate.map((k) => {
                           const selected = form.kendaraan_id === String(k.id);
-                          const available = isVehicleAvailable(k);
+                          const tanggalTersedia = Boolean(form.tanggal_mulai && form.tanggal_selesai);
+                          // Saat tanggal diisi, server sudah memfilter mobil yang
+                          // beririsan — status 'tersedia' sudah cukup.
+                          const available = k.status === 'tersedia' && (tanggalTersedia || !k.active_orders_count);
                           return (
                             <div
                               key={k.id}
@@ -2139,10 +2273,7 @@ export default function Orders() {
                   </div>
                   {editingOrder && (() => {
                     const totalPaid = editingOrder.pembayarans!.reduce((sum, p) => sum + Number(p.jumlah), 0);
-                    const denda =
-                      editingOrder.status_order === 'active' && editingOrder.jam_overtime_saat_ini > 0 && !editingOrder.jam_overtime
-                        ? Number(editingOrder.denda_overtime_saat_ini || 0)
-                        : 0;
+                    const denda = editingOrder.jam_overtime_saat_ini > 0 ? Number(editingOrder.denda_overtime_saat_ini || 0) : 0;
                     const sisa = Number(editingOrder.harga_total) + denda - totalPaid;
                     return (
                       <div className="mt-2 border-t border-black-200 pt-2">
@@ -2179,7 +2310,8 @@ export default function Orders() {
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">Status Pembayaran</label>
-                      <select value={editForm.status_pembayaran || 'partial'} onChange={(e) => setEditField('status_pembayaran', e.target.value as StatusPembayaran)} className={inputClass}>
+                      <select value={editForm.status_pembayaran || 'unpaid'} onChange={(e) => setEditField('status_pembayaran', e.target.value as StatusPembayaran)} className={inputClass}>
+                        <option value="unpaid" disabled>{statusPembayaranLabels.unpaid}</option>
                         {statusPembayaranOptions.filter((s) => s !== 'unpaid').map((s) => (<option key={s} value={s}>{statusPembayaranLabels[s]}</option>))}
                       </select>
                     </div>
@@ -2278,6 +2410,11 @@ export default function Orders() {
                   ) : editForm.customer_name ? (
                     <p className="mt-1.5 text-xs text-accent-600">Customer baru akan dibuat otomatis</p>
                   ) : null}
+                  {editNameConflict && (
+                    <p className="mt-1.5 text-xs text-amber-600">
+                      Ada pelanggan bernama {editNameConflict.nama_lengkap} (No. HP {formatHpDisplay(editNameConflict.no_hp)}) — jika orang yang sama, pilih dari daftar pelanggan lalu perbarui No. HP.
+                    </p>
+                  )}
                 </div>
                 {(editForm.customer_id || editForm.customer_name) && (
                   <>
@@ -2288,6 +2425,16 @@ export default function Orders() {
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">No. KTP</label>
                       <input type="text" value={editForm.customer_no_ktp || ''} onChange={(e) => setEditField('customer_no_ktp', e.target.value)} className={inputClass} placeholder="opsional" />
+                      {editKtpConflict && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          No. KTP sudah terdaftar atas nama {editKtpConflict.nama_lengkap} — pilih dari daftar pelanggan, atau periksa kembali No. KTP.
+                        </p>
+                      )}
+                      {!editForm.customer_id && !editForm.customer_no_ktp?.trim() && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          No. KTP belum diisi — sebaiknya diisi agar pelanggan bisa dikenali jika kembali.
+                        </p>
+                      )}
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">No. SIM *</label>
@@ -2303,7 +2450,7 @@ export default function Orders() {
                     </div>
                     <div className="md:col-span-2">
                       <label className="mb-1 block text-sm font-medium text-black-700">Dokumen Identitas</label>
-                      {isSewakan || isKonfirmasi ? (
+                      {isSewakan || isKonfirmasi || isLockedOrder ? (
                         <div className="flex gap-3">
                           {editingOrder.customer?.foto_ktp ? (
                             <div>
@@ -2920,15 +3067,15 @@ export default function Orders() {
             <div className="space-y-4 p-6">
               {/* ── Status pills ── */}
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusColors[detailOrder.status_order]}`}>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusOrderColors[detailOrder.status_order]}`}>
                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                   {statusOrderLabels[detailOrder.status_order]}
                 </span>
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusColors[detailOrder.status_pembayaran]}`}>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusPembayaranColors[detailOrder.status_pembayaran]}`}>
                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                   {statusPembayaranLabels[detailOrder.status_pembayaran]}
                 </span>
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusColors[detailOrder.status_pengiriman]}`}>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusPengirimanColors[detailOrder.status_pengiriman]}`}>
                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
                   {statusPengirimanLabels[detailOrder.status_pengiriman]}
                 </span>
@@ -3107,15 +3254,15 @@ export default function Orders() {
                     <div>
                       <p className="text-sm font-medium text-black-900">Biaya Supir</p>
                       <p className="text-xs text-black-500">
-                        {detailOrder.durasi_hari} hari × {formatRupiah(detailOrder.supir ? Number(detailOrder.supir.tarif_per_hari || 0) : tarifSupirGlobal)}/hari
+                        {detailOrder.durasi_hari} hari × {formatRupiah(tarifSupirGlobal)}/hari
                       </p>
                     </div>
                     <p className="shrink-0 text-sm font-semibold text-black-900">
-                      {formatRupiah(detailOrder.durasi_hari * (detailOrder.supir ? Number(detailOrder.supir.tarif_per_hari || 0) : tarifSupirGlobal))}
+                      {formatRupiah(detailOrder.durasi_hari * tarifSupirGlobal)}
                     </p>
                   </div>
                 )}
-                {detailOrder.jam_overtime > 0 && (
+                {detailOrder.jam_overtime > 0 && detailOrder.status_order !== 'active' && (
                   <div className="flex items-start justify-between gap-4 border-t border-primary-100/70 pt-3">
                     <div>
                       <p className="text-sm font-semibold text-error-600">Denda Overtime</p>
@@ -3126,7 +3273,7 @@ export default function Orders() {
                     <p className="shrink-0 text-sm font-semibold text-error-600">{formatRupiah(detailOrder.denda_overtime)}</p>
                   </div>
                 )}
-                {detailOrder.status_order === 'active' && detailOrder.jam_overtime_saat_ini > 0 && !detailOrder.jam_overtime && (
+                {detailOrder.status_order === 'active' && detailOrder.jam_overtime_saat_ini > 0 && (
                   <div className="flex items-start justify-between gap-4 border-t border-primary-100/70 pt-3">
                     <div>
                       <p className="text-sm font-semibold text-error-600">Overtime saat ini</p>
@@ -3142,7 +3289,7 @@ export default function Orders() {
                   <span className="text-lg font-bold text-primary-600">
                     {formatRupiah(
                       Number(detailOrder.harga_total) +
-                        (detailOrder.status_order === 'active' && detailOrder.jam_overtime_saat_ini > 0 && !detailOrder.jam_overtime
+                        ((detailOrder.status_order === 'active' || detailOrder.status_order === 'perlu_verifikasi') && detailOrder.jam_overtime_saat_ini > 0
                           ? Number(detailOrder.denda_overtime_saat_ini)
                           : 0)
                     )}
@@ -3393,19 +3540,19 @@ export default function Orders() {
                   </span>
                   <span className="text-black-900">{formatRupiah(invoiceOrder.durasi_hari * invoiceOrder.harga_per_hari)}</span>
                 </div>
-                {invoiceOrder.supir && invoiceOrder.supir.tarif_per_hari ? (
-                  <div className="flex justify-between">
-                    <span className="text-black-700">
-                      Supir {invoiceOrder.durasi_hari} hari × {formatRupiah(invoiceOrder.supir.tarif_per_hari)}/hari
-                    </span>
-                    <span className="text-black-900">{formatRupiah(invoiceOrder.durasi_hari * invoiceOrder.supir.tarif_per_hari)}</span>
-                  </div>
-                ) : invoiceOrder.opsi_supir === 'dengan_supir' ? (
+                {invoiceOrder.opsi_supir === 'dengan_supir' ? (
                   <div className="flex justify-between">
                     <span className="text-black-700">
                       Supir {invoiceOrder.durasi_hari} hari × {formatRupiah(tarifSupirGlobal)}/hari
                     </span>
                     <span className="text-black-900">{formatRupiah(invoiceOrder.durasi_hari * tarifSupirGlobal)}</span>
+                  </div>
+                ) : invoiceOrder.supir && invoiceOrder.supir.tarif_per_hari ? (
+                  <div className="flex justify-between">
+                    <span className="text-black-700">
+                      Supir {invoiceOrder.durasi_hari} hari × {formatRupiah(invoiceOrder.supir.tarif_per_hari)}/hari
+                    </span>
+                    <span className="text-black-900">{formatRupiah(invoiceOrder.durasi_hari * invoiceOrder.supir.tarif_per_hari)}</span>
                   </div>
                 ) : null}
                 {invoiceOrder.jam_overtime > 0 && (
@@ -3462,6 +3609,46 @@ export default function Orders() {
         onCancel={() => setConfirmAction(null)}
       />
 
+      {cancelOrder && (
+        <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4" onClick={() => setCancelOrder(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-black-900">Batalkan Order</h2>
+            <p className="mt-1 text-sm text-black-600">
+              Yakin ingin membatalkan order &quot;{cancelOrder.kode_order}&quot; dari {cancelOrder.customer?.nama_lengkap}?
+            </p>
+            <label className="mt-4 block text-sm font-medium text-black-700">
+              Alasan Pembatalan <span className="text-xs font-normal text-black-400">(disarankan)</span>
+            </label>
+            <textarea
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Contoh: customer membatalkan karena kebutuhan berubah..."
+              className="mt-1.5 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-black-900 outline-none transition-colors focus:border-primary-500 focus:ring-2 focus:ring-primary-100"
+            />
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setCancelOrder(null);
+                  setCancelReason('');
+                }}
+                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas"
+              >
+                Tutup
+              </button>
+              <button
+                onClick={handleCancelOrder}
+                disabled={cancelling}
+                className="rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-error-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {cancelling ? 'Membatalkan...' : 'Batalkan Order'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmComplete && (
         <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4" onClick={closeCompleteModal}>
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -3513,7 +3700,7 @@ export default function Orders() {
                         <p className="shrink-0 text-sm font-semibold text-black-900">{formatRupiah(completeSupirFee)}</p>
                       </div>
                     )}
-                    {confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime && (
+                    {confirmComplete.jam_overtime_saat_ini > 0 && (
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <p className="text-sm font-medium text-error-600">Denda Overtime</p>
@@ -3524,14 +3711,24 @@ export default function Orders() {
                         <p className="shrink-0 text-sm font-semibold text-error-600">{formatRupiah(confirmComplete.denda_overtime_saat_ini)}</p>
                       </div>
                     )}
+                    {Number(completeKerusakanAmount || 0) > 0 && (
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-error-600">Biaya Kerusakan</p>
+                          <p className="text-xs text-error-500">Dari inspeksi petugas (dapat dikoreksi)</p>
+                        </div>
+                        <p className="shrink-0 text-sm font-semibold text-error-600">{formatRupiah(Number(completeKerusakanAmount || 0))}</p>
+                      </div>
+                    )}
                     <div className="flex items-center justify-between border-t border-primary-100 pt-2">
                       <span className="text-sm font-semibold text-black-900">Total</span>
                       <span className="text-lg font-bold text-primary-600">
                         {formatRupiah(
                           Number(confirmComplete.harga_total || 0) +
-                            (confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime
+                            (confirmComplete.jam_overtime_saat_ini > 0
                               ? Number(confirmComplete.denda_overtime_saat_ini || 0)
-                              : 0)
+                              : 0) +
+                            Number(completeKerusakanAmount || 0)
                         )}
                       </span>
                     </div>
@@ -3567,6 +3764,18 @@ export default function Orders() {
                   />
                 </div>
 
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Biaya Kerusakan (Rp)</label>
+                  <p className="mb-1.5 text-xs text-black-400">Opsional. Isi jika ada kerusakan; kosongkan untuk memakai angka dari inspeksi petugas.</p>
+                  <input
+                    type="number"
+                    min="0"
+                    value={completeKerusakanAmount}
+                    onChange={(e) => setCompleteKerusakanAmount(e.target.value)}
+                    className="block w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-black-900 shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  />
+                </div>
+
                 {completeInspeksiLoading ? (
                   <div className="flex items-start gap-2 rounded-lg border border-gray-200 bg-canvas px-4 py-3 text-sm text-black-500">
                     <span>Memeriksa inspeksi return…</span>
@@ -3580,7 +3789,7 @@ export default function Orders() {
                       </span>
                     </span>
                     <button
-                      onClick={() => cekInspeksiReturn(confirmComplete.id)}
+                      onClick={() => cekInspeksiReturn(confirmComplete)}
                       disabled={completeInspeksiLoading}
                       className="shrink-0 self-center rounded-md bg-amber-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-amber-700 disabled:opacity-50"
                     >
@@ -3609,7 +3818,7 @@ export default function Orders() {
 
               <div className="w-72 shrink-0 space-y-4">
                 {confirmComplete &&
-                  (confirmComplete.status_pembayaran !== 'paid' || (confirmComplete.jam_overtime_saat_ini > 0 && !confirmComplete.jam_overtime)) && (
+                  (confirmComplete.status_pembayaran !== 'paid' || confirmComplete.jam_overtime_saat_ini > 0) && (
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">
                         Bukti Pembayaran <span className="text-error-500">*</span>
@@ -3678,12 +3887,12 @@ export default function Orders() {
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {group.list.map((item) => {
-                    const isOpen = item.status_order === 'pending' || item.status_order === 'confirmed';
-            const isActive = item.status_order === 'active';
-            const isVerifikasi = item.status_order === 'perlu_verifikasi';
-            const isTerlambat = isActive && item.jam_overtime_saat_ini > 0;
-            const isCompleted = item.status_order === 'completed';
-            const borderColor = isTerlambat ? 'border-t-error-500' : isVerifikasi ? 'border-t-amber-500' : cardBorderColor[item.status_order];
+                    const isBelumMulai = item.status_order === 'pending' || item.status_order === 'confirmed';
+            const isAktif = item.status_order === 'active';
+            const isPerluVerifikasi = item.status_order === 'perlu_verifikasi';
+            const isTerlambat = isAktif && item.jam_overtime_saat_ini > 0;
+            const isSelesai = item.status_order === 'completed';
+            const borderColor = isTerlambat ? 'border-t-error-500' : orderCardBorderColor[item.status_order];
 
             return (
               <div
@@ -3697,15 +3906,15 @@ export default function Orders() {
                       <span className="font-mono text-sm font-bold text-black-900">{item.kode_order}</span>
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                          isTerlambat ? statusColors['cancelled'] : isVerifikasi ? statusColors['perlu_verifikasi'] : statusColors[item.status_order]
+                          isTerlambat ? OVERDUE_BADGE : statusOrderColors[item.status_order]
                         }`}
                       >
                         {isTerlambat ? 'Terlambat' : statusOrderLabels[item.status_order]}
                       </span>
                     </div>
                     <div className="mt-1 flex items-center gap-1.5">
-                      <span className={`h-1.5 w-1.5 rounded-full ${isTerlambat ? 'bg-error-500' : isVerifikasi ? 'bg-amber-500' : statusDotColor[item.status_order]} ${isActive ? 'animate-pulse' : ''}`} />
-                      <span className={`text-[11px] font-medium ${isTerlambat ? 'text-error-600' : isVerifikasi ? 'text-amber-700' : 'text-black-400'}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${isTerlambat ? 'bg-error-500' : orderStatusDotColor[item.status_order]} ${isAktif ? 'animate-pulse' : ''}`} />
+                      <span className={`text-[11px] font-medium ${isTerlambat ? 'text-error-600' : 'text-black-400'}`}>
                         {isTerlambat ? 'Terlambat' : statusOrderLabels[item.status_order]}
                       </span>
                       {item.source === 'katalog' && (
@@ -3718,7 +3927,7 @@ export default function Orders() {
                     {canManage && (
                       <>
                         <button onClick={() => openEditModal(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-primary-50 hover:text-primary-600" title="Edit order" aria-label="Edit order"><PencilIcon /></button>
-                        {isOpen && (
+                        {isBelumMulai && (
                           <button onClick={() => setConfirmDelete(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-error-50 hover:text-error-600" title="Hapus" aria-label="Hapus"><TrashIcon /></button>
                         )}
                       </>
@@ -3742,8 +3951,8 @@ export default function Orders() {
                         const textColor = done ? 'text-primary-600' : 'text-black-400';
                         return (
                           <div key={label} className="flex min-w-0 flex-1 items-center gap-1.5">
-                            <span className={`h-2 w-2 shrink-0 rounded-full ${i === 1 && isVerifikasi ? 'bg-amber-500' : stepColor} ${isVerifikasi && i === 1 ? 'animate-pulse' : ''}`} />
-                            <span className={`truncate text-[10px] font-medium ${i === 1 && isVerifikasi ? 'text-amber-700' : textColor}`}>{label}</span>
+                            <span className={`h-2 w-2 shrink-0 rounded-full ${i === 1 && isPerluVerifikasi ? 'bg-accent-500' : stepColor} ${isPerluVerifikasi && i === 1 ? 'animate-pulse' : ''}`} />
+                            <span className={`truncate text-[10px] font-medium ${i === 1 && isPerluVerifikasi ? 'text-accent-700' : textColor}`}>{label}</span>
                             {i < 2 && <span className={`h-px flex-1 ${i + 1 < stepIndex ? 'bg-primary-300' : 'bg-black-200'}`} />}
                           </div>
                         );
@@ -3822,7 +4031,7 @@ export default function Orders() {
                         <p className="text-sm font-bold text-black-900">
                           {formatRupiah(
                             Number(item.harga_total) +
-                              ((isActive && item.jam_overtime_saat_ini > 0 && !item.jam_overtime) || isVerifikasi
+                              ((isAktif && item.jam_overtime_saat_ini > 0 && !item.jam_overtime) || isPerluVerifikasi
                                 ? Number(item.denda_overtime_saat_ini)
                                 : 0)
                           )}
@@ -3834,7 +4043,7 @@ export default function Orders() {
 
                   {/* LOKASI */}
                   {(item.alamat_jemput || item.tujuan) && (
-                    <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-xs text-black-600">
+                    <div className="flex items-center gap-1.5 rounded-lg border border-black-200 bg-canvas px-3 py-2 text-xs text-black-600">
                       <svg className="h-3.5 w-3.5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                       {item.metode_penyerahan === 'antar' ? (
                         <>
@@ -3862,13 +4071,13 @@ export default function Orders() {
                       Terlambat {formatJam(item.jam_overtime_saat_ini)} — {formatRupiah(item.denda_overtime_saat_ini)}
                     </div>
                   )}
-                  {isVerifikasi && (
-                    <div className="rounded-lg border border-amber-500/30 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700">
+                  {isPerluVerifikasi && (
+                    <div className="rounded-lg border border-accent-500/30 bg-accent-50 px-3 py-1.5 text-xs font-medium text-accent-700">
                       Denda difreeze: {formatJam(item.jam_overtime_saat_ini)} — {formatRupiah(item.denda_overtime_saat_ini)}
                     </div>
                   )}
-                  {isCompleted && item.jam_overtime > 0 && (
-                    <div className="rounded-lg border border-accent-200 bg-accent-50 px-3 py-1.5 text-xs font-medium text-accent-600">
+                  {isSelesai && item.jam_overtime > 0 && (
+                    <div className="rounded-lg border border-accent-100 bg-accent-50 px-3 py-1.5 text-xs font-medium text-accent-600">
                       Terlambat {formatJam(item.jam_overtime)} — {formatRupiah(item.denda_overtime)}
                     </div>
                   )}
@@ -3877,13 +4086,13 @@ export default function Orders() {
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-gray-100 pt-3 text-xs">
                     <span className="text-black-400">
                       Bayar:{' '}
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColors[item.status_pembayaran]}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusPembayaranColors[item.status_pembayaran]}`}>
                         {statusPembayaranLabels[item.status_pembayaran]}
                       </span>
                     </span>
                     <span className="text-black-400">
                       Pengiriman:{' '}
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusColors[item.status_pengiriman]}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusPengirimanColors[item.status_pengiriman]}`}>
                         {statusPengirimanLabels[item.status_pengiriman]}
                       </span>
                     </span>
@@ -3895,10 +4104,22 @@ export default function Orders() {
                     {canManage && (
                       <>
                         <button onClick={() => openEditModal(item)} className="flex-1 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-600">Edit</button>
-                        {isActive && (
+                        {isAktif && (
                           <button onClick={() => openCompleteModal(item)} className="flex-1 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-500">Selesai</button>
                         )}
-                        {isVerifikasi && (
+                        {isSelesai && (
+                          <button
+                            disabled
+                            title="Order sudah selesai"
+                            className="flex flex-1 cursor-not-allowed items-center justify-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-black-400"
+                          >
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            Selesai
+                          </button>
+                        )}
+                        {isPerluVerifikasi && (
                           <>
                             <button onClick={() => openCompleteModal(item)} className="flex-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-600">Selesaikan</button>
                             <button
@@ -3907,19 +4128,19 @@ export default function Orders() {
                             >
                               Kembalikan ke Aktif
                             </button>
-                            <button onClick={() => setConfirmAction({ title: 'Batalkan Order', message: `Batalkan order "${item.kode_order}" dari ${item.customer?.nama_lengkap}?`, danger: true, onConfirm: () => handleInlineUpdate(item.id, 'status_order', 'cancelled') })} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
+                            <button onClick={() => setCancelOrder(item)} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
                           </>
                         )}
                         {item.status_order === 'pending' && (
                           <>
                             <button onClick={() => openEditModal(item, { konfirmasi: true })} className="flex-1 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-600">Konfirmasi</button>
-                            <button onClick={() => setConfirmAction({ title: 'Batalkan Order', message: `Batalkan order "${item.kode_order}" dari ${item.customer?.nama_lengkap}?`, danger: true, onConfirm: () => handleInlineUpdate(item.id, 'status_order', 'cancelled') })} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
+                            <button onClick={() => setCancelOrder(item)} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
                           </>
                         )}
                         {item.status_order === 'confirmed' && (
                           <>
                             <button onClick={() => openEditModal(item, { sewakan: true })} className="flex-1 rounded-lg bg-accent-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-600">Kirim</button>
-                            <button onClick={() => setConfirmAction({ title: 'Batalkan Order', message: `Batalkan order "${item.kode_order}" dari ${item.customer?.nama_lengkap}?`, danger: true, onConfirm: () => handleInlineUpdate(item.id, 'status_order', 'cancelled') })} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
+                            <button onClick={() => setCancelOrder(item)} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
                           </>
                         )}
                       </>

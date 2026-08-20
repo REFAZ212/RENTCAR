@@ -51,8 +51,8 @@ class CustomerController extends Controller
             'alamat' => 'required|string',
             'no_ktp' => 'nullable|string|unique:customers,no_ktp',
             'no_sim' => 'required|string',
-            'foto_ktp' => 'nullable|image|max:2048',
-            'foto_sim' => 'nullable|image|max:2048',
+            'foto_ktp' => 'nullable|image|max:2048|dimensions:max_width=10000,max_height=10000',
+            'foto_sim' => 'nullable|image|max:2048|dimensions:max_width=10000,max_height=10000',
             'catatan' => 'nullable|string',
         ]);
 
@@ -103,8 +103,8 @@ class CustomerController extends Controller
             'alamat' => 'sometimes|required|string',
             'no_ktp' => 'nullable|string|unique:customers,no_ktp,'.$customer->id,
             'no_sim' => 'sometimes|required|string',
-            'foto_ktp' => 'nullable|image|max:2048',
-            'foto_sim' => 'nullable|image|max:2048',
+            'foto_ktp' => 'nullable|image|max:2048|dimensions:max_width=10000,max_height=10000',
+            'foto_sim' => 'nullable|image|max:2048|dimensions:max_width=10000,max_height=10000',
             'catatan' => 'nullable|string',
         ]);
 

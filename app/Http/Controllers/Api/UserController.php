@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class UserController extends Controller
@@ -102,10 +103,10 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'phone' => 'nullable|string|max:20',
+            'phone' => ['nullable', 'string', 'max:20', Rule::requiredIf($request->input('role') === 'petugas')],
             'role' => 'required|in:admin_utama,admin_operasional,petugas',
             'password' => ['required', 'confirmed', Password::min(8)],
-            'avatar' => 'nullable|image|max:2048',
+            'avatar' => 'nullable|image|max:2048|dimensions:max_width=10000,max_height=10000',
             'nyambi_supir' => 'nullable|boolean',
             'no_sim' => 'nullable|string|max:64',
             'tarif_per_hari' => 'nullable|numeric|min:0',
@@ -154,10 +155,10 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|required|email|unique:users,email,'.$user->id,
-            'phone' => 'nullable|string|max:20',
+            'phone' => ['sometimes', 'nullable', 'string', 'max:20', Rule::requiredIf(($request->input('role') ?? $user->role) === 'petugas')],
             'role' => 'sometimes|required|in:admin_utama,admin_operasional,petugas',
             'password' => ['nullable', 'confirmed', Password::min(8)],
-            'avatar' => 'nullable|image|max:2048',
+            'avatar' => 'nullable|image|max:2048|dimensions:max_width=10000,max_height=10000',
             'nyambi_supir' => 'nullable|boolean',
             'no_sim' => 'nullable|string|max:64',
             'tarif_per_hari' => 'nullable|numeric|min:0',

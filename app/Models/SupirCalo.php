@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -20,6 +19,7 @@ class SupirCalo extends Authenticatable
         'nama',
         'email',
         'password',
+        'must_change_password',
         'no_hp',
         'alamat',
         'status',
@@ -37,6 +37,7 @@ class SupirCalo extends Authenticatable
 
     protected $casts = [
         'password' => 'hashed',
+        'must_change_password' => 'boolean',
         'tarif_per_hari' => 'decimal:2',
         'komisi' => 'decimal:2',
     ];

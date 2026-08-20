@@ -20,11 +20,13 @@ export default function Login() {
       await login(email, password);
       navigate('/');
     } catch (err: any) {
-      setError(
-        err.response?.data?.message ||
-          err.response?.data?.errors?.email?.[0] ||
-          'Email atau password salah'
-      );
+      if (err.response?.data?.message || err.response?.data?.errors?.email?.[0]) {
+        setError(err.response?.data?.message || err.response?.data?.errors?.email?.[0]);
+      } else if (!err.response) {
+        setError(err.message || 'Tidak dapat terhubung ke server. Periksa koneksi Anda.');
+      } else {
+        setError('Email atau password salah');
+      }
     } finally {
       setLoading(false);
     }

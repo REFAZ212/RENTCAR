@@ -97,10 +97,16 @@ export default function SignaturePad({ label, onChange, placeholder = 'Tanda tan
     };
     resize();
     const handleResize = () => {
+      // Meresize canvas mengosongkan isinya — gambar ulang tanda tangan lama
+      // alih-alih menghapusnya supaya pengguna tidak perlu menandatangani lagi.
+      const data = canvas.toDataURL();
       resize();
-      getCtx()?.clearRect(0, 0, canvas.width, canvas.height);
-      setHasSignature(false);
-      onChange(null, null);
+      const ctx = getCtx();
+      if (ctx) {
+        const img = new Image();
+        img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        img.src = data;
+      }
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);

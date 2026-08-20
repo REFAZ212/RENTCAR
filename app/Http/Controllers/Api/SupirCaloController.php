@@ -50,6 +50,7 @@ class SupirCaloController extends Controller
             'foto' => 'nullable|image|max:2048',
             'tarif_per_hari' => 'nullable|numeric|min:0',
             'komisi' => 'nullable|numeric|min:0',
+            'password' => 'nullable|string|min:8',
             'catatan' => 'nullable|string',
         ]);
 
@@ -63,6 +64,12 @@ class SupirCaloController extends Controller
 
         if ($request->hasFile('foto')) {
             $validated['foto'] = $request->file('foto')->store('supir-calos', 'public');
+        }
+
+        if (! empty($validated['password'] ?? null)) {
+            $validated['must_change_password'] = true;
+        } else {
+            unset($validated['password']);
         }
 
         $item = SupirCalo::create($validated);
@@ -103,6 +110,7 @@ class SupirCaloController extends Controller
             'foto' => 'nullable|image|max:2048',
             'tarif_per_hari' => 'nullable|numeric|min:0',
             'komisi' => 'nullable|numeric|min:0',
+            'password' => 'nullable|string|min:8',
             'catatan' => 'nullable|string',
         ]);
 
@@ -119,6 +127,14 @@ class SupirCaloController extends Controller
                 Storage::disk('public')->delete($supirCalo->foto);
             }
             $validated['foto'] = $request->file('foto')->store('supir-calos', 'public');
+        }
+
+        if (! empty($validated['password'] ?? null)) {
+            $supirCalo->password = $validated['password'];
+            $supirCalo->must_change_password = true;
+            unset($validated['password']);
+        } else {
+            unset($validated['password']);
         }
 
         $supirCalo->update($validated);
