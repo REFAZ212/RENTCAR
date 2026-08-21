@@ -176,39 +176,6 @@ class OrderController extends Controller
         ]);
     }
 
-    /**
-     * Klaim task inspeksi (pickup/return) — siapa cepat dia dapat.
-     * Task yang sudah diklaim petugas lain ditolak (409).
-     */
-    public function claim(Request $request, Order $order): JsonResponse
-    {
-        $this->authorize('claim', $order);
-
-        $service = app(OrderService::class);
-        $order = $service->claimTask($order, $request->user());
-
-        return response()->json([
-            'message' => 'Task berhasil diambil.',
-            'order' => $order,
-        ]);
-    }
-
-    /**
-     * Lepas klaim task — oleh pemegang klaim atau admin.
-     */
-    public function release(Request $request, Order $order): JsonResponse
-    {
-        $this->authorize('release', $order);
-
-        $service = app(OrderService::class);
-        $order = $service->releaseTask($order, $request->user());
-
-        return response()->json([
-            'message' => 'Task dilepas dan kembali ke daftar tugas.',
-            'order' => $order,
-        ]);
-    }
-
     private function storeUploadedFiles(Request $request): array
     {
         $paths = [];

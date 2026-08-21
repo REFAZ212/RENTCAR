@@ -17,8 +17,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
-use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
-use Symfony\Component\HttpKernel\Exception\ForbiddenHttpException;
 
 class OrderService
 {
@@ -155,7 +153,7 @@ class OrderService
         }
 
         // Supir tidak lagi dipilih spesifik di form — cukup opsi "dengan/tanpa supir".
-        // Supir order ditentukan dari pemenang klaim task (lihat claimTask()).
+        // Supir order ditentukan saat order dibuat (dengan_supir) atau diubah admin.
         $opsiSupir = $validated['opsi_supir'] ?? ($foundSupir ? 'dengan_supir' : 'lepas_kunci');
 
         $statusPengiriman = $validated['status_pengiriman'] ?? 'belum_diambil';
@@ -359,28 +357,6 @@ class OrderService
     }
 
     /**
-     * WA penugasan driver ke supir pemenang klaim (order "dengan supir").
-     */
-    private function kirimNotifPenugasanDriver(Order $order, SupirCalo $supir): void
-    {
-        if (Setting::get('notif_penugasan_driver', '1') !== '1' || ! $supir->no_hp) {
-            return;
-        }
-
-        $wa = app(WhatsAppService::class);
-        $template = Setting::get('template_penugasan_driver', 'Halo {nama_driver}, ada tugas baru:\nAntar {customer} — {kendaraan} ({plat_nomor})\n{tanggal} pukul {jam}\n\nBalas SIAP jika bisa, atau TIDAK jika berhalangan.');
-        $pesan = $wa->renderTemplate($template, [
-            'nama_driver' => $supir->nama,
-            'customer' => $order->customer->nama_lengkap,
-            'kendaraan' => $order->kendaraan->nama_kendaraan,
-            'plat_nomor' => $order->kendaraan->plat_nomor,
-            'tanggal' => $order->tanggal_mulai->format('d/m/Y'),
-            'jam' => $order->jam_mulai ?? '00:00',
-        ]);
-        $wa->kirimPesanAsync($supir->no_hp, $pesan, 'penugasan_driver', $order->id);
-    }
-
-    /**
      * WA ke supir saat kendaraan resmi diserahkan / order mulai (status active).
      */
     public function kirimNotifSupirOrderMulai(Order $order): void
@@ -529,8 +505,6 @@ class OrderService
                 $validated['alasan_pembatalan'] = $validated['alasan_pembatalan'] ?? null;
             }
         }
-
-        $newStatusOrder = $validated['status_order'] ?? $order->status_order;
 
         $biayaKerusakanFinal = (float) ($validated['biaya_kerusakan'] ?? 0);
         $inspeksiTableAda = Schema::hasTable('inspeksi_kendaraans');
@@ -776,91 +750,6 @@ class OrderService
         }
 
         return $supir ? (float) ($supir->tarif_per_hari ?? 0) : 0;
-    }
-
-    /**
-     * Klaim task inspeksi (pickup/return) ala GOJEK: siapa cepat dia dapat.
-     * Transaction + row lock supaya dua petugas yang menekan bersamaan tidak
-     * dobel mengklaim. Petugas lain akan mendapat 409 Conflict.
-     *
-     * Untuk order "dengan supir", pemenang klaim otomatis menjadi supir order
-     * (bila punya data supirCalo) dan langsung mendapat WA penugasan driver.
-     */
-    public function claimTask(Order $order, User $user): Order
-    {
-        return DB::transaction(function () use ($order, $user) {
-            $order = Order::whereKey($order->id)->lockForUpdate()->first();
-
-            if (! $order) {
-                throw new ConflictHttpException('Order tidak ditemukan.');
-            }
-
-            if (! $order->taskJenis()) {
-                throw new ConflictHttpException('Tidak ada task menunggu untuk order ini.');
-            }
-
-            if ($order->operator_id && $order->operator_id !== $user->id) {
-                $pengeklaim = $order->operator?->name ?? 'petugas lain';
-                throw new ConflictHttpException("Task ini sudah diambil oleh {$pengeklaim}.");
-            }
-
-            $order->update([
-                'operator_id' => $user->id,
-                'waktu_klaim' => now(),
-            ]);
-
-            // Pemenang klaim order "dengan supir" otomatis jadi supir-nya.
-            if ($order->opsi_supir === 'dengan_supir' && ! $order->supir_id) {
-                $supirCalo = $user->supirCalo;
-                if ($supirCalo) {
-                    $order->update(['supir_id' => $supirCalo->id]);
-                    $this->kirimNotifPenugasanDriver($order, $supirCalo);
-                }
-            }
-
-            return $order->load(['customer', 'kendaraan', 'operator', 'supir']);
-        });
-    }
-
-    /**
-     * Lepas klaim task: petugas pemegang klaim atau admin.
-     * Task kembali ke pool (bisa diklaim petugas lain).
-     */
-    public function releaseTask(Order $order, User $user): Order
-    {
-        return DB::transaction(function () use ($order, $user) {
-            $order = Order::whereKey($order->id)->lockForUpdate()->first();
-
-            if (! $order) {
-                throw new ConflictHttpException('Order tidak ditemukan.');
-            }
-
-            $isAdmin = in_array($user->role, ['admin_utama', 'admin_operasional']);
-            if (! $isAdmin && ! $order->isClaimant($user->id)) {
-                throw new ForbiddenHttpException('Hanya pemegang klaim atau admin yang bisa melepas task ini.');
-            }
-
-            if (! $order->operator_id) {
-                return $order;
-            }
-
-            $update = [
-                'operator_id' => null,
-                'waktu_klaim' => null,
-            ];
-
-            // Supir ikut dilepas hanya selama order belum dieksekusi (confirmed).
-            if ($order->status_order === 'confirmed' && $order->opsi_supir === 'dengan_supir') {
-                $update['supir_id'] = null;
-            }
-
-            $order->update($update);
-
-            // Broadcast ulang ke petugas bebas supaya task kembali terlihat.
-            $this->kirimNotifTaskOperator($order);
-
-            return $order->load(['customer', 'kendaraan', 'operator', 'supir']);
-        });
     }
 
     private function resolveCustomer(array $validated, ?string $fotoKtpPath, ?string $fotoSimPath): Customer

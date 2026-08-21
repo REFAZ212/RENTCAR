@@ -373,8 +373,6 @@ export const orderAPI = {
   updateWithFile: (id: number, data: FormData): Promise<AxiosResponse<Order>> => api.post(`/orders/${id}`, data),
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/orders/${id}`),
   cancelPreview: (id: number): Promise<AxiosResponse<OrderCancelPreview>> => api.get(`/orders/${id}/cancel-preview`),
-  claim: (id: number): Promise<AxiosResponse<{ message: string; order: Order }>> => api.post(`/orders/${id}/claim`),
-  release: (id: number): Promise<AxiosResponse<{ message: string; order: Order }>> => api.post(`/orders/${id}/release`),
 };
 
 /* ─────────────────────────────────────────────────────────────

@@ -662,14 +662,20 @@ export default function Orders() {
   // muat ulang daftar mobil yang TIDAK bertabrakan dengan rentang tanggal
   // tersebut (server yang memfilter). Mobil dengan order masa depan yang
   // tidak beririsan tetap bisa dipilih.
+  // Penanda urutan: respons yang datang terlambat tidak boleh menimpa
+  // hasil permintaan yang lebih baru.
+  const kendaraanFetchId = useRef(0);
   useEffect(() => {
     if (!showForm || !canManage) return;
     const from = form.tanggal_mulai;
     const to = form.tanggal_selesai;
+    const fetchId = ++kendaraanFetchId.current;
     const t = setTimeout(() => {
       kendaraanAPI
         .list({ per_page: 100, ...(from && to ? { available_from: from, available_to: to } : {}) })
-        .then(({ data }: { data: ListResponse<Kendaraan> }) => setKendaraans(data.data))
+        .then(({ data }: { data: ListResponse<Kendaraan> }) => {
+          if (fetchId === kendaraanFetchId.current) setKendaraans(data.data);
+        })
         .catch(() => {});
     }, 400);
     return () => clearTimeout(t);
@@ -867,10 +873,15 @@ export default function Orders() {
       setCustomerSearch('');
       closeCreateModal();
       load();
-      kendaraanAPI
-        .list({ per_page: 100 })
-        .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
-        .catch(() => {});
+      {
+        const fetchId = ++kendaraanFetchId.current;
+        kendaraanAPI
+          .list({ per_page: 100 })
+          .then(({ data }: { data: ListResponse<Kendaraan> }) => {
+            if (fetchId === kendaraanFetchId.current) { setKendaraans(data.data); setAllKendaraans(data.data); }
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       let msg = 'Gagal membuat order';
       if (isAxiosError(err)) {
@@ -888,6 +899,9 @@ export default function Orders() {
       const { data } = await orderAPI.update(id, { [field]: value });
       setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...data } : item)));
       toast.success('Order berhasil diperbarui');
+      // Chip statistik (total/aktif/terlambat) dihitung server-side — muat ulang
+      // supaya angka ikut segar, bukan cuma baris yang diedit.
+      load();
     } catch (err) {
       const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
       toast.error(msg || 'Gagal memperbarui order');
@@ -932,6 +946,8 @@ export default function Orders() {
       toast.success('Order berhasil dibatalkan');
       setCancelOrder(null);
       setCancelReason('');
+      // Segarkan daftar + chip statistik (order batal mengubah hitungan).
+      load();
     } catch (err) {
       const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
       toast.error(msg || 'Gagal membatalkan order');
@@ -1197,10 +1213,15 @@ export default function Orders() {
       toast.success('Order berhasil diperbarui');
       closeEditModal();
       load();
-      kendaraanAPI
-        .list({ per_page: 100 })
-        .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
-        .catch(() => {});
+      {
+        const fetchId = ++kendaraanFetchId.current;
+        kendaraanAPI
+          .list({ per_page: 100 })
+          .then(({ data }: { data: ListResponse<Kendaraan> }) => {
+            if (fetchId === kendaraanFetchId.current) { setKendaraans(data.data); setAllKendaraans(data.data); }
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       let msg = 'Gagal memperbarui order';
       if (isAxiosError(err)) {
@@ -1215,9 +1236,13 @@ export default function Orders() {
 
   const handleCompleteOrder = async () => {
     if (!confirmComplete) return;
-    const needsPaymentProof =
-      confirmComplete.status_pembayaran !== 'paid' || confirmComplete.jam_overtime_saat_ini > 0;
-    if (needsPaymentProof && !completePaymentFile) {
+    // Sisa tagihan = total sewa + denda keterlambatan berjalan + kerusakan yang
+    // akan ditagih − yang sudah dibayar. Bukti transfer hanya wajib bila masih
+    // ada sisa; order lunas penuh tidak boleh dimintai bukti lagi.
+    const totalPaid = confirmComplete.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
+    const denda = confirmComplete.jam_overtime_saat_ini > 0 ? Number(confirmComplete.denda_overtime_saat_ini || 0) : 0;
+    const sisa = Number(confirmComplete.harga_total || 0) + denda + Number(completeKerusakanAmount || 0) - totalPaid;
+    if (sisa > 0 && !completePaymentFile) {
       toast.error('Bukti pembayaran wajib diunggah');
       return;
     }
@@ -1231,9 +1256,6 @@ export default function Orders() {
       if (completePaymentFile) fd.append('bukti_transfer', completePaymentFile);
       // Sisa tagihan sudah termasuk denda keterlambatan yang sedang berjalan;
       // nominalnya bisa dikoreksi admin sebelum submit.
-      const totalPaid = confirmComplete.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
-      const denda = confirmComplete.jam_overtime_saat_ini > 0 ? Number(confirmComplete.denda_overtime_saat_ini || 0) : 0;
-      const sisa = Number(confirmComplete.harga_total || 0) + denda + Number(completeKerusakanAmount || 0) - totalPaid;
       if (sisa > 0) {
         const amount = Number(completePaymentAmount);
         if (!completePaymentAmount || isNaN(amount) || amount <= 0) {
@@ -1254,10 +1276,15 @@ export default function Orders() {
       toast.success('Order berhasil diselesaikan');
       closeCompleteModal();
       load();
-      kendaraanAPI
-        .list({ per_page: 100 })
-        .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
-        .catch(() => {});
+      {
+        const fetchId = ++kendaraanFetchId.current;
+        kendaraanAPI
+          .list({ per_page: 100 })
+          .then(({ data }: { data: ListResponse<Kendaraan> }) => {
+            if (fetchId === kendaraanFetchId.current) { setKendaraans(data.data); setAllKendaraans(data.data); }
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
       toast.error(msg || 'Gagal menyelesaikan order');

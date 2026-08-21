@@ -94,8 +94,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/inspeksi-kendaraans/{inspeksi}/perbaiki-ttd', [InspeksiKendaraanController::class, 'perbaikiTtd'])->middleware('throttle:20,1');
     Route::get('/orders/{order}/inspeksi', [InspeksiKendaraanController::class, 'byOrder']);
     Route::get('/inspeksi-tasks', [InspeksiKendaraanController::class, 'tasks']);
-    Route::post('/orders/{order}/claim', [OrderController::class, 'claim']);
-    Route::post('/orders/{order}/release', [OrderController::class, 'release']);
     Route::post('/orders/{order}/kirim', [InspeksiKendaraanController::class, 'kirimKendaraan'])->middleware('throttle:20,1');
     Route::post('/orders/{order}/kembali', [InspeksiKendaraanController::class, 'kembalikanKendaraan'])->middleware('throttle:20,1');
 
