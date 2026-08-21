@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Customer;
 use App\Models\GarasiPartner;
+use App\Models\GarasiRequest;
 use App\Models\InspeksiKendaraan;
 use App\Models\Kendaraan;
 use App\Models\Order;
@@ -143,10 +144,12 @@ class OrderLifecycleTest extends TestCase
             $t->id();
             $t->foreignId('order_id');
             $t->foreignId('garasi_partner_id');
+            $t->string('token', 64)->nullable();
             $t->string('status_permintaan')->default('pending');
             $t->text('pesan_wa_terkirim')->nullable();
             $t->timestamp('waktu_kirim')->nullable();
             $t->timestamp('waktu_respon')->nullable();
+            $t->timestamp('deadline')->nullable();
             $t->text('catatan_admin')->nullable();
             $t->text('catatan_garasi')->nullable();
             $t->timestamps();
@@ -421,6 +424,150 @@ class OrderLifecycleTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'deleted_at' => null]);
     }
 
+    public function test_cannot_delete_confirmed_order_with_payment(): void
+    {
+        $order = $this->createOrder(['status_order' => 'confirmed']);
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 400000,
+            'metode_pembayaran' => 'transfer',
+            'status' => 'dp',
+        ]);
+
+        $response = $this->actingAs($this->admin)->deleteJson("/api/orders/{$order->id}");
+
+        $response->assertStatus(422);
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'deleted_at' => null]);
+    }
+
+    public function test_cannot_delete_confirmed_order_with_garasi_request(): void
+    {
+        $order = $this->createOrder(['status_order' => 'confirmed']);
+        GarasiRequest::create([
+            'order_id' => $order->id,
+            'garasi_partner_id' => $this->garasi->id,
+            'status_permintaan' => 'pending',
+        ]);
+
+        $response = $this->actingAs($this->admin)->deleteJson("/api/orders/{$order->id}");
+
+        $response->assertStatus(422);
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'deleted_at' => null]);
+    }
+
+    public function test_can_delete_clean_confirmed_order_via_api(): void
+    {
+        $order = $this->createOrder(['status_order' => 'confirmed']);
+
+        $response = $this->actingAs($this->admin)->deleteJson("/api/orders/{$order->id}");
+
+        $response->assertOk();
+        $this->assertSoftDeleted('orders', ['id' => $order->id]);
+    }
+
+    public function test_cannot_delete_confirmed_order_with_claimed_task(): void
+    {
+        $order = $this->createOrder([
+            'status_order' => 'confirmed',
+            'operator_id' => $this->admin->id,
+        ]);
+
+        $response = $this->actingAs($this->admin)->deleteJson("/api/orders/{$order->id}");
+
+        $response->assertStatus(422);
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'deleted_at' => null]);
+    }
+
+    public function test_cannot_edit_core_fields_on_confirmed_order_with_payment(): void
+    {
+        $order = $this->createOrder(['status_order' => 'confirmed']);
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 400000,
+            'metode_pembayaran' => 'transfer',
+            'status' => 'dp',
+        ]);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'customer_name' => 'Nama Baru',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('status_order');
+        $this->assertDatabaseHas('customers', ['id' => $this->customer->id, 'nama_lengkap' => 'Budi Santoso']);
+    }
+
+    public function test_cannot_edit_core_fields_on_confirmed_order_with_garasi_request(): void
+    {
+        $order = $this->createOrder(['status_order' => 'confirmed']);
+        GarasiRequest::create([
+            'order_id' => $order->id,
+            'garasi_partner_id' => $this->garasi->id,
+            'status_permintaan' => 'pending',
+        ]);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'tanggal_mulai' => now()->addDays(5)->toDateString(),
+            'tanggal_selesai' => now()->addDays(6)->toDateString(),
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('status_order');
+        $this->assertSame('2026-08-10', $order->fresh()->tanggal_mulai->format('Y-m-d'));
+    }
+
+    public function test_cannot_edit_core_fields_on_confirmed_order_with_claimed_task(): void
+    {
+        $order = $this->createOrder([
+            'status_order' => 'confirmed',
+            'operator_id' => $this->admin->id,
+        ]);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'kendaraan_id' => $this->kendaraan->id,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('status_order');
+    }
+
+    public function test_can_edit_core_fields_on_clean_confirmed_order(): void
+    {
+        $order = $this->createOrder(['status_order' => 'confirmed']);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'customer_id' => $this->customer->id,
+            'customer_name' => 'Nama Revisi',
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('customers', ['id' => $this->customer->id, 'nama_lengkap' => 'Nama Revisi']);
+    }
+
+    public function test_confirmed_order_with_activity_can_still_record_payment(): void
+    {
+        $order = $this->createOrder(['status_order' => 'confirmed']);
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 400000,
+            'metode_pembayaran' => 'transfer',
+            'status' => 'dp',
+        ]);
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_pembayaran' => 'paid',
+            'jumlah_bayar' => 600000,
+            'metode_pembayaran' => 'transfer',
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('pembayarans', ['order_id' => $order->id, 'jumlah' => 600000, 'status' => 'pelunasan']);
+        $this->assertSame('paid', $order->fresh()->status_pembayaran);
+    }
+
     public function test_complete_order_with_denda_records_full_final_payment(): void
     {
         Storage::fake('public');
@@ -614,6 +761,102 @@ class OrderLifecycleTest extends TestCase
         } finally {
             Schema::dropIfExists('inspeksi_kendaraans');
         }
+    }
+
+    public function test_complete_with_zero_biaya_kerusakan_waives_inspeksi_estimate(): void
+    {
+        Storage::fake('public');
+
+        Schema::create('inspeksi_kendaraans', function ($t) {
+            $t->id();
+            $t->foreignId('order_id');
+            $t->string('jenis');
+            $t->string('ttd_customer')->nullable();
+            $t->string('ttd_petugas')->nullable();
+            $t->decimal('biaya_kerusakan', 14, 2)->nullable();
+            $t->timestamps();
+        });
+
+        try {
+            $order = $this->createOrder([
+                'status_order' => 'active',
+                'status_pembayaran' => 'unpaid',
+                'tanggal_mulai' => '2026-08-01',
+                'tanggal_selesai' => '2026-08-03',
+            ]);
+            InspeksiKendaraan::create([
+                'order_id' => $order->id,
+                'jenis' => 'return',
+                'ttd_customer' => 'ttd-customer.png',
+                'ttd_petugas' => 'ttd-petugas.png',
+                'biaya_kerusakan' => 300000,
+            ]);
+
+            // Admin memaafkan kerusakan: kirim eksplisit 0 — fallback ke
+            // estimasi inspeksi TIDAK boleh terjadi.
+            $waktuKembali = Carbon::parse('2026-08-05 15:00:00');
+            $jumlahFinal = (float) $order->proyeksiSelesai($waktuKembali)['harga_total'];
+
+            $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+                'status_order' => 'completed',
+                'status_pembayaran' => 'paid',
+                'jumlah_bayar' => $jumlahFinal,
+                'biaya_kerusakan' => 0,
+                'tanggal_pengembalian_aktual' => '2026-08-05 15:00:00',
+            ]);
+
+            $response->assertOk();
+            $order->refresh();
+            $this->assertNull($order->biaya_kerusakan);
+            $this->assertEquals($jumlahFinal, (float) $order->harga_total);
+            $this->assertEquals($jumlahFinal, (float) $order->pembayarans()->sum('jumlah'));
+        } finally {
+            Schema::dropIfExists('inspeksi_kendaraans');
+        }
+    }
+
+    public function test_cancel_preview_returns_tier_and_refund_estimate(): void
+    {
+        $order = $this->createOrder([
+            'status_order' => 'confirmed',
+            'tanggal_mulai' => now()->addDays(5)->toDateString(),
+            'tanggal_selesai' => now()->addDays(6)->toDateString(),
+        ]);
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 400000,
+            'metode_pembayaran' => 'transfer',
+            'status' => 'dp',
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson("/api/orders/{$order->id}/cancel-preview");
+
+        $response->assertOk();
+        // 3-7 hari sebelum mulai → 25% × 1.000.000; dibayar 400.000 → refund 150.000.
+        $this->assertSame(25, $response->json('persentase'));
+        $this->assertEquals(250000, (float) $response->json('biaya'));
+        $this->assertEquals(400000, (float) $response->json('total_dibayar'));
+        $this->assertEquals(150000, (float) $response->json('refund_estimasi'));
+    }
+
+    public function test_cancel_preview_for_active_order_charges_full_without_refund(): void
+    {
+        $order = $this->createOrder(['status_order' => 'active']);
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 1000000,
+            'metode_pembayaran' => 'cash',
+            'status' => 'pelunasan',
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson("/api/orders/{$order->id}/cancel-preview");
+
+        $response->assertOk();
+        $this->assertSame(100, $response->json('persentase'));
+        $this->assertEquals(1000000, (float) $response->json('biaya'));
+        $this->assertEquals(0, (float) $response->json('refund_estimasi'));
     }
 
     public function test_soft_deleted_order_does_not_block_rebooking(): void
@@ -853,6 +1096,52 @@ class OrderLifecycleTest extends TestCase
         $order->refresh();
         $this->assertEquals($totalFinal, (float) $order->harga_total);
         $this->assertSame('paid', $order->status_pembayaran);
+    }
+
+    public function test_perlu_verifikasi_payment_can_cover_frozen_denda_without_completing(): void
+    {
+        $order = $this->createOrder([
+            'status_order' => 'perlu_verifikasi',
+            'status_pembayaran' => 'unpaid',
+            'waktu_perlu_verifikasi' => now()->subHours(5),
+            'jam_overtime' => 5,
+            'denda_overtime' => 125000,
+        ]);
+
+        // Sisa termasuk denda beku (1.000.000 + 125.000) — harus diterima
+        // tanpa harus menyelesaikan order di request yang sama.
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_pembayaran' => 'paid',
+            'jumlah_bayar' => 1125000,
+        ]);
+
+        $response->assertOk();
+        $this->assertDatabaseHas('pembayarans', ['order_id' => $order->id, 'jumlah' => 1125000, 'status' => 'pelunasan']);
+        $this->assertSame('perlu_verifikasi', $order->fresh()->status_order);
+        $this->assertSame('paid', $order->fresh()->status_pembayaran);
+    }
+
+    public function test_perlu_verifikasi_paid_rejected_while_frozen_denda_uncovered(): void
+    {
+        $order = $this->createOrder([
+            'status_order' => 'perlu_verifikasi',
+            'status_pembayaran' => 'unpaid',
+            'waktu_perlu_verifikasi' => now()->subHours(5),
+            'jam_overtime' => 5,
+            'denda_overtime' => 125000,
+        ]);
+
+        // Hanya menutup harga dasar — denda beku belum dibayar, "Lunas" ditolak.
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$order->id}", [
+            'status_pembayaran' => 'paid',
+            'jumlah_bayar' => 1000000,
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('jumlah_bayar');
+        // Transaksi rollback — tidak ada pembayaran tercatat, status tetap unpaid.
+        $this->assertSame('unpaid', $order->fresh()->status_pembayaran);
+        $this->assertCount(0, $order->pembayarans()->get());
     }
 
     public function test_kendaraan_list_filters_by_available_date_range(): void

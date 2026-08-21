@@ -154,6 +154,29 @@ class OrderController extends Controller
     }
 
     /**
+     * Preview biaya pembatalan & estimasi refund — dipakai modal Batalkan
+     * supaya admin tahu konsekuensi finansial SEBELUM mengonfirmasi.
+     */
+    public function cancelPreview(Order $order): JsonResponse
+    {
+        $this->authorize('update', $order);
+
+        $biaya = $order->hitungBiayaPembatalan();
+        $totalDibayar = (float) $order->pembayarans()
+            ->whereNull('deleted_at')
+            ->where('status', '!=', 'refund')
+            ->sum('jumlah');
+
+        return response()->json([
+            'biaya' => $biaya['biaya'],
+            'persentase' => $biaya['persentase'],
+            'keterangan' => $biaya['keterangan'],
+            'total_dibayar' => $totalDibayar,
+            'refund_estimasi' => max(0, $totalDibayar - $biaya['biaya']),
+        ]);
+    }
+
+    /**
      * Klaim task inspeksi (pickup/return) — siapa cepat dia dapat.
      * Task yang sudah diklaim petugas lain ditolak (409).
      */

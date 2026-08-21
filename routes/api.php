@@ -54,6 +54,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/customers/{customer}/restore', [CustomerController::class, 'restore'])->withTrashed()->middleware('throttle:60,1');
     Route::apiResource('orders', OrderController::class)->middleware('throttle:60,1');
     Route::get('/orders/{order}/invoice', [InvoiceController::class, 'download']);
+    Route::get('/orders/{order}/cancel-preview', [OrderController::class, 'cancelPreview']);
     Route::apiResource('garasi-requests', GarasiRequestController::class)->middleware('throttle:60,1');
     Route::apiResource('kategoris', KategoriController::class);
     Route::apiResource('tipes', TipeController::class);

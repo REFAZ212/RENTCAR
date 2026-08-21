@@ -24,7 +24,7 @@ class OrderService
 {
     public function list(array $filters): array
     {
-        $query = Order::with(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo', 'pembayarans']);
+        $query = Order::with(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo', 'pembayarans', 'garasiRequests']);
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
@@ -450,12 +450,16 @@ class OrderService
             }
         }
 
-        if (in_array($order->status_order, ['active', 'perlu_verifikasi', 'completed', 'cancelled'])) {
+        if (in_array($order->status_order, ['active', 'perlu_verifikasi', 'completed', 'cancelled'])
+            || $this->confirmedBerAktivitas($order)) {
             $lockedFields = ['customer_id', 'customer_name', 'customer_no_hp', 'customer_email', 'customer_alamat', 'customer_no_sim', 'customer_no_ktp', 'customer_foto_ktp', 'customer_foto_sim', 'kendaraan_id', 'tanggal_mulai', 'tanggal_selesai', 'jam_mulai', 'jam_selesai', 'alamat_jemput', 'tujuan', 'metode_penyerahan', 'supir_id', 'opsi_supir', 'calo_id'];
             $attemptedLocked = array_intersect_key($validated, array_flip($lockedFields));
             if (! empty($attemptedLocked) || ! empty($validated['customer_foto_ktp_path']) || ! empty($validated['customer_foto_sim_path'])) {
+                $pesanLock = $this->confirmedBerAktivitas($order)
+                    ? 'Order confirmed sudah ber-aktivitas (pembayaran/request garasi/task petugas) — data inti terkunci. Koreksi kesepakatan via Batal.'
+                    : 'Order ini sudah final (aktif/perlu verifikasi/selesai/dibatalkan). Hanya status, status pembayaran, metode bayar, bukti pembayaran, dan catatan yang bisa diperbarui.';
                 throw ValidationException::withMessages([
-                    'status_order' => ['Order ini sudah final (aktif/perlu verifikasi/selesai/dibatalkan). Hanya status, status pembayaran, metode bayar, bukti pembayaran, dan catatan yang bisa diperbarui.'],
+                    'status_order' => [$pesanLock],
                 ]);
             }
         }
@@ -725,7 +729,35 @@ class OrderService
             ]);
         }
 
+        // Order confirmed yang sudah punya riwayat pembayaran, request garasi,
+        // ATAU task yang diklaim petugas tidak bisa dihapus langsung — data itu
+        // menyangkut uang/koordinasi garasi/pekerjaan petugas. Arahkan ke Batal
+        // (yang menangani refund + notifikasi WA) supaya datanya tetap aman
+        // walau API dipanggil langsung.
+        if ($order->status_order === 'confirmed'
+            && ($order->operator_id !== null
+                || $order->pembayarans()->withoutTrashed()->exists()
+                || $order->garasiRequests()->withoutTrashed()->exists())) {
+            throw ValidationException::withMessages([
+                'status_order' => ['Order confirmed dengan pembayaran atau request garasi tidak bisa dihapus — gunakan Batal.'],
+            ]);
+        }
+
         $order->delete();
+    }
+
+    /**
+     * Order confirmed dianggap "ber-aktivitas" bila sudah menyentuh uang
+     * (pembayaran), koordinasi garasi (request garasi), atau pekerjaan petugas
+     * (task diklaim). Data inti order ini terkunci — koreksi kesepakatan harus
+     * lewat Batal, bukan edit/hapus diam-diam.
+     */
+    private function confirmedBerAktivitas(Order $order): bool
+    {
+        return $order->status_order === 'confirmed'
+            && ($order->operator_id !== null
+                || $order->pembayarans()->withoutTrashed()->exists()
+                || $order->garasiRequests()->withoutTrashed()->exists());
     }
 
     /**
@@ -1225,9 +1257,16 @@ class OrderService
         $totalPaid = (float) $order->pembayarans()->whereNull('deleted_at')->where('status', '!=', 'refund')->sum('jumlah');
         $totalSetelahBayar = $totalPaid + $jumlahBayar;
 
-        // Denda keterlambatan yang sedang berjalan ikut jadi batas pembayaran
-        // maksimal & syarat "lunas" untuk order yang masih aktif.
-        $dendaLive = $order->status_order === 'active' ? (float) $order->denda_overtime_saat_ini : 0;
+        // Denda keterlambatan ikut jadi batas pembayaran maksimal & syarat
+        // "lunas": denda live untuk order active, denda beku (janji freeze
+        // OrderVerifyOverdue) untuk order perlu_verifikasi. Aman dari dobel
+        // hitung: di jalur penyelesaian, handleStatusTransition sudah
+        // mengubah status jadi completed & harga_total final sebelum method
+        // ini berjalan, sehingga dendaLive = 0 dan harga_total sudah
+        // mencakup denda.
+        $dendaLive = in_array($order->status_order, ['active', 'perlu_verifikasi'], true)
+            ? (float) $order->denda_overtime_saat_ini
+            : 0;
         $batasMaksimal = $hargaTotal + $dendaLive;
 
         // "Lunas" harus benar-benar menutup total (tidak boleh kurang).
