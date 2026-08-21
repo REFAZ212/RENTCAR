@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\DriverTaskController;
 use App\Http\Controllers\Api\GarasiPartnerController;
 use App\Http\Controllers\Api\GarasiRequestController;
 use App\Http\Controllers\Api\GpsController;
@@ -13,6 +14,7 @@ use App\Http\Controllers\Api\KatalogOrderRequestController;
 use App\Http\Controllers\Api\KatalogPublicController;
 use App\Http\Controllers\Api\KategoriController;
 use App\Http\Controllers\Api\KendaraanController;
+use App\Http\Controllers\Api\MobileTaskController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PengaturanController;
@@ -43,6 +45,34 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/supir/logout', [SupirAuthController::class, 'logout']);
     Route::get('/supir/me', [SupirAuthController::class, 'me']);
     Route::post('/supir/ubah-password', [SupirAuthController::class, 'ubahPassword']);
+    Route::post('/supir/fcm-token', [SupirAuthController::class, 'updateFcmToken']);
+
+    // Aplikasi mobile supir (Flutter) — khusus akun supir.
+    Route::middleware('supir')->prefix('mobile')->group(function () {
+        Route::get('/tasks/available', [MobileTaskController::class, 'available']);
+        Route::get('/tasks/my-active', [MobileTaskController::class, 'myActive']);
+        Route::get('/tasks/{task}', [MobileTaskController::class, 'show']);
+        Route::post('/tasks/{task}/accept', [MobileTaskController::class, 'accept']);
+        Route::post('/tasks/{task}/start', [MobileTaskController::class, 'startInspectionBefore']);
+        Route::post('/tasks/{task}/start-delivery', [MobileTaskController::class, 'startDelivery'])->middleware('throttle:20,1');
+        Route::post('/tasks/{task}/arrive', [MobileTaskController::class, 'arrive']);
+        Route::post('/tasks/{task}/complete', [MobileTaskController::class, 'complete']);
+        Route::post('/tasks/{task}/inspection/before', [MobileTaskController::class, 'inspectionBefore'])->middleware('throttle:20,1');
+        Route::post('/tasks/{task}/inspection/after', [MobileTaskController::class, 'inspectionAfter'])->middleware('throttle:20,1');
+        Route::post('/sync-media', [MobileTaskController::class, 'syncMedia']);
+
+        Route::get('/notifications', [MobileTaskController::class, 'notifications']);
+        Route::get('/notifications/unread-count', [MobileTaskController::class, 'unreadCount']);
+        Route::patch('/notifications/{notification}/read', [MobileTaskController::class, 'markNotificationRead']);
+    });
+
+    // Kelola tugas supir dari dashboard admin.
+    Route::middleware('role:admin_utama,admin_operasional')->group(function () {
+        Route::get('/driver-tasks', [DriverTaskController::class, 'index']);
+        Route::post('/driver-tasks', [DriverTaskController::class, 'store']);
+        Route::get('/driver-tasks/{task}', [DriverTaskController::class, 'show']);
+        Route::post('/driver-tasks/{task}/cancel', [DriverTaskController::class, 'cancel']);
+    });
 
     Route::get('/dashboard', [DashboardController::class, 'index']);
     Route::get('/dashboard/chart', [DashboardController::class, 'chart']);

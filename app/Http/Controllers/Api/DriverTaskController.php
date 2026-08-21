@@ -19,6 +19,8 @@ class DriverTaskController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $this->authorizeTask($request);
+
         $query = DriverTask::with(['kendaraan', 'order.customer', 'assignedDriver'])
             ->orderByDesc('id');
 
@@ -45,6 +47,8 @@ class DriverTaskController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        $this->authorizeTask($request);
+
         $validated = $request->validate([
             'order_id' => 'nullable|exists:orders,id',
             'kendaraan_id' => 'nullable|exists:kendaraans,id',
@@ -76,8 +80,10 @@ class DriverTaskController extends Controller
         return response()->json($task, 201);
     }
 
-    public function show(DriverTask $task): JsonResponse
+    public function show(Request $request, DriverTask $task): JsonResponse
     {
+        $this->authorizeTask($request);
+
         $task->load(['kendaraan', 'order.customer', 'assignedDriver', 'inspectionBefore', 'inspectionAfter']);
 
         return response()->json($task);

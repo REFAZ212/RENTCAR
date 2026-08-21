@@ -94,4 +94,18 @@ class SupirAuthController extends Controller
             'wajib_ganti_password' => (bool) $supir->must_change_password,
         ]);
     }
+
+    /**
+     * Simpan FCM token perangkat supir — dipakai push notifikasi tugas baru.
+     */
+    public function updateFcmToken(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'fcm_token' => 'required|string|max:255',
+        ]);
+
+        $request->user()->update(['fcm_token' => $validated['fcm_token']]);
+
+        return response()->json(['message' => 'Token notifikasi berhasil disimpan.']);
+    }
 }
