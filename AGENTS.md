@@ -46,7 +46,7 @@ Installs deps, creates `.env` (from `.env.example`), generates app key, runs mig
 ```bash
 composer dev
 ```
-Runs 3 processes concurrently via `npx concurrently`: `php artisan serve` (HTTP on `:8000`), `queue:listen`, and `npm run dev` in `frontend/`. No `pail` — logs go to stderr/console. **Windows-specific**: the `cmd /c` wrapper in the composer script only works on Windows.
+Runs 4 processes concurrently via `npx concurrently`: `php artisan serve` (HTTP on `:8000`), `queue:listen`, `schedule:work` (keeps scheduled commands in `routes/console.php` running during local dev), and `npm run dev` in `frontend/`. No `pail` — logs go to stderr/console. **Windows-specific**: the `cmd /c` wrapper in the composer script only works on Windows.
 
 For the React SPA only:
 ```bash

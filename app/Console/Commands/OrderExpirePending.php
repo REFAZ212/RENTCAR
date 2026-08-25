@@ -25,9 +25,10 @@ class OrderExpirePending extends Command
         // Pending order "expired" kalau jadwal mulai-nya sudah lewat lebih dari
         // $hours jam — artinya pemesan tidak pernah dikonfirmasi. Ambil hanya
         // yang colom tanggal_mulai/jam_mulai-nya sudah lewat dari cutoff.
-        $candidates = Order::where('status_order', 'pending')
-            ->with(['customer'])
-            ->get(['id', 'kode_order', 'customer_id', 'kendaraan_id', 'tanggal_mulai', 'jam_mulai'])
+        // Hanya ID yang diambil di sini — validasi ulang dilakukan di dalam
+        // transaksi terkunci supaya tidak memproses order yang berubah status.
+        $candidateIds = Order::where('status_order', 'pending')
+            ->get(['id', 'tanggal_mulai', 'jam_mulai'])
             ->filter(function (Order $order) use ($cutoff) {
                 $mulai = Carbon::parse($order->tanggal_mulai);
 
@@ -36,67 +37,100 @@ class OrderExpirePending extends Command
                 }
 
                 return $mulai->lessThan($cutoff);
-            });
+            })
+            ->pluck('id');
 
-        if ($candidates->isEmpty()) {
+        if ($candidateIds->isEmpty()) {
             $this->info('Tidak ada order pending yang kedaluwarsa.');
 
             return self::SUCCESS;
         }
 
-        $count = DB::transaction(function () use ($candidates) {
-            foreach ($candidates as $order) {
-                // Kebijakan: pesanan yang TIDAK PERNAH dikonfirmasi bukan salah
-                // customer — semua uang yang sudah dibayar dikembalikan penuh
-                // (refund), tanpa biaya pembatalan.
-                $totalBayar = (float) $order->pembayarans()
-                    ->whereNull('deleted_at')
-                    ->where('status', '!=', 'refund')
-                    ->sum('jumlah');
+        $processed = collect();
 
-                $update = [
-                    'status_order' => 'cancelled',
-                    'status_pengiriman' => 'selesai',
-                    'biaya_pembatalan' => 0,
-                    'alasan_pembatalan' => 'Otomatis: pesanan tidak dikonfirmasi sebelum jadwal mulai — seluruh pembayaran dikembalikan (refund).',
-                ];
+        foreach ($candidateIds as $orderId) {
+            $order = $this->batalkanOrder($orderId);
 
-                if ($totalBayar > 0) {
-                    $update['total_refund'] = $totalBayar;
-
-                    Pembayaran::create([
-                        'order_id' => $order->id,
-                        'admin_id' => null,
-                        'jumlah' => $totalBayar,
-                        'metode_pembayaran' => $order->metode_pembayaran ?? 'cash',
-                        'status' => 'refund',
-                        'catatan' => 'Refund pembatalan otomatis (belum dikonfirmasi): Rp '.number_format($totalBayar, 0, ',', '.').' dikembalikan penuh.',
-                    ]);
-                }
-
-                $order->update($update);
+            if ($order === null) {
+                continue;
             }
 
-            return $candidates->count();
-        });
+            $processed->push($order);
+
+            // WA dikirim SETELAH commit — hanya untuk order yang benar-benar
+            // dibatalkan oleh eksekusi ini (aman dari double-send).
+            $this->kirimNotifikasiPembatalan($order);
+        }
+
+        if ($processed->isEmpty()) {
+            $this->info('Tidak ada order pending yang kedaluwarsa.');
+
+            return self::SUCCESS;
+        }
 
         Notification::create([
             'type' => 'order_expired',
             'title' => 'Pesanan Otomatis Dibatalkan',
-            'message' => "{$count} pesanan katalog dibatalkan otomatis karena belum dikonfirmasi hingga lewat jadwal mulai",
+            'message' => "{$processed->count()} pesanan katalog dibatalkan otomatis karena belum dikonfirmasi hingga lewat jadwal mulai",
             'data' => [
-                'count' => $count,
+                'count' => $processed->count(),
                 'link' => '/orders',
             ],
         ]);
 
-        foreach ($candidates as $order) {
-            $this->kirimNotifikasiPembatalan($order->fresh());
-        }
-
-        $this->info("{$count} order pending dibatalkan otomatis (timeout).");
+        $this->info($processed->count().' order pending dibatalkan otomatis (timeout).');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Kunci baris order lalu batalkan bila masih pending. Mengembalikan order
+     * yang sudah diperbarui (beserta relasi customer), atau null jika order
+     * sudah diproses/dikonfirmasi pihak lain sebelum lock didapat.
+     */
+    private function batalkanOrder(int $orderId): ?Order
+    {
+        return DB::transaction(function () use ($orderId): ?Order {
+            $order = Order::whereKey($orderId)->lockForUpdate()->first();
+
+            // Re-check di dalam lock: admin mungkin baru saja mengonfirmasi,
+            // atau tick scheduler lain sudah memproses order ini.
+            if ($order === null || $order->status_order !== 'pending') {
+                return null;
+            }
+
+            // Kebijakan: pesanan yang TIDAK PERNAH dikonfirmasi bukan salah
+            // customer — semua uang yang sudah dibayar dikembalikan penuh
+            // (refund), tanpa biaya pembatalan.
+            $totalBayar = (float) $order->pembayarans()
+                ->whereNull('deleted_at')
+                ->where('status', '!=', 'refund')
+                ->sum('jumlah');
+
+            $update = [
+                'status_order' => 'cancelled',
+                'status_pengiriman' => 'selesai',
+                'biaya_pembatalan' => 0,
+                'alasan_pembatalan' => 'Otomatis: pesanan tidak dikonfirmasi sebelum jadwal mulai — seluruh pembayaran dikembalikan (refund).',
+            ];
+
+            if ($totalBayar > 0) {
+                $update['total_refund'] = $totalBayar;
+
+                Pembayaran::create([
+                    'order_id' => $order->id,
+                    'admin_id' => null,
+                    'jumlah' => $totalBayar,
+                    'metode_pembayaran' => $order->metode_pembayaran ?? 'cash',
+                    'status' => 'refund',
+                    'catatan' => 'Refund pembatalan otomatis (belum dikonfirmasi): Rp '.number_format($totalBayar, 0, ',', '.').' dikembalikan penuh.',
+                ]);
+            }
+
+            $order->update($update);
+
+            return $order->fresh(['customer']);
+        });
     }
 
     private function kirimNotifikasiPembatalan(Order $order): void

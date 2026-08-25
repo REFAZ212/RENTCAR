@@ -171,7 +171,6 @@ class OrderService
         }
 
         $buktiPath = $validated['bukti_transfer_path'] ?? null;
-        $buktiPengirimanPath = $validated['bukti_pengiriman_path'] ?? null;
         $buktiPengembalianPath = $validated['bukti_pengembalian_path'] ?? null;
         $customerFotoKtpPath = $validated['customer_foto_ktp_path'] ?? null;
         $customerFotoSimPath = $validated['customer_foto_sim_path'] ?? null;
@@ -192,7 +191,7 @@ class OrderService
             }
         }
 
-        $order = DB::transaction(function () use ($validated, $request, $kendaraan, $foundSupir, $komisiCalo, $statusPengiriman, $opsiSupir, $buktiPath, $buktiPengirimanPath, $buktiPengembalianPath, $customerFotoKtpPath, $customerFotoSimPath) {
+        $order = DB::transaction(function () use ($validated, $request, $kendaraan, $foundSupir, $komisiCalo, $statusPengiriman, $opsiSupir, $buktiPath, $buktiPengembalianPath, $customerFotoKtpPath, $customerFotoSimPath) {
             $customer = $this->resolveCustomer($validated, $customerFotoKtpPath, $customerFotoSimPath);
 
             // Lock the kendaraan row to prevent race conditions
@@ -237,7 +236,6 @@ class OrderService
                 'metode_penyerahan' => $validated['metode_penyerahan'] ?? 'ambil',
                 'catatan' => $validated['catatan'] ?? null,
                 'bukti_transfer' => $buktiPath,
-                'bukti_pengiriman' => $buktiPengirimanPath,
                 'bukti_pengembalian' => $buktiPengembalianPath,
                 'durasi_hari' => $durasi,
                 'harga_total' => ($durasi * $hargaPerHari) + ($supirTarif * $durasi),
@@ -585,7 +583,7 @@ class OrderService
         $effectiveTanggalSelesai = $validated['tanggal_selesai'] ?? $order->tanggal_selesai->format('Y-m-d');
         $statusSebelumUpdate = $order->status_order;
 
-        $updateData = collect($validated)->except(['bukti_transfer', 'bukti_pengiriman', 'bukti_pengembalian', 'bukti_transfer_path', 'bukti_pengiriman_path', 'bukti_pengembalian_path', 'customer_foto_ktp_path', 'customer_foto_sim_path', 'customer_foto_ktp_delete', 'jumlah_bayar'])->toArray();
+        $updateData = collect($validated)->except(['bukti_transfer', 'bukti_pengembalian', 'bukti_transfer_path', 'bukti_pengembalian_path', 'customer_foto_ktp_path', 'customer_foto_sim_path', 'customer_foto_ktp_delete', 'jumlah_bayar'])->toArray();
 
         // Simpan biaya kerusakan FINAL ke order saat penutupan (0 kalau tidak ada).
         if ($newStatusOrder === 'completed' && Schema::hasColumn('orders', 'biaya_kerusakan')) {
@@ -596,12 +594,6 @@ class OrderService
 
         if (! empty($validated['bukti_transfer_path'])) {
             $updateData['bukti_transfer'] = $validated['bukti_transfer_path'];
-        }
-        if (! empty($validated['bukti_pengiriman_path'])) {
-            if ($order->bukti_pengiriman) {
-                $filesToDelete[] = $order->bukti_pengiriman;
-            }
-            $updateData['bukti_pengiriman'] = $validated['bukti_pengiriman_path'];
         }
         if (! empty($validated['bukti_pengembalian_path'])) {
             if ($order->bukti_pengembalian) {

@@ -52,21 +52,35 @@ class OrderVerifyOverdue extends Command
         }
 
         $count = 0;
-        foreach ($candidates as $order) {
-            $batas = $order->batasWaktuKembali();
+        foreach ($candidates as $kandidat) {
             $s = Setting::getOvertimeSettings();
-            $hitung = OvertimeCalculator::hitung($batas, now(), $s['rate'], $s['grace']);
+            $hitung = OvertimeCalculator::hitung($kandidat->batasWaktuKembali(), now(), $s['rate'], $s['grace']);
 
-            DB::transaction(function () use ($order, $hitung) {
+            // Lock + re-check status di dalam transaksi supaya order yang baru
+            // saja berubah (mis. diselesaikan manual di saat bersamaan) tidak
+            // ikut difreeze.
+            $diproses = DB::transaction(function () use ($kandidat, $hitung): bool {
+                $order = Order::whereKey($kandidat->id)->lockForUpdate()->first();
+
+                if ($order === null || $order->status_order !== 'active') {
+                    return false;
+                }
+
                 $order->update([
                     'status_order' => 'perlu_verifikasi',
                     'waktu_perlu_verifikasi' => now(),
                     'jam_overtime' => $hitung['jam_overtime'],
                     'denda_overtime' => $hitung['denda_overtime'],
                 ]);
+
+                return true;
             });
 
-            $this->kirimNotifikasiVerifikasi($order, $hitung);
+            if (! $diproses) {
+                continue;
+            }
+
+            $this->kirimNotifikasiVerifikasi($kandidat, $hitung);
             $count++;
         }
 
@@ -98,23 +112,48 @@ class OrderVerifyOverdue extends Command
         }
 
         $count = 0;
-        foreach ($candidates as $order) {
-            // Syarat sama dengan penutupan manual oleh admin (OrderService::updateOrder):
-            // harus ada inspeksi akhir (return) bertanda tangan lengkap. Tanpa itu
-            // auto-complete diblokir dan admin diberi tahu lewat notifikasi.
-            if (! $this->inspeksiReturnLengkap($order)) {
-                $this->kirimNotifikasiAutoCompleteDiblokir($order);
+        foreach ($candidates as $candidate) {
+            $hasil = DB::transaction(function () use ($candidate): ?string {
+                $order = Order::whereKey($candidate->id)->lockForUpdate()->first();
 
-                continue;
-            }
+                if ($order === null || $order->status_order !== 'perlu_verifikasi') {
+                    return null;
+                }
 
-            $waktuAktual = now();
-            DB::transaction(function () use ($order, $waktuAktual) {
+                // Syarat sama dengan penutupan manual oleh admin (OrderService::updateOrder):
+                // 1) harus ada inspeksi akhir (return) bertanda tangan lengkap;
+                // 2) seluruh tagihan (termasuk denda frozen + kerusakan) harus lunas.
+                $legacyTanpaInspeksi = ! Schema::hasTable('inspeksi_kendaraans');
+                $inspeksiAkhir = $legacyTanpaInspeksi
+                    ? null
+                    : $order->inspeksis()
+                        ->where('jenis', 'return')
+                        ->whereNotNull('ttd_customer')
+                        ->whereNotNull('ttd_petugas')
+                        ->latest('id')
+                        ->first();
+
+                if (! $legacyTanpaInspeksi && $inspeksiAkhir === null) {
+                    return 'blokir_inspeksi';
+                }
+
+                $totalFinal = (float) $order->proyeksiSelesai(now())['harga_total']
+                    + (float) ($inspeksiAkhir->biaya_kerusakan ?? 0);
+                $totalBayar = (float) $order->pembayarans()
+                    ->whereNull('deleted_at')
+                    ->where('status', '!=', 'refund')
+                    ->sum('jumlah');
+
+                if (($totalFinal - $totalBayar) > 0.01) {
+                    return 'blokir_bayar';
+                }
+
                 $order->status_order = 'completed';
                 $order->status_pengiriman = 'selesai';
                 $order->waktu_perlu_verifikasi = null;
-                $order->selesaikanSewa($waktuAktual);
+                $order->selesaikanSewa(now());
                 $order->save();
+
                 $order->kendaraan?->update([
                     'status' => $order->kendaraan->activeOrders()
                         ->where('id', '!=', $order->id)
@@ -122,41 +161,53 @@ class OrderVerifyOverdue extends Command
                         ? 'disewa'
                         : ($order->kendaraan->status === 'tidak_tersedia' ? 'tidak_tersedia' : 'tersedia'),
                 ]);
+
+                return 'selesai';
             });
 
-            $this->kirimNotifikasiAutoComplete($order);
-            $count++;
+            switch ($hasil) {
+                case 'selesai':
+                    $this->kirimNotifikasiAutoComplete(Order::find($candidate->id));
+                    $count++;
+                    break;
+
+                case 'blokir_inspeksi':
+                    $this->kirimNotifikasiDiblokir($candidate, 'blokir_inspeksi');
+                    break;
+
+                case 'blokir_bayar':
+                    $this->kirimNotifikasiDiblokir($candidate, 'blokir_bayar');
+                    break;
+            }
         }
 
         return $count;
     }
 
     /**
-     * Inspeksi akhir (return) dengan tanda tangan pelanggan & petugas harus
-     * sudah tercatat sebelum order boleh di-auto-complete — kunci yang sama
-     * dengan penutupan manual (OrderService::updateOrder).
-     *
-     * Legacy DB tanpa tabel inspeksi (mis. skema test lama) dianggap memenuhi.
+     * Maksimal satu alert blokir per order per hari — tanpa ini notifikasi
+     * dibuat ulang setiap tick scheduler (~96×/hari) sampai ditangani manual.
      */
-    private function inspeksiReturnLengkap(Order $order): bool
+    private function kirimNotifikasiDiblokir(Order $order, string $jenisBlokir): void
     {
-        if (! Schema::hasTable('inspeksi_kendaraans')) {
-            return true;
+        $tipe = $jenisBlokir === 'blokir_bayar' ? 'auto_complete_kurang_bayar' : 'auto_complete_diblokir';
+        $sudahAda = Notification::where('type', $tipe)
+            ->whereDate('created_at', now()->toDateString())
+            ->get()
+            ->contains(fn (Notification $n) => ($n->data['order_id'] ?? null) === $order->id);
+
+        if ($sudahAda) {
+            return;
         }
 
-        return $order->inspeksis()
-            ->where('jenis', 'return')
-            ->whereNotNull('ttd_customer')
-            ->whereNotNull('ttd_petugas')
-            ->exists();
-    }
+        [$title, $message] = $jenisBlokir === 'blokir_bayar'
+            ? ['Auto-complete Diblokir (Kurang Bayar)', "Order {$order->kode_order} ({$order->customer?->nama_lengkap}) tidak bisa diselesaikan otomatis karena masih ada tagihan yang belum lunas (termasuk denda keterlambatan). Mohon lakukan penagihan dan penutupan manual."]
+            : ['Auto-complete Diblokir', "Order {$order->kode_order} ({$order->customer?->nama_lengkap}) tidak bisa diselesaikan otomatis: inspeksi pengembalian dengan tanda tangan pelanggan & petugas belum lengkap. Mohon verifikasi manual."];
 
-    private function kirimNotifikasiAutoCompleteDiblokir(Order $order): void
-    {
         Notification::create([
-            'type' => 'auto_complete_diblokir',
-            'title' => 'Auto-complete Diblokir',
-            'message' => "Order {$order->kode_order} ({$order->customer?->nama_lengkap}) tidak bisa diselesaikan otomatis: inspeksi pengembalian dengan tanda tangan pelanggan & petugas belum lengkap. Mohon verifikasi manual.",
+            'type' => $tipe,
+            'title' => $title,
+            'message' => $message,
             'data' => [
                 'order_id' => $order->id,
                 'kode_order' => $order->kode_order,

@@ -134,6 +134,10 @@ class PengaturanController extends Controller
             'auto_verify_after_hours' => (int) Setting::get('auto_verify_after_hours', 24),
             'auto_complete_enabled' => Setting::get('auto_complete_enabled', '1') === '1',
             'auto_complete_after_hours' => (int) Setting::get('auto_complete_after_hours', 72),
+            'pending_expire_hours' => (int) Setting::get('pending_expire_hours', 24),
+            'confirmed_no_pickup_expire_hours' => (int) Setting::get('confirmed_no_pickup_expire_hours', 24),
+            'driver_task_release_enabled' => Setting::get('driver_task_release_enabled', '1') === '1',
+            'driver_task_release_minutes' => (int) Setting::get('driver_task_release_minutes', 120),
         ]);
     }
 
@@ -149,20 +153,31 @@ class PengaturanController extends Controller
             'auto_verify_after_hours' => 'nullable|integer|min:1',
             'auto_complete_enabled' => 'boolean',
             'auto_complete_after_hours' => 'nullable|integer|min:1',
+            'pending_expire_hours' => 'nullable|integer|min:1',
+            'confirmed_no_pickup_expire_hours' => 'nullable|integer|min:1',
+            'driver_task_release_enabled' => 'boolean',
+            'driver_task_release_minutes' => 'nullable|integer|min:5|max:10080',
         ]);
+
+        $skipFields = [
+            'wajib_bayar_sebelum_antar', 'auto_verify_enabled', 'auto_complete_enabled',
+            'auto_verify_after_hours', 'auto_complete_after_hours',
+            'pending_expire_hours', 'confirmed_no_pickup_expire_hours',
+            'driver_task_release_enabled', 'driver_task_release_minutes',
+        ];
 
         Setting::set('wajib_bayar_sebelum_antar', ! empty($validated['wajib_bayar_sebelum_antar']) ? '1' : '0');
         Setting::set('auto_verify_enabled', ! empty($validated['auto_verify_enabled']) ? '1' : '0');
         Setting::set('auto_complete_enabled', ! empty($validated['auto_complete_enabled']) ? '1' : '0');
-        if (! empty($validated['auto_verify_after_hours'])) {
-            Setting::set('auto_verify_after_hours', $validated['auto_verify_after_hours']);
-        }
-        if (! empty($validated['auto_complete_after_hours'])) {
-            Setting::set('auto_complete_after_hours', $validated['auto_complete_after_hours']);
+        Setting::set('driver_task_release_enabled', ! empty($validated['driver_task_release_enabled']) ? '1' : '0');
+        foreach (['auto_verify_after_hours', 'auto_complete_after_hours', 'pending_expire_hours', 'confirmed_no_pickup_expire_hours', 'driver_task_release_minutes'] as $hoursKey) {
+            if (! empty($validated[$hoursKey])) {
+                Setting::set($hoursKey, $validated[$hoursKey]);
+            }
         }
 
         foreach ($validated as $key => $value) {
-            if (in_array($key, ['wajib_bayar_sebelum_antar', 'auto_verify_enabled', 'auto_complete_enabled', 'auto_verify_after_hours', 'auto_complete_after_hours'])) {
+            if (in_array($key, $skipFields)) {
                 continue;
             }
             Setting::set($key, $value);
@@ -194,6 +209,7 @@ class PengaturanController extends Controller
             'notif_order_selesai' => Setting::get('notif_order_selesai', '1') === '1',
             'notif_pengingat_kembali' => Setting::get('notif_pengingat_kembali', '1') === '1',
             'kirim_hasil_inspeksi_ke_customer' => Setting::get('kirim_hasil_inspeksi_ke_customer', '1') === '1',
+            'notif_admin_kendaraan_dikirim' => Setting::get('notif_admin_kendaraan_dikirim', '1') === '1',
             'template_penugasan_driver' => Setting::get('template_penugasan_driver', ''),
             'template_task_petugas' => Setting::get('template_task_petugas', ''),
             'template_supir_order_mulai' => Setting::get('template_supir_order_mulai', ''),
@@ -234,7 +250,7 @@ class PengaturanController extends Controller
             'template_perlu_verifikasi' => 'nullable|string',
         ]);
 
-        $booleanFields = ['notif_booking_baru', 'notif_penugasan_driver', 'notif_task_petugas', 'notif_supir_order_mulai', 'notif_supir_order_selesai', 'notif_pengingat_kembali_supir', 'notif_pembayaran_masuk', 'notif_pengingat_bayar', 'notif_perlu_verifikasi', 'notif_order_selesai', 'notif_pengingat_kembali', 'kirim_hasil_inspeksi_ke_customer'];
+        $booleanFields = ['notif_booking_baru', 'notif_penugasan_driver', 'notif_task_petugas', 'notif_supir_order_mulai', 'notif_supir_order_selesai', 'notif_pengingat_kembali_supir', 'notif_pembayaran_masuk', 'notif_pengingat_bayar', 'notif_perlu_verifikasi', 'notif_order_selesai', 'notif_pengingat_kembali', 'kirim_hasil_inspeksi_ke_customer', 'notif_admin_kendaraan_dikirim'];
         foreach ($booleanFields as $field) {
             if (isset($validated[$field])) {
                 Setting::set($field, $validated[$field] ? '1' : '0');
@@ -301,7 +317,6 @@ class PengaturanController extends Controller
             'zona_waktu' => Setting::get('zona_waktu', 'Asia/Jakarta'),
             'format_tanggal' => Setting::get('format_tanggal', 'DD/MM/YYYY'),
             'prefix_kode_order' => Setting::get('prefix_kode_order', 'ORD'),
-            'durasi_klaim_menit' => (int) Setting::get('durasi_klaim_menit', 30),
         ]);
     }
 
@@ -312,7 +327,6 @@ class PengaturanController extends Controller
             'zona_waktu' => 'required|in:Asia/Jakarta,Asia/Makassar,Asia/Jayapura',
             'format_tanggal' => 'required|in:DD/MM/YYYY,DD-MM-YYYY,YYYY-MM-DD',
             'prefix_kode_order' => 'required|string|max:5',
-            'durasi_klaim_menit' => 'nullable|integer|min:1|max:1440',
         ]);
 
         foreach ($validated as $key => $value) {
