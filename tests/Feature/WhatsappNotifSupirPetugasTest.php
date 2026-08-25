@@ -394,11 +394,8 @@ class WhatsappNotifSupirPetugasTest extends TestCase
 
         $order = $this->createOrder();
 
-        // Simulasi klaim task pickup oleh petugas (endpoint /claim sudah dihapus).
-        $order->update([
-            'operator_id' => $this->petugas->id,
-            'waktu_klaim' => now()->subMinutes(5),
-        ]);
+        // Klaim task pickup dulu (fase 1), baru isi draft inspeksi.
+        $this->actingAs($this->petugas)->postJson("/api/orders/{$order->id}/claim")->assertOk();
 
         $draft = $this->actingAs($this->petugas)->postJson('/api/inspeksi-kendaraans', $this->payloadInspeksi([
             'order_id' => $order->id,

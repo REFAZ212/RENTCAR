@@ -7,9 +7,9 @@ import ConfirmModal from '../components/ConfirmModal';
 import { formatHpDisplay, formatHpWa, todayJakarta, nowWIB, nowWIBTime, formatRupiah, warnaKendaraanHex } from '../lib/format';
 
 /**
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * ─────────────────────────────────────────────────────────────
  * PERBAIKAN FILTER (permintaan utama halaman ini)
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+ * ─────────────────────────────────────────────────────────────
  * Sebelumnya ada 3 dropdown terpisah (status_order, status_pengiriman,
  * status_pembayaran) yang dikirim sebagai filter AND ke API sekaligus.
  * Banyak kombinasi tidak pernah terjadi secara bisnis (mis. "Aktif" +
@@ -18,8 +18,8 @@ import { formatHpDisplay, formatHpWa, todayJakarta, nowWIB, nowWIBTime, formatRu
  * Solusi: SATU kontrol filter berbentuk tab status, dengan pilihan yang
  * sudah dikurasi sesuai siklus hidup order (bukan kombinasi mentah 3
  * dimensi). Status pembayaran & pengiriman tetap tampil sebagai badge
- * di tiap baris â€” hanya tidak lagi jadi filter terpisah yang saling tabrak.
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+ * di tiap baris — hanya tidak lagi jadi filter terpisah yang saling tabrak.
+ * ───────────────────────────────────────────────────────────── */
 
 type StatusOrder = 'pending' | 'confirmed' | 'active' | 'perlu_verifikasi' | 'completed' | 'cancelled';
 type StatusPembayaran = 'unpaid' | 'partial' | 'paid';
@@ -29,14 +29,11 @@ type StatusFilter = '' | StatusOrder | 'overdue';
 
 const statusPembayaranOptions: StatusPembayaran[] = ['unpaid', 'partial', 'paid'];
 
-// Status pengiriman yang mewajibkan bukti foto kendaraan diunggah.
-const statusPengirimanButuhBukti: StatusPengiriman[] = ['sudah_diantarkan', 'dalam_penyewaan'];
-
-// Tarif denda keterlambatan per jam â€” diambil dari backend supaya
+// Tarif denda keterlambatan per jam — diambil dari backend supaya
 // selalu konsisten (single source of truth di OvertimeCalculator).
 const DEFAULT_OVERTIME_RATE = 25000;
 
-// Jumlah order per pemuatan â€” tetap di belakang layar (tanpa pilihan UI)
+// Jumlah order per pemuatan — tetap di belakang layar (tanpa pilihan UI)
 // supaya baris filter tetap bersih.
 const PER_PAGE = 30;
 
@@ -70,7 +67,7 @@ const metodePembayaranLabels: Record<MetodePembayaran, string> = {
   lainnya: 'Lainnya',
 };
 
-// Badge warna per domain status â€” token tema: primary (biru), accent (amber), success (hijau), error (merah)
+// Badge warna per domain status — token tema: primary (biru), accent (amber), success (hijau), error (merah)
 const statusOrderColors: Record<string, string> = {
   pending: 'bg-accent-50 text-accent-700',
   confirmed: 'bg-primary-50 text-primary-500',
@@ -94,7 +91,7 @@ const statusPengirimanColors: Record<string, string> = {
   sudah_dikembalikan: 'bg-success-50 text-success-600',
 };
 
-// Status turunan (hasil hitung, bukan enum) â€” Terlambat.
+// Status turunan (hasil hitung, bukan enum) — Terlambat.
 const OVERDUE_BADGE = 'bg-error-50 text-error-600';
 
 const formatJam = (jam: number): string => {
@@ -108,9 +105,9 @@ const formatJam = (jam: number): string => {
 const inputClass =
   'w-full rounded-lg border border-black-200 px-3 py-2 text-sm text-black-900 outline-none transition-colors focus:border-primary-500 focus:ring-1 focus:ring-primary-500';
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * TYPES â€” ENTITAS (di-import dari api.ts sebagai single source of truth)
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─────────────────────────────────────────────────────────────
+ * TYPES — ENTITAS (di-import dari api.ts sebagai single source of truth)
+ * ───────────────────────────────────────────────────────────── */
 
 const orderCardBorderColor: Record<string, string> = {
   pending: 'border-t-accent-500',
@@ -221,9 +218,9 @@ const fmtTime = (t: string | null | undefined) => {
 const fmtPeriode = (d: string) =>
   new Date(`${d}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ─────────────────────────────────────────────────────────────
  * IKON
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+ * ───────────────────────────────────────────────────────────── */
 const PencilIcon = () => (
   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path
@@ -264,9 +261,9 @@ const CloseIcon = ({ className = 'h-5 w-5' }: { className?: string }) => (
   </svg>
 );
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ─────────────────────────────────────────────────────────────
  * KOMPONEN BANTU
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+ * ───────────────────────────────────────────────────────────── */
 function UploadBox({
   label,
   hint,
@@ -336,9 +333,9 @@ function StatChip({ label, value, iconBg, icon }: { label: string; value: number
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * FILTER STATUS â€” satu kontrol tab, menggantikan 3 dropdown lama
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ─────────────────────────────────────────────────────────────
+ * FILTER STATUS — satu kontrol tab, menggantikan 3 dropdown lama
+ * ───────────────────────────────────────────────────────────── */
 const STATUS_TABS: { key: StatusFilter; label: string }[] = [
   { key: '', label: 'Semua' },
   { key: 'pending', label: 'Menunggu' },
@@ -385,9 +382,9 @@ function StatusFilterTabs({
   );
 }
 
-/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ─────────────────────────────────────────────────────────────
  * HALAMAN UTAMA
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+ * ───────────────────────────────────────────────────────────── */
 export default function Orders() {
   const toast = useToast();
   const { user } = useAuth();
@@ -405,7 +402,7 @@ export default function Orders() {
   const [overtimeRate, setOvertimeRate] = useState(DEFAULT_OVERTIME_RATE);
   const [tarifSupirGlobal, setTarifSupirGlobal] = useState(150000);
 
-  // â”€â”€ Filter (disatukan) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Filter (disatukan) ────────────────────────────────────
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -439,7 +436,6 @@ export default function Orders() {
   const [buktiBaruFile, setBuktiBaruFile] = useState<File | null>(null);
   const [buktiBaruPreview, setBuktiBaruPreview] = useState<string | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
-  const [isSewakan, setIsSewakan] = useState(false);
   const [isKonfirmasi, setIsKonfirmasi] = useState(false);
   const [editKendaraanSearch, setEditKendaraanSearch] = useState('');
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
@@ -447,9 +443,6 @@ export default function Orders() {
   const [editBuktiFile, setEditBuktiFile] = useState<File | null>(null);
   const [editBuktiPreview, setEditBuktiPreview] = useState<string | null>(null);
   const [editBuktiNewPreview, setEditBuktiNewPreview] = useState<string | null>(null);
-  const [editBuktiPengirimanFile, setEditBuktiPengirimanFile] = useState<File | null>(null);
-  const [editBuktiPengirimanPreview, setEditBuktiPengirimanPreview] = useState<string | null>(null);
-  const [editBuktiPengirimanNewPreview, setEditBuktiPengirimanNewPreview] = useState<string | null>(null);
   const [newPaymentAmount, setNewPaymentAmount] = useState<string>('');
 
   const [customerSearch, setCustomerSearch] = useState('');
@@ -578,7 +571,7 @@ export default function Orders() {
         params.tanggal_selesai = dateTo;
       }
 
-      // 'overdue' bukan status asli di database â€” server menyaringnya dari
+      // 'overdue' bukan status asli di database — server menyaringnya dari
       // batas waktu pengembalian (Order::batasWaktuKembali()).
       if (statusFilter === 'overdue') {
         params.overdue = '1';
@@ -593,7 +586,7 @@ export default function Orders() {
           setItems((prev) => (append ? [...prev, ...data.data] : data.data));
           setMeta(data.meta);
           setCounts(data.counts);
-          // Jangan update state `page` saat append â€” kalau di-set, effect
+          // Jangan update state `page` saat append — kalau di-set, effect
           // [load] akan refetch ulang (non-append) dan membuang daftar bertumpuk.
           if (!append) setPage(targetPage);
           pageRef.current = targetPage;
@@ -606,7 +599,7 @@ export default function Orders() {
 
   // Pindah ke halaman pertama saat pencarian/filter berubah. Dideklarasikan
   // SEBELUM effect refetch supaya `pageRef` sudah di-reset duluan saat filter
-  // berubah â€” kalau tidak, refetch bisa memuat halaman lama yang sudah tidak relevan.
+  // berubah — kalau tidak, refetch bisa memuat halaman lama yang sudah tidak relevan.
   useEffect(() => {
     if (pageRef.current !== 1) {
       pageRef.current = 1;
@@ -681,7 +674,7 @@ export default function Orders() {
     return () => clearTimeout(t);
   }, [showForm, canManage, form.tanggal_mulai, form.tanggal_selesai]);
 
-  // Ringkasan cepat â€” ambil hitungan nyata dari server (semua order, bukan cuma halaman ini).
+  // Ringkasan cepat — ambil hitungan nyata dari server (semua order, bukan cuma halaman ini).
   const stats = useMemo(
     () => ({
       total: counts?.total ?? meta?.total ?? items.length,
@@ -819,11 +812,11 @@ export default function Orders() {
     }
     const nowJam = nowWIBTime();
     if (form.tanggal_mulai === today && form.jam_mulai && form.jam_mulai <= nowJam) {
-      toast.error('Jam mulai hari ini sudah terlewat â€” pilih jam setelah sekarang');
+      toast.error('Jam mulai hari ini sudah terlewat — pilih jam setelah sekarang');
       return;
     }
     if (form.tanggal_selesai === today && form.jam_selesai && form.jam_selesai <= nowJam) {
-      toast.error('Jam selesai hari ini sudah terlewat â€” pilih jam setelah sekarang');
+      toast.error('Jam selesai hari ini sudah terlewat — pilih jam setelah sekarang');
       return;
     }
     if (form.status_pembayaran !== 'unpaid') {
@@ -841,7 +834,7 @@ export default function Orders() {
         return;
       }
       if (form.status_pembayaran === 'partial' && Math.abs(amount - hargaTotal) <= 0.01) {
-        toast.error('Jumlah bayar sudah sama dengan total â€” gunakan status "Lunas"');
+        toast.error('Jumlah bayar sudah sama dengan total — gunakan status "Lunas"');
         return;
       }
     }
@@ -997,8 +990,7 @@ export default function Orders() {
    * Buka modal edit. Dipakai baik untuk edit biasa (pensil) maupun aksi cepat
    * "Sewakan" (dulu 2 blok kode terpisah yang isinya nyaris identik).
    */
-  const openEditModal = (item: Order, { sewakan = false, konfirmasi = false }: { sewakan?: boolean; konfirmasi?: boolean } = {}) => {
-    setIsSewakan(sewakan);
+  const openEditModal = (item: Order, { konfirmasi = false }: { konfirmasi?: boolean } = {}) => {
     setIsKonfirmasi(konfirmasi);
     setEditingOrder(item);
     setEditForm({
@@ -1014,10 +1006,10 @@ export default function Orders() {
       tanggal_selesai: fmtDate(item.tanggal_selesai),
       jam_mulai: fmtTime(item.jam_mulai) || '08:00',
       jam_selesai: fmtTime(item.jam_selesai) || '17:00',
-      status_order: konfirmasi ? 'confirmed' : sewakan ? 'active' : item.status_order,
+      status_order: konfirmasi ? 'confirmed' : item.status_order,
       status_pembayaran: item.status_pembayaran,
       metode_pembayaran: item.metode_pembayaran || 'cash',
-      status_pengiriman: sewakan ? 'dalam_penyewaan' : item.status_pengiriman,
+      status_pengiriman: item.status_pengiriman,
       metode_penyerahan: item.metode_penyerahan || 'ambil',
       opsi_supir: item.opsi_supir ?? (item.supir_id ? 'dengan_supir' : 'lepas_kunci'),
       calo_id: item.calo_id ? String(item.calo_id) : '',
@@ -1028,9 +1020,6 @@ export default function Orders() {
     setEditBuktiFile(null);
     setEditBuktiPreview(item.bukti_transfer ? `/storage/${item.bukti_transfer}` : null);
     setEditBuktiNewPreview(null);
-    setEditBuktiPengirimanFile(null);
-    setEditBuktiPengirimanPreview(item.bukti_pengiriman ? `/storage/${item.bukti_pengiriman}` : null);
-    setEditBuktiPengirimanNewPreview(null);
     setEditCustFotoKtpFile(null);
     setEditCustFotoKtpPreview(item.customer?.foto_ktp ? `/storage/${item.customer.foto_ktp}` : null);
     setEditCustFotoKtpDelete(false);
@@ -1048,15 +1037,10 @@ export default function Orders() {
     setEditBuktiFile(null);
     setEditBuktiPreview(null);
     setEditBuktiNewPreview(null);
-    if (editBuktiPengirimanNewPreview) URL.revokeObjectURL(editBuktiPengirimanNewPreview);
-    setEditBuktiPengirimanFile(null);
-    setEditBuktiPengirimanPreview(null);
-    setEditBuktiPengirimanNewPreview(null);
     if (editCustFotoKtpPreview) URL.revokeObjectURL(editCustFotoKtpPreview);
     setEditCustFotoKtpFile(null);
     setEditCustFotoKtpPreview(null);
     setEditCustFotoKtpDelete(false);
-    setIsSewakan(false);
     setIsKonfirmasi(false);
     setNewPaymentAmount('');
   };
@@ -1084,24 +1068,28 @@ export default function Orders() {
   const editTotal = editDurasi * editHargaPerHari + supirTarifEdit * editDurasi;
 
   // Order aktif/perlu verifikasi/selesai/dibatalkan: data inti terkunci, hanya status/pembayaran/catatan/bukti yang boleh diubah
-  // Order confirmed yang sudah ber-aktivitas (pembayaran/request garasi/task diklaim) ikut terkunci â€” koreksi kesepakatan via Batal.
+  // Order confirmed yang sudah ber-aktivitas (pembayaran/request garasi/task diklaim) ikut terkunci — koreksi kesepakatan via Batal.
   const isConfirmedBerAktivitas =
     editingOrder?.status_order === 'confirmed' &&
     (!!editingOrder.operator_id ||
       (editingOrder.pembayarans?.length ?? 0) > 0 ||
       (editingOrder.garasi_requests?.length ?? 0) > 0);
-  const isLockedOrder = ((editingOrder?.status_order === 'active' || editingOrder?.status_order === 'perlu_verifikasi' || editingOrder?.status_order === 'completed' || editingOrder?.status_order === 'cancelled') || isConfirmedBerAktivitas) && !isSewakan && !isKonfirmasi;
-  const isFullyLocked = (editingOrder?.status_order === 'completed' || editingOrder?.status_order === 'cancelled') && !isSewakan && !isKonfirmasi;
-  // Data inti terkunci di SEMUA mode (termasuk mode Kirim/Konfirmasi) untuk
-  // order confirmed ber-aktivitas â€” backend menolak (422) field inti.
+  const isLockedOrder = ((editingOrder?.status_order === 'active' || editingOrder?.status_order === 'perlu_verifikasi' || editingOrder?.status_order === 'completed' || editingOrder?.status_order === 'cancelled') || isConfirmedBerAktivitas) && !isKonfirmasi;
+  const isFullyLocked = (editingOrder?.status_order === 'completed' || editingOrder?.status_order === 'cancelled') && !isKonfirmasi;
+  // Data inti terkunci di SEMUA mode (termasuk mode Konfirmasi) untuk
+  // order confirmed ber-aktivitas — backend menolak (422) field inti.
   const isCoreLocked = isConfirmedBerAktivitas || isLockedOrder;
+  const isPlainCoreLocked = isConfirmedBerAktivitas && !isKonfirmasi;
 
-  const handleEditKendaraanSelect = (id: number) => setEditForm((prev) => ({ ...prev, kendaraan_id: String(id) }));
+  const handleEditKendaraanSelect = (id: number) => {
+    if (isConfirmedBerAktivitas) return;
+    setEditForm((prev) => ({ ...prev, kendaraan_id: String(id) }));
+  };
 
   const handleEditSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!isSewakan && !isKonfirmasi && !isLockedOrder) {
+    if (!isKonfirmasi && !isLockedOrder) {
       if (!editForm.customer_name?.trim()) { toast.error('Nama customer wajib diisi'); return; }
       if (!editForm.customer_no_hp) { toast.error('No. HP wajib diisi'); return; }
       if (!editForm.customer_no_sim) { toast.error('No. Identitas (SIM) wajib diisi'); return; }
@@ -1116,36 +1104,28 @@ export default function Orders() {
       }
       const nowJam = nowWIBTime();
       if (editForm.tanggal_mulai === todayJakarta() && editForm.jam_mulai && editForm.jam_mulai <= nowJam) {
-        toast.error('Jam mulai hari ini sudah terlewat â€” pilih jam setelah sekarang');
+        toast.error('Jam mulai hari ini sudah terlewat — pilih jam setelah sekarang');
         return;
       }
       if (editForm.tanggal_selesai === todayJakarta() && editForm.jam_selesai && editForm.jam_selesai <= nowJam) {
-        toast.error('Jam selesai hari ini sudah terlewat â€” pilih jam setelah sekarang');
+        toast.error('Jam selesai hari ini sudah terlewat — pilih jam setelah sekarang');
         return;
       }
       if (!editForm.tujuan?.trim()) { toast.error('Tujuan wajib diisi'); return; }
       if (editForm.metode_penyerahan === 'antar' && !editForm.alamat_jemput?.trim()) { toast.error('Alamat pengantaran wajib diisi'); return; }
     }
-    // L8: Basic validation for konfirmasi/sewakan mode â€” ensure required fields exist
-    if (isKonfirmasi || isSewakan) {
+    // Basic validation for konfirmasi mode — ensure required fields exist
+    if (isKonfirmasi) {
       if (!editForm.kendaraan_id) { toast.error('Pilih kendaraan terlebih dahulu'); return; }
     }
 
-    const butuhBuktiPengiriman = editForm.status_pengiriman
-      ? statusPengirimanButuhBukti.includes(editForm.status_pengiriman as StatusPengiriman)
-      : false;
-    const sudahAdaBuktiPengiriman = editBuktiPengirimanFile || editBuktiPengirimanPreview;
-    if (butuhBuktiPengiriman && !sudahAdaBuktiPengiriman) {
-      toast.error('Bukti foto pengiriman wajib diunggah untuk status pengiriman ini');
-      return;
-    }
     if (!editingOrder) return;
 
     setSubmitting(true);
     try {
       // Field yang boleh "dikosongkan" secara sengaja oleh admin (mis. melepas
       // supir/calo yang sebelumnya terpasang, atau menghapus isi catatan).
-      // Field-field ini HARUS selalu ikut terkirim walau nilainya '' â€” kalau
+      // Field-field ini HARUS selalu ikut terkirim walau nilainya '' — kalau
       // di-filter seperti field lain, backend tidak akan pernah tahu field ini
       // sedang sengaja dikosongkan, dan nilai lama di database tidak akan
       // pernah ter-clear.
@@ -1153,7 +1133,7 @@ export default function Orders() {
 
       const payload: Record<string, unknown> = {};
       Object.entries(editForm).forEach(([k, v]) => {
-        if (k === 'status_order' && !isSewakan && !isKonfirmasi) return;
+        if (k === 'status_order' && !isKonfirmasi) return;
         if (v !== '' && v !== null && v !== undefined) {
           payload[k] = v;
         } else if (clearableFields.includes(k as keyof OrderForm)) {
@@ -1165,7 +1145,7 @@ export default function Orders() {
       }
 
       // Order terkunci (aktif/perlu verifikasi/selesai/dibatalkan, atau
-      // confirmed ber-aktivitas): data inti tidak boleh dikirim ulang â€”
+      // confirmed ber-aktivitas): data inti tidak boleh dikirim ulang —
       // backend menolak (422) jika field terlarang ikut terkirim walau
       // nilainya tidak berubah. Daftar sama dengan OrderService.
       if (isCoreLocked) {
@@ -1195,14 +1175,13 @@ export default function Orders() {
       }
 
       let res;
-      const hasFile = editBuktiFile || editBuktiPengirimanFile || (!isCoreLocked && editCustFotoKtpFile);
+      const hasFile = editBuktiFile || (!isCoreLocked && editCustFotoKtpFile);
       const needsFormData = hasFile || (!isCoreLocked && editCustFotoKtpDelete);
       if (needsFormData) {
         const fd = new FormData();
         fd.append('_method', 'PUT');
         Object.entries(payload).forEach(([k, v]) => fd.append(k, String(v)));
         if (editBuktiFile) fd.append('bukti_transfer', editBuktiFile);
-        if (editBuktiPengirimanFile) fd.append('bukti_pengiriman', editBuktiPengirimanFile);
         if (!isCoreLocked && editCustFotoKtpFile) fd.append('customer_foto_ktp', editCustFotoKtpFile);
         if (!isCoreLocked && editCustFotoKtpDelete) fd.append('customer_foto_ktp_delete', '1');
         res = await orderAPI.updateWithFile(editingOrder.id, fd);
@@ -1310,7 +1289,7 @@ export default function Orders() {
     try {
       const { data } = await inspeksiAPI.byOrder(order.id);
       // Sama dengan aturan server (OrderService): inspeksi return TERAKHIR
-      // yang menentukan â€” wajib bertanda tangan customer & petugas.
+      // yang menentukan — wajib bertanda tangan customer & petugas.
       const latestReturn = [...data].reverse().find((i) => i.jenis === 'return') ?? null;
       const validReturn = latestReturn && latestReturn.ttd_customer && latestReturn.ttd_petugas ? latestReturn : null;
       setCompleteReturnInspeksi(validReturn);
@@ -1426,12 +1405,12 @@ export default function Orders() {
                       <span className="font-mono font-semibold text-error-600">{item.kode_order}</span>
                       <span className="text-error-600">
                         {' '}
-                        â€” {item.customer?.nama_lengkap} Â· {item.kendaraan?.nama_kendaraan}
+                        — {item.customer?.nama_lengkap} · {item.kendaraan?.nama_kendaraan}
                       </span>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="whitespace-nowrap font-medium text-error-600">
-                        {formatJam(item.jam_overtime_saat_ini)} Â· {formatRupiah(item.denda_overtime_saat_ini)}
+                        {formatJam(item.jam_overtime_saat_ini)} · {formatRupiah(item.denda_overtime_saat_ini)}
                       </span>
                       {canManage && (
                         <button
@@ -1485,12 +1464,12 @@ export default function Orders() {
                       <span className="font-mono font-semibold text-amber-700">{item.kode_order}</span>
                       <span className="text-amber-700">
                         {' '}
-                        â€” {item.customer?.nama_lengkap} Â· {item.kendaraan?.nama_kendaraan}
+                        — {item.customer?.nama_lengkap} · {item.kendaraan?.nama_kendaraan}
                       </span>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
                       <span className="whitespace-nowrap font-medium text-amber-700">
-                        {formatJam(item.jam_overtime_saat_ini)} Â· {formatRupiah(item.denda_overtime_saat_ini)}
+                        {formatJam(item.jam_overtime_saat_ini)} · {formatRupiah(item.denda_overtime_saat_ini)}
                       </span>
                       {canManage && (
                         <button
@@ -1535,7 +1514,7 @@ export default function Orders() {
         />
       </div>
 
-      {/* â”€â”€ Filter (disatukan) â”€â”€ */}
+      {/* ── Filter (disatukan) ── */}
       <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black-200">
         <div className="relative">
           <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1701,7 +1680,7 @@ export default function Orders() {
                   ) : null}
                   {nameConflict && (
                     <p className="mt-1.5 text-xs text-amber-600">
-                      Ada pelanggan bernama {nameConflict.nama_lengkap} (No. HP {formatHpDisplay(nameConflict.no_hp)}) â€” jika orang yang sama, pilih dari daftar pelanggan lalu perbarui No. HP.
+                      Ada pelanggan bernama {nameConflict.nama_lengkap} (No. HP {formatHpDisplay(nameConflict.no_hp)}) — jika orang yang sama, pilih dari daftar pelanggan lalu perbarui No. HP.
                     </p>
                   )}
                 </div>
@@ -1714,12 +1693,12 @@ export default function Orders() {
                       <input type="text" value={form.customer_no_ktp} onChange={(e) => setField('customer_no_ktp', e.target.value)} className={inputClass} placeholder="opsional" />
                       {ktpConflict && (
                         <p className="mt-1 text-xs text-amber-600">
-                          No. KTP sudah terdaftar atas nama {ktpConflict.nama_lengkap} â€” pilih dari daftar pelanggan, atau periksa kembali No. KTP.
+                          No. KTP sudah terdaftar atas nama {ktpConflict.nama_lengkap} — pilih dari daftar pelanggan, atau periksa kembali No. KTP.
                         </p>
                       )}
                       {!form.customer_id && !form.customer_no_ktp?.trim() && (
                         <p className="mt-1 text-xs text-amber-600">
-                          No. KTP belum diisi â€” sebaiknya diisi agar pelanggan bisa dikenali jika kembali.
+                          No. KTP belum diisi — sebaiknya diisi agar pelanggan bisa dikenali jika kembali.
                         </p>
                       )}
                     </div>
@@ -1800,7 +1779,7 @@ export default function Orders() {
                           const selected = form.kendaraan_id === String(k.id);
                           const tanggalTersedia = Boolean(form.tanggal_mulai && form.tanggal_selesai);
                           // Saat tanggal diisi, server sudah memfilter mobil yang
-                          // beririsan â€” status 'tersedia' sudah cukup.
+                          // beririsan — status 'tersedia' sudah cukup.
                           const available = k.status === 'tersedia' && (tanggalTersedia || !k.active_orders_count);
                           return (
                             <div
@@ -1914,7 +1893,7 @@ export default function Orders() {
                           .filter((c) => c.status === 'active')
                           .map((c) => (
                             <option key={c.id} value={c.id}>
-                              {c.nama} â€” {formatHpDisplay(c.no_hp)}
+                              {c.nama} — {formatHpDisplay(c.no_hp)}
                             </option>
                           ))}
                       </select>
@@ -2029,10 +2008,10 @@ export default function Orders() {
                     <div>
                       <p className="text-sm font-medium text-black-900">Sewa Kendaraan</p>
                       <p className="text-xs text-black-400">
-                        {durasiHari} hari Ã— {formatRupiah(form.harga_per_hari)}/hari
+                        {durasiHari} hari × {formatRupiah(form.harga_per_hari)}/hari
                       </p>
                       <p className="mt-0.5 text-xs text-black-400">
-                        {form.tanggal_mulai} {form.jam_mulai || '08:00'} â†’ {form.tanggal_selesai} {form.jam_selesai || '17:00'} WIB
+                        {form.tanggal_mulai} {form.jam_mulai || '08:00'} → {form.tanggal_selesai} {form.jam_selesai || '17:00'} WIB
                       </p>
                     </div>
                     <p className="shrink-0 text-sm font-semibold text-black-900">{formatRupiah(durasiHari * (Number(form.harga_per_hari) || 0))}</p>
@@ -2042,7 +2021,7 @@ export default function Orders() {
                       <div>
                         <p className="text-sm font-medium text-black-900">Biaya Supir</p>
                         <p className="text-xs text-black-400">
-                          Dengan supir Â· {durasiHari} hari Ã— {formatRupiah(supirTarifCreate)}/hari
+                          Dengan supir · {durasiHari} hari × {formatRupiah(supirTarifCreate)}/hari
                         </p>
                       </div>
                       <p className="shrink-0 text-sm font-semibold text-black-900">{formatRupiah(supirTarifCreate * durasiHari)}</p>
@@ -2106,9 +2085,9 @@ export default function Orders() {
                     onChange={(e) => setField('alamat_jemput', e.target.value)}
                     required={form.metode_penyerahan === 'antar'}
                     className={inputClass}
-                    placeholder={form.metode_penyerahan === 'antar' ? 'Alamat tujuan pengantaran kendaraan' : 'Opsional â€” lokasi ambil di luar garasi'}
+                    placeholder={form.metode_penyerahan === 'antar' ? 'Alamat tujuan pengantaran kendaraan' : 'Opsional — lokasi ambil di luar garasi'}
                   />
-                  {form.metode_penyerahan === 'antar' && <p className="mt-0.5 text-xs text-black-400">Biaya antar belum dihitung otomatis â€” hubungi admin untuk biaya pengantaran</p>}
+                  {form.metode_penyerahan === 'antar' && <p className="mt-0.5 text-xs text-black-400">Biaya antar belum dihitung otomatis — hubungi admin untuk biaya pengantaran</p>}
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Tujuan *</label>
@@ -2212,7 +2191,7 @@ export default function Orders() {
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black-200 bg-white p-6">
               <div>
-                <h2 className="text-lg font-semibold text-black-900">{isKonfirmasi ? 'Konfirmasi Order' : isSewakan ? 'Kirim Kendaraan' : 'Edit Order'}</h2>
+                <h2 className="text-lg font-semibold text-black-900">{isKonfirmasi ? 'Konfirmasi Order' : 'Edit Order'}</h2>
                 <p className="font-mono text-sm text-black-400">{editingOrder.kode_order}</p>
               </div>
               <button onClick={closeEditModal} className="rounded-lg p-1 transition-colors hover:bg-canvas" aria-label="Tutup">
@@ -2220,44 +2199,13 @@ export default function Orders() {
               </button>
             </div>
             <form onSubmit={handleEditSubmit} className="space-y-5 p-6">
-              {isLockedOrder && (
+              {isCoreLocked && (
                 <div className={`flex items-start gap-2 rounded-lg px-4 py-3 text-sm ${isFullyLocked ? 'border border-black-200 bg-accent-50 text-black-600' : 'border border-accent-200 bg-accent-50 text-accent-700'}`}>
                   <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M4.93 19h14.14a1 1 0 00.87-1.5L12.87 4.5a1 1 0 00-1.74 0L4.06 17.5A1 1 0 004.93 19z" /></svg>
-                  <span>{isFullyLocked ? 'Order sudah final. Semua data bersifat read-only.' : isConfirmedBerAktivitas ? 'Order confirmed sudah ber-aktivitas (pembayaran/request garasi/task petugas) — data inti terkunci. Koreksi kesepakatan via Batal.' : 'Order aktif â€” data inti (customer, kendaraan, tanggal, harga) tidak bisa diubah. Hanya status pembayaran, metode bayar, bukti pembayaran, dan catatan yang bisa diperbarui.'}</span>
+                  <span>{isFullyLocked ? 'Order sudah final. Semua data bersifat read-only.' : isConfirmedBerAktivitas ? 'Order confirmed sudah ber-aktivitas (pembayaran/request garasi/task petugas) — data inti terkunci. Koreksi kesepakatan via Batal.' : 'Order aktif — data inti (customer, kendaraan, tanggal, harga) tidak bisa diubah. Hanya status pembayaran, metode bayar, bukti pembayaran, dan catatan yang bisa diperbarui.'}</span>
                 </div>
               )}
-              {isSewakan && (
-                <div className="space-y-4 rounded-xl border border-black-200 bg-accent-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-black-400">Ringkasan Pesanan</p>
-                  <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-                    <div>
-                      <span className="text-black-400">Customer</span>
-                      <p className="font-medium text-black-900">{editingOrder.customer?.nama_lengkap || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-black-400">No. HP</span>
-                      <p className="font-medium text-black-900">{formatHpDisplay(editingOrder.customer?.no_hp) || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-black-400">Kendaraan</span>
-                      <p className="font-medium text-black-900">{editingOrder.kendaraan?.nama_kendaraan || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-black-400">Plat Nomor</span>
-                      <p className="font-medium font-mono text-black-900">{editingOrder.kendaraan?.plat_nomor || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-black-400">Tanggal Mulai</span>
-                      <p className="font-medium text-black-900">{editingOrder.tanggal_mulai} {editingOrder.jam_mulai || '08:00'}</p>
-                    </div>
-                    <div>
-                      <span className="text-black-400">Tanggal Selesai</span>
-                      <p className="font-medium text-black-900">{editingOrder.tanggal_selesai} {editingOrder.jam_selesai || '17:00'}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {!isSewakan && isLockedOrder && (
+              {(isLockedOrder || isPlainCoreLocked) && (
                 <div className="space-y-5">
                   <div className="space-y-3 rounded-xl border border-black-200 bg-accent-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wider text-black-400">Data Customer</p>
@@ -2287,9 +2235,9 @@ export default function Orders() {
                     </div>
                     {(editingOrder.supir || editingOrder.calo || editingOrder.opsi_supir === 'dengan_supir') && (
                       <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-                        {editingOrder.supir && <div><span className="text-black-400">Supir</span><p className="font-medium text-black-900">{editingOrder.supir.nama} Â· {formatHpDisplay(editingOrder.supir.no_hp)}</p></div>}
+                        {editingOrder.supir && <div><span className="text-black-400">Supir</span><p className="font-medium text-black-900">{editingOrder.supir.nama} · {formatHpDisplay(editingOrder.supir.no_hp)}</p></div>}
                         {!editingOrder.supir && editingOrder.opsi_supir === 'dengan_supir' && <div><span className="text-black-400">Opsi Supir</span><p className="font-medium text-black-900">Dengan Supir (belum ada yang ditugaskan)</p></div>}
-                        {editingOrder.calo && <div><span className="text-black-400">Calo</span><p className="font-medium text-black-900">{editingOrder.calo.nama} Â· {formatHpDisplay(editingOrder.calo.no_hp)}</p></div>}
+                        {editingOrder.calo && <div><span className="text-black-400">Calo</span><p className="font-medium text-black-900">{editingOrder.calo.nama} · {formatHpDisplay(editingOrder.calo.no_hp)}</p></div>}
                       </div>
                     )}
                   </div>
@@ -2308,8 +2256,8 @@ export default function Orders() {
                 </div>
               )}
 
-              {/* â”€â”€ Riwayat Pembayaran (locked orders) â”€â”€ */}
-              {!isSewakan && isLockedOrder && editingOrder.pembayarans && editingOrder.pembayarans.length > 0 && (
+              {/* ── Riwayat Pembayaran (locked orders) ── */}
+              {(isLockedOrder || isPlainCoreLocked) && editingOrder.pembayarans && editingOrder.pembayarans.length > 0 && (
                 <div className="space-y-3 rounded-xl border border-black-200 bg-accent-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wider text-black-400">Riwayat Pembayaran</p>
                   <div className="space-y-3">
@@ -2321,9 +2269,9 @@ export default function Orders() {
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                             <span className="font-semibold text-black-900">{p.status === 'pelunasan' ? 'Pelunasan' : 'DP'}</span>
-                            <span className="text-black-400">Â·</span>
+                            <span className="text-black-400">·</span>
                             <span className="text-black-600">{metodePembayaranLabels[p.metode_pembayaran] || p.metode_pembayaran}</span>
-                            <span className="text-black-400">Â·</span>
+                            <span className="text-black-400">·</span>
                             <span className="font-medium text-black-900">Rp {Number(p.jumlah).toLocaleString('id-ID')}</span>
                           </div>
                           <p className="mt-0.5 text-xs text-black-400">{new Date(p.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
@@ -2367,8 +2315,25 @@ export default function Orders() {
                 </div>
               )}
 
-              {/* â”€â”€ Form Pembayaran Baru (active orders only, hide when paid) â”€â”€ */}
-              {!isSewakan && !isKonfirmasi && isLockedOrder && !isFullyLocked && editingOrder?.status_pembayaran !== 'paid' && (
+              {isPlainCoreLocked && (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-black-700">Status Pembayaran</label>
+                    <select value={editForm.status_pembayaran || 'unpaid'} onChange={(e) => setEditField('status_pembayaran', e.target.value as StatusPembayaran)} className={inputClass}>
+                      {statusPembayaranOptions.map((s) => (<option key={s} value={s}>{statusPembayaranLabels[s]}</option>))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-black-700">Metode Bayar</label>
+                    <select value={editForm.metode_pembayaran || 'cash'} onChange={(e) => setEditField('metode_pembayaran', e.target.value as MetodePembayaran)} className={inputClass}>
+                      {(Object.keys(metodePembayaranLabels) as MetodePembayaran[]).map((m) => (<option key={m} value={m}>{metodePembayaranLabels[m]}</option>))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Form Pembayaran Baru (active orders only, hide when paid) ── */}
+              {!isKonfirmasi && isLockedOrder && !isFullyLocked && editingOrder?.status_pembayaran !== 'paid' && (
                 <div className="space-y-3 rounded-xl border border-primary-200 bg-primary-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wider text-primary-600">Catat Pembayaran Baru</p>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -2421,7 +2386,7 @@ export default function Orders() {
                   </div>
                 </div>
               )}
-              {!isSewakan && !isLockedOrder && (<>
+              {!isCoreLocked && (<>
               <div>
                 <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-black-400">
                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -2441,7 +2406,8 @@ export default function Orders() {
                       }}
                       onFocus={() => { if (editCustomerSearch) setShowEditCustomerSuggestions(true); }}
                       placeholder="Ketik nama customer..."
-                      className={inputClass}
+                      disabled={isConfirmedBerAktivitas}
+                      className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
                     />
                     {showEditCustomerSuggestions && filteredEditCustomers.length > 0 && (
                       <div className="absolute z-20 mt-1 w-full rounded-lg border border-black-200 bg-white py-1 shadow-lg">
@@ -2463,7 +2429,7 @@ export default function Orders() {
                       </div>
                     )}
                   </div>
-                  {editForm.customer_id ? (
+                  {editForm.customer_id && !isConfirmedBerAktivitas ? (
                     <button
                       type="button"
                       onClick={() => setEditForm((prev) => ({ ...prev, customer_id: '', customer_name: '', customer_no_hp: '', customer_email: '', customer_alamat: '', customer_no_ktp: '', customer_no_sim: '' }))}
@@ -2476,7 +2442,7 @@ export default function Orders() {
                   ) : null}
                   {editNameConflict && (
                     <p className="mt-1.5 text-xs text-amber-600">
-                      Ada pelanggan bernama {editNameConflict.nama_lengkap} (No. HP {formatHpDisplay(editNameConflict.no_hp)}) â€” jika orang yang sama, pilih dari daftar pelanggan lalu perbarui No. HP.
+                      Ada pelanggan bernama {editNameConflict.nama_lengkap} (No. HP {formatHpDisplay(editNameConflict.no_hp)}) — jika orang yang sama, pilih dari daftar pelanggan lalu perbarui No. HP.
                     </p>
                   )}
                 </div>
@@ -2484,37 +2450,37 @@ export default function Orders() {
                   <>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">No. HP *</label>
-                      <input type="text" value={editForm.customer_no_hp || ''} onChange={(e) => setEditField('customer_no_hp', e.target.value)} className={inputClass} placeholder="08xxx" />
+                      <input type="text" value={editForm.customer_no_hp || ''} onChange={(e) => setEditField('customer_no_hp', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="08xxx" />
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">No. KTP</label>
-                      <input type="text" value={editForm.customer_no_ktp || ''} onChange={(e) => setEditField('customer_no_ktp', e.target.value)} className={inputClass} placeholder="opsional" />
+                      <input type="text" value={editForm.customer_no_ktp || ''} onChange={(e) => setEditField('customer_no_ktp', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="opsional" />
                       {editKtpConflict && (
                         <p className="mt-1 text-xs text-amber-600">
-                          No. KTP sudah terdaftar atas nama {editKtpConflict.nama_lengkap} â€” pilih dari daftar pelanggan, atau periksa kembali No. KTP.
+                          No. KTP sudah terdaftar atas nama {editKtpConflict.nama_lengkap} — pilih dari daftar pelanggan, atau periksa kembali No. KTP.
                         </p>
                       )}
                       {!editForm.customer_id && !editForm.customer_no_ktp?.trim() && (
                         <p className="mt-1 text-xs text-amber-600">
-                          No. KTP belum diisi â€” sebaiknya diisi agar pelanggan bisa dikenali jika kembali.
+                          No. KTP belum diisi — sebaiknya diisi agar pelanggan bisa dikenali jika kembali.
                         </p>
                       )}
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">No. SIM *</label>
-                      <input type="text" value={editForm.customer_no_sim || ''} onChange={(e) => setEditField('customer_no_sim', e.target.value)} className={inputClass} placeholder="Wajib diisi" />
+                      <input type="text" value={editForm.customer_no_sim || ''} onChange={(e) => setEditField('customer_no_sim', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="Wajib diisi" />
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">Email</label>
-                      <input type="email" value={editForm.customer_email || ''} onChange={(e) => setEditField('customer_email', e.target.value)} className={inputClass} placeholder="opsional" />
+                      <input type="email" value={editForm.customer_email || ''} onChange={(e) => setEditField('customer_email', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="opsional" />
                     </div>
                     <div className="md:col-span-2">
                       <label className="mb-1 block text-sm font-medium text-black-700">Alamat *</label>
-                      <input type="text" value={editForm.customer_alamat || ''} onChange={(e) => setEditField('customer_alamat', e.target.value)} className={inputClass} placeholder="Wajib diisi" />
+                      <input type="text" value={editForm.customer_alamat || ''} onChange={(e) => setEditField('customer_alamat', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="Wajib diisi" />
                     </div>
                     <div className="md:col-span-2">
                       <label className="mb-1 block text-sm font-medium text-black-700">Dokumen Identitas</label>
-                      {isSewakan || isKonfirmasi || isLockedOrder ? (
+                      {isKonfirmasi || isCoreLocked ? (
                         <div className="flex gap-3">
                           {editingOrder.customer?.foto_ktp ? (
                             <div>
@@ -2571,7 +2537,7 @@ export default function Orders() {
                         editForm.opsi_supir === 'lepas_kunci'
                           ? 'border-primary-500 bg-primary-50'
                           : 'border-black-200 hover:border-black-300'
-                      }`}
+                      } ${isConfirmedBerAktivitas ? 'pointer-events-none opacity-60' : ''}`}
                     >
                       <input
                         type="radio"
@@ -2579,6 +2545,7 @@ export default function Orders() {
                         className="sr-only"
                         checked={editForm.opsi_supir === 'lepas_kunci'}
                         onChange={() => setEditField('opsi_supir', 'lepas_kunci')}
+                        disabled={isConfirmedBerAktivitas}
                       />
                       <span
                         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
@@ -2594,7 +2561,7 @@ export default function Orders() {
                         editForm.opsi_supir === 'dengan_supir'
                           ? 'border-primary-500 bg-primary-50'
                           : 'border-black-200 hover:border-black-300'
-                      }`}
+                      } ${isConfirmedBerAktivitas ? 'pointer-events-none opacity-60' : ''}`}
                     >
                       <input
                         type="radio"
@@ -2602,6 +2569,7 @@ export default function Orders() {
                         className="sr-only"
                         checked={editForm.opsi_supir === 'dengan_supir'}
                         onChange={() => setEditField('opsi_supir', 'dengan_supir')}
+                        disabled={isConfirmedBerAktivitas}
                       />
                       <span
                         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
@@ -2616,13 +2584,13 @@ export default function Orders() {
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Calo</label>
-                  <select value={editForm.calo_id || ''} onChange={(e) => setEditField('calo_id', e.target.value)} className={inputClass}>
+                  <select value={editForm.calo_id || ''} onChange={(e) => setEditField('calo_id', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}>
                     <option value="">Pilih Calo (opsional)</option>
                     {calos
                       .filter((c) => c.status === 'active')
                       .map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.nama} â€” {formatHpDisplay(c.no_hp)}
+                          {c.nama} — {formatHpDisplay(c.no_hp)}
                         </option>
                       ))}
                   </select>
@@ -2653,7 +2621,7 @@ export default function Orders() {
                     placeholder="Cari nama, plat, atau warna..."
                     className={`${inputClass} pl-9 ${isCoreLocked ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
                   />
-                  {editKendaraanSearch && (
+                  {editKendaraanSearch && !isCoreLocked && (
                     <button
                       type="button"
                       onClick={() => setEditKendaraanSearch('')}
@@ -2784,7 +2752,7 @@ export default function Orders() {
                   />
                   <p className="mt-0.5 text-xs text-black-400">Otomatis dari harga kendaraan</p>
                 </div>
-                {!isSewakan && !isKonfirmasi && (
+                {!isKonfirmasi && (
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Status Pembayaran</label>
                   <select
@@ -2800,7 +2768,7 @@ export default function Orders() {
                   </select>
                 </div>
                 )}
-                {!isSewakan && !isKonfirmasi && (
+                {!isKonfirmasi && (
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Metode Bayar</label>
                   <select
@@ -2816,7 +2784,7 @@ export default function Orders() {
                   </select>
                 </div>
                 )}
-                {!isSewakan && !isKonfirmasi && (
+                {!isKonfirmasi && (
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Status Pengiriman</label>
                   <select
@@ -2832,9 +2800,6 @@ export default function Orders() {
                         </option>
                       ))}
                   </select>
-                  {editForm.status_pengiriman && statusPengirimanButuhBukti.includes(editForm.status_pengiriman as StatusPengiriman) && (
-                    <p className="mt-1 text-xs text-accent-600">Status ini wajib disertai bukti foto pengiriman di bawah.</p>
-                  )}
                 </div>
                 )}
               </div>
@@ -2848,10 +2813,10 @@ export default function Orders() {
                     <div>
                       <p className="text-sm font-medium text-black-900">Sewa Kendaraan</p>
                       <p className="text-xs text-black-400">
-                        {editDurasi} hari Ã— {formatRupiah(editHargaPerHari)}/hari
+                        {editDurasi} hari × {formatRupiah(editHargaPerHari)}/hari
                       </p>
                       <p className="mt-0.5 text-xs text-black-400">
-                        {editForm.tanggal_mulai} {editForm.jam_mulai || '08:00'} â†’ {editForm.tanggal_selesai} {editForm.jam_selesai || '17:00'} WIB
+                        {editForm.tanggal_mulai} {editForm.jam_mulai || '08:00'} → {editForm.tanggal_selesai} {editForm.jam_selesai || '17:00'} WIB
                       </p>
                     </div>
                     <p className="shrink-0 text-sm font-semibold text-black-900">{formatRupiah(editDurasi * editHargaPerHari)}</p>
@@ -2861,7 +2826,7 @@ export default function Orders() {
                       <div>
                         <p className="text-sm font-medium text-black-900">Biaya Supir</p>
                         <p className="text-xs text-black-400">
-                          Dengan supir Â· {editDurasi} hari Ã— {formatRupiah(supirTarifEdit)}/hari
+                          Dengan supir · {editDurasi} hari × {formatRupiah(supirTarifEdit)}/hari
                         </p>
                       </div>
                       <p className="shrink-0 text-sm font-semibold text-black-900">{formatRupiah(supirTarifEdit * editDurasi)}</p>
@@ -2874,18 +2839,19 @@ export default function Orders() {
                 </div>
               ) : null}
 
-              {!isLockedOrder && (
+              {!isLockedOrder && !isPlainCoreLocked && (
               <>
               <div>
                 <label className="mb-1 block text-sm font-medium text-black-700">Metode Penyerahan</label>
                 <div className="flex gap-4">
-                  <label className={`flex items-center gap-2.5 rounded-xl border-2 px-4 py-3 transition-all flex-1 cursor-pointer ${editForm.metode_penyerahan === 'antar' ? '' : 'border-primary-500 bg-primary-50'}`}>
+                  <label className={`flex items-center gap-2.5 rounded-xl border-2 px-4 py-3 transition-all flex-1 ${editForm.metode_penyerahan === 'antar' ? '' : 'border-primary-500 bg-primary-50'} ${isConfirmedBerAktivitas ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}>
                     <input
                       type="radio"
                       name="edit_metode_penyerahan"
                       value="ambil"
                       checked={editForm.metode_penyerahan === 'ambil'}
                       onChange={() => setEditField('metode_penyerahan', 'ambil')}
+                      disabled={isConfirmedBerAktivitas}
                       className="sr-only"
                     />
                     <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${editForm.metode_penyerahan === 'ambil' ? 'border-primary-500' : 'border-black-200'}`}>
@@ -2896,13 +2862,14 @@ export default function Orders() {
                       <div className="text-xs text-black-400">Customer ambil sendiri di garasi</div>
                     </div>
                   </label>
-                  <label className={`flex items-center gap-2.5 rounded-xl border-2 px-4 py-3 transition-all flex-1 cursor-pointer ${editForm.metode_penyerahan === 'antar' ? 'border-primary-500 bg-primary-50' : 'border-black-200 hover:border-black-200'}`}>
+                  <label className={`flex items-center gap-2.5 rounded-xl border-2 px-4 py-3 transition-all flex-1 ${editForm.metode_penyerahan === 'antar' ? 'border-primary-500 bg-primary-50' : 'border-black-200 hover:border-black-200'} ${isConfirmedBerAktivitas ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}>
                     <input
                       type="radio"
                       name="edit_metode_penyerahan"
                       value="antar"
                       checked={editForm.metode_penyerahan === 'antar'}
                       onChange={() => setEditField('metode_penyerahan', 'antar')}
+                      disabled={isConfirmedBerAktivitas}
                       className="sr-only"
                     />
                     <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${editForm.metode_penyerahan === 'antar' ? 'border-primary-500' : 'border-black-200'}`}>
@@ -2921,11 +2888,11 @@ export default function Orders() {
                   <label className="mb-1 block text-sm font-medium text-black-700">
                     {editForm.metode_penyerahan === 'antar' ? 'Alamat Pengantaran *' : 'Lokasi Ambil'}
                   </label>
-                  <input type="text" value={editForm.alamat_jemput || ''} onChange={(e) => setEditField('alamat_jemput', e.target.value)} required={editForm.metode_penyerahan === 'antar'} className={inputClass} placeholder={editForm.metode_penyerahan === 'antar' ? 'Alamat tujuan pengantaran kendaraan' : 'Lokasi pengambilan kendaraan'} />
+                  <input type="text" value={editForm.alamat_jemput || ''} onChange={(e) => setEditField('alamat_jemput', e.target.value)} required={editForm.metode_penyerahan === 'antar'} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder={editForm.metode_penyerahan === 'antar' ? 'Alamat tujuan pengantaran kendaraan' : 'Lokasi pengambilan kendaraan'} />
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Tujuan *</label>
-                  <input type="text" value={editForm.tujuan || ''} onChange={(e) => setEditField('tujuan', e.target.value)} className={inputClass} placeholder="Tujuan penggunaan kendaraan" />
+                  <input type="text" value={editForm.tujuan || ''} onChange={(e) => setEditField('tujuan', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="Tujuan penggunaan kendaraan" />
                 </div>
               </div>
               </>
@@ -2945,7 +2912,7 @@ export default function Orders() {
                 )}
               </div>
 
-              {!isSewakan && !isKonfirmasi && (isFullyLocked || !isLockedOrder) && (
+              {!isKonfirmasi && (isFullyLocked || !isLockedOrder) && (
               <div>
                 <label className="mb-1 block text-sm font-medium text-black-700">Bukti Pembayaran</label>
                 {isFullyLocked ? (
@@ -3002,56 +2969,6 @@ export default function Orders() {
               </div>
               )}
 
-              {!isLockedOrder && (isSewakan || (editForm.status_pengiriman && statusPengirimanButuhBukti.includes(editForm.status_pengiriman as StatusPengiriman))) && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-black-700">
-                    Bukti Foto Pengiriman <span className="text-error-500">*</span>
-                  </label>
-                  {editBuktiPengirimanPreview && !editBuktiPengirimanFile && (
-                    <ImagePreview
-                      src={editBuktiPengirimanPreview}
-                      onRemove={() => {
-                        setEditBuktiPengirimanFile(null);
-                        setEditBuktiPengirimanPreview(null);
-                      }}
-                    />
-                  )}
-                  {editBuktiPengirimanFile && (
-                    <ImagePreview
-                      src={editBuktiPengirimanNewPreview}
-                      onRemove={() => {
-                        if (editBuktiPengirimanNewPreview) URL.revokeObjectURL(editBuktiPengirimanNewPreview);
-                        setEditBuktiPengirimanFile(null);
-                        setEditBuktiPengirimanPreview(editingOrder.bukti_pengiriman ? `/storage/${editingOrder.bukti_pengiriman}` : null);
-                        setEditBuktiPengirimanNewPreview(null);
-                      }}
-                    />
-                  )}
-                  <UploadBox
-                    label="Upload foto pengiriman"
-                    hint="Foto kendaraan saat diambil/diantarkan, JPG/PNG, maks 2MB"
-                    fileName={editBuktiPengirimanFile?.name}
-                    icon={
-                      <svg className="h-5 w-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                        />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    }
-                    onFile={(f) => {
-                      if (!f) return;
-                      if (editBuktiPengirimanNewPreview) URL.revokeObjectURL(editBuktiPengirimanNewPreview);
-                      setEditBuktiPengirimanFile(f);
-                      setEditBuktiPengirimanNewPreview(URL.createObjectURL(f));
-                    }}
-                  />
-                </div>
-              )}
-
               <div className="flex justify-end gap-3 border-t border-black-200 pt-4">
                 {isFullyLocked ? (
                   <button
@@ -3076,7 +2993,7 @@ export default function Orders() {
                       className="flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
                     >
                       {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-                      {isKonfirmasi ? 'Konfirmasi & Simpan' : isSewakan ? 'Kirim Kendaraan' : 'Simpan Perubahan'}
+                      {isKonfirmasi ? 'Konfirmasi & Simpan' : 'Simpan Perubahan'}
                     </button>
                   </>
                 )}
@@ -3086,10 +3003,10 @@ export default function Orders() {
         </div>
       )}
 
-      {/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * Detail Order Modal â€” redesign
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
- * Ganti seluruh blok "{/* Detail Modal *â€‹/}" (dari {detailOrder && ( ...
+      {/* ─────────────────────────────────────────────────────────────
+ * Detail Order Modal — redesign
+ * ─────────────────────────────────────────────────────────────
+ * Ganti seluruh blok "{/* Detail Modal *​/}" (dari {detailOrder && ( ...
  * sampai penutupnya )} ) di Orders.tsx dengan kode di bawah ini.
  * State & handler yang dipakai (detailOrder, setDetailOrder,
  * setInvoiceOrder, overtimeRate, toast) sudah ada di file kamu,
@@ -3099,10 +3016,10 @@ export default function Orders() {
  * di gambar referensi kemungkinan berasal dari field tambahan pada
  * objek `kendaraan` (mis. kendaraan.kategori, kendaraan.tipe,
  * kendaraan.transmisi) yang belum saya lihat di type Kendaraan kamu.
- * Saya buat opsional (hanya tampil kalau field-nya ada) â€” kalau
+ * Saya buat opsional (hanya tampil kalau field-nya ada) — kalau
  * field itu belum ada di API/type kamu, kasih tahu saya nama field
  * aslinya biar saya sesuaikan, atau baris itu otomatis tidak muncul.
- * â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+ * ───────────────────────────────────────────────────────────── */}
 
       {detailOrder && (
         <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4" onClick={() => setDetailOrder(null)}>
@@ -3130,7 +3047,7 @@ export default function Orders() {
             </div>
 
             <div className="space-y-4 p-6">
-              {/* â”€â”€ Status pills â”€â”€ */}
+              {/* ── Status pills ── */}
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${statusOrderColors[detailOrder.status_order]}`}>
                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" /></svg>
@@ -3156,7 +3073,7 @@ export default function Orders() {
                 )}
               </div>
 
-              {/* â”€â”€ Customer â”€â”€ */}
+              {/* ── Customer ── */}
               <div className="rounded-2xl border border-gray-200 p-4">
                 <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-black-500">
                   <svg className="h-4 w-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -3188,7 +3105,7 @@ export default function Orders() {
                 </div>
               </div>
 
-              {/* â”€â”€ Kendaraan â”€â”€ */}
+              {/* ── Kendaraan ── */}
               <div className="rounded-2xl border border-gray-200 p-4">
                 <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-black-500">
                   <svg className="h-4 w-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18M3 11v6a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-6" /></svg>
@@ -3211,7 +3128,7 @@ export default function Orders() {
                       </span>
                     </div>
                   </div>
-                  {/* Kategori/Tipe â€” dari relasi Kendaraan.kategori & Kendaraan.tipe (api.ts) */}
+                  {/* Kategori/Tipe — dari relasi Kendaraan.kategori & Kendaraan.tipe (api.ts) */}
                   {detailOrder.kendaraan?.kategori?.nama_kategori && (
                     <div>
                       <p className="mb-1 text-xs text-black-400">Kategori</p>
@@ -3243,7 +3160,7 @@ export default function Orders() {
                 </div>
               </div>
 
-              {/* â”€â”€ Supir & Calo â”€â”€ */}
+              {/* ── Supir & Calo ── */}
               {(detailOrder.supir || detailOrder.calo || detailOrder.opsi_supir === 'dengan_supir') && (
                 <div className="rounded-2xl border border-gray-200 p-4">
                   <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-black-500">
@@ -3295,7 +3212,7 @@ export default function Orders() {
                 </div>
               )}
 
-              {/* â”€â”€ Rincian Biaya â”€â”€ */}
+              {/* ── Rincian Biaya ── */}
               <div className="space-y-3 rounded-2xl border border-primary-100 bg-primary-50 p-4">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary-500">
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -3305,10 +3222,10 @@ export default function Orders() {
                   <div>
                     <p className="text-sm font-semibold text-black-900">Sewa Kendaraan</p>
                     <p className="text-xs text-black-500">
-                      {detailOrder.durasi_hari} hari Ã— {formatRupiah(detailOrder.harga_per_hari)}/hari
+                      {detailOrder.durasi_hari} hari × {formatRupiah(detailOrder.harga_per_hari)}/hari
                     </p>
                     <p className="mt-0.5 text-xs text-black-400">
-                      {fmtDate(detailOrder.tanggal_mulai)} {fmtTime(detailOrder.jam_mulai) || '08:00'} â†’ {fmtDate(detailOrder.tanggal_selesai)}{' '}
+                      {fmtDate(detailOrder.tanggal_mulai)} {fmtTime(detailOrder.jam_mulai) || '08:00'} → {fmtDate(detailOrder.tanggal_selesai)}{' '}
                       {fmtTime(detailOrder.jam_selesai) || '17:00'} WIB
                     </p>
                   </div>
@@ -3319,7 +3236,7 @@ export default function Orders() {
                     <div>
                       <p className="text-sm font-medium text-black-900">Biaya Supir</p>
                       <p className="text-xs text-black-500">
-                        {detailOrder.durasi_hari} hari Ã— {formatRupiah(tarifSupirGlobal)}/hari
+                        {detailOrder.durasi_hari} hari × {formatRupiah(tarifSupirGlobal)}/hari
                       </p>
                     </div>
                     <p className="shrink-0 text-sm font-semibold text-black-900">
@@ -3332,7 +3249,7 @@ export default function Orders() {
                     <div>
                       <p className="text-sm font-semibold text-error-600">Denda Overtime</p>
                       <p className="text-xs text-error-500">
-                        {formatJam(detailOrder.jam_overtime)} Ã— {formatRupiah(overtimeRate)}/jam
+                        {formatJam(detailOrder.jam_overtime)} × {formatRupiah(overtimeRate)}/jam
                       </p>
                     </div>
                     <p className="shrink-0 text-sm font-semibold text-error-600">{formatRupiah(detailOrder.denda_overtime)}</p>
@@ -3343,7 +3260,7 @@ export default function Orders() {
                     <div>
                       <p className="text-sm font-semibold text-error-600">Overtime saat ini</p>
                       <p className="text-xs text-error-500">
-                        {formatJam(detailOrder.jam_overtime_saat_ini)} Ã— {formatRupiah(overtimeRate)}/jam
+                        {formatJam(detailOrder.jam_overtime_saat_ini)} × {formatRupiah(overtimeRate)}/jam
                       </p>
                     </div>
                     <p className="shrink-0 text-sm font-semibold text-error-600">{formatRupiah(detailOrder.denda_overtime_saat_ini)}</p>
@@ -3362,7 +3279,7 @@ export default function Orders() {
                 </div>
               </div>
 
-              {/* â”€â”€ Alamat Jemput / Tujuan / Tanggal & Waktu â”€â”€ */}
+              {/* ── Alamat Jemput / Tujuan / Tanggal & Waktu ── */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 {detailOrder.alamat_jemput && (
                   <div className="rounded-xl bg-canvas p-3">
@@ -3396,7 +3313,7 @@ export default function Orders() {
                 </div>
               </div>
 
-              {/* â”€â”€ Catatan â”€â”€ */}
+              {/* ── Catatan ── */}
               {detailOrder.catatan && (
                 <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
                   <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-700">
@@ -3407,7 +3324,7 @@ export default function Orders() {
                 </div>
               )}
 
-              {/* â”€â”€ Bukti Dokumen â”€â”€ */}
+              {/* ── Bukti Dokumen ── */}
               {(detailOrder.bukti_transfer || detailOrder.bukti_pengiriman || detailOrder.bukti_pengembalian) && (
 <div className="rounded-2xl border border-gray-200 p-4">
                 <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-black-500">
@@ -3455,7 +3372,7 @@ export default function Orders() {
               </div>
               )}
 
-              {/* â”€â”€ Footer: audit info + Lihat Invoice â”€â”€ */}
+              {/* ── Footer: audit info + Lihat Invoice ── */}
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4">
                 <div className="flex flex-wrap items-center gap-5 text-xs text-black-400">
                   <div className="flex items-center gap-2">
@@ -3601,21 +3518,21 @@ export default function Orders() {
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-black-400">Rincian Biaya</p>
                 <div className="flex justify-between">
                   <span className="text-black-700">
-                    Sewa {invoiceOrder.durasi_hari} hari Ã— {formatRupiah(invoiceOrder.harga_per_hari)}/hari
+                    Sewa {invoiceOrder.durasi_hari} hari × {formatRupiah(invoiceOrder.harga_per_hari)}/hari
                   </span>
                   <span className="text-black-900">{formatRupiah(invoiceOrder.durasi_hari * invoiceOrder.harga_per_hari)}</span>
                 </div>
                 {invoiceOrder.opsi_supir === 'dengan_supir' ? (
                   <div className="flex justify-between">
                     <span className="text-black-700">
-                      Supir {invoiceOrder.durasi_hari} hari Ã— {formatRupiah(tarifSupirGlobal)}/hari
+                      Supir {invoiceOrder.durasi_hari} hari × {formatRupiah(tarifSupirGlobal)}/hari
                     </span>
                     <span className="text-black-900">{formatRupiah(invoiceOrder.durasi_hari * tarifSupirGlobal)}</span>
                   </div>
                 ) : invoiceOrder.supir && invoiceOrder.supir.tarif_per_hari ? (
                   <div className="flex justify-between">
                     <span className="text-black-700">
-                      Supir {invoiceOrder.durasi_hari} hari Ã— {formatRupiah(invoiceOrder.supir.tarif_per_hari)}/hari
+                      Supir {invoiceOrder.durasi_hari} hari × {formatRupiah(invoiceOrder.supir.tarif_per_hari)}/hari
                     </span>
                     <span className="text-black-900">{formatRupiah(invoiceOrder.durasi_hari * invoiceOrder.supir.tarif_per_hari)}</span>
                   </div>
@@ -3623,7 +3540,7 @@ export default function Orders() {
                 {invoiceOrder.jam_overtime > 0 && (
                   <div className="flex justify-between">
                     <span className="text-error-600">
-                      Denda keterlambatan {formatJam(invoiceOrder.jam_overtime)} Ã— {formatRupiah(overtimeRate)}
+                      Denda keterlambatan {formatJam(invoiceOrder.jam_overtime)} × {formatRupiah(overtimeRate)}
                     </span>
                     <span className="font-medium text-error-600">{formatRupiah(invoiceOrder.denda_overtime)}</span>
                   </div>
@@ -3682,7 +3599,7 @@ export default function Orders() {
               Yakin ingin membatalkan order &quot;{cancelOrder.kode_order}&quot; dari {cancelOrder.customer?.nama_lengkap}?
             </p>
             {cancelPreviewLoading ? (
-              <div className="mt-4 rounded-lg border border-gray-200 bg-canvas px-4 py-3 text-sm text-black-500">Menghitung biaya pembatalanâ€¦</div>
+              <div className="mt-4 rounded-lg border border-gray-200 bg-canvas px-4 py-3 text-sm text-black-500">Menghitung biaya pembatalan…</div>
             ) : cancelPreview ? (
               <div className={`mt-4 space-y-1.5 rounded-lg border px-4 py-3 text-sm ${cancelPreview.persentase >= 100 ? 'border-error-200 bg-error-50' : 'border-amber-200 bg-amber-50'}`}>
                 <p className={`font-semibold ${cancelPreview.persentase >= 100 ? 'text-error-700' : 'text-amber-700'}`}>
@@ -3767,7 +3684,7 @@ export default function Orders() {
                       <div>
                         <p className="text-sm font-medium text-black-900">Sewa Kendaraan</p>
                         <p className="text-xs text-black-400">
-                          {confirmComplete.durasi_hari} hari Ã— {formatRupiah(confirmComplete.harga_per_hari)}/hari
+                          {confirmComplete.durasi_hari} hari × {formatRupiah(confirmComplete.harga_per_hari)}/hari
                         </p>
                       </div>
                       <p className="shrink-0 text-sm font-semibold text-black-900">{formatRupiah(confirmComplete.durasi_hari * confirmComplete.harga_per_hari)}</p>
@@ -3777,7 +3694,7 @@ export default function Orders() {
                         <div>
                           <p className="text-sm font-medium text-black-900">Biaya Supir</p>
                           <p className="text-xs text-black-400">
-                            {confirmComplete.supir?.nama ? `${confirmComplete.supir.nama} Â· ` : ''}Dengan supir Â· {confirmComplete.durasi_hari} hari Ã— {formatRupiah(tarifSupirGlobal)}/hari
+                            {confirmComplete.supir?.nama ? `${confirmComplete.supir.nama} · ` : ''}Dengan supir · {confirmComplete.durasi_hari} hari × {formatRupiah(tarifSupirGlobal)}/hari
                           </p>
                         </div>
                         <p className="shrink-0 text-sm font-semibold text-black-900">{formatRupiah(completeSupirFee)}</p>
@@ -3788,7 +3705,7 @@ export default function Orders() {
                         <div>
                           <p className="text-sm font-medium text-error-600">Denda Overtime</p>
                           <p className="text-xs text-error-500">
-                            {formatJam(confirmComplete.jam_overtime_saat_ini)} Ã— {formatRupiah(overtimeRate)}/jam
+                            {formatJam(confirmComplete.jam_overtime_saat_ini)} × {formatRupiah(overtimeRate)}/jam
                           </p>
                         </div>
                         <p className="shrink-0 text-sm font-semibold text-error-600">{formatRupiah(confirmComplete.denda_overtime_saat_ini)}</p>
@@ -3861,7 +3778,7 @@ export default function Orders() {
 
                 {completeInspeksiLoading ? (
                   <div className="flex items-start gap-2 rounded-lg border border-gray-200 bg-canvas px-4 py-3 text-sm text-black-500">
-                    <span>Memeriksa inspeksi returnâ€¦</span>
+                    <span>Memeriksa inspeksi return…</span>
                   </div>
                 ) : !completeReturnInspeksi ? (
                   <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -3945,7 +3862,7 @@ export default function Orders() {
         </div>
       )}
 
-      {/* Order List â€” Card Grid */}
+      {/* Order List — Card Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {loading ? (
           <div className="col-span-full rounded-2xl bg-white p-12 text-center shadow-sm ring-1 ring-black-200">
@@ -3984,7 +3901,7 @@ export default function Orders() {
                 key={item.id}
                 className={`group flex flex-col overflow-hidden rounded-2xl border border-gray-200 border-t-4 ${borderColor} bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg`}
               >
-                {/* â”€â”€ Header: kode + status badge + menu â”€â”€ */}
+                {/* ── Header: kode + status badge + menu ── */}
                 <div className="flex items-start justify-between px-4 pt-4">
                   <div>
                     <div className="flex items-center gap-2">
@@ -3997,15 +3914,16 @@ export default function Orders() {
                         {isTerlambat ? 'Terlambat' : statusOrderLabels[item.status_order]}
                       </span>
                     </div>
-                    <div className="mt-1 flex items-center gap-1.5">
-                      <span className={`h-1.5 w-1.5 rounded-full ${isTerlambat ? 'bg-error-500' : orderStatusDotColor[item.status_order]} ${isAktif ? 'animate-pulse' : ''}`} />
-                      <span className={`text-[11px] font-medium ${isTerlambat ? 'text-error-600' : 'text-black-400'}`}>
-                        {isTerlambat ? 'Terlambat' : statusOrderLabels[item.status_order]}
-                      </span>
-                      {item.source === 'katalog' && (
-                        <span className="ml-1 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-600">Katalog</span>
-                      )}
-                    </div>
+                    {(isAktif || item.source === 'katalog') && (
+                      <div className="mt-1 flex items-center gap-1.5">
+                        {isAktif && (
+                          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isTerlambat ? 'bg-error-500' : orderStatusDotColor[item.status_order]} animate-pulse`} />
+                        )}
+                        {item.source === 'katalog' && (
+                          <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-600">Katalog</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-0.5">
                     <button onClick={() => setDetailOrder(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-canvas hover:text-black-700" title="Lihat detail" aria-label="Lihat detail"><EyeIcon /></button>
@@ -4013,16 +3931,16 @@ export default function Orders() {
                       <>
                         <button onClick={() => openEditModal(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-primary-50 hover:text-primary-600" title="Edit order" aria-label="Edit order"><PencilIcon /></button>
                         {canDelete && (
-                          <button onClick={() => setConfirmDelete(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-error-50 hover:text-error-600" title="Hapus" aria-label="Hapus"><TrashIcon /></button>
+                          <button onClick={() => setConfirmDelete(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-error-50 hover:text-error-600" title="Hapus permanen" aria-label="Hapus permanen"><TrashIcon /></button>
                         )}
                       </>
                     )}
                   </div>
                 </div>
 
-                {/* â”€â”€ Body â”€â”€ */}
+                {/* ── Body ── */}
                 <div className="flex flex-1 flex-col gap-3 p-4 pt-3">
-                  {/* â”€â”€ Stepper status â”€â”€ */}
+                  {/* ── Stepper status ── */}
                   {item.status_order !== 'cancelled' ? (
                     <div className="flex items-center gap-1.5">
                       {['Dikonfirmasi', 'Disewa', 'Selesai'].map((label, i) => {
@@ -4106,7 +4024,7 @@ export default function Orders() {
                           <span>{fmtDate(item.tanggal_mulai)} {fmtTime(item.jam_mulai)}</span>
                         </div>
                         <div className="mt-0.5 flex items-center gap-1.5 pl-5 text-xs text-black-600">
-                          <span className="text-black-300">â†’</span>
+                          <span className="text-black-300">→</span>
                           <span>{fmtDate(item.tanggal_selesai)} {fmtTime(item.jam_selesai)}</span>
                         </div>
                         <p className="mt-1 pl-5 text-[11px] text-black-400">{item.durasi_hari} hari</p>
@@ -4133,7 +4051,7 @@ export default function Orders() {
                       {item.metode_penyerahan === 'antar' ? (
                         <>
                           <span className="font-medium text-accent-600">{item.alamat_jemput || 'Diantar'}</span>
-                          {item.tujuan && <span className="text-black-300">â†’</span>}
+                          {item.tujuan && <span className="text-black-300">→</span>}
                           {item.tujuan && <span className="truncate">{item.tujuan}</span>}
                         </>
                       ) : (
@@ -4141,7 +4059,7 @@ export default function Orders() {
                           <span className="truncate">{item.alamat_jemput || item.tujuan}</span>
                           {item.alamat_jemput && item.tujuan && (
                             <>
-                              <span className="text-black-300">â†’</span>
+                              <span className="text-black-300">→</span>
                               <span className="truncate">{item.tujuan}</span>
                             </>
                           )}
@@ -4153,17 +4071,17 @@ export default function Orders() {
                   {/* Overtime warning */}
                   {isTerlambat && (
                     <div className="rounded-lg border border-error-500/30 bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600">
-                      Terlambat {formatJam(item.jam_overtime_saat_ini)} â€” {formatRupiah(item.denda_overtime_saat_ini)}
+                      Terlambat {formatJam(item.jam_overtime_saat_ini)} — {formatRupiah(item.denda_overtime_saat_ini)}
                     </div>
                   )}
                   {isPerluVerifikasi && (
                     <div className="rounded-lg border border-accent-500/30 bg-accent-50 px-3 py-1.5 text-xs font-medium text-accent-700">
-                      Denda difreeze: {formatJam(item.jam_overtime_saat_ini)} â€” {formatRupiah(item.denda_overtime_saat_ini)}
+                      Denda difreeze: {formatJam(item.jam_overtime_saat_ini)} — {formatRupiah(item.denda_overtime_saat_ini)}
                     </div>
                   )}
                   {isSelesai && item.jam_overtime > 0 && (
                     <div className="rounded-lg border border-accent-100 bg-accent-50 px-3 py-1.5 text-xs font-medium text-accent-600">
-                      Terlambat {formatJam(item.jam_overtime)} â€” {formatRupiah(item.denda_overtime)}
+                      Terlambat {formatJam(item.jam_overtime)} — {formatRupiah(item.denda_overtime)}
                     </div>
                   )}
 
@@ -4184,15 +4102,12 @@ export default function Orders() {
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-auto flex flex-wrap gap-2 pt-1">
-                    <button onClick={() => setDetailOrder(item)} className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-black-700 transition-colors hover:bg-canvas">Lihat</button>
-                    {canManage && (
-                      <>
-                        <button onClick={() => openEditModal(item)} className="flex-1 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-600">Edit</button>
+                  {canManage && item.status_order !== 'cancelled' && (
+                    <div className="mt-auto flex flex-wrap gap-2 pt-1">
                         {isAktif && (
                           <>
                             <button onClick={() => openCompleteModal(item)} className="flex-1 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-500">Selesai</button>
-                            <button onClick={() => setCancelOrder(item)} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
+                            <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-error-200 bg-white px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50">Batal</button>
                           </>
                         )}
                         {isSelesai && (
@@ -4216,24 +4131,20 @@ export default function Orders() {
                             >
                               Kembalikan ke Aktif
                             </button>
-                            <button onClick={() => setCancelOrder(item)} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
+                            <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-error-200 bg-white px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50">Batal</button>
                           </>
                         )}
                         {item.status_order === 'pending' && (
                           <>
                             <button onClick={() => openEditModal(item, { konfirmasi: true })} className="flex-1 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-600">Konfirmasi</button>
-                            <button onClick={() => setCancelOrder(item)} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
+                            <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-error-200 bg-white px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50">Batal</button>
                           </>
                         )}
                         {item.status_order === 'confirmed' && (
-                          <>
-                            <button onClick={() => openEditModal(item, { sewakan: true })} className="flex-1 rounded-lg bg-accent-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-600">Kirim</button>
-                            <button onClick={() => setCancelOrder(item)} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
-                          </>
+                          <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-error-200 bg-white px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50">Batal</button>
                         )}
-                      </>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -4248,7 +4159,7 @@ export default function Orders() {
       {meta && meta.total > 0 && (
         <div className="flex items-center justify-between gap-4">
           <p className="text-sm text-black-400">
-            Menampilkan {items.length} dari {meta.total} order{dateFrom && dateTo ? ` Â· ${fmtPeriode(dateFrom)} s/d ${fmtPeriode(dateTo)}` : ''}
+            Menampilkan {items.length} dari {meta.total} order{dateFrom && dateTo ? ` · ${fmtPeriode(dateFrom)} s/d ${fmtPeriode(dateTo)}` : ''}
           </p>
           {meta.current_page < meta.last_page && items.length < 240 ? (
             <button
@@ -4259,7 +4170,7 @@ export default function Orders() {
               {loading ? 'Memuat...' : 'Muat Lebih'}
             </button>
           ) : items.length >= 240 ? (
-            <p className="text-xs text-black-400">Maksimal 240 order ditampilkan sekaligus â€” gunakan filter periode.</p>
+            <p className="text-xs text-black-400">Maksimal 240 order ditampilkan sekaligus — gunakan filter periode.</p>
           ) : null}
         </div>
       )}

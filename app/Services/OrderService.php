@@ -17,12 +17,14 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
+use Symfony\Component\HttpKernel\Exception\ForbiddenHttpException;
 
 class OrderService
 {
     public function list(array $filters): array
     {
-        $query = Order::with(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo', 'pembayarans', 'garasiRequests']);
+        $query = Order::with(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo', 'pembayarans']);
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
@@ -153,7 +155,7 @@ class OrderService
         }
 
         // Supir tidak lagi dipilih spesifik di form — cukup opsi "dengan/tanpa supir".
-        // Supir order ditentukan saat order dibuat (dengan_supir) atau diubah admin.
+        // Supir order ditentukan dari pemenang klaim task (lihat claimTask()).
         $opsiSupir = $validated['opsi_supir'] ?? ($foundSupir ? 'dengan_supir' : 'lepas_kunci');
 
         $statusPengiriman = $validated['status_pengiriman'] ?? 'belum_diambil';
@@ -169,7 +171,6 @@ class OrderService
         }
 
         $buktiPath = $validated['bukti_transfer_path'] ?? null;
-        $buktiPengirimanPath = $validated['bukti_pengiriman_path'] ?? null;
         $buktiPengembalianPath = $validated['bukti_pengembalian_path'] ?? null;
         $customerFotoKtpPath = $validated['customer_foto_ktp_path'] ?? null;
         $customerFotoSimPath = $validated['customer_foto_sim_path'] ?? null;
@@ -190,7 +191,7 @@ class OrderService
             }
         }
 
-        $order = DB::transaction(function () use ($validated, $request, $kendaraan, $foundSupir, $komisiCalo, $statusPengiriman, $opsiSupir, $buktiPath, $buktiPengirimanPath, $buktiPengembalianPath, $customerFotoKtpPath, $customerFotoSimPath) {
+        $order = DB::transaction(function () use ($validated, $request, $kendaraan, $foundSupir, $komisiCalo, $statusPengiriman, $opsiSupir, $buktiPath, $buktiPengembalianPath, $customerFotoKtpPath, $customerFotoSimPath) {
             $customer = $this->resolveCustomer($validated, $customerFotoKtpPath, $customerFotoSimPath);
 
             // Lock the kendaraan row to prevent race conditions
@@ -235,7 +236,6 @@ class OrderService
                 'metode_penyerahan' => $validated['metode_penyerahan'] ?? 'ambil',
                 'catatan' => $validated['catatan'] ?? null,
                 'bukti_transfer' => $buktiPath,
-                'bukti_pengiriman' => $buktiPengirimanPath,
                 'bukti_pengembalian' => $buktiPengembalianPath,
                 'durasi_hari' => $durasi,
                 'harga_total' => ($durasi * $hargaPerHari) + ($supirTarif * $durasi),
@@ -357,6 +357,28 @@ class OrderService
     }
 
     /**
+     * WA penugasan driver ke supir pemenang klaim (order "dengan supir").
+     */
+    private function kirimNotifPenugasanDriver(Order $order, SupirCalo $supir): void
+    {
+        if (Setting::get('notif_penugasan_driver', '1') !== '1' || ! $supir->no_hp) {
+            return;
+        }
+
+        $wa = app(WhatsAppService::class);
+        $template = Setting::get('template_penugasan_driver', 'Halo {nama_driver}, ada tugas baru:\nAntar {customer} — {kendaraan} ({plat_nomor})\n{tanggal} pukul {jam}\n\nBalas SIAP jika bisa, atau TIDAK jika berhalangan.');
+        $pesan = $wa->renderTemplate($template, [
+            'nama_driver' => $supir->nama,
+            'customer' => $order->customer->nama_lengkap,
+            'kendaraan' => $order->kendaraan->nama_kendaraan,
+            'plat_nomor' => $order->kendaraan->plat_nomor,
+            'tanggal' => $order->tanggal_mulai->format('d/m/Y'),
+            'jam' => $order->jam_mulai ?? '00:00',
+        ]);
+        $wa->kirimPesanAsync($supir->no_hp, $pesan, 'penugasan_driver', $order->id);
+    }
+
+    /**
      * WA ke supir saat kendaraan resmi diserahkan / order mulai (status active).
      */
     public function kirimNotifSupirOrderMulai(Order $order): void
@@ -426,16 +448,12 @@ class OrderService
             }
         }
 
-        if (in_array($order->status_order, ['active', 'perlu_verifikasi', 'completed', 'cancelled'])
-            || $this->confirmedBerAktivitas($order)) {
+        if (in_array($order->status_order, ['active', 'perlu_verifikasi', 'completed', 'cancelled'])) {
             $lockedFields = ['customer_id', 'customer_name', 'customer_no_hp', 'customer_email', 'customer_alamat', 'customer_no_sim', 'customer_no_ktp', 'customer_foto_ktp', 'customer_foto_sim', 'kendaraan_id', 'tanggal_mulai', 'tanggal_selesai', 'jam_mulai', 'jam_selesai', 'alamat_jemput', 'tujuan', 'metode_penyerahan', 'supir_id', 'opsi_supir', 'calo_id'];
             $attemptedLocked = array_intersect_key($validated, array_flip($lockedFields));
             if (! empty($attemptedLocked) || ! empty($validated['customer_foto_ktp_path']) || ! empty($validated['customer_foto_sim_path'])) {
-                $pesanLock = $this->confirmedBerAktivitas($order)
-                    ? 'Order confirmed sudah ber-aktivitas (pembayaran/request garasi/task petugas) — data inti terkunci. Koreksi kesepakatan via Batal.'
-                    : 'Order ini sudah final (aktif/perlu verifikasi/selesai/dibatalkan). Hanya status, status pembayaran, metode bayar, bukti pembayaran, dan catatan yang bisa diperbarui.';
                 throw ValidationException::withMessages([
-                    'status_order' => [$pesanLock],
+                    'status_order' => ['Order ini sudah final (aktif/perlu verifikasi/selesai/dibatalkan). Hanya status, status pembayaran, metode bayar, bukti pembayaran, dan catatan yang bisa diperbarui.'],
                 ]);
             }
         }
@@ -506,6 +524,8 @@ class OrderService
             }
         }
 
+        $newStatusOrder = $validated['status_order'] ?? $order->status_order;
+
         $biayaKerusakanFinal = (float) ($validated['biaya_kerusakan'] ?? 0);
         $inspeksiTableAda = Schema::hasTable('inspeksi_kendaraans');
         if ($newStatusOrder === 'completed' && $inspeksiTableAda) {
@@ -563,7 +583,7 @@ class OrderService
         $effectiveTanggalSelesai = $validated['tanggal_selesai'] ?? $order->tanggal_selesai->format('Y-m-d');
         $statusSebelumUpdate = $order->status_order;
 
-        $updateData = collect($validated)->except(['bukti_transfer', 'bukti_pengiriman', 'bukti_pengembalian', 'bukti_transfer_path', 'bukti_pengiriman_path', 'bukti_pengembalian_path', 'customer_foto_ktp_path', 'customer_foto_sim_path', 'customer_foto_ktp_delete', 'jumlah_bayar'])->toArray();
+        $updateData = collect($validated)->except(['bukti_transfer', 'bukti_pengembalian', 'bukti_transfer_path', 'bukti_pengembalian_path', 'customer_foto_ktp_path', 'customer_foto_sim_path', 'customer_foto_ktp_delete', 'jumlah_bayar'])->toArray();
 
         // Simpan biaya kerusakan FINAL ke order saat penutupan (0 kalau tidak ada).
         if ($newStatusOrder === 'completed' && Schema::hasColumn('orders', 'biaya_kerusakan')) {
@@ -574,12 +594,6 @@ class OrderService
 
         if (! empty($validated['bukti_transfer_path'])) {
             $updateData['bukti_transfer'] = $validated['bukti_transfer_path'];
-        }
-        if (! empty($validated['bukti_pengiriman_path'])) {
-            if ($order->bukti_pengiriman) {
-                $filesToDelete[] = $order->bukti_pengiriman;
-            }
-            $updateData['bukti_pengiriman'] = $validated['bukti_pengiriman_path'];
         }
         if (! empty($validated['bukti_pengembalian_path'])) {
             if ($order->bukti_pengembalian) {
@@ -703,35 +717,7 @@ class OrderService
             ]);
         }
 
-        // Order confirmed yang sudah punya riwayat pembayaran, request garasi,
-        // ATAU task yang diklaim petugas tidak bisa dihapus langsung — data itu
-        // menyangkut uang/koordinasi garasi/pekerjaan petugas. Arahkan ke Batal
-        // (yang menangani refund + notifikasi WA) supaya datanya tetap aman
-        // walau API dipanggil langsung.
-        if ($order->status_order === 'confirmed'
-            && ($order->operator_id !== null
-                || $order->pembayarans()->withoutTrashed()->exists()
-                || $order->garasiRequests()->withoutTrashed()->exists())) {
-            throw ValidationException::withMessages([
-                'status_order' => ['Order confirmed dengan pembayaran atau request garasi tidak bisa dihapus — gunakan Batal.'],
-            ]);
-        }
-
         $order->delete();
-    }
-
-    /**
-     * Order confirmed dianggap "ber-aktivitas" bila sudah menyentuh uang
-     * (pembayaran), koordinasi garasi (request garasi), atau pekerjaan petugas
-     * (task diklaim). Data inti order ini terkunci — koreksi kesepakatan harus
-     * lewat Batal, bukan edit/hapus diam-diam.
-     */
-    private function confirmedBerAktivitas(Order $order): bool
-    {
-        return $order->status_order === 'confirmed'
-            && ($order->operator_id !== null
-                || $order->pembayarans()->withoutTrashed()->exists()
-                || $order->garasiRequests()->withoutTrashed()->exists());
     }
 
     /**
@@ -750,6 +736,91 @@ class OrderService
         }
 
         return $supir ? (float) ($supir->tarif_per_hari ?? 0) : 0;
+    }
+
+    /**
+     * Klaim task inspeksi (pickup/return) ala GOJEK: siapa cepat dia dapat.
+     * Transaction + row lock supaya dua petugas yang menekan bersamaan tidak
+     * dobel mengklaim. Petugas lain akan mendapat 409 Conflict.
+     *
+     * Untuk order "dengan supir", pemenang klaim otomatis menjadi supir order
+     * (bila punya data supirCalo) dan langsung mendapat WA penugasan driver.
+     */
+    public function claimTask(Order $order, User $user): Order
+    {
+        return DB::transaction(function () use ($order, $user) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->first();
+
+            if (! $order) {
+                throw new ConflictHttpException('Order tidak ditemukan.');
+            }
+
+            if (! $order->taskJenis()) {
+                throw new ConflictHttpException('Tidak ada task menunggu untuk order ini.');
+            }
+
+            if ($order->operator_id && $order->operator_id !== $user->id) {
+                $pengeklaim = $order->operator?->name ?? 'petugas lain';
+                throw new ConflictHttpException("Task ini sudah diambil oleh {$pengeklaim}.");
+            }
+
+            $order->update([
+                'operator_id' => $user->id,
+                'waktu_klaim' => now(),
+            ]);
+
+            // Pemenang klaim order "dengan supir" otomatis jadi supir-nya.
+            if ($order->opsi_supir === 'dengan_supir' && ! $order->supir_id) {
+                $supirCalo = $user->supirCalo;
+                if ($supirCalo) {
+                    $order->update(['supir_id' => $supirCalo->id]);
+                    $this->kirimNotifPenugasanDriver($order, $supirCalo);
+                }
+            }
+
+            return $order->load(['customer', 'kendaraan', 'operator', 'supir']);
+        });
+    }
+
+    /**
+     * Lepas klaim task: petugas pemegang klaim atau admin.
+     * Task kembali ke pool (bisa diklaim petugas lain).
+     */
+    public function releaseTask(Order $order, User $user): Order
+    {
+        return DB::transaction(function () use ($order, $user) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->first();
+
+            if (! $order) {
+                throw new ConflictHttpException('Order tidak ditemukan.');
+            }
+
+            $isAdmin = in_array($user->role, ['admin_utama', 'admin_operasional']);
+            if (! $isAdmin && ! $order->isClaimant($user->id)) {
+                throw new ForbiddenHttpException('Hanya pemegang klaim atau admin yang bisa melepas task ini.');
+            }
+
+            if (! $order->operator_id) {
+                return $order;
+            }
+
+            $update = [
+                'operator_id' => null,
+                'waktu_klaim' => null,
+            ];
+
+            // Supir ikut dilepas hanya selama order belum dieksekusi (confirmed).
+            if ($order->status_order === 'confirmed' && $order->opsi_supir === 'dengan_supir') {
+                $update['supir_id'] = null;
+            }
+
+            $order->update($update);
+
+            // Broadcast ulang ke petugas bebas supaya task kembali terlihat.
+            $this->kirimNotifTaskOperator($order);
+
+            return $order->load(['customer', 'kendaraan', 'operator', 'supir']);
+        });
     }
 
     private function resolveCustomer(array $validated, ?string $fotoKtpPath, ?string $fotoSimPath): Customer
@@ -1146,16 +1217,9 @@ class OrderService
         $totalPaid = (float) $order->pembayarans()->whereNull('deleted_at')->where('status', '!=', 'refund')->sum('jumlah');
         $totalSetelahBayar = $totalPaid + $jumlahBayar;
 
-        // Denda keterlambatan ikut jadi batas pembayaran maksimal & syarat
-        // "lunas": denda live untuk order active, denda beku (janji freeze
-        // OrderVerifyOverdue) untuk order perlu_verifikasi. Aman dari dobel
-        // hitung: di jalur penyelesaian, handleStatusTransition sudah
-        // mengubah status jadi completed & harga_total final sebelum method
-        // ini berjalan, sehingga dendaLive = 0 dan harga_total sudah
-        // mencakup denda.
-        $dendaLive = in_array($order->status_order, ['active', 'perlu_verifikasi'], true)
-            ? (float) $order->denda_overtime_saat_ini
-            : 0;
+        // Denda keterlambatan yang sedang berjalan ikut jadi batas pembayaran
+        // maksimal & syarat "lunas" untuk order yang masih aktif.
+        $dendaLive = $order->status_order === 'active' ? (float) $order->denda_overtime_saat_ini : 0;
         $batasMaksimal = $hargaTotal + $dendaLive;
 
         // "Lunas" harus benar-benar menutup total (tidak boleh kurang).

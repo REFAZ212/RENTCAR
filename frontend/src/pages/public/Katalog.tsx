@@ -54,7 +54,7 @@ function getStatusInfo(item: KatalogItem, availableForDates?: boolean) {
       textColor: 'text-accent-600',
       bgColor: 'bg-accent-50',
       borderColor: 'border-accent-200',
-      // "disabled" here only means "can't be ordered directly" ÔÇö the detail page is still viewable.
+      // "disabled" here only means "can't be ordered directly" — the detail page is still viewable.
       disabled: true,
       reason: 'maintenance' as const,
     };
@@ -558,7 +558,7 @@ function VehicleCard({
   const navigate = useNavigate();
   const fotoUrl = getFotoUrl(item.foto);
   const status = getStatusInfo(item, availableForDates);
-  // "isDisabled" only blocks ordering ÔÇö the card itself always navigates to the detail page,
+  // "isDisabled" only blocks ordering — the card itself always navigates to the detail page,
   // so customers can still see specs, estimated availability, and similar-vehicle suggestions.
   const isDisabled = status.disabled;
 

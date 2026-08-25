@@ -51,7 +51,6 @@ class OrderController extends Controller
             'status_pengiriman' => 'nullable|in:belum_diambil,sudah_diantarkan,dalam_penyewaan,selesai,sudah_dikembalikan',
             'metode_penyerahan' => 'nullable|in:ambil,antar',
             'bukti_transfer' => 'nullable|image|max:2048|dimensions:max_width=10000,max_height=10000',
-            'bukti_pengiriman' => 'nullable|image|max:2048|dimensions:max_width=10000,max_height=10000',
             'bukti_pengembalian' => 'nullable|image|max:2048|dimensions:max_width=10000,max_height=10000',
             'supir_id' => 'nullable|exists:supir_calos,id',
             'opsi_supir' => 'nullable|in:dengan_supir,lepas_kunci',
@@ -121,7 +120,6 @@ class OrderController extends Controller
             'status_pengiriman' => 'nullable|in:belum_diambil,sudah_diantarkan,dalam_penyewaan,selesai,sudah_dikembalikan',
             'metode_penyerahan' => 'nullable|in:ambil,antar',
             'bukti_transfer' => 'nullable|image|max:2048|dimensions:max_width=10000,max_height=10000',
-            'bukti_pengiriman' => 'nullable|image|max:2048|dimensions:max_width=10000,max_height=10000',
             'bukti_pengembalian' => 'nullable|image|max:2048|dimensions:max_width=10000,max_height=10000',
             'supir_id' => 'nullable|exists:supir_calos,id',
             'opsi_supir' => 'nullable|in:dengan_supir,lepas_kunci',
@@ -154,25 +152,35 @@ class OrderController extends Controller
     }
 
     /**
-     * Preview biaya pembatalan & estimasi refund — dipakai modal Batalkan
-     * supaya admin tahu konsekuensi finansial SEBELUM mengonfirmasi.
+     * Klaim task inspeksi (pickup/return) — siapa cepat dia dapat.
+     * Task yang sudah diklaim petugas lain ditolak (409).
      */
-    public function cancelPreview(Order $order): JsonResponse
+    public function claim(Request $request, Order $order): JsonResponse
     {
-        $this->authorize('update', $order);
+        $this->authorize('claim', $order);
 
-        $biaya = $order->hitungBiayaPembatalan();
-        $totalDibayar = (float) $order->pembayarans()
-            ->whereNull('deleted_at')
-            ->where('status', '!=', 'refund')
-            ->sum('jumlah');
+        $service = app(OrderService::class);
+        $order = $service->claimTask($order, $request->user());
 
         return response()->json([
-            'biaya' => $biaya['biaya'],
-            'persentase' => $biaya['persentase'],
-            'keterangan' => $biaya['keterangan'],
-            'total_dibayar' => $totalDibayar,
-            'refund_estimasi' => max(0, $totalDibayar - $biaya['biaya']),
+            'message' => 'Task berhasil diambil.',
+            'order' => $order,
+        ]);
+    }
+
+    /**
+     * Lepas klaim task — oleh pemegang klaim atau admin.
+     */
+    public function release(Request $request, Order $order): JsonResponse
+    {
+        $this->authorize('release', $order);
+
+        $service = app(OrderService::class);
+        $order = $service->releaseTask($order, $request->user());
+
+        return response()->json([
+            'message' => 'Task dilepas dan kembali ke daftar tugas.',
+            'order' => $order,
         ]);
     }
 
@@ -182,9 +190,6 @@ class OrderController extends Controller
 
         if ($request->hasFile('bukti_transfer')) {
             $paths['bukti_transfer_path'] = $request->file('bukti_transfer')->store('bukti-transfer', 'public');
-        }
-        if ($request->hasFile('bukti_pengiriman')) {
-            $paths['bukti_pengiriman_path'] = $request->file('bukti_pengiriman')->store('bukti-pengiriman', 'public');
         }
         if ($request->hasFile('bukti_pengembalian')) {
             $paths['bukti_pengembalian_path'] = $request->file('bukti_pengembalian')->store('bukti-pengembalian', 'public');
@@ -203,7 +208,6 @@ class OrderController extends Controller
     {
         $watermarkPaths = array_filter([
             $validated['bukti_transfer_path'] ?? null,
-            $validated['bukti_pengiriman_path'] ?? null,
             $validated['bukti_pengembalian_path'] ?? null,
         ]);
         $identityPaths = array_filter([

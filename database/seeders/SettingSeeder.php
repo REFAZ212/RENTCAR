@@ -35,7 +35,6 @@ class SettingSeeder extends Seeder
         Setting::set('zona_waktu', 'Asia/Jakarta');
         Setting::set('format_tanggal', 'DD/MM/YYYY');
         Setting::set('prefix_kode_order', 'ORD');
-        Setting::set('durasi_klaim_menit', 30);
         Setting::set('wajib_bayar_sebelum_antar', '0');
         Setting::set('notif_task_petugas', '1');
         Setting::set('notif_supir_order_mulai', '1');
@@ -60,5 +59,10 @@ class SettingSeeder extends Seeder
         Setting::set('template_pengingat_bayar', 'Halo {nama_customer}, kami ingin mengingatkan pembayaran untuk order {kode_order} (kendaraan {nama_kendaraan}) senilai {total}. Terima kasih.');
         Setting::set('template_pengingat_kembali', 'Halo *{nama_customer}*, ini pengingat bahwa kendaraan {nama_kendaraan} (*{kode_order}*) harus dikembalikan pada *{tanggal_kembali}* pukul *{jam_kembali}*. Terima kasih.');
         Setting::set('template_perlu_verifikasi', 'Halo, order {kode_order} ({nama_customer} — {nama_kendaraan}) melewati batas waktu pengembalian dan belum dikonfirmasi. Denda difreeze: {total}. Mohon segera verifikasi di aplikasi.');
+
+        Setting::set('pending_expire_hours', 24);
+        Setting::set('confirmed_no_pickup_expire_hours', 24);
+        Setting::set('driver_task_release_minutes', 120);
+        Setting::set('driver_task_release_enabled', '1');
     }
 }

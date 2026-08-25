@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
-use App\Http\Controllers\Api\DriverTaskController;
 use App\Http\Controllers\Api\GarasiPartnerController;
 use App\Http\Controllers\Api\GarasiRequestController;
 use App\Http\Controllers\Api\GpsController;
@@ -14,7 +13,6 @@ use App\Http\Controllers\Api\KatalogOrderRequestController;
 use App\Http\Controllers\Api\KatalogPublicController;
 use App\Http\Controllers\Api\KategoriController;
 use App\Http\Controllers\Api\KendaraanController;
-use App\Http\Controllers\Api\MobileTaskController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PengaturanController;
@@ -72,6 +70,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/driver-tasks', [DriverTaskController::class, 'store']);
         Route::get('/driver-tasks/{task}', [DriverTaskController::class, 'show']);
         Route::post('/driver-tasks/{task}/cancel', [DriverTaskController::class, 'cancel']);
+        Route::post('/driver-tasks/{task}/release', [DriverTaskController::class, 'release']);
     });
 
     Route::get('/dashboard', [DashboardController::class, 'index']);
@@ -84,7 +83,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/customers/{customer}/restore', [CustomerController::class, 'restore'])->withTrashed()->middleware('throttle:60,1');
     Route::apiResource('orders', OrderController::class)->middleware('throttle:60,1');
     Route::get('/orders/{order}/invoice', [InvoiceController::class, 'download']);
-    Route::get('/orders/{order}/cancel-preview', [OrderController::class, 'cancelPreview']);
     Route::apiResource('garasi-requests', GarasiRequestController::class)->middleware('throttle:60,1');
     Route::apiResource('kategoris', KategoriController::class);
     Route::apiResource('tipes', TipeController::class);
@@ -94,6 +92,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/inspeksi-kendaraans/{inspeksi}/perbaiki-ttd', [InspeksiKendaraanController::class, 'perbaikiTtd'])->middleware('throttle:20,1');
     Route::get('/orders/{order}/inspeksi', [InspeksiKendaraanController::class, 'byOrder']);
     Route::get('/inspeksi-tasks', [InspeksiKendaraanController::class, 'tasks']);
+    Route::post('/orders/{order}/claim', [OrderController::class, 'claim']);
+    Route::post('/orders/{order}/release', [OrderController::class, 'release']);
     Route::post('/orders/{order}/kirim', [InspeksiKendaraanController::class, 'kirimKendaraan'])->middleware('throttle:20,1');
     Route::post('/orders/{order}/kembali', [InspeksiKendaraanController::class, 'kembalikanKendaraan'])->middleware('throttle:20,1');
 
