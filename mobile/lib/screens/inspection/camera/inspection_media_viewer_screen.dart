@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:share_plus/share_plus.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -52,6 +54,39 @@ class _InspectionMediaViewerScreenState
     if (mounted) setState(() => _videoReady = true);
   }
 
+  Future<void> _downloadMedia() async {
+    final path = widget.isPhoto
+        ? (widget.watermarkedPath ?? widget.filePath)
+        : widget.filePath;
+
+    if (!File(path).existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File tidak ditemukan di perangkat.')),
+      );
+      return;
+    }
+
+    try {
+      await Share.shareXFiles(
+        [
+          XFile(
+            path,
+            mimeType: widget.isPhoto ? 'image/jpeg' : 'video/mp4',
+            name: p.basename(path),
+          ),
+        ],
+        subject:
+            '${widget.isPhoto ? 'Foto' : 'Video'} Inspeksi ${widget.inspectionCode}',
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal membagikan file.')),
+        );
+      }
+    }
+  }
+
   @override
   void dispose() {
     _videoController?.dispose();
@@ -65,6 +100,13 @@ class _InspectionMediaViewerScreenState
       appBar: AppBar(
         title: Text(widget.isPhoto ? 'Foto Inspeksi' : 'Video Inspeksi'),
         backgroundColor: AppColors.background,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download_outlined),
+            tooltip: 'Unduh / Simpan',
+            onPressed: _downloadMedia,
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 30),
