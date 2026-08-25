@@ -92,6 +92,61 @@ class WatermarkService
     }
 
     /**
+     * Terapkan watermark lengkap untuk foto supir (driver task).
+     * Mengembalikan path yang sama (overwrite) atau null jika gagal.
+     *
+     * @param  string  $storagePath  path relatif terhadap storage/app/public/
+     * @param  array{driver_name?: string, location?: string, latitude?: float, longitude?: float, accuracy?: float, captured_at?: string, task_code?: string}  $meta
+     */
+    public function applyDriverWatermark(string $storagePath, array $meta = []): ?string
+    {
+        $absolutePath = storage_path("app/public/{$storagePath}");
+
+        if (! is_file($absolutePath) || ! is_readable($absolutePath)) {
+            return null;
+        }
+
+        if ($this->isOversizedForWatermark($absolutePath)) {
+            return $storagePath;
+        }
+
+        $image = $this->manager->decodePath($absolutePath);
+        $width = $image->width();
+        $height = $image->height();
+
+        $namaUsaha = Setting::get('nama_usaha', 'UDIN RENCTCAR');
+        $timestamp = ($meta['captured_at'] ?? now())
+            ->timezone('Asia/Jakarta')
+            ->format('d M Y H:i');
+
+        $parts = array_filter([
+            $namaUsaha,
+            $meta['driver_name'] ?? null,
+            $meta['location'] ?? null,
+            $meta['latitude'] !== null && $meta['longitude'] !== null
+                ? sprintf('%.5f, %.5f', $meta['latitude'], $meta['longitude'])
+                : null,
+            $meta['task_code'] ?? null,
+            $timestamp,
+        ]);
+        $text = implode(' • ', $parts);
+
+        $fontSize = max(14, (int) ($width / 30));
+
+        $image->text($text, (int) ($width / 2), (int) ($height / 2), function (FontFactory $font) use ($fontSize) {
+            $font->filename(resource_path('fonts/Roboto-Regular.ttf'));
+            $font->size($fontSize);
+            $font->color('rgba(255,255,255,0.35)');
+            $font->align('center', 'center');
+            $font->angle(-30);
+        });
+
+        $image->save($absolutePath);
+
+        return $storagePath;
+    }
+
+    /**
      * Gambar raksasa (mis. scan resolusi tinggi) butuh ratusan MB untuk
      * di-decode GD dan bisa meledakkan memory_limit. Kalau dimensinya melebihi
      * ambang, watermark dilewati — file tetap tersimpan apa adanya.

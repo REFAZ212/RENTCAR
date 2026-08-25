@@ -47,4 +47,21 @@ class OrderPolicy
     {
         return in_array($user->role, ['admin_utama', 'admin_operasional', 'petugas']);
     }
+
+    /**
+     * Klaim task inspeksi — semua role (petugas & admin).
+     */
+    public function claim(User $user, Order $order): bool
+    {
+        return in_array($user->role, ['admin_utama', 'admin_operasional', 'petugas']);
+    }
+
+    /**
+     * Lepas klaim — admin boleh semua, petugas hanya klaim miliknya.
+     */
+    public function release(User $user, Order $order): bool
+    {
+        return in_array($user->role, ['admin_utama', 'admin_operasional'])
+            || ($user->role === 'petugas' && $order->isClaimant($user->id));
+    }
 }
