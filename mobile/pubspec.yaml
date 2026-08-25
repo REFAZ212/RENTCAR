@@ -53,6 +53,10 @@ dependencies:
   connectivity_plus: ^6.1.0
   http: ^1.2.2
 
+  # Berbagi / unduh media (foto & video inspeksi)
+  # Versi >= 8 kompilasi dengan compileSdk >= 34 (7.2.2 hardcode 33 -> error AAR)
+  share_plus: ^11.1.0
+
   # Map (OpenStreetMap - tanpa API key)
   flutter_map: ^7.0.2
   latlong2: ^0.9.0
