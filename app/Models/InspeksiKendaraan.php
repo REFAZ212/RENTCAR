@@ -42,6 +42,7 @@ class InspeksiKendaraan extends Model
         'biaya_kerusakan',
         'inspeksi_oleh',
         'admin_id',
+        'driver_task_id',
     ];
 
     protected $casts = [
@@ -60,5 +61,10 @@ class InspeksiKendaraan extends Model
     public function admin(): BelongsTo
     {
         return $this->belongsTo(User::class, 'admin_id');
+    }
+
+    public function driverTask(): BelongsTo
+    {
+        return $this->belongsTo(DriverTask::class, 'driver_task_id');
     }
 }

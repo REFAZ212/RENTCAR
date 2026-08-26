@@ -203,36 +203,6 @@ class Order extends Model
     }
 
     /**
-     * Apakah task order ini sudah diklaim petugas (operator) lain?
-     */
-    public function isTaskClaimed(): bool
-    {
-        return $this->operator_id !== null;
-    }
-
-    /**
-     * Apakah user yang diberikan adalah pemegang klaim task ini?
-     */
-    public function isClaimant(int $userId): bool
-    {
-        return $this->operator_id === $userId;
-    }
-
-    /**
-     * Apakah klaim sudah melewati batas waktu eksekusi (setting durasi_klaim_menit)?
-     */
-    public function isClaimExpired(): bool
-    {
-        if (! $this->waktu_klaim) {
-            return false;
-        }
-
-        $durasiMenit = (int) Setting::get('durasi_klaim_menit', 30);
-
-        return $this->waktu_klaim->copy()->addMinutes($durasiMenit)->lessThan(now());
-    }
-
-    /**
      * Peta transisi status_order yang diizinkan.
      * Kunci = status asal, nilai = array status tujuan yang valid.
      * Order yang sudah "terminal" (completed/cancelled) tidak boleh berubah.

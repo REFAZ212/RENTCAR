@@ -85,6 +85,10 @@ interface HargaForm {
   auto_verify_after_hours: number;
   auto_complete_enabled: boolean;
   auto_complete_after_hours: number;
+  pending_expire_hours: number;
+  confirmed_no_pickup_expire_hours: number;
+  driver_task_release_enabled: boolean;
+  driver_task_release_minutes: number;
 }
 
 interface NotifikasiForm {
@@ -101,6 +105,7 @@ interface NotifikasiForm {
   notif_perlu_verifikasi: boolean;
   notif_order_selesai: boolean;
   notif_pengingat_kembali: boolean;
+  notif_admin_kendaraan_dikirim: boolean;
   template_penugasan_driver: string;
   template_task_petugas: string;
   template_supir_order_mulai: string;
@@ -654,6 +659,10 @@ function HargaTab() {
     auto_verify_after_hours: 24,
     auto_complete_enabled: true,
     auto_complete_after_hours: 72,
+    pending_expire_hours: 24,
+    confirmed_no_pickup_expire_hours: 24,
+    driver_task_release_enabled: true,
+    driver_task_release_minutes: 120,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -695,6 +704,10 @@ function HargaTab() {
           auto_verify_after_hours: form.auto_verify_after_hours,
           auto_complete_enabled: form.auto_complete_enabled,
           auto_complete_after_hours: form.auto_complete_after_hours,
+          pending_expire_hours: form.pending_expire_hours,
+          confirmed_no_pickup_expire_hours: form.confirmed_no_pickup_expire_hours,
+          driver_task_release_enabled: form.driver_task_release_enabled,
+          driver_task_release_minutes: form.driver_task_release_minutes,
         }),
         settingsAPI.update({
           overtime_rate_per_hour: form.denda_keterlambatan_per_jam,
@@ -833,6 +846,62 @@ function HargaTab() {
           )}
         </div>
 
+        <div className="mt-6">
+          <SectionCard title="Batas Waktu Otomatisasi Pesanan" description="Pembatalan otomatis dan pelepasan tugas supir yang tidak dikerjakan">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <Field label="Batal Booking Tak Dikonfirmasi" hint="Order katalog 'pending' dibatalkan + refund penuh bila tidak dikonfirmasi">
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={1}
+                    value={form.pending_expire_hours}
+                    onChange={setNum('pending_expire_hours')}
+                    className={`${inputClass()} pr-16`}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-black-400">jam</span>
+                </div>
+              </Field>
+              <Field label="Batal Order Tidak Diambil" hint="Order 'confirmed' dibatalkan (fee 100%) bila kendaraan tak kunjung diambil">
+                <div className="relative">
+                  <input
+                    type="number"
+                    min={1}
+                    value={form.confirmed_no_pickup_expire_hours}
+                    onChange={setNum('confirmed_no_pickup_expire_hours')}
+                    className={`${inputClass()} pr-16`}
+                  />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-black-400">jam</span>
+                </div>
+              </Field>
+            </div>
+
+            <div className="divide-y divide-black-200">
+              <ToggleSwitch
+                checked={form.driver_task_release_enabled}
+                onChange={(v) => setForm({ ...form, driver_task_release_enabled: v })}
+                label="Lepas Tugas Supir yang Ditelantarkan"
+                description="Tugas yang diambil supir tapi tidak pernah dimulai otomatis kembali ke pool dan dibroadcast ulang."
+              />
+              {form.driver_task_release_enabled && (
+                <div className="pt-4">
+                  <Field label="Batas Diam Setelah Ambil Tugas" hint="Supir harus mulai inspeksi sebelum batas ini, kalau tidak tugasnya dilepas">
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min={5}
+                        value={form.driver_task_release_minutes}
+                        onChange={setNum('driver_task_release_minutes')}
+                        className={`${inputClass()} pr-16`}
+                      />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-black-400">menit</span>
+                    </div>
+                  </Field>
+                </div>
+              )}
+            </div>
+          </SectionCard>
+        </div>
+
         <div className="mt-6 flex justify-end border-t border-black-200 pt-5">
           <SaveButton loading={saving} />
         </div>
@@ -892,6 +961,7 @@ function NotifikasiTab() {
     notif_perlu_verifikasi: true,
     notif_order_selesai: true,
     notif_pengingat_kembali: true,
+    notif_admin_kendaraan_dikirim: true,
     template_penugasan_driver:
       'Halo {nama_driver}, ada tugas baru:\nAntar {customer} — {kendaraan} ({plat_nomor})\n{tanggal} pukul {jam}\n\nBalas SIAP jika bisa, atau TIDAK jika berhalangan.',
     template_task_petugas:
@@ -1082,6 +1152,12 @@ function NotifikasiTab() {
             onChange={(v) => setForm({ ...form, notif_pengingat_kembali: v })}
             label="Pengingat Pengembalian H-1"
             description="Pengingat otomatis ke customer satu hari sebelum batas waktu pengembalian"
+          />
+          <ToggleSwitch
+            checked={form.notif_admin_kendaraan_dikirim}
+            onChange={(v) => setForm({ ...form, notif_admin_kendaraan_dikirim: v })}
+            label="Kendaraan Dikirimkan ke Admin"
+            description="Notifikasi ke admin saat kendaraan berhasil dikirimkan ke customer"
           />
         </div>
       </SectionCard>

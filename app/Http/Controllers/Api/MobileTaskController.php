@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\DriverTask;
 use App\Models\InspeksiKendaraan;
+use App\Models\Notification;
 use App\Services\DriverTaskService;
 use App\Services\WatermarkService;
 use Illuminate\Http\JsonResponse;
@@ -395,6 +396,68 @@ class MobileTaskController extends Controller
             'uploaded' => $uploaded,
             'items' => $result,
         ]);
+    }
+
+    /* ─────────────────────────────────────────────────────────────
+     * NOTIFIKASI SUPIR
+     * ───────────────────────────────────────────────────────────── */
+
+    /**
+     * Daftar notifikasi milik supir yang sedang login.
+     */
+    public function notifications(Request $request): JsonResponse
+    {
+        $perPage = max(1, min((int) $request->query('per_page', 20), 100));
+
+        $notifications = Notification::query()
+            ->where('supir_id', $request->user()->id)
+            ->orderByDesc('id')
+            ->paginate($perPage);
+
+        return response()->json($notifications->through(fn ($n) => $this->serializeNotification($n))->toArray());
+    }
+
+    /**
+     * Jumlah notifikasi belum dibaca supir yang sedang login.
+     */
+    public function unreadCount(Request $request): JsonResponse
+    {
+        $count = Notification::query()
+            ->where('supir_id', $request->user()->id)
+            ->whereNull('read_at')
+            ->count();
+
+        return response()->json(['count' => $count]);
+    }
+
+    /**
+     * Tandai satu notifikasi supir sebagai sudah dibaca.
+     */
+    public function markNotificationRead(Request $request, Notification $notification): JsonResponse
+    {
+        if ($notification->supir_id !== $request->user()->id) {
+            return response()->json(['message' => 'Notifikasi tidak ditemukan.'], 404);
+        }
+
+        $notification->markAsRead();
+
+        return response()->json([
+            'message' => 'Notifikasi ditandai sudah dibaca.',
+            'notification' => $this->serializeNotification($notification),
+        ]);
+    }
+
+    private function serializeNotification(Notification $notification): array
+    {
+        return [
+            'id' => $notification->id,
+            'type' => $notification->type,
+            'title' => $notification->title,
+            'message' => $notification->message,
+            'data' => $notification->data,
+            'read_at' => $notification->read_at?->toIso8601String(),
+            'created_at' => $notification->created_at?->toIso8601String(),
+        ];
     }
 
     /* ─────────────────────────────────────────────────────────────

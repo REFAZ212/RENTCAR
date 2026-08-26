@@ -23,6 +23,8 @@ class SupirCalo extends Authenticatable
         'no_hp',
         'alamat',
         'status',
+        'driver_status',
+        'fcm_token',
         'no_sim',
         'foto',
         'tarif_per_hari',
@@ -45,6 +47,24 @@ class SupirCalo extends Authenticatable
     public function scopeJenis(Builder $query, string $jenis): Builder
     {
         return $query->where('jenis', $jenis);
+    }
+
+    /**
+     * Tugas yang sedang dikerjakan pengemudi ini (accepted s/d inspection_after).
+     * Dipakai mobile app untuk memblokir supir busy mengambil tugas baru.
+     */
+    public function activeDriverTask(): ?DriverTask
+    {
+        return DriverTask::where('assigned_driver_id', $this->id)
+            ->whereIn('status', [
+                DriverTask::STATUS_ACCEPTED,
+                DriverTask::STATUS_INSPECTION_BEFORE,
+                DriverTask::STATUS_ON_DELIVERY,
+                DriverTask::STATUS_ARRIVED,
+                DriverTask::STATUS_INSPECTION_AFTER,
+            ])
+            ->orderByDesc('id')
+            ->first();
     }
 
     public function user(): BelongsTo

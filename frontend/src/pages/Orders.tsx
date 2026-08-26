@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef, useMemo, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+﻿import { useState, useEffect, useCallback, useRef, useMemo, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { isAxiosError } from 'axios';
-import { orderAPI, customerAPI, kendaraanAPI, supirCaloAPI, settingsAPI, inspeksiAPI, type Customer, type Kendaraan, type SupirCalo, type Order, type InspeksiKendaraan } from '../services/api';
+import { orderAPI, customerAPI, kendaraanAPI, supirCaloAPI, settingsAPI, inspeksiAPI, type Customer, type Kendaraan, type SupirCalo, type Order, type OrderCancelPreview, type InspeksiKendaraan } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from '../components/ConfirmModal';
@@ -28,9 +28,6 @@ type MetodePembayaran = 'cash' | 'transfer' | 'qris' | 'lainnya';
 type StatusFilter = '' | StatusOrder | 'overdue';
 
 const statusPembayaranOptions: StatusPembayaran[] = ['unpaid', 'partial', 'paid'];
-
-// Status pengiriman yang mewajibkan bukti foto kendaraan diunggah.
-const statusPengirimanButuhBukti: StatusPengiriman[] = ['sudah_diantarkan', 'dalam_penyewaan'];
 
 // Tarif denda keterlambatan per jam — diambil dari backend supaya
 // selalu konsisten (single source of truth di OvertimeCalculator).
@@ -424,6 +421,8 @@ export default function Orders() {
   const [cancelOrder, setCancelOrder] = useState<Order | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [cancelPreview, setCancelPreview] = useState<OrderCancelPreview | null>(null);
+  const [cancelPreviewLoading, setCancelPreviewLoading] = useState(false);
   const [confirmComplete, setConfirmComplete] = useState<Order | null>(null);
   const [completeReturnInspeksi, setCompleteReturnInspeksi] = useState<InspeksiKendaraan | null>(null);
   const [completeInspeksiLoading, setCompleteInspeksiLoading] = useState(false);
@@ -437,7 +436,6 @@ export default function Orders() {
   const [buktiBaruFile, setBuktiBaruFile] = useState<File | null>(null);
   const [buktiBaruPreview, setBuktiBaruPreview] = useState<string | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
-  const [isSewakan, setIsSewakan] = useState(false);
   const [isKonfirmasi, setIsKonfirmasi] = useState(false);
   const [editKendaraanSearch, setEditKendaraanSearch] = useState('');
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
@@ -445,9 +443,6 @@ export default function Orders() {
   const [editBuktiFile, setEditBuktiFile] = useState<File | null>(null);
   const [editBuktiPreview, setEditBuktiPreview] = useState<string | null>(null);
   const [editBuktiNewPreview, setEditBuktiNewPreview] = useState<string | null>(null);
-  const [editBuktiPengirimanFile, setEditBuktiPengirimanFile] = useState<File | null>(null);
-  const [editBuktiPengirimanPreview, setEditBuktiPengirimanPreview] = useState<string | null>(null);
-  const [editBuktiPengirimanNewPreview, setEditBuktiPengirimanNewPreview] = useState<string | null>(null);
   const [newPaymentAmount, setNewPaymentAmount] = useState<string>('');
 
   const [customerSearch, setCustomerSearch] = useState('');
@@ -660,14 +655,20 @@ export default function Orders() {
   // muat ulang daftar mobil yang TIDAK bertabrakan dengan rentang tanggal
   // tersebut (server yang memfilter). Mobil dengan order masa depan yang
   // tidak beririsan tetap bisa dipilih.
+  // Penanda urutan: respons yang datang terlambat tidak boleh menimpa
+  // hasil permintaan yang lebih baru.
+  const kendaraanFetchId = useRef(0);
   useEffect(() => {
     if (!showForm || !canManage) return;
     const from = form.tanggal_mulai;
     const to = form.tanggal_selesai;
+    const fetchId = ++kendaraanFetchId.current;
     const t = setTimeout(() => {
       kendaraanAPI
         .list({ per_page: 100, ...(from && to ? { available_from: from, available_to: to } : {}) })
-        .then(({ data }: { data: ListResponse<Kendaraan> }) => setKendaraans(data.data))
+        .then(({ data }: { data: ListResponse<Kendaraan> }) => {
+          if (fetchId === kendaraanFetchId.current) setKendaraans(data.data);
+        })
         .catch(() => {});
     }, 400);
     return () => clearTimeout(t);
@@ -865,10 +866,15 @@ export default function Orders() {
       setCustomerSearch('');
       closeCreateModal();
       load();
-      kendaraanAPI
-        .list({ per_page: 100 })
-        .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
-        .catch(() => {});
+      {
+        const fetchId = ++kendaraanFetchId.current;
+        kendaraanAPI
+          .list({ per_page: 100 })
+          .then(({ data }: { data: ListResponse<Kendaraan> }) => {
+            if (fetchId === kendaraanFetchId.current) { setKendaraans(data.data); setAllKendaraans(data.data); }
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       let msg = 'Gagal membuat order';
       if (isAxiosError(err)) {
@@ -886,12 +892,40 @@ export default function Orders() {
       const { data } = await orderAPI.update(id, { [field]: value });
       setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...data } : item)));
       toast.success('Order berhasil diperbarui');
+      // Chip statistik (total/aktif/terlambat) dihitung server-side — muat ulang
+      // supaya angka ikut segar, bukan cuma baris yang diedit.
+      load();
     } catch (err) {
       const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
       toast.error(msg || 'Gagal memperbarui order');
       load();
     }
   };
+
+  // Preview biaya pembatalan & refund — diambil dari server (satu sumber
+  // kebenaran hitungBiayaPembatalan) setiap modal Batalkan dibuka.
+  useEffect(() => {
+    if (!cancelOrder) {
+      setCancelPreview(null);
+      return;
+    }
+    let active = true;
+    setCancelPreviewLoading(true);
+    orderAPI
+      .cancelPreview(cancelOrder.id)
+      .then(({ data }) => {
+        if (active) setCancelPreview(data);
+      })
+      .catch(() => {
+        if (active) setCancelPreview(null);
+      })
+      .finally(() => {
+        if (active) setCancelPreviewLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [cancelOrder]);
 
   const handleCancelOrder = async () => {
     if (!cancelOrder) return;
@@ -905,6 +939,8 @@ export default function Orders() {
       toast.success('Order berhasil dibatalkan');
       setCancelOrder(null);
       setCancelReason('');
+      // Segarkan daftar + chip statistik (order batal mengubah hitungan).
+      load();
     } catch (err) {
       const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
       toast.error(msg || 'Gagal membatalkan order');
@@ -954,8 +990,7 @@ export default function Orders() {
    * Buka modal edit. Dipakai baik untuk edit biasa (pensil) maupun aksi cepat
    * "Sewakan" (dulu 2 blok kode terpisah yang isinya nyaris identik).
    */
-  const openEditModal = (item: Order, { sewakan = false, konfirmasi = false }: { sewakan?: boolean; konfirmasi?: boolean } = {}) => {
-    setIsSewakan(sewakan);
+  const openEditModal = (item: Order, { konfirmasi = false }: { konfirmasi?: boolean } = {}) => {
     setIsKonfirmasi(konfirmasi);
     setEditingOrder(item);
     setEditForm({
@@ -971,10 +1006,10 @@ export default function Orders() {
       tanggal_selesai: fmtDate(item.tanggal_selesai),
       jam_mulai: fmtTime(item.jam_mulai) || '08:00',
       jam_selesai: fmtTime(item.jam_selesai) || '17:00',
-      status_order: konfirmasi ? 'confirmed' : sewakan ? 'active' : item.status_order,
+      status_order: konfirmasi ? 'confirmed' : item.status_order,
       status_pembayaran: item.status_pembayaran,
       metode_pembayaran: item.metode_pembayaran || 'cash',
-      status_pengiriman: sewakan ? 'dalam_penyewaan' : item.status_pengiriman,
+      status_pengiriman: item.status_pengiriman,
       metode_penyerahan: item.metode_penyerahan || 'ambil',
       opsi_supir: item.opsi_supir ?? (item.supir_id ? 'dengan_supir' : 'lepas_kunci'),
       calo_id: item.calo_id ? String(item.calo_id) : '',
@@ -985,9 +1020,6 @@ export default function Orders() {
     setEditBuktiFile(null);
     setEditBuktiPreview(item.bukti_transfer ? `/storage/${item.bukti_transfer}` : null);
     setEditBuktiNewPreview(null);
-    setEditBuktiPengirimanFile(null);
-    setEditBuktiPengirimanPreview(item.bukti_pengiriman ? `/storage/${item.bukti_pengiriman}` : null);
-    setEditBuktiPengirimanNewPreview(null);
     setEditCustFotoKtpFile(null);
     setEditCustFotoKtpPreview(item.customer?.foto_ktp ? `/storage/${item.customer.foto_ktp}` : null);
     setEditCustFotoKtpDelete(false);
@@ -1005,15 +1037,10 @@ export default function Orders() {
     setEditBuktiFile(null);
     setEditBuktiPreview(null);
     setEditBuktiNewPreview(null);
-    if (editBuktiPengirimanNewPreview) URL.revokeObjectURL(editBuktiPengirimanNewPreview);
-    setEditBuktiPengirimanFile(null);
-    setEditBuktiPengirimanPreview(null);
-    setEditBuktiPengirimanNewPreview(null);
     if (editCustFotoKtpPreview) URL.revokeObjectURL(editCustFotoKtpPreview);
     setEditCustFotoKtpFile(null);
     setEditCustFotoKtpPreview(null);
     setEditCustFotoKtpDelete(false);
-    setIsSewakan(false);
     setIsKonfirmasi(false);
     setNewPaymentAmount('');
   };
@@ -1041,15 +1068,28 @@ export default function Orders() {
   const editTotal = editDurasi * editHargaPerHari + supirTarifEdit * editDurasi;
 
   // Order aktif/perlu verifikasi/selesai/dibatalkan: data inti terkunci, hanya status/pembayaran/catatan/bukti yang boleh diubah
-  const isLockedOrder = (editingOrder?.status_order === 'active' || editingOrder?.status_order === 'perlu_verifikasi' || editingOrder?.status_order === 'completed' || editingOrder?.status_order === 'cancelled') && !isSewakan && !isKonfirmasi;
-  const isFullyLocked = (editingOrder?.status_order === 'completed' || editingOrder?.status_order === 'cancelled') && !isSewakan && !isKonfirmasi;
+  // Order confirmed yang sudah ber-aktivitas (pembayaran/request garasi/task diklaim) ikut terkunci — koreksi kesepakatan via Batal.
+  const isConfirmedBerAktivitas =
+    editingOrder?.status_order === 'confirmed' &&
+    (!!editingOrder.operator_id ||
+      (editingOrder.pembayarans?.length ?? 0) > 0 ||
+      (editingOrder.garasi_requests?.length ?? 0) > 0);
+  const isLockedOrder = ((editingOrder?.status_order === 'active' || editingOrder?.status_order === 'perlu_verifikasi' || editingOrder?.status_order === 'completed' || editingOrder?.status_order === 'cancelled') || isConfirmedBerAktivitas) && !isKonfirmasi;
+  const isFullyLocked = (editingOrder?.status_order === 'completed' || editingOrder?.status_order === 'cancelled') && !isKonfirmasi;
+  // Data inti terkunci di SEMUA mode (termasuk mode Konfirmasi) untuk
+  // order confirmed ber-aktivitas — backend menolak (422) field inti.
+  const isCoreLocked = isConfirmedBerAktivitas || isLockedOrder;
+  const isPlainCoreLocked = isConfirmedBerAktivitas && !isKonfirmasi;
 
-  const handleEditKendaraanSelect = (id: number) => setEditForm((prev) => ({ ...prev, kendaraan_id: String(id) }));
+  const handleEditKendaraanSelect = (id: number) => {
+    if (isConfirmedBerAktivitas) return;
+    setEditForm((prev) => ({ ...prev, kendaraan_id: String(id) }));
+  };
 
   const handleEditSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    if (!isSewakan && !isKonfirmasi && !isLockedOrder) {
+    if (!isKonfirmasi && !isLockedOrder) {
       if (!editForm.customer_name?.trim()) { toast.error('Nama customer wajib diisi'); return; }
       if (!editForm.customer_no_hp) { toast.error('No. HP wajib diisi'); return; }
       if (!editForm.customer_no_sim) { toast.error('No. Identitas (SIM) wajib diisi'); return; }
@@ -1074,19 +1114,11 @@ export default function Orders() {
       if (!editForm.tujuan?.trim()) { toast.error('Tujuan wajib diisi'); return; }
       if (editForm.metode_penyerahan === 'antar' && !editForm.alamat_jemput?.trim()) { toast.error('Alamat pengantaran wajib diisi'); return; }
     }
-    // L8: Basic validation for konfirmasi/sewakan mode — ensure required fields exist
-    if (isKonfirmasi || isSewakan) {
+    // Basic validation for konfirmasi mode — ensure required fields exist
+    if (isKonfirmasi) {
       if (!editForm.kendaraan_id) { toast.error('Pilih kendaraan terlebih dahulu'); return; }
     }
 
-    const butuhBuktiPengiriman = editForm.status_pengiriman
-      ? statusPengirimanButuhBukti.includes(editForm.status_pengiriman as StatusPengiriman)
-      : false;
-    const sudahAdaBuktiPengiriman = editBuktiPengirimanFile || editBuktiPengirimanPreview;
-    if (butuhBuktiPengiriman && !sudahAdaBuktiPengiriman) {
-      toast.error('Bukti foto pengiriman wajib diunggah untuk status pengiriman ini');
-      return;
-    }
     if (!editingOrder) return;
 
     setSubmitting(true);
@@ -1101,7 +1133,7 @@ export default function Orders() {
 
       const payload: Record<string, unknown> = {};
       Object.entries(editForm).forEach(([k, v]) => {
-        if (k === 'status_order' && !isSewakan && !isKonfirmasi) return;
+        if (k === 'status_order' && !isKonfirmasi) return;
         if (v !== '' && v !== null && v !== undefined) {
           payload[k] = v;
         } else if (clearableFields.includes(k as keyof OrderForm)) {
@@ -1112,10 +1144,11 @@ export default function Orders() {
         payload.customer_name = editForm.customer_name;
       }
 
-      // Order terkunci (aktif/perlu verifikasi/selesai/dibatalkan): data inti
-      // tidak boleh dikirim ulang — backend menolak (422) jika field terlarang
-      // ikut terkirim walau nilainya tidak berubah. Daftar sama dengan OrderService.
-      if (isLockedOrder) {
+      // Order terkunci (aktif/perlu verifikasi/selesai/dibatalkan, atau
+      // confirmed ber-aktivitas): data inti tidak boleh dikirim ulang —
+      // backend menolak (422) jika field terlarang ikut terkirim walau
+      // nilainya tidak berubah. Daftar sama dengan OrderService.
+      if (isCoreLocked) {
         const lockedFields = [
           'customer_id', 'customer_name', 'customer_no_hp', 'customer_email', 'customer_alamat', 'customer_no_ktp', 'customer_no_sim',
           'kendaraan_id', 'tanggal_mulai', 'tanggal_selesai', 'jam_mulai', 'jam_selesai', 'alamat_jemput', 'tujuan',
@@ -1142,16 +1175,15 @@ export default function Orders() {
       }
 
       let res;
-      const hasFile = editBuktiFile || editBuktiPengirimanFile || (!isLockedOrder && editCustFotoKtpFile);
-      const needsFormData = hasFile || (!isLockedOrder && editCustFotoKtpDelete);
+      const hasFile = editBuktiFile || (!isCoreLocked && editCustFotoKtpFile);
+      const needsFormData = hasFile || (!isCoreLocked && editCustFotoKtpDelete);
       if (needsFormData) {
         const fd = new FormData();
         fd.append('_method', 'PUT');
         Object.entries(payload).forEach(([k, v]) => fd.append(k, String(v)));
         if (editBuktiFile) fd.append('bukti_transfer', editBuktiFile);
-        if (editBuktiPengirimanFile) fd.append('bukti_pengiriman', editBuktiPengirimanFile);
-        if (!isLockedOrder && editCustFotoKtpFile) fd.append('customer_foto_ktp', editCustFotoKtpFile);
-        if (!isLockedOrder && editCustFotoKtpDelete) fd.append('customer_foto_ktp_delete', '1');
+        if (!isCoreLocked && editCustFotoKtpFile) fd.append('customer_foto_ktp', editCustFotoKtpFile);
+        if (!isCoreLocked && editCustFotoKtpDelete) fd.append('customer_foto_ktp_delete', '1');
         res = await orderAPI.updateWithFile(editingOrder.id, fd);
       } else {
         res = await orderAPI.update(editingOrder.id, payload);
@@ -1160,10 +1192,15 @@ export default function Orders() {
       toast.success('Order berhasil diperbarui');
       closeEditModal();
       load();
-      kendaraanAPI
-        .list({ per_page: 100 })
-        .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
-        .catch(() => {});
+      {
+        const fetchId = ++kendaraanFetchId.current;
+        kendaraanAPI
+          .list({ per_page: 100 })
+          .then(({ data }: { data: ListResponse<Kendaraan> }) => {
+            if (fetchId === kendaraanFetchId.current) { setKendaraans(data.data); setAllKendaraans(data.data); }
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       let msg = 'Gagal memperbarui order';
       if (isAxiosError(err)) {
@@ -1178,9 +1215,13 @@ export default function Orders() {
 
   const handleCompleteOrder = async () => {
     if (!confirmComplete) return;
-    const needsPaymentProof =
-      confirmComplete.status_pembayaran !== 'paid' || confirmComplete.jam_overtime_saat_ini > 0;
-    if (needsPaymentProof && !completePaymentFile) {
+    // Sisa tagihan = total sewa + denda keterlambatan berjalan + kerusakan yang
+    // akan ditagih − yang sudah dibayar. Bukti transfer hanya wajib bila masih
+    // ada sisa; order lunas penuh tidak boleh dimintai bukti lagi.
+    const totalPaid = confirmComplete.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
+    const denda = confirmComplete.jam_overtime_saat_ini > 0 ? Number(confirmComplete.denda_overtime_saat_ini || 0) : 0;
+    const sisa = Number(confirmComplete.harga_total || 0) + denda + Number(completeKerusakanAmount || 0) - totalPaid;
+    if (sisa > 0 && !completePaymentFile) {
       toast.error('Bukti pembayaran wajib diunggah');
       return;
     }
@@ -1194,9 +1235,6 @@ export default function Orders() {
       if (completePaymentFile) fd.append('bukti_transfer', completePaymentFile);
       // Sisa tagihan sudah termasuk denda keterlambatan yang sedang berjalan;
       // nominalnya bisa dikoreksi admin sebelum submit.
-      const totalPaid = confirmComplete.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
-      const denda = confirmComplete.jam_overtime_saat_ini > 0 ? Number(confirmComplete.denda_overtime_saat_ini || 0) : 0;
-      const sisa = Number(confirmComplete.harga_total || 0) + denda + Number(completeKerusakanAmount || 0) - totalPaid;
       if (sisa > 0) {
         const amount = Number(completePaymentAmount);
         if (!completePaymentAmount || isNaN(amount) || amount <= 0) {
@@ -1209,18 +1247,23 @@ export default function Orders() {
         }
         fd.append('jumlah_bayar', String(amount));
       }
-      if (Number(completeKerusakanAmount || 0) > 0) {
-        fd.append('biaya_kerusakan', String(Math.round(Number(completeKerusakanAmount))));
-      }
+      // Selalu kirim eksplisit: angka > 0 = tagih, kosong/0 = admin
+      // memaafkan kerusakan (server tidak fallback ke estimasi inspeksi).
+      fd.append('biaya_kerusakan', String(Math.round(Number(completeKerusakanAmount || 0))));
       fd.append('_method', 'PUT');
       await orderAPI.updateWithFile(confirmComplete.id, fd);
       toast.success('Order berhasil diselesaikan');
       closeCompleteModal();
       load();
-      kendaraanAPI
-        .list({ per_page: 100 })
-        .then(({ data }: { data: ListResponse<Kendaraan> }) => { setKendaraans(data.data); setAllKendaraans(data.data); })
-        .catch(() => {});
+      {
+        const fetchId = ++kendaraanFetchId.current;
+        kendaraanAPI
+          .list({ per_page: 100 })
+          .then(({ data }: { data: ListResponse<Kendaraan> }) => {
+            if (fetchId === kendaraanFetchId.current) { setKendaraans(data.data); setAllKendaraans(data.data); }
+          })
+          .catch(() => {});
+      }
     } catch (err) {
       const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
       toast.error(msg || 'Gagal menyelesaikan order');
@@ -2148,7 +2191,7 @@ export default function Orders() {
           <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black-200 bg-white p-6">
               <div>
-                <h2 className="text-lg font-semibold text-black-900">{isKonfirmasi ? 'Konfirmasi Order' : isSewakan ? 'Kirim Kendaraan' : 'Edit Order'}</h2>
+                <h2 className="text-lg font-semibold text-black-900">{isKonfirmasi ? 'Konfirmasi Order' : 'Edit Order'}</h2>
                 <p className="font-mono text-sm text-black-400">{editingOrder.kode_order}</p>
               </div>
               <button onClick={closeEditModal} className="rounded-lg p-1 transition-colors hover:bg-canvas" aria-label="Tutup">
@@ -2156,44 +2199,13 @@ export default function Orders() {
               </button>
             </div>
             <form onSubmit={handleEditSubmit} className="space-y-5 p-6">
-              {isLockedOrder && (
+              {isCoreLocked && (
                 <div className={`flex items-start gap-2 rounded-lg px-4 py-3 text-sm ${isFullyLocked ? 'border border-black-200 bg-accent-50 text-black-600' : 'border border-accent-200 bg-accent-50 text-accent-700'}`}>
                   <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M4.93 19h14.14a1 1 0 00.87-1.5L12.87 4.5a1 1 0 00-1.74 0L4.06 17.5A1 1 0 004.93 19z" /></svg>
-                  <span>{isFullyLocked ? 'Order sudah final. Semua data bersifat read-only.' : 'Order aktif — data inti (customer, kendaraan, tanggal, harga) tidak bisa diubah. Hanya status pembayaran, metode bayar, bukti pembayaran, dan catatan yang bisa diperbarui.'}</span>
+                  <span>{isFullyLocked ? 'Order sudah final. Semua data bersifat read-only.' : isConfirmedBerAktivitas ? 'Order confirmed sudah ber-aktivitas (pembayaran/request garasi/task petugas) — data inti terkunci. Koreksi kesepakatan via Batal.' : 'Order aktif — data inti (customer, kendaraan, tanggal, harga) tidak bisa diubah. Hanya status pembayaran, metode bayar, bukti pembayaran, dan catatan yang bisa diperbarui.'}</span>
                 </div>
               )}
-              {isSewakan && (
-                <div className="space-y-4 rounded-xl border border-black-200 bg-accent-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-black-400">Ringkasan Pesanan</p>
-                  <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
-                    <div>
-                      <span className="text-black-400">Customer</span>
-                      <p className="font-medium text-black-900">{editingOrder.customer?.nama_lengkap || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-black-400">No. HP</span>
-                      <p className="font-medium text-black-900">{formatHpDisplay(editingOrder.customer?.no_hp) || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-black-400">Kendaraan</span>
-                      <p className="font-medium text-black-900">{editingOrder.kendaraan?.nama_kendaraan || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-black-400">Plat Nomor</span>
-                      <p className="font-medium font-mono text-black-900">{editingOrder.kendaraan?.plat_nomor || '-'}</p>
-                    </div>
-                    <div>
-                      <span className="text-black-400">Tanggal Mulai</span>
-                      <p className="font-medium text-black-900">{editingOrder.tanggal_mulai} {editingOrder.jam_mulai || '08:00'}</p>
-                    </div>
-                    <div>
-                      <span className="text-black-400">Tanggal Selesai</span>
-                      <p className="font-medium text-black-900">{editingOrder.tanggal_selesai} {editingOrder.jam_selesai || '17:00'}</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {!isSewakan && isLockedOrder && (
+              {(isLockedOrder || isPlainCoreLocked) && (
                 <div className="space-y-5">
                   <div className="space-y-3 rounded-xl border border-black-200 bg-accent-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wider text-black-400">Data Customer</p>
@@ -2245,7 +2257,7 @@ export default function Orders() {
               )}
 
               {/* ── Riwayat Pembayaran (locked orders) ── */}
-              {!isSewakan && isLockedOrder && editingOrder.pembayarans && editingOrder.pembayarans.length > 0 && (
+              {(isLockedOrder || isPlainCoreLocked) && editingOrder.pembayarans && editingOrder.pembayarans.length > 0 && (
                 <div className="space-y-3 rounded-xl border border-black-200 bg-accent-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wider text-black-400">Riwayat Pembayaran</p>
                   <div className="space-y-3">
@@ -2303,8 +2315,25 @@ export default function Orders() {
                 </div>
               )}
 
+              {isPlainCoreLocked && (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-black-700">Status Pembayaran</label>
+                    <select value={editForm.status_pembayaran || 'unpaid'} onChange={(e) => setEditField('status_pembayaran', e.target.value as StatusPembayaran)} className={inputClass}>
+                      {statusPembayaranOptions.map((s) => (<option key={s} value={s}>{statusPembayaranLabels[s]}</option>))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium text-black-700">Metode Bayar</label>
+                    <select value={editForm.metode_pembayaran || 'cash'} onChange={(e) => setEditField('metode_pembayaran', e.target.value as MetodePembayaran)} className={inputClass}>
+                      {(Object.keys(metodePembayaranLabels) as MetodePembayaran[]).map((m) => (<option key={m} value={m}>{metodePembayaranLabels[m]}</option>))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
               {/* ── Form Pembayaran Baru (active orders only, hide when paid) ── */}
-              {!isSewakan && !isKonfirmasi && isLockedOrder && !isFullyLocked && editingOrder?.status_pembayaran !== 'paid' && (
+              {!isKonfirmasi && isLockedOrder && !isFullyLocked && editingOrder?.status_pembayaran !== 'paid' && (
                 <div className="space-y-3 rounded-xl border border-primary-200 bg-primary-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wider text-primary-600">Catat Pembayaran Baru</p>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -2357,7 +2386,7 @@ export default function Orders() {
                   </div>
                 </div>
               )}
-              {!isSewakan && !isLockedOrder && (<>
+              {!isCoreLocked && (<>
               <div>
                 <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-black-400">
                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
@@ -2377,7 +2406,8 @@ export default function Orders() {
                       }}
                       onFocus={() => { if (editCustomerSearch) setShowEditCustomerSuggestions(true); }}
                       placeholder="Ketik nama customer..."
-                      className={inputClass}
+                      disabled={isConfirmedBerAktivitas}
+                      className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
                     />
                     {showEditCustomerSuggestions && filteredEditCustomers.length > 0 && (
                       <div className="absolute z-20 mt-1 w-full rounded-lg border border-black-200 bg-white py-1 shadow-lg">
@@ -2399,7 +2429,7 @@ export default function Orders() {
                       </div>
                     )}
                   </div>
-                  {editForm.customer_id ? (
+                  {editForm.customer_id && !isConfirmedBerAktivitas ? (
                     <button
                       type="button"
                       onClick={() => setEditForm((prev) => ({ ...prev, customer_id: '', customer_name: '', customer_no_hp: '', customer_email: '', customer_alamat: '', customer_no_ktp: '', customer_no_sim: '' }))}
@@ -2420,11 +2450,11 @@ export default function Orders() {
                   <>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">No. HP *</label>
-                      <input type="text" value={editForm.customer_no_hp || ''} onChange={(e) => setEditField('customer_no_hp', e.target.value)} className={inputClass} placeholder="08xxx" />
+                      <input type="text" value={editForm.customer_no_hp || ''} onChange={(e) => setEditField('customer_no_hp', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="08xxx" />
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">No. KTP</label>
-                      <input type="text" value={editForm.customer_no_ktp || ''} onChange={(e) => setEditField('customer_no_ktp', e.target.value)} className={inputClass} placeholder="opsional" />
+                      <input type="text" value={editForm.customer_no_ktp || ''} onChange={(e) => setEditField('customer_no_ktp', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="opsional" />
                       {editKtpConflict && (
                         <p className="mt-1 text-xs text-amber-600">
                           No. KTP sudah terdaftar atas nama {editKtpConflict.nama_lengkap} — pilih dari daftar pelanggan, atau periksa kembali No. KTP.
@@ -2438,19 +2468,19 @@ export default function Orders() {
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">No. SIM *</label>
-                      <input type="text" value={editForm.customer_no_sim || ''} onChange={(e) => setEditField('customer_no_sim', e.target.value)} className={inputClass} placeholder="Wajib diisi" />
+                      <input type="text" value={editForm.customer_no_sim || ''} onChange={(e) => setEditField('customer_no_sim', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="Wajib diisi" />
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">Email</label>
-                      <input type="email" value={editForm.customer_email || ''} onChange={(e) => setEditField('customer_email', e.target.value)} className={inputClass} placeholder="opsional" />
+                      <input type="email" value={editForm.customer_email || ''} onChange={(e) => setEditField('customer_email', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="opsional" />
                     </div>
                     <div className="md:col-span-2">
                       <label className="mb-1 block text-sm font-medium text-black-700">Alamat *</label>
-                      <input type="text" value={editForm.customer_alamat || ''} onChange={(e) => setEditField('customer_alamat', e.target.value)} className={inputClass} placeholder="Wajib diisi" />
+                      <input type="text" value={editForm.customer_alamat || ''} onChange={(e) => setEditField('customer_alamat', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="Wajib diisi" />
                     </div>
                     <div className="md:col-span-2">
                       <label className="mb-1 block text-sm font-medium text-black-700">Dokumen Identitas</label>
-                      {isSewakan || isKonfirmasi || isLockedOrder ? (
+                      {isKonfirmasi || isCoreLocked ? (
                         <div className="flex gap-3">
                           {editingOrder.customer?.foto_ktp ? (
                             <div>
@@ -2507,7 +2537,7 @@ export default function Orders() {
                         editForm.opsi_supir === 'lepas_kunci'
                           ? 'border-primary-500 bg-primary-50'
                           : 'border-black-200 hover:border-black-300'
-                      }`}
+                      } ${isConfirmedBerAktivitas ? 'pointer-events-none opacity-60' : ''}`}
                     >
                       <input
                         type="radio"
@@ -2515,6 +2545,7 @@ export default function Orders() {
                         className="sr-only"
                         checked={editForm.opsi_supir === 'lepas_kunci'}
                         onChange={() => setEditField('opsi_supir', 'lepas_kunci')}
+                        disabled={isConfirmedBerAktivitas}
                       />
                       <span
                         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
@@ -2530,7 +2561,7 @@ export default function Orders() {
                         editForm.opsi_supir === 'dengan_supir'
                           ? 'border-primary-500 bg-primary-50'
                           : 'border-black-200 hover:border-black-300'
-                      }`}
+                      } ${isConfirmedBerAktivitas ? 'pointer-events-none opacity-60' : ''}`}
                     >
                       <input
                         type="radio"
@@ -2538,6 +2569,7 @@ export default function Orders() {
                         className="sr-only"
                         checked={editForm.opsi_supir === 'dengan_supir'}
                         onChange={() => setEditField('opsi_supir', 'dengan_supir')}
+                        disabled={isConfirmedBerAktivitas}
                       />
                       <span
                         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-all ${
@@ -2552,7 +2584,7 @@ export default function Orders() {
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Calo</label>
-                  <select value={editForm.calo_id || ''} onChange={(e) => setEditField('calo_id', e.target.value)} className={inputClass}>
+                  <select value={editForm.calo_id || ''} onChange={(e) => setEditField('calo_id', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}>
                     <option value="">Pilih Calo (opsional)</option>
                     {calos
                       .filter((c) => c.status === 'active')
@@ -2585,10 +2617,11 @@ export default function Orders() {
                     type="text"
                     value={editKendaraanSearch}
                     onChange={(e) => setEditKendaraanSearch(e.target.value)}
+                    disabled={isCoreLocked}
                     placeholder="Cari nama, plat, atau warna..."
-                    className={`${inputClass} pl-9`}
+                    className={`${inputClass} pl-9 ${isCoreLocked ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
                   />
-                  {editKendaraanSearch && (
+                  {editKendaraanSearch && !isCoreLocked && (
                     <button
                       type="button"
                       onClick={() => setEditKendaraanSearch('')}
@@ -2671,9 +2704,9 @@ export default function Orders() {
                     type="date"
                     value={editForm.tanggal_mulai || ''}
                     onChange={(e) => setEditField('tanggal_mulai', e.target.value)}
-                    disabled={isLockedOrder}
+                    disabled={isCoreLocked}
                     required
-                    className={`${inputClass} ${isLockedOrder ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
+                    className={`${inputClass} ${isCoreLocked ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
                   />
                 </div>
                 <div>
@@ -2682,9 +2715,9 @@ export default function Orders() {
                     type="time"
                     value={editForm.jam_mulai || '08:00'}
                     onChange={(e) => setEditField('jam_mulai', e.target.value)}
-                    disabled={isLockedOrder}
+                    disabled={isCoreLocked}
                     min={editForm.tanggal_mulai === todayJakarta() ? nowWIBTime() : undefined}
-                    className={`${inputClass} ${isLockedOrder ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
+                    className={`${inputClass} ${isCoreLocked ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
                   />
                 </div>
                 <div>
@@ -2693,9 +2726,9 @@ export default function Orders() {
                     type="date"
                     value={editForm.tanggal_selesai || ''}
                     onChange={(e) => setEditField('tanggal_selesai', e.target.value)}
-                    disabled={isLockedOrder}
+                    disabled={isCoreLocked}
                     required
-                    className={`${inputClass} ${isLockedOrder ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
+                    className={`${inputClass} ${isCoreLocked ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
                   />
                 </div>
                 <div>
@@ -2704,9 +2737,9 @@ export default function Orders() {
                     type="time"
                     value={editForm.jam_selesai || '17:00'}
                     onChange={(e) => setEditField('jam_selesai', e.target.value)}
-                    disabled={isLockedOrder}
+                    disabled={isCoreLocked}
                     min={editForm.tanggal_selesai === todayJakarta() ? nowWIBTime() : undefined}
-                    className={`${inputClass} ${isLockedOrder ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
+                    className={`${inputClass} ${isCoreLocked ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
                   />
                 </div>
                 <div>
@@ -2719,7 +2752,7 @@ export default function Orders() {
                   />
                   <p className="mt-0.5 text-xs text-black-400">Otomatis dari harga kendaraan</p>
                 </div>
-                {!isSewakan && !isKonfirmasi && (
+                {!isKonfirmasi && (
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Status Pembayaran</label>
                   <select
@@ -2735,7 +2768,7 @@ export default function Orders() {
                   </select>
                 </div>
                 )}
-                {!isSewakan && !isKonfirmasi && (
+                {!isKonfirmasi && (
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Metode Bayar</label>
                   <select
@@ -2751,7 +2784,7 @@ export default function Orders() {
                   </select>
                 </div>
                 )}
-                {!isSewakan && !isKonfirmasi && (
+                {!isKonfirmasi && (
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Status Pengiriman</label>
                   <select
@@ -2767,9 +2800,6 @@ export default function Orders() {
                         </option>
                       ))}
                   </select>
-                  {editForm.status_pengiriman && statusPengirimanButuhBukti.includes(editForm.status_pengiriman as StatusPengiriman) && (
-                    <p className="mt-1 text-xs text-accent-600">Status ini wajib disertai bukti foto pengiriman di bawah.</p>
-                  )}
                 </div>
                 )}
               </div>
@@ -2809,18 +2839,19 @@ export default function Orders() {
                 </div>
               ) : null}
 
-              {!isLockedOrder && (
+              {!isLockedOrder && !isPlainCoreLocked && (
               <>
               <div>
                 <label className="mb-1 block text-sm font-medium text-black-700">Metode Penyerahan</label>
                 <div className="flex gap-4">
-                  <label className={`flex items-center gap-2.5 rounded-xl border-2 px-4 py-3 transition-all flex-1 cursor-pointer ${editForm.metode_penyerahan === 'antar' ? '' : 'border-primary-500 bg-primary-50'}`}>
+                  <label className={`flex items-center gap-2.5 rounded-xl border-2 px-4 py-3 transition-all flex-1 ${editForm.metode_penyerahan === 'antar' ? '' : 'border-primary-500 bg-primary-50'} ${isConfirmedBerAktivitas ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}>
                     <input
                       type="radio"
                       name="edit_metode_penyerahan"
                       value="ambil"
                       checked={editForm.metode_penyerahan === 'ambil'}
                       onChange={() => setEditField('metode_penyerahan', 'ambil')}
+                      disabled={isConfirmedBerAktivitas}
                       className="sr-only"
                     />
                     <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${editForm.metode_penyerahan === 'ambil' ? 'border-primary-500' : 'border-black-200'}`}>
@@ -2831,13 +2862,14 @@ export default function Orders() {
                       <div className="text-xs text-black-400">Customer ambil sendiri di garasi</div>
                     </div>
                   </label>
-                  <label className={`flex items-center gap-2.5 rounded-xl border-2 px-4 py-3 transition-all flex-1 cursor-pointer ${editForm.metode_penyerahan === 'antar' ? 'border-primary-500 bg-primary-50' : 'border-black-200 hover:border-black-200'}`}>
+                  <label className={`flex items-center gap-2.5 rounded-xl border-2 px-4 py-3 transition-all flex-1 ${editForm.metode_penyerahan === 'antar' ? 'border-primary-500 bg-primary-50' : 'border-black-200 hover:border-black-200'} ${isConfirmedBerAktivitas ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}>
                     <input
                       type="radio"
                       name="edit_metode_penyerahan"
                       value="antar"
                       checked={editForm.metode_penyerahan === 'antar'}
                       onChange={() => setEditField('metode_penyerahan', 'antar')}
+                      disabled={isConfirmedBerAktivitas}
                       className="sr-only"
                     />
                     <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${editForm.metode_penyerahan === 'antar' ? 'border-primary-500' : 'border-black-200'}`}>
@@ -2856,11 +2888,11 @@ export default function Orders() {
                   <label className="mb-1 block text-sm font-medium text-black-700">
                     {editForm.metode_penyerahan === 'antar' ? 'Alamat Pengantaran *' : 'Lokasi Ambil'}
                   </label>
-                  <input type="text" value={editForm.alamat_jemput || ''} onChange={(e) => setEditField('alamat_jemput', e.target.value)} required={editForm.metode_penyerahan === 'antar'} className={inputClass} placeholder={editForm.metode_penyerahan === 'antar' ? 'Alamat tujuan pengantaran kendaraan' : 'Lokasi pengambilan kendaraan'} />
+                  <input type="text" value={editForm.alamat_jemput || ''} onChange={(e) => setEditField('alamat_jemput', e.target.value)} required={editForm.metode_penyerahan === 'antar'} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder={editForm.metode_penyerahan === 'antar' ? 'Alamat tujuan pengantaran kendaraan' : 'Lokasi pengambilan kendaraan'} />
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Tujuan *</label>
-                  <input type="text" value={editForm.tujuan || ''} onChange={(e) => setEditField('tujuan', e.target.value)} className={inputClass} placeholder="Tujuan penggunaan kendaraan" />
+                  <input type="text" value={editForm.tujuan || ''} onChange={(e) => setEditField('tujuan', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="Tujuan penggunaan kendaraan" />
                 </div>
               </div>
               </>
@@ -2880,7 +2912,7 @@ export default function Orders() {
                 )}
               </div>
 
-              {!isSewakan && !isKonfirmasi && (isFullyLocked || !isLockedOrder) && (
+              {!isKonfirmasi && (isFullyLocked || !isLockedOrder) && (
               <div>
                 <label className="mb-1 block text-sm font-medium text-black-700">Bukti Pembayaran</label>
                 {isFullyLocked ? (
@@ -2937,56 +2969,6 @@ export default function Orders() {
               </div>
               )}
 
-              {!isLockedOrder && (isSewakan || (editForm.status_pengiriman && statusPengirimanButuhBukti.includes(editForm.status_pengiriman as StatusPengiriman))) && (
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-black-700">
-                    Bukti Foto Pengiriman <span className="text-error-500">*</span>
-                  </label>
-                  {editBuktiPengirimanPreview && !editBuktiPengirimanFile && (
-                    <ImagePreview
-                      src={editBuktiPengirimanPreview}
-                      onRemove={() => {
-                        setEditBuktiPengirimanFile(null);
-                        setEditBuktiPengirimanPreview(null);
-                      }}
-                    />
-                  )}
-                  {editBuktiPengirimanFile && (
-                    <ImagePreview
-                      src={editBuktiPengirimanNewPreview}
-                      onRemove={() => {
-                        if (editBuktiPengirimanNewPreview) URL.revokeObjectURL(editBuktiPengirimanNewPreview);
-                        setEditBuktiPengirimanFile(null);
-                        setEditBuktiPengirimanPreview(editingOrder.bukti_pengiriman ? `/storage/${editingOrder.bukti_pengiriman}` : null);
-                        setEditBuktiPengirimanNewPreview(null);
-                      }}
-                    />
-                  )}
-                  <UploadBox
-                    label="Upload foto pengiriman"
-                    hint="Foto kendaraan saat diambil/diantarkan, JPG/PNG, maks 2MB"
-                    fileName={editBuktiPengirimanFile?.name}
-                    icon={
-                      <svg className="h-5 w-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={1.5}
-                          d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                        />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    }
-                    onFile={(f) => {
-                      if (!f) return;
-                      if (editBuktiPengirimanNewPreview) URL.revokeObjectURL(editBuktiPengirimanNewPreview);
-                      setEditBuktiPengirimanFile(f);
-                      setEditBuktiPengirimanNewPreview(URL.createObjectURL(f));
-                    }}
-                  />
-                </div>
-              )}
-
               <div className="flex justify-end gap-3 border-t border-black-200 pt-4">
                 {isFullyLocked ? (
                   <button
@@ -3011,7 +2993,7 @@ export default function Orders() {
                       className="flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
                     >
                       {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-                      {isKonfirmasi ? 'Konfirmasi & Simpan' : isSewakan ? 'Kirim Kendaraan' : 'Simpan Perubahan'}
+                      {isKonfirmasi ? 'Konfirmasi & Simpan' : 'Simpan Perubahan'}
                     </button>
                   </>
                 )}
@@ -3616,6 +3598,24 @@ export default function Orders() {
             <p className="mt-1 text-sm text-black-600">
               Yakin ingin membatalkan order &quot;{cancelOrder.kode_order}&quot; dari {cancelOrder.customer?.nama_lengkap}?
             </p>
+            {cancelPreviewLoading ? (
+              <div className="mt-4 rounded-lg border border-gray-200 bg-canvas px-4 py-3 text-sm text-black-500">Menghitung biaya pembatalan…</div>
+            ) : cancelPreview ? (
+              <div className={`mt-4 space-y-1.5 rounded-lg border px-4 py-3 text-sm ${cancelPreview.persentase >= 100 ? 'border-error-200 bg-error-50' : 'border-amber-200 bg-amber-50'}`}>
+                <p className={`font-semibold ${cancelPreview.persentase >= 100 ? 'text-error-700' : 'text-amber-700'}`}>
+                  Denda pembatalan {cancelPreview.persentase}%: {formatRupiah(cancelPreview.biaya)}
+                </p>
+                <p className="text-xs text-black-500">{cancelPreview.keterangan}</p>
+                <div className="mt-2 flex items-center justify-between border-t border-black/5 pt-2 text-xs">
+                  <span className="text-black-500">Sudah dibayar: {formatRupiah(cancelPreview.total_dibayar)}</span>
+                  <span className={cancelPreview.refund_estimasi > 0 ? 'font-semibold text-success-600' : 'font-semibold text-error-600'}>
+                    {cancelPreview.refund_estimasi > 0
+                      ? `Estimasi refund: ${formatRupiah(cancelPreview.refund_estimasi)}`
+                      : 'Tidak ada refund'}
+                  </span>
+                </div>
+              </div>
+            ) : null}
             <label className="mt-4 block text-sm font-medium text-black-700">
               Alasan Pembatalan <span className="text-xs font-normal text-black-400">(disarankan)</span>
             </label>
@@ -3766,7 +3766,7 @@ export default function Orders() {
 
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Biaya Kerusakan (Rp)</label>
-                  <p className="mb-1.5 text-xs text-black-400">Opsional. Isi jika ada kerusakan; kosongkan untuk memakai angka dari inspeksi petugas.</p>
+                  <p className="mb-1.5 text-xs text-black-400">Isi jika ada kerusakan. Kosongkan / 0 untuk memaafkan biaya kerusakan (mengabaikan estimasi inspeksi petugas).</p>
                   <input
                     type="number"
                     min="0"
@@ -3887,12 +3887,14 @@ export default function Orders() {
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   {group.list.map((item) => {
-                    const isBelumMulai = item.status_order === 'pending' || item.status_order === 'confirmed';
-            const isAktif = item.status_order === 'active';
+                    const isAktif = item.status_order === 'active';
             const isPerluVerifikasi = item.status_order === 'perlu_verifikasi';
             const isTerlambat = isAktif && item.jam_overtime_saat_ini > 0;
             const isSelesai = item.status_order === 'completed';
             const borderColor = isTerlambat ? 'border-t-error-500' : orderCardBorderColor[item.status_order];
+            const canDelete =
+              item.status_order === 'pending' ||
+              (item.status_order === 'confirmed' && !item.operator_id && !item.pembayarans?.length && !item.garasi_requests?.length);
 
             return (
               <div
@@ -3912,23 +3914,24 @@ export default function Orders() {
                         {isTerlambat ? 'Terlambat' : statusOrderLabels[item.status_order]}
                       </span>
                     </div>
-                    <div className="mt-1 flex items-center gap-1.5">
-                      <span className={`h-1.5 w-1.5 rounded-full ${isTerlambat ? 'bg-error-500' : orderStatusDotColor[item.status_order]} ${isAktif ? 'animate-pulse' : ''}`} />
-                      <span className={`text-[11px] font-medium ${isTerlambat ? 'text-error-600' : 'text-black-400'}`}>
-                        {isTerlambat ? 'Terlambat' : statusOrderLabels[item.status_order]}
-                      </span>
-                      {item.source === 'katalog' && (
-                        <span className="ml-1 rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-600">Katalog</span>
-                      )}
-                    </div>
+                    {(isAktif || item.source === 'katalog') && (
+                      <div className="mt-1 flex items-center gap-1.5">
+                        {isAktif && (
+                          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isTerlambat ? 'bg-error-500' : orderStatusDotColor[item.status_order]} animate-pulse`} />
+                        )}
+                        {item.source === 'katalog' && (
+                          <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-600">Katalog</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-0.5">
                     <button onClick={() => setDetailOrder(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-canvas hover:text-black-700" title="Lihat detail" aria-label="Lihat detail"><EyeIcon /></button>
                     {canManage && (
                       <>
                         <button onClick={() => openEditModal(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-primary-50 hover:text-primary-600" title="Edit order" aria-label="Edit order"><PencilIcon /></button>
-                        {isBelumMulai && (
-                          <button onClick={() => setConfirmDelete(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-error-50 hover:text-error-600" title="Hapus" aria-label="Hapus"><TrashIcon /></button>
+                        {canDelete && (
+                          <button onClick={() => setConfirmDelete(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-error-50 hover:text-error-600" title="Hapus permanen" aria-label="Hapus permanen"><TrashIcon /></button>
                         )}
                       </>
                     )}
@@ -4099,13 +4102,13 @@ export default function Orders() {
                   </div>
 
                   {/* Actions */}
-                  <div className="mt-auto flex flex-wrap gap-2 pt-1">
-                    <button onClick={() => setDetailOrder(item)} className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-black-700 transition-colors hover:bg-canvas">Lihat</button>
-                    {canManage && (
-                      <>
-                        <button onClick={() => openEditModal(item)} className="flex-1 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-600">Edit</button>
+                  {canManage && item.status_order !== 'cancelled' && (
+                    <div className="mt-auto flex flex-wrap gap-2 pt-1">
                         {isAktif && (
-                          <button onClick={() => openCompleteModal(item)} className="flex-1 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-500">Selesai</button>
+                          <>
+                            <button onClick={() => openCompleteModal(item)} className="flex-1 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-500">Selesai</button>
+                            <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-error-200 bg-white px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50">Batal</button>
+                          </>
                         )}
                         {isSelesai && (
                           <button
@@ -4128,24 +4131,20 @@ export default function Orders() {
                             >
                               Kembalikan ke Aktif
                             </button>
-                            <button onClick={() => setCancelOrder(item)} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
+                            <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-error-200 bg-white px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50">Batal</button>
                           </>
                         )}
                         {item.status_order === 'pending' && (
                           <>
                             <button onClick={() => openEditModal(item, { konfirmasi: true })} className="flex-1 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-600">Konfirmasi</button>
-                            <button onClick={() => setCancelOrder(item)} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
+                            <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-error-200 bg-white px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50">Batal</button>
                           </>
                         )}
                         {item.status_order === 'confirmed' && (
-                          <>
-                            <button onClick={() => openEditModal(item, { sewakan: true })} className="flex-1 rounded-lg bg-accent-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-600">Kirim</button>
-                            <button onClick={() => setCancelOrder(item)} className="flex-1 rounded-lg bg-error-50 px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-100">Batal</button>
-                          </>
+                          <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-error-200 bg-white px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50">Batal</button>
                         )}
-                      </>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
             );

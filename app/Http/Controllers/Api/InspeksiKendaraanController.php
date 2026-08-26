@@ -127,20 +127,6 @@ class InspeksiKendaraanController extends Controller
 
         $this->validasiMediaMaksimal($request);
 
-        if ($validated['jenis'] === 'pickup') {
-            $sudahAda = InspeksiKendaraan::where('order_id', $validated['order_id'])
-                ->where('jenis', 'pickup')
-                ->exists();
-
-            if ($sudahAda) {
-                throw ValidationException::withMessages([
-                    'order_id' => ['Inspeksi pickup untuk order ini sudah ada — lanjutkan lewat task "Kirim Kendaraan" atau edit draft-nya.'],
-                ]);
-            }
-
-            $validated['status'] = 'draft';
-        }
-
         $validated['admin_id'] = $request->user()->id;
 
         $validated['foto'] = $request->hasFile('foto')
@@ -154,7 +140,37 @@ class InspeksiKendaraanController extends Controller
             : null;
         $validated = array_merge($validated, $this->simpanMultimedia($request));
 
-        $inspeksi = InspeksiKendaraan::create($validated);
+        // Validasi status order + cek duplikat dilakukan DI DALAM transaksi
+        // terkunci supaya dua petugas yang submit bersamaan tidak bisa
+        // membuat draft duplikat, dan inspeksi tidak menempel pada order
+        // dengan status yang salah.
+        $inspeksi = DB::transaction(function () use ($validated) {
+            $order = Order::whereKey($validated['order_id'])->lockForUpdate()->first();
+
+            $statusWajib = $validated['jenis'] === 'pickup' ? 'confirmed' : 'active';
+            if ($order === null || $order->status_order !== $statusWajib) {
+                $statusSaatIni = $order?->status_order ?? 'tidak ditemukan';
+                throw ValidationException::withMessages([
+                    'order_id' => ["Inspeksi {$validated['jenis']} hanya bisa dibuat untuk order berstatus \"{$statusWajib}\" (status saat ini: {$statusSaatIni})."],
+                ]);
+            }
+
+            if ($validated['jenis'] === 'pickup') {
+                $sudahAda = InspeksiKendaraan::where('order_id', $validated['order_id'])
+                    ->where('jenis', 'pickup')
+                    ->exists();
+
+                if ($sudahAda) {
+                    throw ValidationException::withMessages([
+                        'order_id' => ['Inspeksi pickup untuk order ini sudah ada — lanjutkan lewat task "Kirim Kendaraan" atau edit draft-nya.'],
+                    ]);
+                }
+
+                $validated['status'] = 'draft';
+            }
+
+            return InspeksiKendaraan::create($validated);
+        });
 
         $inspeksi->load(['order', 'admin']);
 
@@ -463,6 +479,10 @@ class InspeksiKendaraanController extends Controller
         });
 
         $this->notifHasilInspeksi($order->fresh(), $inspeksi, 'pickup');
+        $this->notifKendaraanDikirimkan($order->fresh());
+
+        // Beri tahu supir yang ditugaskan bahwa tugasnya sudah mulai.
+        app(OrderService::class)->kirimNotifSupirOrderMulai($order->fresh());
 
         // Beri tahu supir yang ditugaskan bahwa tugasnya sudah mulai.
         app(OrderService::class)->kirimNotifSupirOrderMulai($order->fresh());
@@ -695,6 +715,39 @@ class InspeksiKendaraanController extends Controller
                 .'Tanda tangan pengembalian sudah tercatat. Terima kasih telah menggunakan layanan kami!';
             $wa->kirimPesanAsync($order->customer->no_hp, $pesan, 'hasil_inspeksi_return', $order->id);
         }
+    }
+
+    private function notifKendaraanDikirimkan(Order $order): void
+    {
+        if (Setting::get('notif_admin_kendaraan_dikirim', '1') !== '1') {
+            return;
+        }
+
+        $admins = User::whereIn('role', ['admin_utama', 'admin_operasional'])->get();
+
+        foreach ($admins as $admin) {
+            Notification::create([
+                'user_id' => $admin->id,
+                'type' => 'kendaraan_dikirimkan',
+                'title' => 'Kendaraan Dikirimkan',
+                'message' => "Order {$order->kode_order} ({$order->kendaraan->nama_kendaraan}) sudah dikirimkan ke {$order->customer->nama_lengkap}.",
+                'data' => [
+                    'order_id' => $order->id,
+                    'link' => '/orders/'.$order->id,
+                ],
+            ]);
+        }
+
+        $wa = app(WhatsAppService::class);
+        $wa->kirimKeOwnerAsync(
+            "🚗 *Kendaraan Dikirimkan*\n"
+            ."Order: *{$order->kode_order}*\n"
+            ."Kendaraan: {$order->kendaraan->nama_kendaraan}\n"
+            ."Customer: {$order->customer->nama_lengkap}\n\n"
+            .'Kendaraan sudah diserahkan ke customer.',
+            'kendaraan_dikirimkan',
+            $order->id
+        );
     }
 
     private function notifKendaraanDikembalikan(Order $order): void

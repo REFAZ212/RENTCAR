@@ -134,8 +134,17 @@ export interface Order {
   calo?: SupirCalo;
   admin?: { name: string };
   pembayarans?: Pembayaran[];
+  garasi_requests?: GarasiRequest[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface OrderCancelPreview {
+  biaya: number;
+  persentase: number;
+  keterangan: string;
+  total_dibayar: number;
+  refund_estimasi: number;
 }
 
 export interface GarasiPartner {
@@ -363,8 +372,7 @@ export const orderAPI = {
   // makanya pakai POST dengan field _method=PUT (method spoofing) saat ada file.
   updateWithFile: (id: number, data: FormData): Promise<AxiosResponse<Order>> => api.post(`/orders/${id}`, data),
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/orders/${id}`),
-  claim: (id: number): Promise<AxiosResponse<{ message: string; order: Order }>> => api.post(`/orders/${id}/claim`),
-  release: (id: number): Promise<AxiosResponse<{ message: string; order: Order }>> => api.post(`/orders/${id}/release`),
+  cancelPreview: (id: number): Promise<AxiosResponse<OrderCancelPreview>> => api.get(`/orders/${id}/cancel-preview`),
 };
 
 /* ─────────────────────────────────────────────────────────────

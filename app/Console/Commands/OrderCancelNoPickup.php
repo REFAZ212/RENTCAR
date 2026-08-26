@@ -24,9 +24,10 @@ class OrderCancelNoPickup extends Command
 
         // Order "confirmed" yang sudah lewat jam mulai lebih dari $hours jam
         // tanpa diambil/diserahkan — berarti kendaraan tidak pernah keluar.
-        $candidates = Order::where('status_order', 'confirmed')
-            ->with(['customer'])
-            ->get(['id', 'kode_order', 'customer_id', 'kendaraan_id', 'tanggal_mulai', 'jam_mulai', 'harga_total', 'metode_pembayaran'])
+        // Hanya ID yang diambil di sini — semua validasi (status + inspeksi)
+        // dilakukan ulang di dalam transaksi terkunci.
+        $candidateIds = Order::where('status_order', 'confirmed')
+            ->get(['id', 'tanggal_mulai', 'jam_mulai'])
             ->filter(function (Order $order) use ($cutoff) {
                 $mulai = Carbon::parse($order->tanggal_mulai);
 
@@ -36,81 +37,112 @@ class OrderCancelNoPickup extends Command
 
                 return $mulai->lessThan($cutoff);
             })
-            ->filter(function (Order $order) {
-                // Pengaman: kalau sudah ada inspeksi pickup (draft/final) berarti
-                // serah terima sedang berjalan — jangan dibatalkan otomatis.
-                if (! Schema::hasTable('inspeksi_kendaraans')) {
-                    return true;
-                }
+            ->pluck('id');
 
-                return ! $order->inspeksis()->where('jenis', 'pickup')->exists();
-            });
-
-        if ($candidates->isEmpty()) {
+        if ($candidateIds->isEmpty()) {
             $this->info('Tidak ada order confirmed yang tidak diambil.');
 
             return self::SUCCESS;
         }
 
-        $bayarPerOrder = [];
-        $count = DB::transaction(function () use ($candidates, $hours, &$bayarPerOrder) {
-            foreach ($candidates as $order) {
-                // Kebijakan: sudah dikonfirmasi tapi kendaraan tidak diambil —
-                // biaya pembatalan mengikuti aturan manual (jadwal sudah lewat →
-                // 100% harga total), jadi pembayaran hangus tanpa refund.
-                $totalBayar = (float) $order->pembayarans()
-                    ->whereNull('deleted_at')
-                    ->where('status', '!=', 'refund')
-                    ->sum('jumlah');
+        $processed = collect();
 
-                $update = [
-                    'status_order' => 'cancelled',
-                    'status_pengiriman' => 'selesai',
-                    'biaya_pembatalan' => $order->hitungBiayaPembatalan()['biaya'],
-                    'alasan_pembatalan' => 'Otomatis: kendaraan tidak diambil/diserahkan hingga '.$hours.' jam setelah jadwal mulai — biaya pembatalan 100%, pembayaran hangus.',
-                ];
+        foreach ($candidateIds as $orderId) {
+            $order = $this->batalkanOrder($orderId, $hours);
 
-                // Kolom klaim task mungkin tidak ada di skema legacy — aman-skip.
-                if (Schema::hasColumn('orders', 'operator_id')) {
-                    $update['operator_id'] = null;
-                }
-                if (Schema::hasColumn('orders', 'waktu_klaim')) {
-                    $update['waktu_klaim'] = null;
-                }
-
-                $order->update($update);
-
-                $bayarPerOrder[$order->id] = $totalBayar;
+            if ($order === null) {
+                continue;
             }
 
-            return $candidates->count();
-        });
+            $processed->push($order);
+
+            // WA dikirim SETELAH commit — hanya untuk order yang benar-benar
+            // dibatalkan oleh eksekusi ini (aman dari double-send).
+            $this->kirimNotifikasiPembatalan($order);
+        }
+
+        if ($processed->isEmpty()) {
+            $this->info('Tidak ada order confirmed yang tidak diambil.');
+
+            return self::SUCCESS;
+        }
 
         Notification::create([
             'type' => 'order_no_pickup_cancelled',
             'title' => 'Pesanan Dibatalkan (Kendaraan Tidak Diambil)',
-            'message' => "{$count} pesanan confirmed dibatalkan otomatis karena kendaraan tidak diambil/diserahkan hingga lewat jadwal mulai",
+            'message' => "{$processed->count()} pesanan confirmed dibatalkan otomatis karena kendaraan tidak diambil/diserahkan hingga lewat jadwal mulai",
             'data' => [
-                'count' => $count,
+                'count' => $processed->count(),
                 'link' => '/orders',
             ],
         ]);
 
-        foreach ($candidates as $order) {
-            $this->kirimNotifikasiPembatalan($order->fresh(), (float) ($bayarPerOrder[$order->id] ?? 0));
-        }
-
-        $this->info("{$count} order confirmed dibatalkan otomatis (tidak diambil).");
+        $this->info($processed->count().' order confirmed dibatalkan otomatis (tidak diambil).');
 
         return self::SUCCESS;
     }
 
-    private function kirimNotifikasiPembatalan(Order $order, float $totalBayar): void
+    /**
+     * Kunci baris order lalu batalkan bila masih confirmed DAN belum ada
+     * inspeksi pickup. Guard inspeksi dievaluasi DI DALAM lock supaya serah
+     * terima yang baru saja selesai (confirmed → active) tidak mungkin
+     * dibatalkan oleh command ini. Mengembalikan null bila kondisi tak terpenuhi.
+     */
+    private function batalkanOrder(int $orderId, int $hours): ?Order
+    {
+        return DB::transaction(function () use ($orderId, $hours): ?Order {
+            $order = Order::whereKey($orderId)->lockForUpdate()->first();
+
+            if ($order === null || $order->status_order !== 'confirmed') {
+                return null;
+            }
+
+            // Pengaman: kalau sudah ada inspeksi pickup (draft/final) berarti
+            // serah terima sedang berjalan — jangan dibatalkan otomatis.
+            if (Schema::hasTable('inspeksi_kendaraans')
+                && $order->inspeksis()->where('jenis', 'pickup')->exists()) {
+                return null;
+            }
+
+            // Kebijakan: sudah dikonfirmasi tapi kendaraan tidak diambil —
+            // biaya pembatalan mengikuti aturan manual (jadwal sudah lewat →
+            // 100% harga total), jadi pembayaran hangus tanpa refund.
+            $totalBayar = (float) $order->pembayarans()
+                ->whereNull('deleted_at')
+                ->where('status', '!=', 'refund')
+                ->sum('jumlah');
+
+            $update = [
+                'status_order' => 'cancelled',
+                'status_pengiriman' => 'selesai',
+                'biaya_pembatalan' => $order->hitungBiayaPembatalan()['biaya'],
+                'alasan_pembatalan' => 'Otomatis: kendaraan tidak diambil/diserahkan hingga '.$hours.' jam setelah jadwal mulai — biaya pembatalan 100%, pembayaran hangus.',
+            ];
+
+            // Kolom klaim task mungkin tidak ada di skema legacy — aman-skip.
+            if (Schema::hasColumn('orders', 'operator_id')) {
+                $update['operator_id'] = null;
+            }
+            if (Schema::hasColumn('orders', 'waktu_klaim')) {
+                $update['waktu_klaim'] = null;
+            }
+
+            $order->update($update);
+
+            return $order->fresh(['customer']);
+        });
+    }
+
+    private function kirimNotifikasiPembatalan(Order $order): void
     {
         if (Setting::get('notif_booking_baru', '1') !== '1' || ! $order->customer?->no_hp) {
             return;
         }
 
+        $totalBayar = (float) ($order->pembayarans()
+            ->whereNull('deleted_at')
+            ->where('status', '!=', 'refund')
+            ->sum('jumlah'));
         $wa = app(WhatsAppService::class);
         $pesan = "Halo {$order->customer->nama_lengkap},\n\n"
             ."Pesanan *{$order->kode_order}* telah *DIBATALKAN* otomatis karena kendaraan tidak diambil/diserahkan hingga lewat jadwal mulai.\n";

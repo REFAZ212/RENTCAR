@@ -94,4 +94,17 @@ class SupirAuthController extends Controller
             'wajib_ganti_password' => (bool) $supir->must_change_password,
         ]);
     }
+
+    public function updateFcmToken(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'fcm_token' => 'required|string',
+        ]);
+
+        $request->user()->update([
+            'fcm_token' => $validated['fcm_token'],
+        ]);
+
+        return response()->json(['message' => 'FCM token diperbarui.']);
+    }
 }

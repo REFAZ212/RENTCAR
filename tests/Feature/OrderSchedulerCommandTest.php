@@ -347,6 +347,37 @@ class OrderSchedulerCommandTest extends TestCase
         $this->assertSame('pending', $order->fresh()->status_order);
     }
 
+    public function test_expire_pending_refund_idempoten_saat_command_dijalankan_ulang(): void
+    {
+        Queue::fake();
+
+        $order = $this->makeOrder([
+            'tanggal_mulai' => now()->subDays(2)->toDateString(),
+            'jam_mulai' => '08:00',
+            'status_pembayaran' => 'partial',
+            'metode_pembayaran' => 'transfer',
+        ]);
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 200000,
+            'metode_pembayaran' => 'transfer',
+            'status' => 'dp',
+        ]);
+
+        // Dua eksekusi berurutan (simulasi tick scheduler yang tumpang-tindih):
+        // refund & WA tidak boleh tercatat dobel.
+        $this->artisan(OrderExpirePending::class)->assertSuccessful();
+        $this->artisan(OrderExpirePending::class)->assertSuccessful();
+
+        $fresh = $order->fresh();
+        $this->assertSame('cancelled', $fresh->status_order);
+        $this->assertCount(1, $fresh->pembayarans()->where('status', 'refund')->get());
+        $this->assertEquals(200000, (float) $fresh->total_refund);
+        $this->assertSame(1, WhatsappLog::where('order_id', $order->id)->where('type', 'order_dibatalkan')->count());
+        $this->assertSame(1, Notification::where('type', 'order_expired')->count());
+    }
+
     public function test_confirmed_order_not_picked_up_is_cancelled_with_dp_forfeited(): void
     {
         Queue::fake();
@@ -423,6 +454,36 @@ class OrderSchedulerCommandTest extends TestCase
         $this->artisan(OrderCancelNoPickup::class)->assertSuccessful();
 
         $this->assertSame('confirmed', $order->fresh()->status_order);
+    }
+
+    public function test_no_pickup_cancel_idempoten_dan_wa_hanya_sekali(): void
+    {
+        Queue::fake();
+
+        $order = $this->makeOrder([
+            'tanggal_mulai' => now()->subDays(2)->toDateString(),
+            'jam_mulai' => '08:00',
+            'status_order' => 'confirmed',
+            'status_pembayaran' => 'partial',
+            'metode_pembayaran' => 'cash',
+        ]);
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 200000,
+            'metode_pembayaran' => 'cash',
+            'status' => 'dp',
+        ]);
+
+        // Dua eksekusi berurutan: cancel + WA "hangus" tidak boleh dobel.
+        $this->artisan(OrderCancelNoPickup::class)->assertSuccessful();
+        $this->artisan(OrderCancelNoPickup::class)->assertSuccessful();
+
+        $fresh = $order->fresh();
+        $this->assertSame('cancelled', $fresh->status_order);
+        $this->assertEquals(1000000, (float) $fresh->biaya_pembatalan);
+        $this->assertSame(1, Notification::where('type', 'order_no_pickup_cancelled')->count());
+        $this->assertSame(1, WhatsappLog::where('order_id', $order->id)->where('type', 'order_dibatalkan')->count());
     }
 
     public function test_no_pickup_cancel_skips_active_and_pending_orders(): void
@@ -572,6 +633,14 @@ class OrderSchedulerCommandTest extends TestCase
         $order = $this->makeOrder([
             'status_order' => 'perlu_verifikasi',
             'waktu_perlu_verifikasi' => now()->subHours(30),
+            'status_pembayaran' => 'paid',
+        ]);
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 1000000,
+            'metode_pembayaran' => 'cash',
+            'status' => 'pelunasan',
         ]);
 
         $this->artisan(OrderVerifyOverdue::class)->assertSuccessful();
@@ -612,6 +681,7 @@ class OrderSchedulerCommandTest extends TestCase
             $t->string('status')->default('final');
             $t->string('ttd_customer')->nullable();
             $t->string('ttd_petugas')->nullable();
+            $t->decimal('biaya_kerusakan', 12, 2)->default(0);
             $t->timestamps();
         });
     }
@@ -666,6 +736,79 @@ class OrderSchedulerCommandTest extends TestCase
         $this->assertSame(0, Notification::where('type', 'auto_completed')->count());
     }
 
+    public function test_auto_complete_diblokir_saat_kurang_bayar_dan_tidak_spam_notif(): void
+    {
+        Queue::fake();
+        Setting::set('auto_complete_after_hours', 24);
+        $this->createInspeksiTable();
+
+        // Denda frozen 125000 → total tagihan 1125000, pembayaran nihil.
+        $order = $this->makeOrder([
+            'status_order' => 'perlu_verifikasi',
+            'waktu_perlu_verifikasi' => now()->subHours(30),
+            'jam_overtime' => 5,
+            'denda_overtime' => 125000,
+        ]);
+        $this->createReturnInspeksi($order);
+
+        // Dua tick scheduler berurutan: alert tidak boleh menumpuk.
+        $this->artisan(OrderVerifyOverdue::class)->assertSuccessful();
+        $this->artisan(OrderVerifyOverdue::class)->assertSuccessful();
+
+        $fresh = $order->fresh();
+        $this->assertSame('perlu_verifikasi', $fresh->status_order);
+        $this->assertNotNull($fresh->waktu_perlu_verifikasi);
+        $this->assertSame(1, Notification::where('type', 'auto_complete_kurang_bayar')->count());
+        $this->assertSame(0, Notification::where('type', 'auto_completed')->count());
+
+        // Lunasi → tick berikutnya auto-complete berjalan.
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 1125000,
+            'metode_pembayaran' => 'cash',
+            'status' => 'pelunasan',
+        ]);
+
+        $this->artisan(OrderVerifyOverdue::class)->assertSuccessful();
+
+        $this->assertSame('completed', $order->fresh()->status_order);
+    }
+
+    public function test_auto_complete_diblokir_saat_biaya_kerusakan_belum_lunas(): void
+    {
+        Queue::fake();
+        Setting::set('auto_complete_after_hours', 24);
+        $this->createInspeksiTable();
+
+        $order = $this->makeOrder([
+            'status_order' => 'perlu_verifikasi',
+            'waktu_perlu_verifikasi' => now()->subHours(30),
+            'status_pembayaran' => 'paid',
+        ]);
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 1000000,
+            'metode_pembayaran' => 'cash',
+            'status' => 'pelunasan',
+        ]);
+        InspeksiKendaraan::create([
+            'order_id' => $order->id,
+            'jenis' => 'return',
+            'status' => 'final',
+            'ttd_customer' => 'inspeksi/ttd/customer.png',
+            'ttd_petugas' => 'inspeksi/ttd/petugas.png',
+            'biaya_kerusakan' => 300000,
+        ]);
+
+        $this->artisan(OrderVerifyOverdue::class)->assertSuccessful();
+
+        $this->assertSame('perlu_verifikasi', $order->fresh()->status_order);
+        $this->assertSame(1, Notification::where('type', 'auto_complete_kurang_bayar')->count());
+        $this->assertSame(0, Notification::where('type', 'auto_completed')->count());
+    }
+
     public function test_auto_complete_menghormati_denda_yang_difreeze(): void
     {
         Queue::fake();
@@ -677,6 +820,14 @@ class OrderSchedulerCommandTest extends TestCase
             'waktu_perlu_verifikasi' => now()->subHours(30),
             'jam_overtime' => 20,
             'denda_overtime' => 500000,
+            'status_pembayaran' => 'paid',
+        ]);
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 1500000,
+            'metode_pembayaran' => 'cash',
+            'status' => 'pelunasan',
         ]);
         $this->createReturnInspeksi($order);
 
