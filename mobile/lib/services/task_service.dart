@@ -10,8 +10,8 @@ class TaskService {
 
   /// Daftar tugas yang tersedia diambil.
   static Future<List<DriverTask>> available() async {
-    final data = await ApiClient.get('/mobile/tasks/available')
-        as Map<String, dynamic>;
+    final data =
+        await ApiClient.get('/mobile/tasks/available') as Map<String, dynamic>;
     final raw = data['tasks'] as List<dynamic>? ?? [];
     return raw
         .map((e) => DriverTask.fromJson(e as Map<String, dynamic>))
@@ -20,30 +20,30 @@ class TaskService {
 
   /// Tugas aktif milik supir (null bila tidak ada).
   static Future<DriverTask?> myActive() async {
-    final data = await ApiClient.get('/mobile/tasks/my-active')
-        as Map<String, dynamic>;
+    final data =
+        await ApiClient.get('/mobile/tasks/my-active') as Map<String, dynamic>;
     final task = data['task'];
     if (task == null) return null;
     return DriverTask.fromJson(task as Map<String, dynamic>);
   }
 
   static Future<DriverTask> show(int taskId) async {
-    final data = await ApiClient.get('/mobile/tasks/$taskId')
-        as Map<String, dynamic>;
+    final data =
+        await ApiClient.get('/mobile/tasks/$taskId') as Map<String, dynamic>;
     return DriverTask.fromJson(data['task'] as Map<String, dynamic>);
   }
 
   static Future<DriverTask> accept(int taskId) async {
     final data = await ApiClient.post('/mobile/tasks/$taskId/accept');
-    return DriverTask.fromJson((data as Map<String, dynamic>)['task']
-        as Map<String, dynamic>);
+    return DriverTask.fromJson(
+        (data as Map<String, dynamic>)['task'] as Map<String, dynamic>);
   }
 
   /// Mulai inspeksi awal (status → inspection_before).
   static Future<DriverTask> startInspectionBefore(int taskId) async {
     final data = await ApiClient.post('/mobile/tasks/$taskId/start');
-    return DriverTask.fromJson((data as Map<String, dynamic>)['task']
-        as Map<String, dynamic>);
+    return DriverTask.fromJson(
+        (data as Map<String, dynamic>)['task'] as Map<String, dynamic>);
   }
 
   /// Mulai pengantaran (status → on_delivery) + simpan GPS.
@@ -53,14 +53,14 @@ class TaskService {
     double? longitude,
     double? accuracy,
   }) async {
-    final data = await ApiClient.post('/mobile/tasks/$taskId/start-delivery',
-        body: {
-          'latitude': latitude,
-          'longitude': longitude,
-          'accuracy': accuracy,
-        });
-    return DriverTask.fromJson((data as Map<String, dynamic>)['task']
-        as Map<String, dynamic>);
+    final data =
+        await ApiClient.post('/mobile/tasks/$taskId/start-delivery', body: {
+      'latitude': latitude,
+      'longitude': longitude,
+      'accuracy': accuracy,
+    });
+    return DriverTask.fromJson(
+        (data as Map<String, dynamic>)['task'] as Map<String, dynamic>);
   }
 
   /// Kendaraan tiba di tujuan (status → arrived).
@@ -70,21 +70,20 @@ class TaskService {
     double? longitude,
     double? accuracy,
   }) async {
-    final data = await ApiClient.post('/mobile/tasks/$taskId/arrive',
-        body: {
-          'latitude': latitude,
-          'longitude': longitude,
-          'accuracy': accuracy,
-        });
-    return DriverTask.fromJson((data as Map<String, dynamic>)['task']
-        as Map<String, dynamic>);
+    final data = await ApiClient.post('/mobile/tasks/$taskId/arrive', body: {
+      'latitude': latitude,
+      'longitude': longitude,
+      'accuracy': accuracy,
+    });
+    return DriverTask.fromJson(
+        (data as Map<String, dynamic>)['task'] as Map<String, dynamic>);
   }
 
   /// Selesaikan tugas (status → completed, supir kembali available).
   static Future<DriverTask> complete(int taskId) async {
     final data = await ApiClient.post('/mobile/tasks/$taskId/complete');
-    return DriverTask.fromJson((data as Map<String, dynamic>)['task']
-        as Map<String, dynamic>);
+    return DriverTask.fromJson(
+        (data as Map<String, dynamic>)['task'] as Map<String, dynamic>);
   }
 
   /// Simpan hasil inspeksi (before/after) dengan foto & video.
@@ -143,9 +142,9 @@ class TaskService {
       files['videos[$i]'] = videoPaths[i];
     }
 
-    final data = await ApiClient.uploadMultipart(path,
-        fields: fields, files: files);
-    return DriverTask.fromJson((data as Map<String, dynamic>)['task']
-        as Map<String, dynamic>);
+    final data =
+        await ApiClient.uploadMultipart(path, fields: fields, files: files);
+    return DriverTask.fromJson(
+        (data as Map<String, dynamic>)['task'] as Map<String, dynamic>);
   }
 }

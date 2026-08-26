@@ -364,9 +364,7 @@ class InspectionModel {
               .toList()
           : [],
       damages: json['damages'] != null
-          ? (json['damages'] as List)
-              .map((e) => Damage.fromJson(e))
-              .toList()
+          ? (json['damages'] as List).map((e) => Damage.fromJson(e)).toList()
           : [],
       fuelInfo: json['fuel_info'] != null
           ? FuelData.fromJson(json['fuel_info'])

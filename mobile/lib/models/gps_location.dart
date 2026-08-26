@@ -37,8 +37,19 @@ class GpsLocation {
 
   String get humanDate {
     const months = [
-      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      '',
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember'
     ];
     return '${capturedAt.day} ${months[capturedAt.month]} ${capturedAt.year}';
   }
@@ -64,8 +75,8 @@ class GpsLocation {
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0,
       accuracy: (json['accuracy'] as num?)?.toDouble() ?? 0,
-      capturedAt: DateTime.tryParse(json['captured_at'] ?? '') ??
-          DateTime.now(),
+      capturedAt:
+          DateTime.tryParse(json['captured_at'] ?? '') ?? DateTime.now(),
       timezone: json['timezone'] ?? 'Asia/Jakarta',
       address: json['address'],
     );

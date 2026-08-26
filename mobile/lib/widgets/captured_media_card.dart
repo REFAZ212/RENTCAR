@@ -46,7 +46,9 @@ class CapturedMediaCard extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      isPhoto ? Icons.photo_camera_outlined : Icons.videocam_outlined,
+                      isPhoto
+                          ? Icons.photo_camera_outlined
+                          : Icons.videocam_outlined,
                       size: 15,
                       color: AppColors.success,
                     ),
@@ -74,7 +76,8 @@ class CapturedMediaCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 const Row(
                   children: [
-                    Icon(Icons.check_circle, size: 13, color: AppColors.success),
+                    Icon(Icons.check_circle,
+                        size: 13, color: AppColors.success),
                     SizedBox(width: 4),
                     Text(
                       '✓ Tersimpan',
@@ -104,7 +107,8 @@ class CapturedMediaCard extends StatelessWidget {
                 const SizedBox(height: 3),
                 Row(
                   children: [
-                    const Icon(Icons.gps_fixed, size: 12, color: AppColors.textSecondary),
+                    const Icon(Icons.gps_fixed,
+                        size: 12, color: AppColors.textSecondary),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(

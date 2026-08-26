@@ -18,7 +18,8 @@ class TaskListScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.task_outlined, size: 48, color: AppColors.textHint),
+                  Icon(Icons.task_outlined,
+                      size: 48, color: AppColors.textHint),
                   SizedBox(height: 12),
                   Text('Belum ada tugas',
                       style: TextStyle(color: AppColors.textSecondary)),
@@ -59,7 +60,8 @@ class _TaskCard extends StatelessWidget {
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: task.isUrgent ? AppColors.error.withAlpha(80) : AppColors.border,
+          color:
+              task.isUrgent ? AppColors.error.withAlpha(80) : AppColors.border,
         ),
       ),
       child: Column(
@@ -126,20 +128,26 @@ class _TaskCard extends StatelessWidget {
             ),
             child: Column(
               children: [
-                _InfoRow(icon: Icons.directions_car_outlined, text: '${task.vehicleName} • ${task.plateNumber}'),
+                _InfoRow(
+                    icon: Icons.directions_car_outlined,
+                    text: '${task.vehicleName} • ${task.plateNumber}'),
                 if (task.customerName != null) ...[
                   const SizedBox(height: 6),
-                  _InfoRow(icon: Icons.person_outline_rounded, text: task.customerName!),
+                  _InfoRow(
+                      icon: Icons.person_outline_rounded,
+                      text: task.customerName!),
                 ],
                 if (task.location != null) ...[
                   const SizedBox(height: 6),
-                  _InfoRow(icon: Icons.location_on_outlined, text: task.location!),
+                  _InfoRow(
+                      icon: Icons.location_on_outlined, text: task.location!),
                 ],
                 if (task.dueTime != null) ...[
                   const SizedBox(height: 6),
                   _InfoRow(
                     icon: Icons.access_time_rounded,
-                    text: '${task.dueTime!.hour.toString().padLeft(2, '0')}:${task.dueTime!.minute.toString().padLeft(2, '0')}',
+                    text:
+                        '${task.dueTime!.hour.toString().padLeft(2, '0')}:${task.dueTime!.minute.toString().padLeft(2, '0')}',
                   ),
                 ],
               ],
@@ -165,7 +173,8 @@ class _InfoRow extends StatelessWidget {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            style:
+                const TextStyle(fontSize: 12, color: AppColors.textSecondary),
             overflow: TextOverflow.ellipsis,
           ),
         ),

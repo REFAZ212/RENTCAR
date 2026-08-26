@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../models/gps_location.dart';
+import '../../../services/media_store_service.dart';
 import '../../../widgets/location_map_view.dart';
 
 class InspectionMediaViewerScreen extends StatefulWidget {
@@ -67,21 +68,69 @@ class _InspectionMediaViewerScreenState
     }
 
     try {
-      await Share.shareXFiles(
-        [
-          XFile(
-            path,
-            mimeType: widget.isPhoto ? 'image/jpeg' : 'video/mp4',
-            name: p.basename(path),
-          ),
-        ],
-        subject:
-            '${widget.isPhoto ? 'Foto' : 'Video'} Inspeksi ${widget.inspectionCode}',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [
+            XFile(
+              path,
+              mimeType: widget.isPhoto ? 'image/jpeg' : 'video/mp4',
+              name: p.basename(path),
+            ),
+          ],
+          subject: '${widget.isPhoto ? 'Foto' : 'Video'} Inspeksi ${widget.inspectionCode}',
+        ),
       );
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Gagal membagikan file.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveToGallery() async {
+    final path = widget.isPhoto
+        ? (widget.watermarkedPath ?? widget.filePath)
+        : widget.filePath;
+
+    if (!File(path).existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File tidak ditemukan di perangkat.')),
+      );
+      return;
+    }
+
+    try {
+      final success = widget.isPhoto
+          ? await MediaStoreService.saveImageToGallery(
+              filePath: path,
+              relativePath: 'Pictures/UDIN RENTCAR',
+            )
+          : await MediaStoreService.saveVideoToGallery(
+              filePath: path,
+              relativePath: 'Movies/UDIN RENTCAR',
+            );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success
+                ? (widget.isPhoto
+                    ? 'Foto tersimpan ke Gallery (Album: UDIN RENTCAR)'
+                    : 'Video tersimpan ke Gallery (Album: UDIN RENTCAR)')
+                : 'Gagal menyimpan ke Gallery'),
+            backgroundColor: success ? AppColors.success : AppColors.error,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal menyimpan ke Gallery. Periksa izin penyimpanan.'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }
@@ -102,8 +151,13 @@ class _InspectionMediaViewerScreenState
         backgroundColor: AppColors.background,
         actions: [
           IconButton(
-            icon: const Icon(Icons.download_outlined),
-            tooltip: 'Unduh / Simpan',
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            tooltip: 'Simpan ke Gallery',
+            onPressed: _saveToGallery,
+          ),
+          IconButton(
+            icon: const Icon(Icons.share_outlined),
+            tooltip: 'Bagikan',
             onPressed: _downloadMedia,
           ),
         ],

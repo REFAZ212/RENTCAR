@@ -102,7 +102,8 @@ class StepReview extends StatelessWidget {
                     onTap: () => onGoToStep(issue.stepIndex),
                     child: Row(
                       children: [
-                        const Icon(Icons.chevron_right, size: 14, color: AppColors.warning),
+                        const Icon(Icons.chevron_right,
+                            size: 14, color: AppColors.warning),
                         const SizedBox(width: 4),
                         Expanded(
                           child: Text(
@@ -245,7 +246,8 @@ class StepReview extends StatelessWidget {
             ),
             if (onTap != null) ...[
               const SizedBox(width: 8),
-              const Icon(Icons.chevron_right, size: 16, color: AppColors.textHint),
+              const Icon(Icons.chevron_right,
+                  size: 16, color: AppColors.textHint),
             ],
           ],
         ),
@@ -267,7 +269,8 @@ class StepReview extends StatelessWidget {
               ),
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
-            child: const Text('Kembali Periksa', style: TextStyle(fontSize: 14)),
+            child:
+                const Text('Kembali Periksa', style: TextStyle(fontSize: 14)),
           ),
         ),
         const SizedBox(width: 12),
@@ -282,7 +285,8 @@ class StepReview extends StatelessWidget {
               ),
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
-            child: const Text('Selesaikan Inspeksi', style: TextStyle(fontSize: 14)),
+            child: const Text('Selesaikan Inspeksi',
+                style: TextStyle(fontSize: 14)),
           ),
         ),
       ],

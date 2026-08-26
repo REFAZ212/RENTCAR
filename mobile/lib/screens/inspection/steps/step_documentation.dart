@@ -155,7 +155,8 @@ class StepDocumentation extends StatelessWidget {
               SizedBox(width: 4),
               Text(
                 '*',
-                style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                    color: AppColors.error, fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -169,7 +170,8 @@ class StepDocumentation extends StatelessWidget {
             MediaCaptureButton(
               isPhoto: true,
               title: 'Ambil Foto Kendaraan',
-              subtitle: 'Foto akan otomatis menyertakan GPS, waktu, dan akurasi lokasi.',
+              subtitle:
+                  'Foto akan otomatis menyertakan GPS, waktu, dan akurasi lokasi.',
               onPressed: onCaptureMainPhoto,
             )
           else
@@ -212,7 +214,8 @@ class StepDocumentation extends StatelessWidget {
               SizedBox(width: 4),
               Text(
                 '*',
-                style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w700),
+                style: TextStyle(
+                    color: AppColors.error, fontWeight: FontWeight.w700),
               ),
             ],
           ),
@@ -226,7 +229,8 @@ class StepDocumentation extends StatelessWidget {
             MediaCaptureButton(
               isPhoto: false,
               title: 'Rekam Video Kendaraan',
-              subtitle: 'Kelilingi kendaraan sambil merekam keseluruhan kondisi.',
+              subtitle:
+                  'Kelilingi kendaraan sambil merekam keseluruhan kondisi.',
               onPressed: onRecordVideo,
             )
           else

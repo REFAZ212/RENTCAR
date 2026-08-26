@@ -75,8 +75,10 @@ class _ChecklistItem extends StatelessWidget {
   }
 
   Widget _buildStatusChip() {
-    final isOk = item.status == ItemStatus.ok || item.status == ItemStatus.normal;
-    final isDamaged = item.status == ItemStatus.notOk || item.status == ItemStatus.damaged;
+    final isOk =
+        item.status == ItemStatus.ok || item.status == ItemStatus.normal;
+    final isDamaged =
+        item.status == ItemStatus.notOk || item.status == ItemStatus.damaged;
     final isMissing = item.status == ItemStatus.missing;
 
     Color chipColor;

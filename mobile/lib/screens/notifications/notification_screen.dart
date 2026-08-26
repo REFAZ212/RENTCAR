@@ -26,7 +26,8 @@ class NotificationScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.notifications_none_rounded, size: 48, color: AppColors.textHint),
+                  Icon(Icons.notifications_none_rounded,
+                      size: 48, color: AppColors.textHint),
                   SizedBox(height: 12),
                   Text('Tidak ada notifikasi',
                       style: TextStyle(color: AppColors.textSecondary)),
@@ -37,7 +38,8 @@ class NotificationScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: notifications.length,
               separatorBuilder: (_, __) => const Divider(height: 1, indent: 60),
-              itemBuilder: (_, i) => _NotificationTile(notification: notifications[i]),
+              itemBuilder: (_, i) =>
+                  _NotificationTile(notification: notifications[i]),
             ),
     );
   }
@@ -77,7 +79,8 @@ class _NotificationTile extends StatelessWidget {
           padding: const EdgeInsets.only(top: 4),
           child: Text(
             notification.message,
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            style:
+                const TextStyle(fontSize: 12, color: AppColors.textSecondary),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),

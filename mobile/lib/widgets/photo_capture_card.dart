@@ -87,14 +87,16 @@ class PhotoCaptureCard extends StatelessWidget {
           if (hasPhoto)
             IconButton(
               onPressed: onDelete,
-              icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+              icon: const Icon(Icons.delete_outline,
+                  size: 18, color: AppColors.error),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             )
           else
             IconButton(
               onPressed: onCapture,
-              icon: const Icon(Icons.camera_alt_outlined, size: 18, color: AppColors.primary),
+              icon: const Icon(Icons.camera_alt_outlined,
+                  size: 18, color: AppColors.primary),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
@@ -139,7 +141,8 @@ class PhotoCaptureCard extends StatelessWidget {
                         color: AppColors.success,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.check, size: 10, color: Colors.white),
+                      child: const Icon(Icons.check,
+                          size: 10, color: Colors.white),
                     ),
                   ),
                 ],
@@ -158,7 +161,8 @@ class PhotoCaptureCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w500,
-                      color: isRequired ? AppColors.warning : AppColors.textHint,
+                      color:
+                          isRequired ? AppColors.warning : AppColors.textHint,
                     ),
                     textAlign: TextAlign.center,
                   ),
