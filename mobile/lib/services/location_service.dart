@@ -33,7 +33,8 @@ class LocationService {
         permission == LocationPermission.always;
   }
 
-  static Future<GpsLocation?> getCurrentLocation({bool waitForAccuracy = true}) async {
+  static Future<GpsLocation?> getCurrentLocation(
+      {bool waitForAccuracy = true}) async {
     if (!await ensurePermission()) return null;
 
     try {
@@ -98,9 +99,11 @@ class LocationService {
       if (placemarks.isNotEmpty) {
         final p = placemarks.first;
         final parts = <String>[
-          if (p.subLocality != null && p.subLocality!.isNotEmpty) p.subLocality!,
+          if (p.subLocality != null && p.subLocality!.isNotEmpty)
+            p.subLocality!,
           if (p.locality != null && p.locality!.isNotEmpty) p.locality!,
-          if (p.subAdministrativeArea != null && p.subAdministrativeArea!.isNotEmpty)
+          if (p.subAdministrativeArea != null &&
+              p.subAdministrativeArea!.isNotEmpty)
             p.subAdministrativeArea!,
           if (p.administrativeArea != null && p.administrativeArea!.isNotEmpty)
             p.administrativeArea!,

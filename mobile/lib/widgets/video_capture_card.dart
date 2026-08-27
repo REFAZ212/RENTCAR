@@ -72,7 +72,8 @@ class VideoCaptureCard extends StatelessWidget {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: onRecord,
-              icon: const Icon(Icons.fiber_manual_record, size: 16, color: AppColors.error),
+              icon: const Icon(Icons.fiber_manual_record,
+                  size: 16, color: AppColors.error),
               label: const Text('Rekam Video'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,

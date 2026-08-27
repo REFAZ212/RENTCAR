@@ -31,7 +31,8 @@ class StepFuel extends StatelessWidget {
             ),
             child: const Row(
               children: [
-                Icon(Icons.local_gas_station_outlined, color: AppColors.primary, size: 18),
+                Icon(Icons.local_gas_station_outlined,
+                    color: AppColors.primary, size: 18),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(

@@ -51,9 +51,8 @@ class _TaskInspectionScreenState extends State<TaskInspectionScreen> {
   @override
   void initState() {
     super.initState();
-    final existing = _isBefore
-        ? widget.task.inspectionBefore
-        : widget.task.inspectionAfter;
+    final existing =
+        _isBefore ? widget.task.inspectionBefore : widget.task.inspectionAfter;
     if (existing.id != 0) {
       _fuelLevel = _mapBackendFuel(existing.fuelLevel) ?? _fuelLevel;
       _kondisiBody = existing.kondisiBody ?? _kondisiBody;
@@ -123,9 +122,8 @@ class _TaskInspectionScreenState extends State<TaskInspectionScreen> {
   }
 
   Future<void> _capturePhoto() async {
-    final existing = _isBefore
-        ? widget.task.inspectionBefore
-        : widget.task.inspectionAfter;
+    final existing =
+        _isBefore ? widget.task.inspectionBefore : widget.task.inspectionAfter;
     final result = await Navigator.of(context).push<PhotoCaptureResult>(
       MaterialPageRoute(
         builder: (_) => PhotoCaptureScreen(
@@ -275,19 +273,22 @@ class _TaskInspectionScreenState extends State<TaskInspectionScreen> {
           const SizedBox(height: 4),
           Text(
             '${widget.task.kendaraan.displayName} • ${widget.task.customer.namaLengkap ?? '-'}',
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            style:
+                const TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 4),
           Row(
             children: [
-              const Icon(Icons.gps_fixed_rounded, size: 13, color: AppColors.primary),
+              const Icon(Icons.gps_fixed_rounded,
+                  size: 13, color: AppColors.primary),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
                   _gps != null
                       ? '${_gps!.coordinatesLabel} ±${_gps!.accuracyLabel}'
                       : 'Mencari lokasi GPS…',
-                  style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textSecondary),
                 ),
               ),
             ],
@@ -323,8 +324,7 @@ class _TaskInspectionScreenState extends State<TaskInspectionScreen> {
           border: OutlineInputBorder(),
           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
-        onChanged: (v) =>
-            setState(() => _odometer = int.tryParse(v.trim())),
+        onChanged: (v) => setState(() => _odometer = int.tryParse(v.trim())),
       ),
     );
   }
@@ -453,7 +453,12 @@ class _TaskInspectionScreenState extends State<TaskInspectionScreen> {
               style: TextStyle(fontSize: 13, color: AppColors.textPrimary),
             ),
             value: _adaDamagenya,
-            activeThumbColor: AppColors.error,
+            thumbColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return AppColors.error;
+              }
+              return null;
+            }),
             onChanged: (v) => setState(() => _adaDamagenya = v),
           ),
           if (_adaDamagenya) ...[
@@ -462,7 +467,8 @@ class _TaskInspectionScreenState extends State<TaskInspectionScreen> {
               decoration: const InputDecoration(
                 hintText: 'Deskripsi kondisi kerusakan',
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -472,7 +478,8 @@ class _TaskInspectionScreenState extends State<TaskInspectionScreen> {
               decoration: const InputDecoration(
                 hintText: 'Biaya perbaikan (Rp)',
                 border: OutlineInputBorder(),
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               ),
               onChanged: (v) =>
                   setState(() => _biayaKerusakan = double.tryParse(v)),
@@ -485,7 +492,8 @@ class _TaskInspectionScreenState extends State<TaskInspectionScreen> {
             decoration: const InputDecoration(
               hintText: 'Catatan tambahan',
               border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             ),
             onChanged: (_) => setState(() {}),
           ),
@@ -594,10 +602,11 @@ class _ConditionDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
-      initialValue: value,
+      value: value,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        labelStyle:
+            const TextStyle(fontSize: 12, color: AppColors.textSecondary),
         border: const OutlineInputBorder(),
         isDense: true,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

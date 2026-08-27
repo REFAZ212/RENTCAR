@@ -11,7 +11,8 @@ class SessionStore {
   static const String _tokenKey = 'driver_token_v1';
   static const String _driverKey = 'driver_data_v1';
 
-  static Future<void> saveSession({required String token, required DriverModel driver}) async {
+  static Future<void> saveSession(
+      {required String token, required DriverModel driver}) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
     await prefs.setString(_driverKey, jsonEncode(driver.toJson()));

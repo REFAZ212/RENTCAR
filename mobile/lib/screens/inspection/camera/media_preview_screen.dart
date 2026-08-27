@@ -5,6 +5,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../models/gps_location.dart';
+import '../../../services/media_store_service.dart';
 import '../../../services/watermark_service.dart';
 import '../../../widgets/location_map_view.dart';
 
@@ -15,6 +16,15 @@ class MediaPreviewScreen extends StatefulWidget {
   final GpsLocation gps;
   final DateTime timestamp;
   final Duration? videoDuration;
+  final String? staffName;
+  final bool autoApplyWatermark;
+  final String? taskCode;
+  final int? taskId;
+  final String? vehicleName;
+  final String? licensePlate;
+  final String? vehicleColor;
+  final String? inspectionType;
+  final String? inspectionId;
 
   const MediaPreviewScreen({
     super.key,
@@ -24,6 +34,15 @@ class MediaPreviewScreen extends StatefulWidget {
     required this.gps,
     required this.timestamp,
     this.videoDuration,
+    this.staffName,
+    this.autoApplyWatermark = false,
+    this.taskCode,
+    this.taskId,
+    this.vehicleName,
+    this.licensePlate,
+    this.vehicleColor,
+    this.inspectionType,
+    this.inspectionId,
   });
 
   @override
@@ -45,6 +64,64 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
     _displayPath = widget.filePath;
     if (!widget.isPhoto) {
       _initVideo();
+    } else if (widget.autoApplyWatermark) {
+      // Auto-apply watermark for photos
+      _applyWatermarkAuto();
+    }
+  }
+
+  Future<void> _applyWatermarkAuto() async {
+    setState(() => _generatingWatermark = true);
+    final watermarkedPath = await WatermarkService.applyPhotoWatermark(
+      sourcePath: widget.filePath,
+      inspectionCode: widget.inspectionCode,
+      gps: widget.gps,
+      staffName: widget.staffName,
+    );
+    if (!mounted) return;
+    setState(() {
+      _watermarkEnabled = true;
+      _displayPath = watermarkedPath;
+      _generatingWatermark = false;
+    });
+  }
+
+  Future<void> _saveToGallery() async {
+    if (!widget.isPhoto) return;
+
+    final path = _displayPath ?? widget.filePath;
+    if (!File(path).existsSync()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File tidak ditemukan di perangkat.')),
+      );
+      return;
+    }
+
+    try {
+      final success = await MediaStoreService.saveImageToGallery(
+        filePath: path,
+        relativePath: 'Pictures/UDIN RENTCAR',
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success
+                ? 'Foto tersimpan ke Gallery (Album: UDIN RENTCAR)'
+                : 'Gagal menyimpan ke Gallery'),
+            backgroundColor: success ? AppColors.success : AppColors.error,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gagal menyimpan ke Gallery. Periksa izin penyimpanan.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -84,6 +161,7 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
       sourcePath: widget.filePath,
       inspectionCode: widget.inspectionCode,
       gps: widget.gps,
+      staffName: widget.staffName,
     );
     if (!mounted) return;
     setState(() {
@@ -113,6 +191,14 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
       appBar: AppBar(
         title: Text(widget.isPhoto ? 'Preview Foto' : 'Preview Video'),
         backgroundColor: AppColors.background,
+        actions: [
+          if (widget.isPhoto)
+            IconButton(
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              tooltip: 'Simpan ke Gallery',
+              onPressed: _saveToGallery,
+            ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
@@ -339,6 +425,52 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
   }
 
   Widget _buildWatermarkCard() {
+    if (widget.autoApplyWatermark) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.successLight,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.success),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle, color: AppColors.success),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Watermark Telah Diterapkan',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.success,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Logo, lokasi, waktu${widget.staffName != null ? ', petugas' : ''} otomatis tertulis pada foto',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textSecondary),
+                  ),
+                  if (widget.staffName != null)
+                    Text(
+                      'Petugas: ${widget.staffName}',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.success,
+                          fontWeight: FontWeight.w600),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -350,11 +482,11 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
         children: [
           const Icon(Icons.water_drop_outlined, color: AppColors.primary),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Tambah Watermark',
                   style: TextStyle(
                     fontSize: 13,
@@ -362,10 +494,11 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
                     color: AppColors.textPrimary,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  'Overlay informasi inspeksi pada foto (foto asli tetap tersimpan)',
-                  style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  'Overlay informasi inspeksi pada foto (foto asli tetap tersimpan)${widget.staffName != null ? ' • Petugas: ${widget.staffName}' : ''}',
+                  style: const TextStyle(
+                      fontSize: 11, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -380,7 +513,12 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
             Switch(
               value: _watermarkEnabled,
               onChanged: (_) => _toggleWatermark(),
-              activeThumbColor: AppColors.primary,
+              thumbColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return AppColors.primary;
+                }
+                return null;
+              }),
             ),
         ],
       ),
@@ -396,7 +534,8 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
           children: [
             Expanded(
               child: OutlinedButton(
-                onPressed: () => Navigator.of(context).pop(false),
+                onPressed: () =>
+                    Navigator.of(context).pop({'confirmed': false}),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.error,
                   side: const BorderSide(color: AppColors.error),
@@ -414,7 +553,10 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
+                onPressed: () => Navigator.of(context).pop({
+                  'confirmed': true,
+                  'watermarkedPath': _displayPath,
+                }),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,

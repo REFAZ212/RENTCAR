@@ -24,7 +24,8 @@ class StepDataUmum extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+                const Icon(Icons.info_outline,
+                    color: AppColors.primary, size: 20),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -40,15 +41,24 @@ class StepDataUmum extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _buildSection('Data Kendaraan', [
-            _buildInfoRow('Merk', info?.brand ?? inspection.vehicleName.split(' ').first),
-            _buildInfoRow('Tipe', info?.type ?? (inspection.vehicleName.split(' ').length > 1 ? inspection.vehicleName.split(' ').sublist(1).join(' ') : '')),
+            _buildInfoRow(
+                'Merk', info?.brand ?? inspection.vehicleName.split(' ').first),
+            _buildInfoRow(
+                'Tipe',
+                info?.type ??
+                    (inspection.vehicleName.split(' ').length > 1
+                        ? inspection.vehicleName.split(' ').sublist(1).join(' ')
+                        : '')),
             _buildInfoRow('Nomor Polisi', inspection.plateNumber),
           ]),
           const SizedBox(height: 12),
           _buildSection('Data Customer', [
-            _buildInfoRow('Nama Customer', info?.customerName ?? inspection.customerName ?? '-'),
-            _buildInfoRow('Booking', info?.bookingCode ?? '#${inspection.bookingId ?? "-"}'),
-            if (info?.purpose != null) _buildInfoRow('Tujuan Sewa', info!.purpose!),
+            _buildInfoRow('Nama Customer',
+                info?.customerName ?? inspection.customerName ?? '-'),
+            _buildInfoRow('Booking',
+                info?.bookingCode ?? '#${inspection.bookingId ?? "-"}'),
+            if (info?.purpose != null)
+              _buildInfoRow('Tujuan Sewa', info!.purpose!),
           ]),
           const SizedBox(height: 12),
           _buildSection('Jadwal Sewa', [
@@ -56,9 +66,12 @@ class StepDataUmum extends StatelessWidget {
               _buildInfoRow('Tanggal Mulai', _formatDate(info!.rentalStart!)),
             if (info?.rentalEnd != null)
               _buildInfoRow('Tanggal Selesai', _formatDate(info!.rentalEnd!)),
-            if (info?.startTime != null) _buildInfoRow('Jam Mulai', info!.startTime!),
-            if (info?.endTime != null) _buildInfoRow('Jam Selesai', info!.endTime!),
-            if (info?.rentalRate != null) _buildInfoRow('Tarif Sewa', info!.rentalRateLabel),
+            if (info?.startTime != null)
+              _buildInfoRow('Jam Mulai', info!.startTime!),
+            if (info?.endTime != null)
+              _buildInfoRow('Jam Selesai', info!.endTime!),
+            if (info?.rentalRate != null)
+              _buildInfoRow('Tarif Sewa', info!.rentalRateLabel),
           ]),
           const SizedBox(height: 12),
           _buildSection('Inspeksi', [
@@ -131,8 +144,19 @@ class StepDataUmum extends StatelessWidget {
 
   String _formatDate(DateTime d) {
     final months = [
-      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      '',
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember'
     ];
     return '${d.day} ${months[d.month]} ${d.year}';
   }

@@ -16,8 +16,25 @@ import 'media_preview_screen.dart';
 
 class VideoCaptureScreen extends StatefulWidget {
   final String inspectionCode;
+  final String? taskCode;
+  final int? taskId;
+  final String? vehicleName;
+  final String? licensePlate;
+  final String? vehicleColor;
+  final String? inspectionType;
+  final String? inspectionId;
 
-  const VideoCaptureScreen({super.key, required this.inspectionCode});
+  const VideoCaptureScreen({
+    super.key,
+    required this.inspectionCode,
+    this.taskCode,
+    this.taskId,
+    this.vehicleName,
+    this.licensePlate,
+    this.vehicleColor,
+    this.inspectionType,
+    this.inspectionId,
+  });
 
   @override
   State<VideoCaptureScreen> createState() => _VideoCaptureScreenState();
@@ -72,7 +89,8 @@ class _VideoCaptureScreenState extends State<VideoCaptureScreen> {
       ));
     } catch (e) {
       setState(() {
-        _cameraError = 'Kamera tidak dapat digunakan.\nPeriksa permission kamera.';
+        _cameraError =
+            'Kamera tidak dapat digunakan.\nPeriksa permission kamera.';
         _isInitializing = false;
       });
     }
@@ -97,7 +115,8 @@ class _VideoCaptureScreenState extends State<VideoCaptureScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _cameraError = 'Kamera tidak dapat digunakan.\nPeriksa permission kamera.';
+        _cameraError =
+            'Kamera tidak dapat digunakan.\nPeriksa permission kamera.';
         _isInitializing = false;
       });
     }
@@ -161,7 +180,8 @@ class _VideoCaptureScreenState extends State<VideoCaptureScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Aktifkan GPS dan izinkan akses lokasi untuk merekam video.'),
+            content: Text(
+                'Aktifkan GPS dan izinkan akses lokasi untuk merekam video.'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -216,9 +236,7 @@ class _VideoCaptureScreenState extends State<VideoCaptureScreen> {
       final fresh = await LocationService.getCurrentLocation(
         waitForAccuracy: true,
       );
-      gps = fresh != null
-          ? await LocationService.enrichAddress(fresh)
-          : _gps;
+      gps = fresh != null ? await LocationService.enrichAddress(fresh) : _gps;
     }
 
     if (gps == null || gps.accuracy > 20.0) {
@@ -259,7 +277,7 @@ class _VideoCaptureScreenState extends State<VideoCaptureScreen> {
       if (!mounted) return;
       setState(() => _isRecording = false);
 
-      final confirmed = await Navigator.of(context).push<bool>(
+      final confirmed = await Navigator.of(context).push<Map<String, dynamic>>(
         MaterialPageRoute(
           builder: (_) => MediaPreviewScreen(
             isPhoto: false,
@@ -268,12 +286,19 @@ class _VideoCaptureScreenState extends State<VideoCaptureScreen> {
             gps: capturedGps,
             timestamp: recordedAt,
             videoDuration: duration,
+            taskCode: widget.taskCode,
+            taskId: widget.taskId,
+            vehicleName: widget.vehicleName,
+            licensePlate: widget.licensePlate,
+            vehicleColor: widget.vehicleColor,
+            inspectionType: widget.inspectionType,
+            inspectionId: widget.inspectionId,
           ),
         ),
       );
 
       if (!mounted) return;
-      if (confirmed == true) {
+      if (confirmed != null && confirmed['confirmed'] == true) {
         Navigator.of(context).pop(result);
       }
     } catch (_) {
@@ -399,7 +424,9 @@ class _VideoCaptureScreenState extends State<VideoCaptureScreen> {
         ),
       );
     }
-    if (_isInitializing || _controller == null || !_controller!.value.isInitialized) {
+    if (_isInitializing ||
+        _controller == null ||
+        !_controller!.value.isInitialized) {
       return const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

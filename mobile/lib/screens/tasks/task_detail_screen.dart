@@ -161,11 +161,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         _InfoCard(task: task),
         if (task.inspectionBefore.id != 0) ...[
           const SizedBox(height: 16),
-          _InspectionCard(title: 'Inspeksi Awal', inspeksi: task.inspectionBefore),
+          _InspectionCard(
+              title: 'Inspeksi Awal', inspeksi: task.inspectionBefore),
         ],
         if (task.inspectionAfter.id != 0) ...[
           const SizedBox(height: 16),
-          _InspectionCard(title: 'Inspeksi Akhir', inspeksi: task.inspectionAfter),
+          _InspectionCard(
+              title: 'Inspeksi Akhir', inspeksi: task.inspectionAfter),
         ],
         const SizedBox(height: 20),
         _buildActionButton(task),
@@ -227,9 +229,11 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         );
         break;
       case DriverTaskStatus.completed:
-        return const _FinishedLabel(text: 'Tugas Selesai', color: AppColors.success);
+        return const _FinishedLabel(
+            text: 'Tugas Selesai', color: AppColors.success);
       case DriverTaskStatus.cancelled:
-        return const _FinishedLabel(text: 'Tugas Dibatalkan', color: AppColors.error);
+        return const _FinishedLabel(
+            text: 'Tugas Dibatalkan', color: AppColors.error);
       case DriverTaskStatus.pending:
       case DriverTaskStatus.unknown:
         return const SizedBox.shrink();
@@ -323,7 +327,14 @@ class _StatusProgress extends StatelessWidget {
   final DriverTask task;
   const _StatusProgress({required this.task});
 
-  static const _steps = ['Diterima', 'Inspeksi\nAwal', 'Dikirim', 'Sampai', 'Inspeksi\nAkhir', 'Selesai'];
+  static const _steps = [
+    'Diterima',
+    'Inspeksi\nAwal',
+    'Dikirim',
+    'Sampai',
+    'Inspeksi\nAkhir',
+    'Selesai'
+  ];
 
   int get _currentIndex {
     switch (task.status) {
@@ -360,7 +371,9 @@ class _StatusProgress extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: task.isActive ? AppColors.primary : AppColors.success.withAlpha(20),
+              color: task.isActive
+                  ? AppColors.primary
+                  : AppColors.success.withAlpha(20),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
@@ -387,7 +400,8 @@ class _StatusProgress extends StatelessWidget {
                     Expanded(
                       child: Container(
                         height: 2,
-                        color: i < current ? AppColors.primary : AppColors.border,
+                        color:
+                            i < current ? AppColors.primary : AppColors.border,
                       ),
                     ),
                 ],
@@ -403,7 +417,8 @@ class _StepDot extends StatelessWidget {
   final int index;
   final int current;
   final String label;
-  const _StepDot({required this.index, required this.current, required this.label});
+  const _StepDot(
+      {required this.index, required this.current, required this.label});
 
   @override
   Widget build(BuildContext context) {
@@ -421,7 +436,8 @@ class _StepDot extends StatelessWidget {
             border: Border.all(color: color, width: 2),
           ),
           child: done
-              ? const Icon(Icons.check_rounded, size: 14, color: AppColors.primary)
+              ? const Icon(Icons.check_rounded,
+                  size: 14, color: AppColors.primary)
               : active
                   ? const Icon(Icons.circle, size: 10, color: Colors.white)
                   : null,
@@ -460,35 +476,62 @@ class _InfoCard extends StatelessWidget {
         children: [
           const Text(
             'Detail Pengantaran',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+            style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary),
           ),
           const SizedBox(height: 12),
-          _InfoTile(icon: Icons.directions_car_outlined, label: 'Kendaraan', value: task.kendaraan.displayName),
+          _InfoTile(
+              icon: Icons.directions_car_outlined,
+              label: 'Kendaraan',
+              value: task.kendaraan.displayName),
           if (task.kendaraan.warna != null) ...[
             const SizedBox(height: 8),
-            _InfoTile(icon: Icons.palette_outlined, label: 'Warna', value: task.kendaraan.warna!),
+            _InfoTile(
+                icon: Icons.palette_outlined,
+                label: 'Warna',
+                value: task.kendaraan.warna!),
           ],
           if (task.customer.namaLengkap != null) ...[
             const SizedBox(height: 8),
-            _InfoTile(icon: Icons.person_outline_rounded, label: 'Customer', value: task.customer.namaLengkap!),
+            _InfoTile(
+                icon: Icons.person_outline_rounded,
+                label: 'Customer',
+                value: task.customer.namaLengkap!),
           ],
           if (task.customer.noHp != null) ...[
             const SizedBox(height: 8),
-            _InfoTile(icon: Icons.phone_outlined, label: 'No. HP', value: task.customer.noHp!),
+            _InfoTile(
+                icon: Icons.phone_outlined,
+                label: 'No. HP',
+                value: task.customer.noHp!),
           ],
           if (task.orderCode != null) ...[
             const SizedBox(height: 8),
-            _InfoTile(icon: Icons.receipt_long_outlined, label: 'Kode Order', value: task.orderCode!),
+            _InfoTile(
+                icon: Icons.receipt_long_outlined,
+                label: 'Kode Order',
+                value: task.orderCode!),
           ],
           const SizedBox(height: 12),
           const Divider(height: 1, color: AppColors.divider),
           const SizedBox(height: 12),
-          _InfoTile(icon: Icons.logout_rounded, label: 'Lokasi Jemput', value: task.pickup.location ?? '-'),
+          _InfoTile(
+              icon: Icons.logout_rounded,
+              label: 'Lokasi Jemput',
+              value: task.pickup.location ?? '-'),
           const SizedBox(height: 8),
-          _InfoTile(icon: Icons.location_on_outlined, label: 'Tujuan', value: task.destination.location ?? '-'),
+          _InfoTile(
+              icon: Icons.location_on_outlined,
+              label: 'Tujuan',
+              value: task.destination.location ?? '-'),
           if (task.deskripsi != null && task.deskripsi!.isNotEmpty) ...[
             const SizedBox(height: 8),
-            _InfoTile(icon: Icons.notes_rounded, label: 'Catatan Tugas', value: task.deskripsi!),
+            _InfoTile(
+                icon: Icons.notes_rounded,
+                label: 'Catatan Tugas',
+                value: task.deskripsi!),
           ],
         ],
       ),
@@ -500,7 +543,8 @@ class _InfoTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-  const _InfoTile({required this.icon, required this.label, required this.value});
+  const _InfoTile(
+      {required this.icon, required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -511,12 +555,16 @@ class _InfoTile extends StatelessWidget {
         const SizedBox(width: 8),
         SizedBox(
           width: 96,
-          child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
+          child: Text(label,
+              style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textPrimary),
           ),
         ),
       ],
@@ -543,11 +591,15 @@ class _InspectionCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.fact_check_outlined, size: 16, color: AppColors.success),
+              const Icon(Icons.fact_check_outlined,
+                  size: 16, color: AppColors.success),
               const SizedBox(width: 6),
               Text(
                 title,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary),
               ),
               const Spacer(),
               Text(
@@ -557,7 +609,10 @@ class _InspectionCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          _InspectionRow(label: 'Odometer', value: inspeksi.odometer != null ? '${inspeksi.odometer} km' : '-'),
+          _InspectionRow(
+              label: 'Odometer',
+              value:
+                  inspeksi.odometer != null ? '${inspeksi.odometer} km' : '-'),
           const SizedBox(height: 6),
           _InspectionRow(label: 'Bensin', value: inspeksi.fuelLevel ?? '-'),
           const SizedBox(height: 6),
@@ -583,12 +638,16 @@ class _InspectionRow extends StatelessWidget {
       children: [
         SizedBox(
           width: 80,
-          child: Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
+          child: Text(label,
+              style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
+            style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textPrimary),
           ),
         ),
       ],
@@ -609,12 +668,14 @@ class _ErrorState extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.textHint),
+            const Icon(Icons.error_outline_rounded,
+                size: 48, color: AppColors.textHint),
             const SizedBox(height: 12),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style:
+                  const TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
             OutlinedButton.icon(

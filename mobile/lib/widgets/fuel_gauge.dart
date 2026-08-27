@@ -166,7 +166,8 @@ class FuelGauge extends StatelessWidget {
             decoration: InputDecoration(
               hintText: '0',
               suffixText: 'L',
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: const BorderSide(color: AppColors.border),

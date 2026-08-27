@@ -1,5 +1,7 @@
 enum TaskStatus { notStarted, inProgress, done, late }
+
 enum TaskPriority { normal, important, urgent }
+
 enum TaskType {
   inspectionBefore,
   inspectionAfter,
@@ -95,7 +97,8 @@ class TaskModel {
       vehicleName: json['vehicle_name'],
       plateNumber: json['plate_number'],
       customerName: json['customer_name'],
-      dueTime: json['due_time'] != null ? DateTime.parse(json['due_time']) : null,
+      dueTime:
+          json['due_time'] != null ? DateTime.parse(json['due_time']) : null,
       location: json['location'],
       status: TaskStatus.values.firstWhere(
         (e) => e.name == json['status'],

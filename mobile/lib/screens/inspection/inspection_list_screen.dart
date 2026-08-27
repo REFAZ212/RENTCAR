@@ -102,17 +102,20 @@ class _InspectionListScreenState extends State<InspectionListScreen> {
         controller: _searchController,
         decoration: InputDecoration(
           hintText: 'Cari kendaraan, plat, customer...',
-          prefixIcon: const Icon(Icons.search, size: 20, color: AppColors.textHint),
+          prefixIcon:
+              const Icon(Icons.search, size: 20, color: AppColors.textHint),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   onPressed: () {
                     _searchController.clear();
                     setState(() => _searchQuery = '');
                   },
-                  icon: const Icon(Icons.clear, size: 18, color: AppColors.textHint),
+                  icon: const Icon(Icons.clear,
+                      size: 18, color: AppColors.textHint),
                 )
               : null,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(10),
             borderSide: const BorderSide(color: AppColors.border),
@@ -141,7 +144,8 @@ class _InspectionListScreenState extends State<InspectionListScreen> {
             child: GestureDetector(
               onTap: () => setState(() => _selectedFilter = i),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                 decoration: BoxDecoration(
                   color: isSelected ? AppColors.primary : AppColors.surface,
                   borderRadius: BorderRadius.circular(8),
@@ -227,7 +231,8 @@ class _InspectionCard extends StatelessWidget {
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Icon(Icons.person_outline, size: 13, color: AppColors.textHint),
+                  const Icon(Icons.person_outline,
+                      size: 13, color: AppColors.textHint),
                   const SizedBox(width: 4),
                   Text(
                     inspection.customerName!,
@@ -352,8 +357,7 @@ class _InfoChip extends StatelessWidget {
         const SizedBox(width: 3),
         Text(
           label,
-          style: TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w500, color: c),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: c),
         ),
       ],
     );

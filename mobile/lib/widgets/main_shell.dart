@@ -39,22 +39,26 @@ class _MainShellState extends State<MainShell> {
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined, size: 24),
-            selectedIcon: Icon(Icons.dashboard_rounded, size: 24, color: AppColors.primary),
+            selectedIcon: Icon(Icons.dashboard_rounded,
+                size: 24, color: AppColors.primary),
             label: 'Beranda',
           ),
           NavigationDestination(
             icon: Icon(Icons.assignment_outlined, size: 24),
-            selectedIcon: Icon(Icons.assignment_rounded, size: 24, color: AppColors.primary),
+            selectedIcon: Icon(Icons.assignment_rounded,
+                size: 24, color: AppColors.primary),
             label: 'Inspeksi',
           ),
           NavigationDestination(
             icon: Icon(Icons.task_outlined, size: 24),
-            selectedIcon: Icon(Icons.task_rounded, size: 24, color: AppColors.primary),
+            selectedIcon:
+                Icon(Icons.task_rounded, size: 24, color: AppColors.primary),
             label: 'Tugas',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline_rounded, size: 24),
-            selectedIcon: Icon(Icons.person_rounded, size: 24, color: AppColors.primary),
+            selectedIcon:
+                Icon(Icons.person_rounded, size: 24, color: AppColors.primary),
             label: 'Profil',
           ),
         ],

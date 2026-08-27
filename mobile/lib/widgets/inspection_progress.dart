@@ -49,7 +49,8 @@ class InspectionProgress extends StatelessWidget {
               return Expanded(
                 child: Container(
                   height: 4,
-                  margin: EdgeInsets.only(right: index < totalSteps - 1 ? 4 : 0),
+                  margin:
+                      EdgeInsets.only(right: index < totalSteps - 1 ? 4 : 0),
                   decoration: BoxDecoration(
                     color: isCompleted
                         ? AppColors.primary
@@ -70,7 +71,8 @@ class InspectionProgress extends StatelessWidget {
                 final isCompleted = index < currentStep;
                 final isCurrent = index == currentStep;
                 return Container(
-                  margin: EdgeInsets.only(right: index < totalSteps - 1 ? 16 : 0),
+                  margin:
+                      EdgeInsets.only(right: index < totalSteps - 1 ? 16 : 0),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -87,13 +89,16 @@ class InspectionProgress extends StatelessWidget {
                         ),
                         child: Center(
                           child: isCompleted
-                              ? const Icon(Icons.check, size: 12, color: Colors.white)
+                              ? const Icon(Icons.check,
+                                  size: 12, color: Colors.white)
                               : Text(
                                   '${index + 1}',
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
-                                    color: isCurrent ? Colors.white : AppColors.textHint,
+                                    color: isCurrent
+                                        ? Colors.white
+                                        : AppColors.textHint,
                                   ),
                                 ),
                         ),
@@ -103,7 +108,8 @@ class InspectionProgress extends StatelessWidget {
                         stepNames[index],
                         style: TextStyle(
                           fontSize: 10,
-                          fontWeight: isCurrent ? FontWeight.w600 : FontWeight.w500,
+                          fontWeight:
+                              isCurrent ? FontWeight.w600 : FontWeight.w500,
                           color: isCurrent
                               ? AppColors.primary
                               : isCompleted

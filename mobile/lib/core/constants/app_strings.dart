@@ -145,7 +145,8 @@ class AppStrings {
   static const String incomplete = 'Belum Lengkap';
   static const String backToCheck = 'Kembali Periksa';
   static const String finishInspection = 'Selesaikan Inspeksi';
-  static const String inspectionNotComplete = 'Inspeksi belum dapat diselesaikan';
+  static const String inspectionNotComplete =
+      'Inspeksi belum dapat diselesaikan';
   static const String dataIncomplete = 'data belum lengkap';
 
   // Validation
