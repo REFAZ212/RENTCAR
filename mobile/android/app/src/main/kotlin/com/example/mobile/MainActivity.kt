@@ -8,6 +8,7 @@ import android.os.Environment
 import android.provider.MediaStore
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 import java.io.FileInputStream
@@ -31,7 +32,7 @@ class MainActivity : FlutterActivity() {
     val filePath = call.argument<String>("filePath")
     val relativePath = call.argument<String>("relativePath") ?: "Pictures/UDIN RENTCAR"
 
-    if (filePath == null || filePath.isEmpty()) {
+    if (filePath.isNullOrEmpty()) {
       result.error("INVALID_ARGUMENT", "File path is null or empty", null)
       return
     }
@@ -59,7 +60,7 @@ class MainActivity : FlutterActivity() {
     val filePath = call.argument<String>("filePath")
     val relativePath = call.argument<String>("relativePath") ?: "Movies/UDIN RENTCAR"
 
-    if (filePath == null || filePath.isEmpty()) {
+    if (filePath.isNullOrEmpty()) {
       result.error("INVALID_ARGUMENT", "File path is null or empty", null)
       return
     }
