@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildLogo() {
     return Image.asset(
-      'assets/images/udinrentcaricon.png',
+      'assets/images/logoudinrentcar.png',
       height: 56,
       fit: BoxFit.contain,
       errorBuilder: (_, __, ___) {

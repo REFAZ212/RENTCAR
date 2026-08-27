@@ -58,6 +58,12 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
   bool _generatingWatermark = false;
   String? _displayPath;
 
+  // Fallback jika widget.staffName null (mis. layar dibuka tanpa data user).
+  // Idealnya widget.staffName selalu diisi dari user yang sedang login saat
+  // MediaPreviewScreen dipanggil (lihat catatan di pemanggil layar ini).
+  String get _resolvedStaffName =>
+      widget.staffName ?? 'Petugas Tidak Diketahui';
+
   @override
   void initState() {
     super.initState();
@@ -76,7 +82,7 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
       sourcePath: widget.filePath,
       inspectionCode: widget.inspectionCode,
       gps: widget.gps,
-      staffName: widget.staffName,
+      staffName: _resolvedStaffName,
     );
     if (!mounted) return;
     setState(() {
@@ -161,7 +167,7 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
       sourcePath: widget.filePath,
       inspectionCode: widget.inspectionCode,
       gps: widget.gps,
-      staffName: widget.staffName,
+      staffName: _resolvedStaffName,
     );
     if (!mounted) return;
     setState(() {
@@ -333,6 +339,7 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
           _row(Icons.gps_fixed, 'Akurasi', widget.gps.accuracyLabel),
           _row(Icons.language, 'Timezone', widget.gps.timezone),
           _row(Icons.public, 'Timestamp', widget.gps.timestampWithTimezone),
+          _row(Icons.badge_outlined, 'Petugas', _resolvedStaffName),
         ],
       ),
     );
@@ -450,19 +457,18 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    'Logo, lokasi, waktu${widget.staffName != null ? ', petugas' : ''} otomatis tertulis pada foto',
-                    style: const TextStyle(
+                  const Text(
+                    'Logo, lokasi, waktu, dan petugas otomatis tertulis pada foto',
+                    style: TextStyle(
                         fontSize: 11, color: AppColors.textSecondary),
                   ),
-                  if (widget.staffName != null)
-                    Text(
-                      'Petugas: ${widget.staffName}',
-                      style: const TextStyle(
-                          fontSize: 11,
-                          color: AppColors.success,
-                          fontWeight: FontWeight.w600),
-                    ),
+                  Text(
+                    'Petugas: $_resolvedStaffName',
+                    style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.success,
+                        fontWeight: FontWeight.w600),
+                  ),
                 ],
               ),
             ),
@@ -496,7 +502,7 @@ class _MediaPreviewScreenState extends State<MediaPreviewScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'Overlay informasi inspeksi pada foto (foto asli tetap tersimpan)${widget.staffName != null ? ' • Petugas: ${widget.staffName}' : ''}',
+                  'Overlay informasi inspeksi pada foto (foto asli tetap tersimpan) • Petugas: $_resolvedStaffName',
                   style: const TextStyle(
                       fontSize: 11, color: AppColors.textSecondary),
                 ),
