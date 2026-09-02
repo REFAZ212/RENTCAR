@@ -30,7 +30,8 @@ class StepCompleteness extends StatelessWidget {
             ),
             child: Row(
               children: [
-                const Icon(Icons.checklist_outlined, color: AppColors.primary, size: 18),
+                const Icon(Icons.checklist_outlined,
+                    color: AppColors.primary, size: 18),
                 const SizedBox(width: 8),
                 Text(
                   'Kelengkapan: $completedCount / ${items.length}',
@@ -120,9 +121,11 @@ class _CompletenessItem extends StatelessWidget {
             children: [
               _buildOption('OK', ItemStatus.ok, isOk, AppColors.success),
               const SizedBox(width: 6),
-              _buildOption('Tidak Ada', ItemStatus.missing, isMissing, AppColors.warning),
+              _buildOption('Tidak Ada', ItemStatus.missing, isMissing,
+                  AppColors.warning),
               const SizedBox(width: 6),
-              _buildOption('Rusak', ItemStatus.damaged, isDamaged, AppColors.error),
+              _buildOption(
+                  'Rusak', ItemStatus.damaged, isDamaged, AppColors.error),
             ],
           ),
           if (hasProblem) ...[
@@ -132,7 +135,8 @@ class _CompletenessItem extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: isDamaged ? 'Deskripsi kerusakan...' : 'Catatan...',
                 hintStyle: const TextStyle(fontSize: 12),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: const BorderSide(color: AppColors.border),
@@ -151,7 +155,8 @@ class _CompletenessItem extends StatelessWidget {
     );
   }
 
-  Widget _buildOption(String label, ItemStatus status, bool isSelected, Color color) {
+  Widget _buildOption(
+      String label, ItemStatus status, bool isSelected, Color color) {
     return Expanded(
       child: GestureDetector(
         onTap: () => onChanged(status),

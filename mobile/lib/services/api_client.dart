@@ -74,15 +74,13 @@ class ApiClient {
 
   static Future<dynamic> get(String path) async {
     final token = await _token();
-    final res = await http
-        .get(
-          _uri(path),
-          headers: {
-            ..._headers(),
-            if (token != null) 'Authorization': 'Bearer $token',
-          },
-        )
-        .timeout(_timeout);
+    final res = await http.get(
+      _uri(path),
+      headers: {
+        ..._headers(),
+        if (token != null) 'Authorization': 'Bearer $token',
+      },
+    ).timeout(_timeout);
 
     if (res.statusCode == 401) await _handleUnauthorized();
 

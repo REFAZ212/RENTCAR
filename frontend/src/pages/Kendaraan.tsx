@@ -18,7 +18,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from '../components/ConfirmModal';
 import KategoriTipeQuickCreate from '../components/KategoriTipeQuickCreate';
-import { RotateCcw, Pencil, Trash2, Eye } from 'lucide-react';
+import { RotateCcw, Pencil, Trash2, Eye, Clock } from 'lucide-react';
 
 type Kendaraan = ApiKendaraan & {
   garasiPartner?: { nama_partner: string };
@@ -100,6 +100,12 @@ const emptyForm: KendaraanFormState = {
 };
 
 const fotoUrl = (foto?: string | null) => (foto ? (foto.startsWith('http') ? foto : `/storage/${foto}`) : null);
+
+const formatTgl = (v?: string | null) => {
+  if (!v) return '-';
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? v : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+};
 
 const inputClass =
   'w-full rounded-lg border border-black-200 px-3 py-2 text-sm text-black-900 outline-none transition-colors focus:border-primary-500 focus:ring-1 focus:ring-primary-500';
@@ -296,6 +302,18 @@ export default function Kendaraan() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const openDetail = (item: Kendaraan) => {
+    setDetailItem(item);
+    kendaraanAPI
+      .get(item.id)
+      .then(({ data }) => {
+        const res = data as unknown as { data?: Kendaraan };
+        const fresh = res.data ?? (data as unknown as Kendaraan);
+        setDetailItem(fresh);
+      })
+      .catch(() => {});
   };
 
   const handleEdit = (item: Kendaraan) => {
@@ -840,7 +858,15 @@ export default function Kendaraan() {
                       className={`${inputClass} ${editItem.status === 'disewa' ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
                     >
                       {VEHICLE_STATUSES.map((s) => (
-                        <option key={s} value={s}>
+                        <option
+                          key={s}
+                          value={s}
+                          disabled={
+                            editItem.status !== 'disewa' &&
+                            ['tidak_tersedia', 'maintenance'].includes(s) &&
+                            Number(editItem.order_pending_count ?? 0) + Number(editItem.order_confirmed_count ?? 0) > 0
+                          }
+                        >
                           {vehicleStatusLabels[s]}
                         </option>
                       ))}
@@ -848,6 +874,12 @@ export default function Kendaraan() {
                     {editItem.status === 'disewa' && (
                       <p className="mt-1 text-xs text-accent-600">Status dikendalikan oleh order aktif. Selesaikan atau batalkan order terlebih dahulu.</p>
                     )}
+                    {editItem.status !== 'disewa' &&
+                      Number(editItem.order_pending_count ?? 0) + Number(editItem.order_confirmed_count ?? 0) > 0 && (
+                        <p className="mt-1 text-xs text-accent-600">
+                          Kendaraan memiliki order menunggu/konfirmasi — status tidak boleh diubah ke Tidak Tersedia/Servis.
+                        </p>
+                      )}
                   </div>
                 )}
               </div>
@@ -1034,6 +1066,26 @@ export default function Kendaraan() {
                   </div>
                 </div>
 
+                {(detailItem.orders?.length ?? 0) > 0 && (
+                  <div className="rounded-xl border border-error-200 bg-error-50 p-3">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-error-700">
+                      <Clock size={13} />
+                      Sedang dipakai pelanggan
+                    </div>
+                    {detailItem.orders!.map((ord) => (
+                      <div key={ord.id} className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-error-700">
+                        <span className="rounded bg-white px-1.5 py-0.5 font-mono font-semibold">{ord.kode_order}</span>
+                        <span>·</span>
+                        <span>
+                          {formatTgl(ord.tanggal_mulai)}
+                          {ord.jam_mulai ? ` ${ord.jam_mulai}` : ''} → {formatTgl(ord.tanggal_selesai)}
+                          {ord.jam_selesai ? ` ${ord.jam_selesai}` : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <DetailField label="Plat Nomor" value={detailItem.plat_nomor} mono />
                   <DetailField label="Warna" value={detailItem.warna} />
@@ -1162,10 +1214,13 @@ export default function Kendaraan() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {items.map((item) => (
+          {items.map((item) => {
+            const waitingOrderCount = Number(item.order_pending_count ?? 0) + Number(item.order_confirmed_count ?? 0);
+            const sittingOrderLabel = Number(item.order_confirmed_count ?? 0) > 0 ? 'Ada order Dikonfirmasi' : 'Ada order Menunggu Konfirmasi';
+            return (
             <div
               key={item.id}
-              onClick={() => setDetailItem(item)}
+              onClick={() => openDetail(item)}
               className="cursor-pointer overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black-200 transition-all hover:shadow-md"
             >
               {/* Foto + badge status + tombol edit/hapus */}
@@ -1248,24 +1303,33 @@ export default function Kendaraan() {
 
                 <p className="mb-3 text-sm font-bold text-primary-600">{formatRupiah(item.harga_sewa_per_hari)}/hari</p>
 
+                {waitingOrderCount > 0 && (
+                  <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-accent-50 px-2 py-1 text-[11px] font-medium text-accent-700">
+                    {sittingOrderLabel}
+                  </p>
+                )}
+
                 {/* 3 aksi cepat status */}
                 <div className="grid grid-cols-3 gap-1.5 border-t border-black-200 pt-3" onClick={(e) => e.stopPropagation()}>
                   <QuickStatusButton
                     label="Tersedia"
                     active={item.status === 'tersedia'}
                     activeClass="bg-success-500 text-white"
+                    blocked={item.status === 'disewa'}
                     onClick={() => handleQuickStatus(item, 'tersedia')}
                   />
                   <QuickStatusButton
                     label="Tidak Tersedia"
                     active={item.status === 'tidak_tersedia'}
                     activeClass="bg-error-500 text-white"
+                    blocked={waitingOrderCount > 0 || item.status === 'disewa'}
                     onClick={() => handleQuickStatus(item, 'tidak_tersedia')}
                   />
                   <QuickStatusButton
                     label="Servis"
                     active={item.status === 'maintenance'}
                     activeClass="bg-accent-500 text-white"
+                    blocked={waitingOrderCount > 0 || item.status === 'disewa'}
                     onClick={() => handleQuickStatus(item, 'maintenance')}
                   />
                 </div>
@@ -1273,7 +1337,7 @@ export default function Kendaraan() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setDetailItem(item);
+                    openDetail(item);
                   }}
                   className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-black-400 transition-colors hover:bg-canvas hover:text-black-700"
                 >
@@ -1282,7 +1346,8 @@ export default function Kendaraan() {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1341,20 +1406,31 @@ function QuickStatusButton({
   active,
   activeClass,
   onClick,
+  blocked = false,
 }: {
   label: string;
   active: boolean;
   activeClass: string;
   onClick: () => void;
+  blocked?: boolean;
 }) {
+  const disabled = active || blocked;
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={active}
-      title={active ? `Sudah berstatus ${label}` : `Tandai sebagai ${label}`}
+      disabled={disabled}
+      title={
+        blocked && !active
+          ? 'Kendaraan sedang dipakai atau memiliki order menunggu/konfirmasi. Selesaikan atau batalkan order terlebih dahulu.'
+          : active
+            ? `Sudah berstatus ${label}`
+            : `Tandai sebagai ${label}`
+      }
       className={`rounded-lg px-1.5 py-1.5 text-[11px] font-medium leading-tight transition-colors ${
-        active ? `${activeClass} cursor-default` : 'bg-canvas text-black-400 hover:bg-accent-100 hover:text-black-700'
+        disabled
+          ? `${active ? activeClass : 'cursor-not-allowed bg-canvas text-black-300'}`
+          : 'bg-canvas text-black-400 hover:bg-accent-100 hover:text-black-700'
       }`}
     >
       {label}

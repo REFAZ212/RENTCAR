@@ -31,11 +31,13 @@ class InspectionDetailScreen extends StatelessWidget {
             _buildInfoCard(),
             const SizedBox(height: 16),
             _buildInspectorInfo(),
-            if (inspection.isAfterRental && inspection.baselineInspectionId != null) ...[
+            if (inspection.isAfterRental &&
+                inspection.baselineInspectionId != null) ...[
               const SizedBox(height: 16),
               _buildBaselineInfo(context),
             ],
-            if (inspection.photos.isNotEmpty || inspection.videos.isNotEmpty) ...[
+            if (inspection.photos.isNotEmpty ||
+                inspection.videos.isNotEmpty) ...[
               const SizedBox(height: 16),
               _buildMediaSection(context),
             ],
@@ -111,15 +113,20 @@ class InspectionDetailScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _buildInfoRow('Customer', info?.customerName ?? inspection.customerName ?? '-'),
-          _buildInfoRow('Booking', info?.bookingCode ?? '#${inspection.bookingId ?? "-"}'),
+          _buildInfoRow(
+              'Customer', info?.customerName ?? inspection.customerName ?? '-'),
+          _buildInfoRow('Booking',
+              info?.bookingCode ?? '#${inspection.bookingId ?? "-"}'),
           _buildInfoRow('Jenis Inspeksi', inspection.typeLabel),
           _buildInfoRow('Tanggal', _formatDate(inspection.date)),
           _buildInfoRow('Waktu', _formatTime(inspection.date)),
           if (info?.purpose != null) _buildInfoRow('Tujuan', info!.purpose!),
-          if (info?.startTime != null) _buildInfoRow('Jam Mulai', info!.startTime!),
-          if (info?.endTime != null) _buildInfoRow('Jam Selesai', info!.endTime!),
-          if (info?.rentalRate != null) _buildInfoRow('Tarif', info!.rentalRateLabel),
+          if (info?.startTime != null)
+            _buildInfoRow('Jam Mulai', info!.startTime!),
+          if (info?.endTime != null)
+            _buildInfoRow('Jam Selesai', info!.endTime!),
+          if (info?.rentalRate != null)
+            _buildInfoRow('Tarif', info!.rentalRateLabel),
         ],
       ),
     );
@@ -484,7 +491,8 @@ class InspectionDetailScreen extends StatelessWidget {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => InspectionStepperScreen(inspection: inspection),
+                  builder: (_) =>
+                      InspectionStepperScreen(inspection: inspection),
                 ),
               );
             },
@@ -514,8 +522,19 @@ class InspectionDetailScreen extends StatelessWidget {
 
   String _formatDate(DateTime d) {
     final months = [
-      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      '',
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember'
     ];
     return '${d.day} ${months[d.month]} ${d.year}';
   }

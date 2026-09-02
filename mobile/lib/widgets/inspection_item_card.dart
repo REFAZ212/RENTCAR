@@ -79,7 +79,8 @@ class InspectionItemCard extends StatelessWidget {
         _StatusOption(
           label: 'Ada Kerusakan',
           icon: Icons.warning_amber_outlined,
-          isSelected: item.status == ItemStatus.notOk || item.status == ItemStatus.damaged,
+          isSelected: item.status == ItemStatus.notOk ||
+              item.status == ItemStatus.damaged,
           color: AppColors.error,
           onTap: () => onStatusChanged?.call(ItemStatus.notOk),
         ),
@@ -130,9 +131,11 @@ class InspectionItemCard extends StatelessWidget {
                 // Would need a callback to set damage type
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppColors.errorLight : AppColors.background,
+                  color:
+                      isSelected ? AppColors.errorLight : AppColors.background,
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
                     color: isSelected ? AppColors.error : AppColors.border,
@@ -143,7 +146,8 @@ class InspectionItemCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
-                    color: isSelected ? AppColors.error : AppColors.textSecondary,
+                    color:
+                        isSelected ? AppColors.error : AppColors.textSecondary,
                   ),
                 ),
               ),
@@ -156,7 +160,8 @@ class InspectionItemCard extends StatelessWidget {
           decoration: InputDecoration(
             hintText: 'Deskripsi kerusakan...',
             hintStyle: const TextStyle(fontSize: 13),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide: const BorderSide(color: AppColors.border),
@@ -183,7 +188,8 @@ class InspectionItemCard extends StatelessWidget {
       decoration: InputDecoration(
         hintText: 'Catatan...',
         hintStyle: const TextStyle(fontSize: 13),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: AppColors.border),

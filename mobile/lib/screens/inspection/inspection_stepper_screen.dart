@@ -26,7 +26,8 @@ class InspectionStepperScreen extends StatefulWidget {
   const InspectionStepperScreen({super.key, required this.inspection});
 
   @override
-  State<InspectionStepperScreen> createState() => _InspectionStepperScreenState();
+  State<InspectionStepperScreen> createState() =>
+      _InspectionStepperScreenState();
 }
 
 class _InspectionStepperScreenState extends State<InspectionStepperScreen> {
@@ -210,12 +211,36 @@ class _InspectionStepperScreenState extends State<InspectionStepperScreen> {
 
   List<InspectionItem> _getDefaultCompletenessItems() {
     return [
-      InspectionItem(id: 'comp_0', inspectionId: _inspection.id.toString(), category: 'completeness', name: 'Kunci'),
-      InspectionItem(id: 'comp_1', inspectionId: _inspection.id.toString(), category: 'completeness', name: 'STNK'),
-      InspectionItem(id: 'comp_2', inspectionId: _inspection.id.toString(), category: 'completeness', name: 'Ban Serep'),
-      InspectionItem(id: 'comp_3', inspectionId: _inspection.id.toString(), category: 'completeness', name: 'Dongkrak'),
-      InspectionItem(id: 'comp_4', inspectionId: _inspection.id.toString(), category: 'completeness', name: 'Kunci Roda'),
-      InspectionItem(id: 'comp_5', inspectionId: _inspection.id.toString(), category: 'completeness', name: 'AC'),
+      InspectionItem(
+          id: 'comp_0',
+          inspectionId: _inspection.id.toString(),
+          category: 'completeness',
+          name: 'Kunci'),
+      InspectionItem(
+          id: 'comp_1',
+          inspectionId: _inspection.id.toString(),
+          category: 'completeness',
+          name: 'STNK'),
+      InspectionItem(
+          id: 'comp_2',
+          inspectionId: _inspection.id.toString(),
+          category: 'completeness',
+          name: 'Ban Serep'),
+      InspectionItem(
+          id: 'comp_3',
+          inspectionId: _inspection.id.toString(),
+          category: 'completeness',
+          name: 'Dongkrak'),
+      InspectionItem(
+          id: 'comp_4',
+          inspectionId: _inspection.id.toString(),
+          category: 'completeness',
+          name: 'Kunci Roda'),
+      InspectionItem(
+          id: 'comp_5',
+          inspectionId: _inspection.id.toString(),
+          category: 'completeness',
+          name: 'AC'),
     ];
   }
 
@@ -286,6 +311,7 @@ class _InspectionStepperScreenState extends State<InspectionStepperScreen> {
           filePath: _mainPhoto!.photoPath,
           inspectionCode: _inspectionCode,
           gps: _mainPhoto!.gps,
+          watermarkedPath: _mainPhoto!.watermarkedPath,
         ),
       ),
     );
@@ -316,6 +342,7 @@ class _InspectionStepperScreenState extends State<InspectionStepperScreen> {
           filePath: photo.photoPath,
           inspectionCode: _inspectionCode,
           gps: photo.gps,
+          watermarkedPath: photo.watermarkedPath,
         ),
       ),
     );
@@ -406,7 +433,8 @@ class _InspectionStepperScreenState extends State<InspectionStepperScreen> {
           'Inspeksi ${_inspection.typeLabel}',
         ),
         actions: [
-          if (_inspection.isAfterRental && _inspection.baselineInspectionId != null)
+          if (_inspection.isAfterRental &&
+              _inspection.baselineInspectionId != null)
             IconButton(
               onPressed: _openComparison,
               icon: const Icon(Icons.compare_arrows, size: 22),
@@ -523,7 +551,8 @@ class _InspectionStepperScreenState extends State<InspectionStepperScreen> {
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Sebelumnya', style: TextStyle(fontSize: 14)),
+                  child:
+                      const Text('Sebelumnya', style: TextStyle(fontSize: 14)),
                 ),
               ),
             if (_currentStep > 0) const SizedBox(width: 12),
@@ -539,7 +568,8 @@ class _InspectionStepperScreenState extends State<InspectionStepperScreen> {
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
-                  child: const Text('Selanjutnya', style: TextStyle(fontSize: 14)),
+                  child:
+                      const Text('Selanjutnya', style: TextStyle(fontSize: 14)),
                 ),
               ),
           ],

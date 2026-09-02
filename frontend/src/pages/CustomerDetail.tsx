@@ -13,7 +13,7 @@ const inputClass =
 const statusOrderLabels: Record<string, string> = {
     pending: 'Menunggu',
     confirmed: 'Dikonfirmasi',
-    active: 'Aktif',
+    active: 'Sedang Disewa',
     perlu_verifikasi: 'Perlu Verifikasi',
     completed: 'Selesai',
     cancelled: 'Dibatalkan',
@@ -31,7 +31,7 @@ const statusOrderColors: Record<string, string> = {
 
 const statusFilters = [
     { key: 'all', label: 'Semua' },
-    { key: 'active', label: 'Aktif' },
+    { key: 'active', label: 'Sedang Disewa' },
     { key: 'completed', label: 'Selesai' },
     { key: 'cancelled', label: 'Dibatalkan' },
     { key: 'pending', label: 'Menunggu' },

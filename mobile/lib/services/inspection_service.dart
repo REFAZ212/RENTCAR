@@ -67,7 +67,8 @@ class InspectionService {
     _ensureInitialized();
     try {
       return _inspections.firstWhere(
-        (i) => i.bookingId == bookingId && i.type == InspectionType.beforeRental,
+        (i) =>
+            i.bookingId == bookingId && i.type == InspectionType.beforeRental,
       );
     } catch (_) {
       return null;

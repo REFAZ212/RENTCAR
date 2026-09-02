@@ -41,6 +41,17 @@ export interface Customer {
   } | null;
 }
 
+export interface KendaraanOrderInfo {
+  id: number;
+  kode_order: string;
+  status_order: string;
+  status_pengiriman?: string | null;
+  tanggal_mulai?: string | null;
+  tanggal_selesai?: string | null;
+  jam_mulai?: string | null;
+  jam_selesai?: string | null;
+}
+
 export interface Kendaraan {
   id: number;
   nama_kendaraan: string;
@@ -61,9 +72,12 @@ export interface Kendaraan {
   garasiPartner?: GarasiPartner;
   active_orders_count?: number;
   catatan?: string | null;
+  order_pending_count?: number;
+  order_confirmed_count?: number;
   garasi_partner_id?: number;
   kategori?: KategoriKendaraan;
   tipe?: TipeKendaraan;
+  orders?: KendaraanOrderInfo[];
 }
 
 export interface SupirCalo {

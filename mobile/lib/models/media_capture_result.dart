@@ -4,6 +4,7 @@ class PhotoCaptureResult {
   final String id;
   final String inspectionId;
   final String photoPath;
+  final String? watermarkedPath;
   final GpsLocation gps;
   final String capturedAt;
   final String timezone;
@@ -13,6 +14,7 @@ class PhotoCaptureResult {
     required this.id,
     required this.inspectionId,
     required this.photoPath,
+    this.watermarkedPath,
     required this.gps,
     required this.capturedAt,
     required this.timezone,
@@ -24,6 +26,7 @@ class PhotoCaptureResult {
       'photoId': id,
       'inspectionId': inspectionId,
       'photoPath': photoPath,
+      'watermarkedPath': watermarkedPath,
       'category': category,
       'gps': gps.toJson(),
       'capturedAt': capturedAt,
@@ -36,10 +39,33 @@ class PhotoCaptureResult {
       id: json['photoId'] ?? '',
       inspectionId: json['inspectionId'] ?? '',
       photoPath: json['photoPath'] ?? '',
+      watermarkedPath: json['watermarkedPath'],
       gps: GpsLocation.fromJson(json['gps'] ?? {}),
       capturedAt: json['capturedAt'] ?? '',
       timezone: json['timezone'] ?? 'Asia/Jakarta',
       category: json['category'] ?? 'main',
+    );
+  }
+
+  PhotoCaptureResult copyWith({
+    String? id,
+    String? inspectionId,
+    String? photoPath,
+    String? watermarkedPath,
+    GpsLocation? gps,
+    String? capturedAt,
+    String? timezone,
+    String? category,
+  }) {
+    return PhotoCaptureResult(
+      id: id ?? this.id,
+      inspectionId: inspectionId ?? this.inspectionId,
+      photoPath: photoPath ?? this.photoPath,
+      watermarkedPath: watermarkedPath ?? this.watermarkedPath,
+      gps: gps ?? this.gps,
+      capturedAt: capturedAt ?? this.capturedAt,
+      timezone: timezone ?? this.timezone,
+      category: category ?? this.category,
     );
   }
 }

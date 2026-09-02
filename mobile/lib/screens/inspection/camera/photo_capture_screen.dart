@@ -11,13 +11,31 @@ import '../../../models/gps_location.dart';
 import '../../../models/media_capture_result.dart';
 import '../../../services/camera_service.dart';
 import '../../../services/location_service.dart';
+import '../../../services/session_store.dart';
 import '../../../widgets/gps_status_indicator.dart';
 import 'media_preview_screen.dart';
 
 class PhotoCaptureScreen extends StatefulWidget {
   final String inspectionCode;
+  final String? taskCode;
+  final int? taskId;
+  final String? vehicleName;
+  final String? licensePlate;
+  final String? vehicleColor;
+  final String? inspectionType;
+  final String? inspectionId;
 
-  const PhotoCaptureScreen({super.key, required this.inspectionCode});
+  const PhotoCaptureScreen({
+    super.key,
+    required this.inspectionCode,
+    this.taskCode,
+    this.taskId,
+    this.vehicleName,
+    this.licensePlate,
+    this.vehicleColor,
+    this.inspectionType,
+    this.inspectionId,
+  });
 
   @override
   State<PhotoCaptureScreen> createState() => _PhotoCaptureScreenState();
@@ -72,7 +90,8 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
       await _openCamera(cameras[_cameraIndex]);
     } catch (e) {
       setState(() {
-        _cameraError = 'Kamera tidak dapat digunakan.\nPeriksa permission kamera.';
+        _cameraError =
+            'Kamera tidak dapat digunakan.\nPeriksa permission kamera.';
         _isInitializing = false;
       });
     }
@@ -100,7 +119,8 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _cameraError = 'Kamera tidak dapat digunakan.\nPeriksa permission kamera.';
+        _cameraError =
+            'Kamera tidak dapat digunakan.\nPeriksa permission kamera.';
         _isInitializing = false;
       });
     }
@@ -147,8 +167,7 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
     if (loc != null) {
       setState(() {
         _gps = loc;
-        _gpsStatus =
-            loc.isAccurate ? GpsStatus.accurate : GpsStatus.weak;
+        _gpsStatus = loc.isAccurate ? GpsStatus.accurate : GpsStatus.weak;
       });
     }
   }
@@ -216,6 +235,10 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
       final XFile file = await controller.takePicture();
       await File(file.path).copy(path);
 
+      // Get staff name from session
+      final driver = await SessionStore.getDriver();
+      final staffName = driver?.nama;
+
       final result = PhotoCaptureResult(
         id: 'photo_${DateTime.now().microsecondsSinceEpoch}',
         inspectionId: widget.inspectionCode,
@@ -227,8 +250,9 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
 
       if (!mounted) return;
 
-      // 4. Tampilkan preview foto + metadata
-      final confirmed = await Navigator.of(context).push<bool>(
+      // 4. Tampilkan preview foto + metadata (watermark otomatis diterapkan)
+      final previewResult =
+          await Navigator.of(context).push<Map<String, dynamic>>(
         MaterialPageRoute(
           builder: (_) => MediaPreviewScreen(
             isPhoto: true,
@@ -236,13 +260,25 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
             inspectionCode: widget.inspectionCode,
             gps: capturedGps,
             timestamp: capturedAt,
+            staffName: staffName,
+            autoApplyWatermark: true,
+            taskCode: widget.taskCode,
+            taskId: widget.taskId,
+            vehicleName: widget.vehicleName,
+            licensePlate: widget.licensePlate,
+            vehicleColor: widget.vehicleColor,
+            inspectionType: widget.inspectionType,
+            inspectionId: widget.inspectionId,
           ),
         ),
       );
 
       if (!mounted) return;
-      if (confirmed == true) {
-        Navigator.of(context).pop(result);
+      if (previewResult != null && previewResult['confirmed'] == true) {
+        final watermarkedPath = previewResult['watermarkedPath'] as String?;
+        final resultWithWatermark =
+            result.copyWith(watermarkedPath: watermarkedPath);
+        Navigator.of(context).pop(resultWithWatermark);
       }
     } catch (_) {
       if (mounted) {
@@ -346,7 +382,9 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
     if (_cameraError != null) {
       return _buildCameraError();
     }
-    if (_isInitializing || _controller == null || !_controller!.value.isInitialized) {
+    if (_isInitializing ||
+        _controller == null ||
+        !_controller!.value.isInitialized) {
       return const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -387,7 +425,8 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
             ),
             child: Row(
               children: [
-                const Icon(Icons.videocam_outlined, size: 14, color: Colors.white70),
+                const Icon(Icons.videocam_outlined,
+                    size: 14, color: Colors.white70),
                 const SizedBox(width: 6),
                 Text(
                   _controller!.description.lensDirection ==
@@ -426,14 +465,16 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
           children: [
             Row(
               children: [
-                const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.white70),
+                const Icon(Icons.calendar_today_outlined,
+                    size: 13, color: Colors.white70),
                 const SizedBox(width: 6),
                 Text(
                   _formatDate(_now),
                   style: const TextStyle(color: Colors.white, fontSize: 12),
                 ),
                 const SizedBox(width: 12),
-                const Icon(Icons.schedule_outlined, size: 13, color: Colors.white70),
+                const Icon(Icons.schedule_outlined,
+                    size: 13, color: Colors.white70),
                 const SizedBox(width: 6),
                 Text(
                   _formatClock(_now),
@@ -444,7 +485,8 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
             const SizedBox(height: 4),
             Row(
               children: [
-                const Icon(Icons.location_on_outlined, size: 13, color: Colors.white70),
+                const Icon(Icons.location_on_outlined,
+                    size: 13, color: Colors.white70),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -503,8 +545,8 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Batal',
-                  style: TextStyle(color: Colors.white54)),
+              child:
+                  const Text('Batal', style: TextStyle(color: Colors.white54)),
             ),
           ],
         ),
@@ -598,8 +640,19 @@ class _PhotoCaptureScreenState extends State<PhotoCaptureScreen> {
 
   String _formatDate(DateTime t) {
     const months = [
-      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+      '',
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember'
     ];
     return '${t.day} ${months[t.month]} ${t.year}';
   }

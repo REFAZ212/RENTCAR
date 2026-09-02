@@ -15,8 +15,19 @@ class KendaraanController extends Controller
     {
         $this->authorize('viewAny', Kendaraan::class);
 
+        // Perbaiki status kolom yang mungkin tidak sinkron dengan order berjalan.
+        Kendaraan::sinkronkanStatusDariOrder();
+
         $query = Kendaraan::with(['garasiPartner', 'kategori', 'tipe'])
-            ->withCount('activeOrders');
+            ->withCount([
+                'activeOrders',
+                'orders as order_pending_count' => function ($q) {
+                    $q->whereNull('deleted_at')->where('status_order', 'pending');
+                },
+                'orders as order_confirmed_count' => function ($q) {
+                    $q->whereNull('deleted_at')->where('status_order', 'confirmed');
+                },
+            ]);
 
         if ($request->search) {
             $search = $request->search;
@@ -126,11 +137,22 @@ class KendaraanController extends Controller
     {
         $this->authorize('view', $kendaraan);
 
-        $kendaraan->load(['garasiPartner', 'kategori', 'tipe', 'orders' => function ($q) {
-            $q->with('customer')->latest()->limit(5);
-        }]);
+        Kendaraan::sinkronkanStatusDariOrder();
+        $kendaraan->refresh();
 
-        return response()->json($kendaraan);
+        $kendaraan->load([
+            'garasiPartner',
+            'kategori',
+            'tipe',
+            'orders' => function ($q) {
+                $q->whereNull('deleted_at')
+                    ->whereIn('status_order', ['active', 'perlu_verifikasi'])
+                    ->select('id', 'kode_order', 'kendaraan_id', 'status_order', 'status_pengiriman', 'tanggal_mulai', 'tanggal_selesai', 'jam_mulai', 'jam_selesai')
+                    ->latest('id');
+            },
+        ]);
+
+        return response()->json(['data' => $kendaraan]);
     }
 
     public function update(Request $request, Kendaraan $kendaraan): JsonResponse
@@ -164,19 +186,27 @@ class KendaraanController extends Controller
 
         if (isset($validated['status']) && $validated['status'] !== $kendaraan->status) {
 
-            $hasActiveOrder = $kendaraan->orders()
-                ->whereIn('status_order', [
-                    'pending',
-                    'confirmed',
-                    'active',
-                ])
+            $hasAwaitingOrder = $kendaraan->orders()
+                ->whereNull('deleted_at')
+                ->whereIn('status_order', ['pending', 'confirmed'])
                 ->exists();
 
-            // Kendaraan tidak boleh dijadikan tersedia/maintenance jika masih dipakai order
-            if (
-                in_array($validated['status'], ['tersedia', 'maintenance'])
-                && $hasActiveOrder
-            ) {
+            $hasOngoingRental = $kendaraan->orders()
+                ->whereNull('deleted_at')
+                ->whereIn('status_order', ['active', 'perlu_verifikasi'])
+                ->exists();
+
+            // Kendaraan ber-order menunggu/konfirmasi harus tetap tersedia:
+            // tidak boleh dipindah ke tidak_tersedia maupun maintenance.
+            if ($hasAwaitingOrder && in_array($validated['status'], ['tidak_tersedia', 'maintenance'])) {
+                return response()->json([
+                    'message' => 'Kendaraan masih memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.',
+                ], 422);
+            }
+
+            // Kendaraan yang sedang disewa tidak boleh diubah statusnya secara
+            // manual sama sekali — sinkronisasi akan tetap memaksakan `disewa`.
+            if ($hasOngoingRental && $validated['status'] !== 'disewa') {
                 return response()->json([
                     'message' => 'Kendaraan masih memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.',
                 ], 422);

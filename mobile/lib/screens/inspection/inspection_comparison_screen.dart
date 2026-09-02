@@ -121,10 +121,10 @@ class InspectionComparisonScreen extends StatelessWidget {
 
   Widget _buildMediaComparison(BuildContext context, InspectionModel before) {
     final beforePhoto = before.photos.isNotEmpty ? before.photos.first : null;
-    final afterPhoto =
-        currentInspection.photos.isNotEmpty ? currentInspection.photos.first : null;
-    final beforeVideo =
-        before.videos.isNotEmpty ? before.videos.first : null;
+    final afterPhoto = currentInspection.photos.isNotEmpty
+        ? currentInspection.photos.first
+        : null;
+    final beforeVideo = before.videos.isNotEmpty ? before.videos.first : null;
     final afterVideo = currentInspection.videos.isNotEmpty
         ? currentInspection.videos.first
         : null;
@@ -498,9 +498,7 @@ class InspectionComparisonScreen extends StatelessWidget {
       for (final i in before.items) i.name: i.status,
     };
 
-    final items = afterItems.isEmpty
-        ? before.items
-        : afterItems;
+    final items = afterItems.isEmpty ? before.items : afterItems;
 
     if (items.isEmpty) {
       return const SizedBox.shrink();
@@ -595,7 +593,8 @@ class InspectionComparisonScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: isSame ? AppColors.textSecondary : AppColors.warning,
+                      color:
+                          isSame ? AppColors.textSecondary : AppColors.warning,
                     ),
                   ),
                 ],
@@ -700,7 +699,8 @@ class _TypeChip extends StatelessWidget {
             ),
             Text(
               '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')} WIB',
-              style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+              style:
+                  const TextStyle(fontSize: 10, color: AppColors.textSecondary),
             ),
           ],
         ),

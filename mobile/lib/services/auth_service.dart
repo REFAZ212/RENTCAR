@@ -30,9 +30,11 @@ class AuthService {
     final driver = DriverModel.fromJson(data);
     final existing = await SessionStore.getDriver();
     if (existing != null) {
-      driver.copyWith(
-        fcmToken: driver.fcmToken ?? existing.fcmToken,
-      ).persist();
+      driver
+          .copyWith(
+            fcmToken: driver.fcmToken ?? existing.fcmToken,
+          )
+          .persist();
     } else {
       driver.persist();
     }
@@ -62,7 +64,8 @@ class AuthService {
   /// Ubah status ketersediaan (available / offline).
   static Future<DriverStatus> updateDriverStatus(DriverStatus status) async {
     final data = await ApiClient.patch('/supir/driver-status', body: {
-      'driver_status': status == DriverStatus.available ? 'available' : 'offline',
+      'driver_status':
+          status == DriverStatus.available ? 'available' : 'offline',
     }) as Map<String, dynamic>;
 
     final newStatus = data['driver_status'] as String? ?? 'offline';

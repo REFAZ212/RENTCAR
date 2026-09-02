@@ -14,7 +14,8 @@ class SyncQueueService {
 
   /// Endpoint backend untuk sinkronisasi dokumentasi inspeksi.
   /// Sesuaikan dengan alamat server Laravel.
-  static const String syncEndpoint = 'http://127.0.0.1:8000/api/mobile/sync-media';
+  static const String syncEndpoint =
+      'http://127.0.0.1:8000/api/mobile/sync-media';
 
   static const int maxPendingSeconds = 10;
 
@@ -125,7 +126,8 @@ class SyncQueueService {
       request.fields['accuracy'] = '${item['accuracy'] ?? 0}';
       request.fields['timezone'] = item['timezone'] ?? 'Asia/Jakarta';
       request.fields['duration'] = '${item['duration'] ?? 0}';
-      request.fields['captured_at'] = item['captured_at'] ?? item['recorded_at'] ?? '';
+      request.fields['captured_at'] =
+          item['captured_at'] ?? item['recorded_at'] ?? '';
 
       if (exists) {
         request.files.add(await http.MultipartFile.fromPath(

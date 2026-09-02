@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildLogo() {
     return Image.asset(
-      'assets/images/logorentcar.png',
+      'assets/images/udinrentcaricon.png',
       height: 56,
       fit: BoxFit.contain,
       errorBuilder: (_, __, ___) {
@@ -174,8 +174,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 hintText: 'admin@udin-renctcar.com',
                 prefixIcon: Icon(Icons.mail_outline_rounded, size: 18),
               ),
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Email tidak boleh kosong' : null,
+              validator: (v) => v == null || v.trim().isEmpty
+                  ? 'Email tidak boleh kosong'
+                  : null,
             ),
             const SizedBox(height: 16),
             const Text(

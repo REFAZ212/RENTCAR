@@ -31,6 +31,9 @@ class KatalogPublicController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        // Pastikan kendaraan yang sedang dipakai order tidak tampil "tersedia".
+        Kendaraan::sinkronkanStatusDariOrder();
+
         $query = Kendaraan::query()
             ->with(['garasiPartner', 'kategori', 'tipe'])
             ->withCount('activeOrders')
@@ -167,6 +170,9 @@ class KatalogPublicController extends Controller
 
     public function show(Request $request, Kendaraan $kendaraan): JsonResponse
     {
+        Kendaraan::sinkronkanStatusDariOrder();
+        $kendaraan->refresh();
+
         if (in_array($kendaraan->status, ['tidak_tersedia', 'maintenance'])) {
             abort(404, 'Kendaraan tidak ditemukan.');
         }

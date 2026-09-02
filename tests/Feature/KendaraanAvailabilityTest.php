@@ -353,10 +353,119 @@ class KendaraanAvailabilityTest extends TestCase
         $this->assertSame('disewa', $kendaraan->fresh()->status);
     }
 
+    public function test_tidak_tersedia_dengan_order_confirmed_bisa_dikembalikan_ke_tersedia(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 20 TT', 'tidak_tersedia');
+        $this->buatOrder($kendaraan, 'ORD-CTUZXKKS', 'confirmed');
+
+        $response = $this->actingAs($this->admin)->putJson("/api/kendaraans/{$kendaraan->id}", [
+            'status' => 'tersedia',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('status', 'tersedia');
+        $this->assertSame('tersedia', $kendaraan->fresh()->status);
+    }
+
+    public function test_kendaraan_dengan_order_confirmed_tidak_bisa_ke_tidak_tersedia(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 21 UU', 'tersedia');
+        $this->buatOrder($kendaraan, 'ORD-CONF-1', 'confirmed');
+
+        $response = $this->actingAs($this->admin)->putJson("/api/kendaraans/{$kendaraan->id}", [
+            'status' => 'tidak_tersedia',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('message', 'Kendaraan masih memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.');
+        $this->assertSame('tersedia', $kendaraan->fresh()->status);
+    }
+
+    public function test_kendaraan_dengan_order_confirmed_tidak_bisa_ke_maintenance(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 22 VV', 'tersedia');
+        $this->buatOrder($kendaraan, 'ORD-CONF-2', 'confirmed');
+
+        $response = $this->actingAs($this->admin)->putJson("/api/kendaraans/{$kendaraan->id}", [
+            'status' => 'maintenance',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('message', 'Kendaraan masih memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.');
+        $this->assertSame('tersedia', $kendaraan->fresh()->status);
+    }
+
+    public function test_kendaraan_disewa_dengan_order_active_tidak_bisa_ke_tersedia(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 23 WW', 'disewa');
+        $this->buatOrder($kendaraan, 'ORD-ACT-1', 'active');
+
+        $response = $this->actingAs($this->admin)->putJson("/api/kendaraans/{$kendaraan->id}", [
+            'status' => 'tersedia',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('message', 'Kendaraan masih memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.');
+        $this->assertSame('disewa', $kendaraan->fresh()->status);
+    }
+
+    public function test_tanpa_order_status_tersedia_dan_tidak_tersedia_bisa_diubah_bebas(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 24 XX', 'tersedia');
+
+        $this->actingAs($this->admin)->putJson("/api/kendaraans/{$kendaraan->id}", ['status' => 'tidak_tersedia'])
+            ->assertStatus(200)
+            ->assertJsonPath('status', 'tidak_tersedia');
+        $this->assertSame('tidak_tersedia', $kendaraan->fresh()->status);
+
+        $this->actingAs($this->admin)->putJson("/api/kendaraans/{$kendaraan->id}", ['status' => 'tersedia'])
+            ->assertStatus(200)
+            ->assertJsonPath('status', 'tersedia');
+        $this->assertSame('tersedia', $kendaraan->fresh()->status);
+    }
+
+    public function test_order_confirmed_soft_deleted_tidak_memblokir_perubahan_status(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 25 YY', 'tersedia');
+        $order = $this->buatOrder($kendaraan, 'ORD-DEL-1', 'confirmed');
+        $order->delete();
+
+        $this->actingAs($this->admin)->putJson("/api/kendaraans/{$kendaraan->id}", ['status' => 'tidak_tersedia'])
+            ->assertStatus(200)
+            ->assertJsonPath('status', 'tidak_tersedia');
+        $this->assertSame('tidak_tersedia', $kendaraan->fresh()->status);
+    }
+
+    public function test_index_mengembalikan_jumlah_order_menunggu_dan_konfirmasi(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 26 ZZ', 'tersedia');
+        $this->buatOrder($kendaraan, 'ORD-IDX-1', 'pending');
+        $this->buatOrder($kendaraan, 'ORD-IDX-2', 'confirmed');
+        $this->buatKendaraan('B 27 AAA', 'tersedia');
+
+        $response = $this->actingAs($this->admin)->getJson('/api/kendaraans');
+
+        $response->assertStatus(200);
+        $item = collect($response->json('data'))->firstWhere('id', $kendaraan->id);
+        $this->assertSame(1, $item['order_pending_count']);
+        $this->assertSame(1, $item['order_confirmed_count']);
+        $other = collect($response->json('data'))->firstWhere('plat_nomor', 'B 27 AAA');
+        $this->assertSame(0, $other['order_pending_count']);
+        $this->assertSame(0, $other['order_confirmed_count']);
+    }
+
     public function test_index_returns_counts_per_status(): void
     {
         $this->buatKendaraan('B 10 JJ', 'tersedia');
-        $this->buatKendaraan('B 11 KK', 'disewa');
+        $disewa = $this->buatKendaraan('B 11 KK', 'disewa');
+        $this->buatOrder($disewa, 'ORD-COUNT-1', 'active');
         $this->buatKendaraan('B 12 LL', 'maintenance');
 
         $response = $this->actingAs($this->admin)->getJson('/api/kendaraans');
@@ -410,5 +519,222 @@ class KendaraanAvailabilityTest extends TestCase
         foreach (['nama_pemilik', 'alamat', 'no_hp', 'email', 'status_aktif', 'is_own', 'metode_bagi_hasil', 'persentase_bagi_hasil', 'catatan'] as $field) {
             $this->assertArrayNotHasKey($field, $detail->json('garasi_partner'), "Field '{$field}' tidak boleh bocor di detail katalog");
         }
+    }
+
+    public function test_sinkronkan_status_menjadikan_disewa_untuk_order_active(): void
+    {
+        $kendaraan = $this->buatKendaraan('B 28 BB', 'tersedia');
+        $this->buatOrder($kendaraan, 'ORD-SYNC-1', 'active');
+
+        Kendaraan::sinkronkanStatusDariOrder();
+
+        $this->assertSame('disewa', $kendaraan->fresh()->status);
+    }
+
+    public function test_sinkronkan_menjadikan_disewa_untuk_order_perlu_verifikasi(): void
+    {
+        $kendaraan = $this->buatKendaraan('B 29 CC', 'tersedia');
+        $this->buatOrder($kendaraan, 'ORD-SYNC-2', 'perlu_verifikasi');
+
+        Kendaraan::sinkronkanStatusDariOrder();
+
+        $this->assertSame('disewa', $kendaraan->fresh()->status);
+    }
+
+    public function test_sinkronkan_membebaskan_kendaraan_setelah_order_selesai(): void
+    {
+        $kendaraan = $this->buatKendaraan('B 30 DD', 'disewa');
+        $this->buatOrder($kendaraan, 'ORD-SYNC-3', 'completed');
+
+        Kendaraan::sinkronkanStatusDariOrder();
+
+        $this->assertSame('tersedia', $kendaraan->fresh()->status);
+    }
+
+    public function test_sinkronkan_kendaraan_dengan_order_cancelled_kembali_tersedia(): void
+    {
+        $kendaraan = $this->buatKendaraan('B 31 EE', 'disewa');
+        $this->buatOrder($kendaraan, 'ORD-SYNC-4', 'cancelled');
+
+        Kendaraan::sinkronkanStatusDariOrder();
+
+        $this->assertSame('tersedia', $kendaraan->fresh()->status);
+    }
+
+    public function test_sinkronkan_mengabaikan_order_soft_deleted(): void
+    {
+        $kendaraan = $this->buatKendaraan('B 32 FF', 'disewa');
+        $order = $this->buatOrder($kendaraan, 'ORD-SYNC-5', 'active');
+        $order->delete();
+
+        Kendaraan::sinkronkanStatusDariOrder();
+
+        $this->assertSame('tersedia', $kendaraan->fresh()->status);
+    }
+
+    public function test_sinkronkan_tidak_mengubah_status_manual_tanpa_order_berjalan(): void
+    {
+        $servis = $this->buatKendaraan('B 33 GG', 'maintenance');
+        $mati = $this->buatKendaraan('B 34 HH', 'tidak_tersedia');
+
+        Kendaraan::sinkronkanStatusDariOrder();
+
+        $this->assertSame('maintenance', $servis->fresh()->status);
+        $this->assertSame('tidak_tersedia', $mati->fresh()->status);
+    }
+
+    public function test_index_self_heal_status_dan_count_disewa(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 35 II', 'tersedia');
+        $this->buatOrder($kendaraan, 'ORD-SYNC-6', 'active');
+
+        $response = $this->actingAs($this->admin)->getJson('/api/kendaraans');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('counts.disewa', 1)
+            ->assertJsonPath('counts.tersedia', 0);
+        $item = collect($response->json('data'))->firstWhere('id', $kendaraan->id);
+        $this->assertSame('disewa', $item['status']);
+        $this->assertSame(1, $item['active_orders_count']);
+    }
+
+    public function test_show_menyertakan_order_aktif_dan_status_hasil_sinkron(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 36 JJ', 'tersedia');
+        $this->buatOrder($kendaraan, 'ORD-SYNC-7', 'active');
+
+        $response = $this->actingAs($this->admin)->getJson("/api/kendaraans/{$kendaraan->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.id', $kendaraan->id)
+            ->assertJsonPath('data.status', 'disewa');
+        $orders = $response->json('data.orders');
+        $this->assertCount(1, $orders);
+        $this->assertSame('ORD-SYNC-7', $orders[0]['kode_order']);
+        $this->assertSame('active', $orders[0]['status_order']);
+        $this->assertSame('2026-09-05', $orders[0]['tanggal_selesai']);
+    }
+
+    public function test_show_tidak_menyertakan_order_selesai(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 37 KK', 'tersedia');
+        $this->buatOrder($kendaraan, 'ORD-SYNC-8', 'completed');
+
+        $response = $this->actingAs($this->admin)->getJson("/api/kendaraans/{$kendaraan->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.status', 'tersedia')
+            ->assertJsonPath('data.orders', []);
+    }
+
+    public function test_katalog_menampilkan_kendaraan_sedang_dipakai_sebagai_disewa(): void
+    {
+        $kendaraan = $this->buatKendaraan('B 38 LL', 'tersedia');
+        $this->buatOrder($kendaraan, 'ORD-SYNC-9', 'active');
+
+        $response = $this->getJson('/api/katalog');
+
+        $response->assertStatus(200);
+        $item = collect($response->json('data'))->firstWhere('id', $kendaraan->id);
+        $this->assertSame('disewa', $item['status']);
+        $this->assertSame(1, $item['active_orders_count']);
+    }
+
+    public function test_pindah_kendaraan_tidak_membebaskan_kendaraan_lama_yang_masih_dipakai(): void
+    {
+        Storage::fake('public');
+        $kendaraanLama = $this->buatKendaraan('B 39 MM', 'disewa');
+        $kendaraanBaru = $this->buatKendaraan('B 40 NN', 'tersedia');
+        $this->buatOrder($kendaraanLama, 'ORD-LAMA-1', 'active');
+        $orderPindah = $this->buatOrder($kendaraanLama, 'ORD-PINDAH-1', 'pending');
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$orderPindah->id}", [
+            'kendaraan_id' => $kendaraanBaru->id,
+            'status_order' => 'active',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('orders', ['id' => $orderPindah->id, 'kendaraan_id' => $kendaraanBaru->id]);
+        $this->assertSame('disewa', $kendaraanLama->fresh()->status);
+        $this->assertSame('disewa', $kendaraanBaru->fresh()->status);
+    }
+
+    public function test_pindah_kendaraan_membebaskan_kendaraan_lama_yang_tidak_dipakai_lain(): void
+    {
+        Storage::fake('public');
+        $kendaraanLama = $this->buatKendaraan('B 41 OO', 'disewa');
+        $kendaraanBaru = $this->buatKendaraan('B 42 PP', 'tersedia');
+        $orderPindah = $this->buatOrder($kendaraanLama, 'ORD-PINDAH-2', 'pending');
+
+        $response = $this->actingAs($this->admin)->putJson("/api/orders/{$orderPindah->id}", [
+            'kendaraan_id' => $kendaraanBaru->id,
+            'status_order' => 'active',
+        ]);
+
+        $response->assertStatus(200);
+        $this->assertDatabaseHas('orders', ['id' => $orderPindah->id, 'kendaraan_id' => $kendaraanBaru->id]);
+        $this->assertSame('tersedia', $kendaraanLama->fresh()->status);
+        $this->assertSame('disewa', $kendaraanBaru->fresh()->status);
+    }
+
+    public function test_kendaraan_disewa_dengan_order_active_tidak_bisa_ke_tidak_tersedia(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 43 QQ', 'disewa');
+        $this->buatOrder($kendaraan, 'ORD-LOCK-1', 'active');
+
+        $this->actingAs($this->admin)->putJson("/api/kendaraans/{$kendaraan->id}", ['status' => 'tidak_tersedia'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Kendaraan masih memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.');
+        $this->assertSame('disewa', $kendaraan->fresh()->status);
+    }
+
+    public function test_kendaraan_disewa_dengan_order_active_tidak_bisa_ke_maintenance(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 44 RR', 'disewa');
+        $this->buatOrder($kendaraan, 'ORD-LOCK-2', 'active');
+
+        $this->actingAs($this->admin)->putJson("/api/kendaraans/{$kendaraan->id}", ['status' => 'maintenance'])
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Kendaraan masih memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.');
+        $this->assertSame('disewa', $kendaraan->fresh()->status);
+    }
+
+    public function test_kendaraan_dengan_order_perlu_verifikasi_dikunci_dari_perubahan_manual(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 45 SS', 'disewa');
+        $this->buatOrder($kendaraan, 'ORD-LOCK-3', 'perlu_verifikasi');
+
+        foreach (['maintenance', 'tidak_tersedia', 'tersedia'] as $target) {
+            $this->actingAs($this->admin)->putJson("/api/kendaraans/{$kendaraan->id}", ['status' => $target])
+                ->assertStatus(422)
+                ->assertJsonPath('message', 'Kendaraan masih memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.');
+        }
+
+        // Tetap boleh menandai disewa (konsisten dengan order yang berjalan).
+        $this->actingAs($this->admin)->putJson("/api/kendaraans/{$kendaraan->id}", ['status' => 'disewa'])
+            ->assertStatus(200)
+            ->assertJsonPath('status', 'disewa');
+        $this->assertSame('disewa', $kendaraan->fresh()->status);
+    }
+
+    public function test_index_active_orders_count_termasuk_perlu_verifikasi(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 46 TT', 'tersedia');
+        $this->buatOrder($kendaraan, 'ORD-COUNT-2', 'perlu_verifikasi');
+
+        $response = $this->actingAs($this->admin)->getJson('/api/kendaraans');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('counts.disewa', 1);
+        $item = collect($response->json('data'))->firstWhere('id', $kendaraan->id);
+        $this->assertSame('disewa', $item['status']);
+        $this->assertSame(1, $item['active_orders_count']);
     }
 }

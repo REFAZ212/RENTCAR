@@ -340,7 +340,7 @@ const STATUS_TABS: { key: StatusFilter; label: string }[] = [
   { key: '', label: 'Semua' },
   { key: 'pending', label: 'Menunggu' },
   { key: 'confirmed', label: 'Dikonfirmasi' },
-  { key: 'active', label: 'Aktif' },
+  { key: 'active', label: 'Sedang Disewa' },
   { key: 'perlu_verifikasi', label: 'Perlu Verifikasi' },
   { key: 'overdue', label: 'Terlambat' },
   { key: 'completed', label: 'Selesai' },
@@ -4143,10 +4143,10 @@ export default function Orders() {
                           <>
                             <button onClick={() => openCompleteModal(item)} className="flex-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-600">Selesaikan</button>
                             <button
-                              onClick={() => setConfirmAction({ title: 'Kembalikan ke Aktif', message: `Kembalikan order "${item.kode_order}" ke status Aktif? Denda freeze akan dihitung ulang.`, onConfirm: () => handleInlineUpdate(item.id, 'status_order', 'active') })}
+                              onClick={() => setConfirmAction({ title: 'Kembalikan ke Sedang Disewa', message: `Kembalikan order "${item.kode_order}" ke status Sedang Disewa? Denda freeze akan dihitung ulang.`, onConfirm: () => handleInlineUpdate(item.id, 'status_order', 'active') })}
                               className="flex-1 rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-50"
                             >
-                              Kembalikan ke Aktif
+                              Kembalikan ke Sedang Disewa
                             </button>
                             <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-error-200 bg-white px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50">Batal</button>
                           </>

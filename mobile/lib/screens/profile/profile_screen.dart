@@ -82,10 +82,10 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 20),
           _buildSection([
             _MenuItem(icon: Icons.person_outline_rounded, title: 'Edit Profil'),
+            _MenuItem(icon: Icons.lock_outline_rounded, title: 'Ubah Password'),
             _MenuItem(
-                icon: Icons.lock_outline_rounded, title: 'Ubah Password'),
-            _MenuItem(
-                icon: Icons.notifications_outlined, title: 'Pengaturan Notifikasi'),
+                icon: Icons.notifications_outlined,
+                title: 'Pengaturan Notifikasi'),
           ]),
           const SizedBox(height: 16),
           _buildSection([
@@ -133,11 +133,12 @@ class ProfileScreen extends StatelessWidget {
             ListTile(
               contentPadding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-              leading: Icon(items[i].icon, size: 20, color: AppColors.textSecondary),
+              leading:
+                  Icon(items[i].icon, size: 20, color: AppColors.textSecondary),
               title: Text(
                 items[i].title,
-                style: const TextStyle(
-                    fontSize: 14, color: AppColors.textPrimary),
+                style:
+                    const TextStyle(fontSize: 14, color: AppColors.textPrimary),
               ),
               trailing: const Icon(Icons.chevron_right_rounded,
                   size: 18, color: AppColors.textHint),

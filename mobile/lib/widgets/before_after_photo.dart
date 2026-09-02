@@ -31,7 +31,8 @@ class BeforeAfterPhoto extends StatelessWidget {
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(child: _buildPhotoBox('SEBELUM', beforePhoto, AppColors.info)),
+            Expanded(
+                child: _buildPhotoBox('SEBELUM', beforePhoto, AppColors.info)),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8),
               child: Column(
@@ -47,7 +48,9 @@ class BeforeAfterPhoto extends StatelessWidget {
                 ],
               ),
             ),
-            Expanded(child: _buildPhotoBox('SESUDAH', afterPhoto, AppColors.warning)),
+            Expanded(
+                child:
+                    _buildPhotoBox('SESUDAH', afterPhoto, AppColors.warning)),
           ],
         ),
         if (onCompare != null) ...[

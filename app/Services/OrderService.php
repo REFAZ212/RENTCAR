@@ -1290,8 +1290,15 @@ class OrderService
     {
         if ($newKendaraanId != $oldKendaraanId) {
             $oldKendaraan = Kendaraan::find($oldKendaraanId);
+            $oldKendaraan?->refresh();
             if ($oldKendaraan && $oldKendaraan->status === 'disewa') {
-                $oldKendaraan->update(['status' => 'tersedia']);
+                $oldKendaraan->update([
+                    'status' => $oldKendaraan->activeOrders()
+                        ->where('id', '!=', $order->id)
+                        ->exists()
+                        ? 'disewa'
+                        : 'tersedia',
+                ]);
             }
         }
 
