@@ -40,7 +40,7 @@ const PER_PAGE = 30;
 const statusOrderLabels: Record<StatusOrder, string> = {
   pending: 'Menunggu',
   confirmed: 'Dikonfirmasi',
-  active: 'Aktif',
+  active: 'Sedang Disewa',
   perlu_verifikasi: 'Perlu Verifikasi',
   completed: 'Selesai',
   cancelled: 'Dibatalkan',
@@ -3965,6 +3965,23 @@ export default function Orders() {
                     <div className="flex items-center gap-1.5">
                       <span className="h-2 w-2 shrink-0 rounded-full bg-error-500" />
                       <span className="text-[10px] font-medium text-error-600">Order dibatalkan</span>
+                    </div>
+                  )}
+
+                  {/* ── Inspeksi status banner ── */}
+                  {item.status_order === 'confirmed' && item.operator_id && (
+                    <div className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
+                      item.pickup_draft_count > 0
+                        ? 'border-blue-200 bg-blue-50 text-blue-700'
+                        : 'border-amber-200 bg-amber-50 text-amber-700'
+                    }`}>
+                      <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${
+                        item.pickup_draft_count > 0 ? 'bg-blue-500 animate-pulse' : 'bg-amber-500'
+                      }`} />
+                      {item.pickup_draft_count > 0
+                        ? `Sedang diinspeksi oleh ${item.operator?.name ?? 'petugas'}`
+                        : `Menunggu inspeksi oleh ${item.operator?.name ?? 'petugas'}`
+                      }
                     </div>
                   )}
 

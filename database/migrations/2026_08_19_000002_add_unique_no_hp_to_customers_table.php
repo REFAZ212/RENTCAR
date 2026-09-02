@@ -34,9 +34,16 @@ return new class extends Migration
             DB::table('customers')->whereIn('id', $ids)->delete();
         }
 
-        Schema::table('customers', function (Blueprint $table) {
-            $table->unique('no_hp');
-        });
+        $custUnique = DB::select(
+            "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'customers'
+             AND CONSTRAINT_TYPE = 'UNIQUE' AND CONSTRAINT_NAME = 'customers_no_hp_unique'"
+        );
+        if (empty($custUnique)) {
+            Schema::table('customers', function (Blueprint $table) {
+                $table->unique('no_hp');
+            });
+        }
     }
 
     public function down(): void

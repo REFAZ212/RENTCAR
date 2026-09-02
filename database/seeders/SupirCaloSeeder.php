@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\SupirCalo;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class SupirCaloSeeder extends Seeder
 {
@@ -174,22 +173,22 @@ class SupirCaloSeeder extends Seeder
         $rows = [];
 
         foreach ($supirs as $supir) {
-            $plainPassword = Str::random(12);
+            $plainPassword = 'password';
             $rows[] = ['supir', $supir['email'], $plainPassword];
             SupirCalo::create([
                 ...$supir,
                 'password' => $plainPassword,
-                'must_change_password' => true,
+                'must_change_password' => false,
             ]);
         }
 
         foreach ($calos as $calo) {
-            $plainPassword = Str::random(12);
+            $plainPassword = 'password';
             $rows[] = ['calo', $calo['email'], $plainPassword];
             SupirCalo::create([
                 ...$calo,
                 'password' => $plainPassword,
-                'must_change_password' => true,
+                'must_change_password' => false,
             ]);
         }
 

@@ -123,11 +123,11 @@ export interface Order {
   denda_overtime: number;
   jam_overtime_saat_ini: number;
   denda_overtime_saat_ini: number;
-  tanggal_jatuh_tempo: string | null;
   biaya_pembatalan: number | null;
   total_refund: number | null;
   biaya_kerusakan: number | null;
   operator?: { id: number; name: string; phone: string | null };
+  pickup_draft_count?: number;
   customer?: Customer;
   kendaraan?: Kendaraan;
   supir?: SupirCalo;
@@ -458,6 +458,14 @@ export const laporanAPI = {
   order: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/order', { params }),
   bagiHasil: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/bagi-hasil', { params }),
   komisiCalo: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/komisi-calo', { params }),
+  rekapGarasi: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/rekap-garasi', { params }),
+  growth: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/growth', { params }),
+  piutang: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/piutang', { params }),
+  profitabilitas: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/profitabilitas', { params }),
+  detailOrder: (params: Record<string, unknown>): Promise<AxiosResponse<unknown>> => api.get('/laporan/detail-order', { params }),
+  decision: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/decision', { params }),
+  exportDetailOrder: (format: 'csv' | 'xlsx', params: LaporanParams): Promise<AxiosResponse<Blob>> =>
+    api.get(`/laporan/export/detail-lengkap/${format}`, { params, responseType: 'blob' }),
   export: (type: string, format: 'csv' | 'xlsx', params: LaporanParams): Promise<AxiosResponse<Blob>> =>
     api.get(`/laporan/export/${type}/${format}`, { params, responseType: 'blob' }),
 };

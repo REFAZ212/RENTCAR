@@ -69,7 +69,7 @@ function OrderDetailModal({ order, onClose }: { order: Order; onClose: () => voi
         const labels: Record<string, string> = {
             pending: 'Menunggu',
             confirmed: 'Dikonfirmasi',
-            active: 'Aktif',
+active: 'Sedang Disewa',
             completed: 'Selesai',
             cancelled: 'Dibatalkan',
             unpaid: 'Belum Bayar',
@@ -299,13 +299,6 @@ function OrderDetailModal({ order, onClose }: { order: Order; onClose: () => voi
                                 </p>
                             </div>
                         </div>
-                        {order.tanggal_jatuh_tempo && (
-                            <div className="mt-3 pt-3 border-t border-black-200 flex items-center gap-2 text-sm">
-                                <Clock size={14} className="text-black-400" />
-                                <span className="text-black-400">Jatuh tempo:</span>
-                                <span className="font-medium text-black-900">{formatDate(order.tanggal_jatuh_tempo)}</span>
-                            </div>
-                        )}
                     </div>
 
                     {order.catatan && (

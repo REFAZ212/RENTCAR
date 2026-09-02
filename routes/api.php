@@ -119,6 +119,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('order', [ReportController::class, 'order']);
         Route::get('bagi-hasil', [ReportController::class, 'bagiHasil']);
         Route::get('komisi-calo', [ReportController::class, 'komisiCalo']);
+        Route::get('rekap-garasi', [ReportController::class, 'rekapGarasi']);
+        Route::get('growth', [ReportController::class, 'growth']);
+        Route::get('piutang', [ReportController::class, 'piutang']);
+        Route::get('profitabilitas', [ReportController::class, 'profitabilitas']);
+        Route::get('detail-order', [ReportController::class, 'detailOrder']);
+        Route::get('decision', [ReportController::class, 'decision']);
 
         Route::get('export/{type}/{format}', [ReportController::class, 'export'])->middleware('throttle:5,1');
     });

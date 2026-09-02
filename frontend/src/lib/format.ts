@@ -72,6 +72,64 @@ export function todayJakarta(): string {
 }
 
 /**
+ * Parser tanggal YYYY-MM-DD menjadi objek Date lokal (Asia/Jakarta).
+ * Menghindari pergeseran zona waktu karena parsing langsung `new Date("YYYY-MM-DD")`
+ * memperlakukan string sebagai UTC.
+ */
+function parseYmd(ymd: string): Date {
+  const [y, m, d] = ymd.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+/**
+ * Format tanggal YYYY-MM-DD menjadi tampilan Indonesia
+ * (mis. "29 Agu 2026") dengan timezone lokal yang konsisten.
+ */
+export function formatTanggal(ymd: string | null | undefined): string {
+  if (!ymd) return '-';
+  const d = parseYmd(ymd);
+  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+/**
+ * Kurangi / tambah hari dari string tanggal YYYY-MM-DD (murni aritmatika kalender,
+ * tanpa dependensi timezone). Mengembalikan YYYY-MM-DD.
+ */
+export function addDaysYmd(ymd: string, days: number): string {
+  const d = parseYmd(ymd);
+  d.setDate(d.getDate() + days);
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
+/**
+ * Rentang bulan berjalan (tanggal 1 s/d hari terakhir bulan) untuk tanggal YYYY-MM-DD.
+ */
+export function monthRangeYmd(ymd: string): { start: string; end: string } {
+  const [y, m] = ymd.split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  return {
+    start: `${y}-${String(m).padStart(2, '0')}-01`,
+    end: `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`,
+  };
+}
+
+/** Selisih hari antara dua tanggal YYYY-MM-DD (negatif bila end sebelum start). */
+export function diffDaysYmd(start: string, end: string): number {
+  return Math.round((parseYmd(end).getTime() - parseYmd(start).getTime()) / 86400000);
+}
+
+/** Cari label period preset yang cocok untuk sepasang tanggal kustom. */
+export function periodPresetLabel(start: string, end: string): string | null {
+  if (start === end) return 'Hari Ini';
+  if (end === todayJakarta() && start === addDaysYmd(end, -6)) return '7 Hari Terakhir';
+  const cur = todayJakarta();
+  if (start === monthRangeYmd(cur).start && end === cur) return 'Bulan Ini';
+  return 'Kustom';
+}
+
+/**
  * Mendapatkan waktu sekarang dalam format YYYY-MM-DDTHH:MM
  * menggunakan timezone Asia/Jakarta (WIB, UTC+7).
  * Digunakan untuk datetime-local input default.
