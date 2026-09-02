@@ -929,6 +929,9 @@ class ReportService
         if (! empty($filters['garasi_partner_id'])) {
             $query->whereHas('kendaraan', fn ($q) => $q->where('garasi_partner_id', $filters['garasi_partner_id']));
         }
+        if (! empty($filters['kategori_id'])) {
+            $query->whereHas('kendaraan', fn ($q) => $q->where('kategori_id', $filters['kategori_id']));
+        }
 
         $query->orderByDesc('created_at');
 
@@ -970,6 +973,9 @@ class ReportService
         }
         if (! empty($filters['garasi_partner_id'])) {
             $query->whereHas('kendaraan', fn ($q) => $q->where('garasi_partner_id', $filters['garasi_partner_id']));
+        }
+        if (! empty($filters['kategori_id'])) {
+            $query->whereHas('kendaraan', fn ($q) => $q->where('kategori_id', $filters['kategori_id']));
         }
 
         $completed = (clone $query)->where('status_order', 'completed')->get();
@@ -1045,6 +1051,7 @@ class ReportService
             $kategori = $kendaraan->kategori?->nama_kategori ?? 'Tanpa Kategori';
             $perKategori[$kategori] = $perKategori[$kategori] ?? [
                 'nama_kategori' => $kategori,
+                'kategori_id' => $kendaraan->kategori_id,
                 'jumlah_order' => 0,
                 'total_harga' => 0,
                 'total_beban' => 0,

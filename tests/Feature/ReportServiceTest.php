@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Customer;
+use App\Models\Kategori;
 use App\Models\Kendaraan;
 use App\Models\Order;
 use App\Models\User;
@@ -79,6 +80,7 @@ class ReportServiceTest extends TestCase
         Schema::create('kategoris', function ($t) {
             $t->id();
             $t->string('nama_kategori');
+            $t->string('slug')->nullable();
             $t->timestamps();
         });
         Schema::create('tipes', function ($t) {
@@ -132,6 +134,11 @@ class ReportServiceTest extends TestCase
             $t->string('status_permintaan')->default('pending');
             $t->timestamps();
             $t->softDeletes();
+        });
+        Schema::create('inspeksi_kendaraans', function ($t) {
+            $t->id();
+            $t->foreignId('order_id');
+            $t->timestamps();
         });
 
         $this->admin = User::create([
@@ -241,5 +248,39 @@ class ReportServiceTest extends TestCase
         $this->assertSame(2, $order['total_orders']);
         $this->assertSame(100000.0, $order['total_denda']);
         $this->assertSame(2.0, $order['rata_rata_durasi']);
+    }
+
+    public function test_detail_order_dapat_difilter_kategori_id(): void
+    {
+        $kategoriA = Kategori::create(['nama_kategori' => 'MPV']);
+        $kategoriB = Kategori::create(['nama_kategori' => 'Hatchback']);
+
+        $this->kendaraanA->update(['kategori_id' => $kategoriA->id]);
+        $this->kendaraanB->update(['kategori_id' => $kategoriB->id]);
+
+        $this->createOrder(['kendaraan_id' => $this->kendaraanA->id, 'harga_total' => 1000000], createdAt: '2026-08-10 10:00:00');
+        $this->createOrder(['kendaraan_id' => $this->kendaraanB->id, 'harga_total' => 500000], createdAt: '2026-08-11 10:00:00');
+
+        $service = new ReportService('2026-08-01', '2026-08-31');
+        $filtered = $service->detailOrder(['kategori_id' => $kategoriB->id], 25, 1);
+
+        $this->assertCount(1, $filtered['data']);
+        $this->assertSame('Hatchback', $filtered['data'][0]['kategori']);
+        $this->assertSame(500000.0, (float) $filtered['data'][0]['harga_total']);
+    }
+
+    public function test_dashboard_decision_per_kategori_memiliki_kategori_id(): void
+    {
+        $kategoriA = Kategori::create(['nama_kategori' => 'MPV']);
+        $this->kendaraanA->update(['kategori_id' => $kategoriA->id]);
+
+        $this->createOrder(['kendaraan_id' => $this->kendaraanA->id, 'harga_total' => 1000000], createdAt: '2026-08-10 10:00:00');
+
+        $service = new ReportService('2026-08-01', '2026-08-31');
+        $decision = $service->dashboardDecision();
+
+        $mpv = collect($decision['per_kategori'])->firstWhere('nama_kategori', 'MPV');
+        $this->assertNotNull($mpv);
+        $this->assertSame($kategoriA->id, $mpv['kategori_id'] ?? null);
     }
 }

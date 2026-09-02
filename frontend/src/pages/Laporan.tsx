@@ -537,6 +537,7 @@ interface DetailOrderData {
 }
 
 interface DecisionKategoriRow {
+  kategori_id: number | null;
   nama_kategori: string;
   jumlah_order: number;
   total_harga: number;
@@ -1190,6 +1191,7 @@ function RekapGarasiTab({ params }: { params: DateParams }) {
   const [data, setData] = useState<RekapGarasiData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPartner, setSelectedPartner] = useState<RekapGarasiRow | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -1249,10 +1251,11 @@ function RekapGarasiTab({ params }: { params: DateParams }) {
             { label: 'Komisi', align: 'right' },
             { label: 'Laba / Rugi', align: 'right' },
             { label: 'Bagi Hasil', align: 'right' },
+            { label: 'Aksi', align: 'center' },
           ]}
           footer={
             <TotalRow
-              colSpan={3}
+              colSpan={4}
               totals={[
                 grand_total.order_count,
                 formatRupiah(grand_total.pendapatan),
@@ -1265,7 +1268,11 @@ function RekapGarasiTab({ params }: { params: DateParams }) {
           }
         >
           {partners.map((r, i) => (
-            <tr key={r.garasi_partner_id} className="transition-colors odd:bg-white even:bg-canvas/40 hover:bg-primary-50/40">
+            <tr
+              key={r.garasi_partner_id}
+              className="cursor-pointer transition-colors odd:bg-white even:bg-canvas/40 hover:bg-primary-50/40"
+              onClick={() => setSelectedPartner(r)}
+            >
               <td className="px-5 py-3 text-black-400">{i + 1}</td>
               <td className="px-5 py-3 font-medium text-black-900">{r.nama_garasi}</td>
               <td className="px-5 py-3 text-center">
@@ -1279,11 +1286,22 @@ function RekapGarasiTab({ params }: { params: DateParams }) {
                 {formatRupiah(r.laba)}
               </td>
               <td className="px-5 py-3 text-right font-mono font-semibold text-black-900">{formatRupiah(r.bagi_hasil)}</td>
+              <td className="px-5 py-3 text-center text-primary-600">Detail</td>
             </tr>
           ))}
         </DataTable>
         {partners.length === 0 && <EmptyState label="Belum ada data garasi partner" />}
       </SectionCard>
+
+      {selectedPartner && (
+        <OrderListModal
+          title={selectedPartner.nama_garasi}
+          subtitle={`${selectedPartner.order_count} order selesai • bagi hasil ${selectedPartner.persentase}%`}
+          params={params}
+          garasiId={selectedPartner.garasi_partner_id}
+          onClose={() => setSelectedPartner(null)}
+        />
+      )}
     </div>
   );
 }
@@ -1749,6 +1767,211 @@ function DetailModal({ order, onClose }: { order: DetailOrderRow; onClose: () =>
   );
 }
 
+/* Modal daftar order (drill-down) untuk baris agregat pada tab
+ * Per Kategori & Rekap per Garasi. Membuka DetailModal per baris
+ * order — pola sama dengan tab Detail Order. */
+function OrderListModal({
+  title,
+  subtitle,
+  params,
+  kategoriId,
+  garasiId,
+  onClose,
+}: {
+  title: string;
+  subtitle?: string;
+  params: DateParams;
+  kategoriId?: number | null;
+  garasiId?: number | null;
+  onClose: () => void;
+}) {
+  const [data, setData] = useState<DetailOrderData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [selectedOrder, setSelectedOrder] = useState<DetailOrderRow | null>(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    const query: Record<string, unknown> = {
+      start_date: params.start_date,
+      end_date: params.end_date,
+      status_order: 'completed',
+      page,
+      per_page: 10,
+    };
+    if (kategoriId != null) query.kategori_id = kategoriId;
+    if (garasiId != null) query.garasi_partner_id = garasiId;
+
+    laporanAPI
+      .detailOrder(query)
+      .then((res) => {
+        const d = (res.data as { data: DetailOrderData }).data;
+        setData(d);
+      })
+      .catch((err) => setError(apiErrorMessage(err)))
+      .finally(() => setLoading(false));
+  }, [params, kategoriId, garasiId, page]);
+
+  const pageTotals = (data?.data ?? []).reduce(
+    (acc, o) => {
+      acc.total += o.harga_total;
+      acc.denda += o.denda_overtime;
+      acc.beban += o.beban_partner;
+      acc.laba += o.laba;
+      return acc;
+    },
+    { total: 0, denda: 0, beban: 0, laba: 0 },
+  );
+  const pageMargin = pageTotals.total > 0 ? (pageTotals.laba / pageTotals.total) * 100 : 0;
+  const { pagination } = data ?? { pagination: null };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black-900/50 p-4" onClick={onClose}>
+      <div className="my-8 w-full max-w-5xl rounded-2xl bg-surface p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h3 className="font-display text-xl font-bold text-black-900">{title}</h3>
+            {subtitle && <p className="mt-1 text-sm text-black-400">{subtitle}</p>}
+          </div>
+          <button onClick={onClose} className="rounded-lg bg-black-100 px-2.5 py-1.5 text-sm text-black-700 hover:bg-black-200">
+            Tutup
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-black-200">
+          {loading ? (
+            <TableSkeleton rows={6} />
+          ) : error ? (
+            <ErrorState message={error} />
+          ) : data && data.data.length > 0 ? (
+            <>
+              <DataTable
+                columns={[
+                  { label: 'Kode' },
+                  { label: 'Mulai' },
+                  { label: 'Customer' },
+                  { label: 'Kendaraan' },
+                  { label: 'Order', align: 'center' },
+                  { label: 'Bayar', align: 'center' },
+                  { label: 'Total', align: 'right' },
+                  { label: 'Denda', align: 'right' },
+                  { label: 'Harga Beli', align: 'right' },
+                  { label: 'Margin', align: 'right' },
+                  { label: 'Laba', align: 'right' },
+                  { label: 'Aksi', align: 'center' },
+                ]}
+                footer={
+                  <TotalRow
+                    colSpan={6}
+                    label="Subtotal halaman"
+                    totals={[
+                      formatRupiah(pageTotals.total),
+                      formatRupiah(pageTotals.denda),
+                      formatRupiah(pageTotals.beban),
+                      `${pageMargin.toFixed(1)}%`,
+                      formatRupiah(pageTotals.laba),
+                      '',
+                    ]}
+                  />
+                }
+              >
+                {data.data.map((o) => (
+                  <tr
+                    key={o.order_id}
+                    className="cursor-pointer transition-colors odd:bg-white even:bg-canvas/40 hover:bg-primary-50/40"
+                    onClick={() => setSelectedOrder(o)}
+                  >
+                    <td className="px-5 py-3 font-mono font-medium text-black-900">{o.kode_order}</td>
+                    <td className="px-5 py-3 text-black-700">{o.tanggal_mulai}</td>
+                    <td className="px-5 py-3 text-black-700">{o.nama_customer}</td>
+                    <td className="px-5 py-3 text-black-700">
+                      {o.nama_kendaraan ?? '-'}
+                      {o.kategori && <span className="ml-1 text-xs text-black-400">({o.kategori})</span>}
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusOrderColors[o.status_order]}`}>
+                        {statusOrderLabels[o.status_order]}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusPembayaranColors[o.status_pembayaran]}`}>
+                        {statusPembayaranLabels[o.status_pembayaran]}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(o.harga_total)}</td>
+                    <td className="px-5 py-3 text-right font-mono text-black-700">{formatRupiah(o.denda_overtime)}</td>
+                    <td className="px-5 py-3 text-right font-mono text-black-700">{formatRupiah(o.beban_partner)}</td>
+                    <td className="px-5 py-3 text-right font-mono text-black-700">
+                      {o.beban_partner > 0 || (o.komisi_calo ?? 0) > 0 ? `${o.margin.toFixed(1)}%` : '-'}
+                    </td>
+                    <td className={`px-5 py-3 text-right font-mono font-semibold ${o.laba >= 0 ? 'text-success-600' : 'text-error-600'}`}>
+                      {o.beban_partner > 0 || (o.komisi_calo ?? 0) > 0 ? formatRupiah(o.laba) : '-'}
+                    </td>
+                    <td className="px-5 py-3 text-center text-primary-600">Detail</td>
+                  </tr>
+                ))}
+              </DataTable>
+              {pagination && pagination.last_page > 1 && (
+                <div className="flex flex-col items-center justify-between gap-3 border-t border-black-200 px-5 py-3 sm:flex-row">
+                  <span className="text-xs text-black-400">
+                    Menampilkan{' '}
+                    <span className="font-semibold text-black-700">
+                      {(pagination.current_page - 1) * pagination.per_page + 1}–
+                      {Math.min(pagination.current_page * pagination.per_page, pagination.total)}
+                    </span>{' '}
+                    dari <span className="font-semibold text-black-700">{pagination.total}</span> data
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      disabled={pagination.current_page <= 1}
+                      onClick={() => setPage((p) => p - 1)}
+                      className="rounded-lg border border-black-200 bg-surface px-2.5 py-1.5 text-xs font-medium text-black-700 transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Sebelumnya
+                    </button>
+                    {Array.from({ length: pagination.last_page }).map((_, i) => {
+                      const n = i + 1;
+                      const show = n === 1 || n === pagination.last_page || Math.abs(n - pagination.current_page) <= 1;
+                      if (!show) {
+                        const prevShown = n === 2 || (n === pagination.current_page - 2 && pagination.current_page > 3);
+                        return prevShown ? <span key={`e-${n}`} className="px-1 text-xs text-black-400">…</span> : null;
+                      }
+                      return (
+                        <button
+                          key={n}
+                          onClick={() => setPage(n)}
+                          className={`h-7 min-w-7 rounded-lg px-2 text-xs font-semibold transition-colors ${
+                            n === pagination.current_page ? 'bg-primary-500 text-white' : 'text-black-700 hover:bg-canvas'
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      );
+                    })}
+                    <button
+                      disabled={pagination.current_page >= pagination.last_page}
+                      onClick={() => setPage((p) => p + 1)}
+                      className="rounded-lg border border-black-200 bg-surface px-2.5 py-1.5 text-xs font-medium text-black-700 transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Berikutnya
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <EmptyState label="Belum ada data order" />
+          )}
+        </div>
+
+        {selectedOrder && <DetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />}
+      </div>
+    </div>
+  );
+}
+
 function DetailOrderTab({ params }: { params: DateParams }) {
   const [data, setData] = useState<DetailOrderData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -2083,6 +2306,7 @@ function PerKategoriTab({ params }: { params: DateParams }) {
   const [data, setData] = useState<DecisionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedKategori, setSelectedKategori] = useState<DecisionKategoriRow | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -2133,10 +2357,11 @@ function PerKategoriTab({ params }: { params: DateParams }) {
               { label: 'Total Komisi', align: 'right' },
               { label: 'Total Laba', align: 'right' },
               { label: 'Margin', align: 'right' },
+              { label: 'Aksi', align: 'center' },
             ]}
             footer={
               <TotalRow
-                colSpan={1}
+                colSpan={2}
                 totals={[
                   total.jumlah_order,
                   formatRupiah(total.total_harga),
@@ -2149,7 +2374,13 @@ function PerKategoriTab({ params }: { params: DateParams }) {
             }
           >
             {data.per_kategori.map((k) => (
-              <tr key={k.nama_kategori}>
+              <tr
+                key={k.nama_kategori}
+                className={`cursor-pointer transition-colors odd:bg-white even:bg-canvas/40 hover:bg-primary-50/40 ${
+                  k.kategori_id == null ? 'cursor-default' : ''
+                }`}
+                onClick={() => k.kategori_id != null && setSelectedKategori(k)}
+              >
                 <td className="px-5 py-3 font-medium text-black-900">{k.nama_kategori}</td>
                 <td className="px-5 py-3 text-right text-black-700">{k.jumlah_order}</td>
                 <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(k.total_harga)}</td>
@@ -2161,6 +2392,13 @@ function PerKategoriTab({ params }: { params: DateParams }) {
                 <td className="px-5 py-3 text-right font-mono text-black-900">
                   {k.total_harga > 0 ? `${((k.total_laba / k.total_harga) * 100).toFixed(1)}%` : '0.0%'}
                 </td>
+                <td className="px-5 py-3 text-center">
+                  {k.kategori_id != null ? (
+                    <span className="text-primary-600">Detail</span>
+                  ) : (
+                    <span className="text-black-300">—</span>
+                  )}
+                </td>
               </tr>
             ))}
           </DataTable>
@@ -2168,6 +2406,15 @@ function PerKategoriTab({ params }: { params: DateParams }) {
           <EmptyState label="Belum ada data kategori" />
         )}
       </SectionCard>
+
+      {selectedKategori && selectedKategori.kategori_id != null && (
+        <OrderListModal
+          title={selectedKategori.nama_kategori}
+          params={params}
+          kategoriId={selectedKategori.kategori_id}
+          onClose={() => setSelectedKategori(null)}
+        />
+      )}
     </div>
   );
 }

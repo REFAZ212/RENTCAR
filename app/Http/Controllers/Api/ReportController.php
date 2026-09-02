@@ -237,6 +237,7 @@ class ReportController extends Controller
             'status_order' => 'nullable|in:pending,confirmed,active,perlu_verifikasi,completed,cancelled',
             'source' => 'nullable|in:admin,katalog',
             'garasi_partner_id' => 'nullable|integer',
+            'kategori_id' => 'nullable|integer',
             'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:1|max:100',
         ]);
@@ -248,6 +249,7 @@ class ReportController extends Controller
             'status_order' => $request->status_order,
             'source' => $request->source,
             'garasi_partner_id' => $request->garasi_partner_id,
+            'kategori_id' => $request->kategori_id,
         ];
 
         $data = $service->detailOrder($filters, (int) ($request->per_page ?? 25), (int) ($request->page ?? 1));
@@ -295,6 +297,7 @@ class ReportController extends Controller
             'status_order' => 'nullable|in:pending,confirmed,active,perlu_verifikasi,completed,cancelled',
             'source' => 'nullable|in:admin,katalog',
             'garasi_partner_id' => 'nullable|integer',
+            'kategori_id' => 'nullable|integer',
         ]);
 
         [$start, $end] = ReportService::parseDates($request->only('start_date', 'end_date'));
@@ -339,6 +342,7 @@ class ReportController extends Controller
             'status_order' => $request->status_order,
             'source' => $request->source,
             'garasi_partner_id' => $request->garasi_partner_id,
+            'kategori_id' => $request->kategori_id,
         ];
     }
 

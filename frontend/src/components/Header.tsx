@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Search, Bell, ChevronDown, Plus, LogOut, CheckCheck } from 'lucide-react';
+import { Menu, Bell, ChevronDown, Plus, LogOut, CheckCheck } from 'lucide-react';
 import { notificationAPI, type AppNotification } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 
@@ -222,18 +222,6 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
         >
           <Menu className="h-4 w-4" />
         </button>
-
-        <div className="relative hidden sm:block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black-400" />
-          <input
-            type="text"
-            placeholder="Cari booking, unit, atau pelanggan..."
-            className="w-80 rounded-lg border border-black-200 bg-canvas py-2 pl-9 pr-14 text-sm text-black-400 placeholder:text-black-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100"
-          />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-black-200 px-1.5 py-0.5 text-[10px] font-medium text-black-400">
-            ⌘K
-          </span>
-        </div>
       </div>
 
       <div className="flex items-center gap-3">
