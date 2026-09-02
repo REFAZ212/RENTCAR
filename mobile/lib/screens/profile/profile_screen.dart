@@ -1,14 +1,66 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
-import '../../core/utils/mock_data.dart';
+import '../../models/driver_model.dart';
+import '../../services/auth_service.dart';
+import '../../services/session_store.dart';
 import '../auth/login_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  DriverModel? _driver;
+  bool _isLoading = true;
+  bool _isLoggingOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDriver();
+  }
+
+  Future<void> _loadDriver() async {
+    final driver = await SessionStore.getDriver();
+    if (mounted) {
+      setState(() {
+        _driver = driver;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    setState(() => _isLoggingOut = true);
+    try {
+      await AuthService.logout();
+    } catch (_) {
+      // Ignore errors, proceed to clear local session
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (_) => false,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final user = MockData.currentUser;
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(title: const Text('Profil')),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final name = _driver?.nama ?? 'Supir';
+    final email = _driver?.email ?? '';
+    final phone = _driver?.noHp ?? '';
+    final initials = name.isNotEmpty ? name.split(' ').map((e) => e[0]).take(2).join() : '?';
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -35,7 +87,7 @@ class ProfileScreen extends StatelessWidget {
                   ),
                   child: Center(
                     child: Text(
-                      user.initials,
+                      initials,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 24,
@@ -46,7 +98,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  user.name,
+                  name,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -55,10 +107,18 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  user.email,
+                  email,
                   style: const TextStyle(
                       fontSize: 13, color: AppColors.textSecondary),
                 ),
+                if (phone.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    phone,
+                    style: const TextStyle(
+                        fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                ],
                 const SizedBox(height: 6),
                 Container(
                   padding:
@@ -68,7 +128,7 @@ class ProfileScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
-                    user.roleLabel,
+                    'Supir',
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -98,14 +158,14 @@ class ProfileScreen extends StatelessWidget {
             width: double.infinity,
             height: 48,
             child: OutlinedButton.icon(
-              onPressed: () {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
-                  (_) => false,
-                );
-              },
-              icon: const Icon(Icons.logout_rounded, size: 18),
-              label: const Text('Keluar'),
+              onPressed: _isLoggingOut ? null : _handleLogout,
+              icon: _isLoggingOut
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.logout_rounded, size: 18),
+              label: Text(_isLoggingOut ? 'Keluar...' : 'Keluar'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.error,
                 side: const BorderSide(color: AppColors.error),
