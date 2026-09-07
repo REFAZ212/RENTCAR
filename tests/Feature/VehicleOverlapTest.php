@@ -218,8 +218,8 @@ class VehicleOverlapTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-09-01',
-            'tanggal_selesai' => '2026-09-05',
+            'tanggal_mulai' => now()->subDay()->toDateString(),
+            'tanggal_selesai' => now()->addDays(3)->toDateString(),
             'durasi_hari' => 4,
             'harga_per_hari' => 500000,
             'harga_total' => 2000000,
@@ -232,8 +232,8 @@ class VehicleOverlapTest extends TestCase
             'customer_alamat' => 'Jakarta Selatan',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-09-03',
-            'tanggal_selesai' => '2026-09-07',
+            'tanggal_mulai' => now()->addDay()->toDateString(),
+            'tanggal_selesai' => now()->addDays(5)->toDateString(),
             'tujuan' => 'Surabaya',
         ]);
 
@@ -250,8 +250,8 @@ class VehicleOverlapTest extends TestCase
             'customer_id' => $this->customer->id,
             'kendaraan_id' => $this->kendaraan->id,
             'admin_id' => $this->admin->id,
-            'tanggal_mulai' => '2026-09-01',
-            'tanggal_selesai' => '2026-09-05',
+            'tanggal_mulai' => now()->toDateString(),
+            'tanggal_selesai' => now()->addDays(4)->toDateString(),
             'durasi_hari' => 4,
             'harga_per_hari' => 500000,
             'harga_total' => 2000000,
@@ -264,8 +264,8 @@ class VehicleOverlapTest extends TestCase
             'customer_alamat' => 'Jakarta Selatan',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $this->kendaraan->id,
-            'tanggal_mulai' => '2026-09-06',
-            'tanggal_selesai' => '2026-09-10',
+            'tanggal_mulai' => now()->addDays(6)->toDateString(),
+            'tanggal_selesai' => now()->addDays(10)->toDateString(),
             'tujuan' => 'Surabaya',
         ]);
 
