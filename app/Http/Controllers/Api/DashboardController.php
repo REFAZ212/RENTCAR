@@ -159,7 +159,7 @@ class DashboardController extends Controller
 
             $label = match ($step) {
                 'day' => $cursor->format('d M'),
-                'week' => 'W'.$cursor->isoWeek,
+                'week' => $cursor->format('d M'),
                 default => $cursor->format('M Y'),
             };
 
