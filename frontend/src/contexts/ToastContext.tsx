@@ -133,7 +133,7 @@ function ToastContainer({ toasts }: { toasts: Toast[] }) {
 function ToastItem({ toast }: { toast: Toast }) {
   const bg =
     toast.type === "success"
-      ? "bg-accent-600"
+      ? "bg-primary-600"
       : toast.type === "error"
         ? "bg-error-600"
         : "bg-primary-600";

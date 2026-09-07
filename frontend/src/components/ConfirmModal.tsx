@@ -62,7 +62,7 @@ export default function ConfirmModal({
           <button
             onClick={onConfirm}
             className={`px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
-              danger ? 'bg-error-500 hover:bg-error-600' : 'bg-accent-500 hover:bg-accent-600'
+              danger ? 'bg-error-500 hover:bg-error-600' : 'bg-primary-500 hover:bg-primary-600'
             }`}
           >
             {confirmLabel}

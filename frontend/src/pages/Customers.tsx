@@ -149,7 +149,7 @@ export default function Customers() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5">
                         {item.foto_ktp && <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-500">KTP</span>}
-                        {item.foto_sim && <span className="rounded-full bg-accent-50 px-2 py-0.5 text-xs font-medium text-accent-600">SIM</span>}
+                        {item.foto_sim && <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-600">SIM</span>}
                         {!item.foto_ktp && !item.foto_sim && <span className="text-xs text-black-400">-</span>}
                       </div>
                     </td>
@@ -172,7 +172,7 @@ export default function Customers() {
                               e.stopPropagation();
                               setConfirmRestore(item);
                             }}
-                            className="text-black-400 hover:text-accent-600"
+                            className="text-black-400 hover:text-primary-600"
                             title="Pulihkan"
                           >
                             <RotateCcw size={16} />

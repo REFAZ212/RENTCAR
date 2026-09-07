@@ -54,7 +54,7 @@ function FotoModal({ src, alt, onClose }: { src: string; alt: string; onClose: (
             <div className="relative max-h-[90vh] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
                 <button
                     onClick={onClose}
-                    className="absolute -top-3 -right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white text-black-600 shadow-lg hover:bg-accent-50"
+                    className="absolute -top-3 -right-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white text-black-600 shadow-lg hover:bg-primary-50"
                 >
                     <X size={16} />
                 </button>
@@ -83,7 +83,7 @@ active: 'Sedang Disewa',
         const colors: Record<string, string> = {
             pending: 'bg-accent-100 text-accent-700',
             confirmed: 'bg-primary-50 text-primary-500',
-            active: 'bg-accent-50 text-accent-600',
+            active: 'bg-primary-100 text-primary-600',
             completed: 'bg-black-200 text-black-700',
             cancelled: 'bg-error-50 text-error-600',
             unpaid: 'bg-error-50 text-error-600',
@@ -91,7 +91,7 @@ active: 'Sedang Disewa',
             paid: 'bg-success-50 text-success-600',
             belum_diambil: 'bg-accent-100 text-accent-700',
             sudah_diantarkan: 'bg-primary-50 text-primary-500',
-            dalam_penyewaan: 'bg-accent-50 text-accent-600',
+            dalam_penyewaan: 'bg-primary-100 text-primary-600',
             selesai: 'bg-black-200 text-black-700',
         };
         return (
@@ -132,7 +132,7 @@ active: 'Sedang Disewa',
                     </div>
                     <button
                         onClick={onClose}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-accent-100 transition-colors"
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-primary-100 transition-colors"
                         aria-label="Tutup"
                     >
                         <X size={16} className="text-black-400" />
@@ -213,7 +213,7 @@ active: 'Sedang Disewa',
                             <div className="flex gap-4">
                                 {s && (
                                     <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-full bg-accent-100 flex items-center justify-center text-accent-600 font-bold text-xs">
+                                        <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold text-xs">
                                             {s.nama.charAt(0)}
                                         </div>
                                         <div>
@@ -302,8 +302,8 @@ active: 'Sedang Disewa',
                     </div>
 
                     {order.catatan && (
-                        <div className="bg-accent-50 rounded-xl p-4">
-                            <h3 className="text-xs font-semibold uppercase tracking-wider text-accent-600 mb-2">Catatan</h3>
+                        <div className="bg-primary-50 rounded-xl p-4">
+                            <h3 className="text-xs font-semibold uppercase tracking-wider text-primary-600 mb-2">Catatan</h3>
                             <p className="text-sm text-black-700 whitespace-pre-line">{order.catatan}</p>
                         </div>
                     )}
@@ -513,7 +513,7 @@ export default function CustomerDetail() {
                     {canManageArchive && (
                         <button
                             onClick={() => setConfirmRestore(true)}
-                            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-accent-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-600"
+                            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-primary-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-600"
                         >
                             <RotateCcw size={14} /> Pulihkan
                         </button>
@@ -542,7 +542,7 @@ export default function CustomerDetail() {
                         </div>
                         {customer.alamat && <p className="text-sm text-black-500">{customer.alamat}</p>}
                         {customer.catatan && (
-                            <p className="rounded-lg bg-accent-50 px-3 py-2 text-sm text-black-600">{customer.catatan}</p>
+                            <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-black-600">{customer.catatan}</p>
                         )}
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -550,7 +550,7 @@ export default function CustomerDetail() {
                             customer.deleted_at ? (
                                 <button
                                     onClick={() => setConfirmRestore(true)}
-                                    className="inline-flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-600"
+                                    className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-600"
                                 >
                                     <RotateCcw size={16} /> Pulihkan
                                 </button>
@@ -567,7 +567,7 @@ export default function CustomerDetail() {
                             href={waLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-accent-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-accent-600"
+                            className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-600"
                         >
                             <Phone size={16} /> Hubungi
                         </a>
@@ -613,7 +613,7 @@ export default function CustomerDetail() {
                     <p className="text-xs text-black-400">Total Order</p>
                 </div>
                 <div className="rounded-2xl border border-black-200 bg-white p-4 text-center">
-                    <p className="text-2xl font-bold text-accent-600">{stats.activeCount}</p>
+                    <p className="text-2xl font-bold text-primary-600">{stats.activeCount}</p>
                     <p className="text-xs text-black-400">Order Aktif</p>
                 </div>
                 <div className="rounded-2xl border border-black-200 bg-white p-4 text-center">
@@ -671,7 +671,7 @@ export default function CustomerDetail() {
                                 {filteredOrders.map((order) => (
                                     <tr
                                         key={order.id}
-                                        className="cursor-pointer transition-colors hover:bg-accent-50"
+                                        className="cursor-pointer transition-colors hover:bg-primary-50"
                                         onClick={() => setSelectedOrder(order)}
                                     >
                                         <td className="whitespace-nowrap px-6 py-3 font-medium text-black-900">{order.kode_order}</td>

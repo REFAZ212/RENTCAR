@@ -317,17 +317,39 @@ function ImagePreview({ src, onRemove }: { src: string | null; onRemove?: () => 
   );
 }
 
-function StatChip({ label, value, iconBg, icon }: { label: string; value: number; iconBg: string; icon: string }) {
+type StatAccent = 'neutral' | 'success' | 'primary' | 'accent' | 'error';
+
+const statAccentStyles: Record<StatAccent, { bar: string; iconBg: string; iconText: string }> = {
+  neutral: { bar: 'bg-black-700', iconBg: 'bg-black-100', iconText: 'text-black-700' },
+  success: { bar: 'bg-success-500', iconBg: 'bg-success-50', iconText: 'text-success-600' },
+  primary: { bar: 'bg-primary-500', iconBg: 'bg-primary-50', iconText: 'text-primary-600' },
+  accent: { bar: 'bg-accent-500', iconBg: 'bg-accent-50', iconText: 'text-accent-600' },
+  error: { bar: 'bg-error-500', iconBg: 'bg-error-50', iconText: 'text-error-600' },
+};
+
+function StatCard({
+  label,
+  value,
+  icon,
+  accent,
+}: {
+  label: string;
+  value: number;
+  icon: ReactNode;
+  accent: StatAccent;
+}) {
+  const s = statAccentStyles[accent];
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-black-200">
-      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconBg}`}>
-        <svg className="h-4 w-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
-        </svg>
-      </div>
-      <div>
-        <p className="text-lg font-bold leading-tight text-black-900">{value}</p>
-        <p className="text-xs text-black-400">{label}</p>
+    <div className="relative overflow-hidden rounded-xl bg-white p-4 shadow-sm ring-1 ring-black-200 transition-shadow hover:shadow-md">
+      <span className={`absolute left-0 top-0 h-full w-1 ${s.bar}`} aria-hidden="true" />
+      <div className="flex items-center gap-3 pl-1.5">
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${s.iconBg} ${s.iconText}`}>
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-[11px] font-medium uppercase tracking-wide text-black-400">{label}</div>
+          <div className="text-xl font-bold leading-tight text-black-900">{value}</div>
+        </div>
       </div>
     </div>
   );
@@ -1492,25 +1514,80 @@ export default function Orders() {
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatChip
+        <StatCard
           label="Total Order"
           value={stats.total}
-          iconBg="bg-primary-500"
-          icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+          icon={
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+              />
+            </svg>
+          }
+          accent="neutral"
         />
-        <StatChip label="Sedang Aktif" value={stats.aktif} iconBg="bg-accent-500" icon="M13 10V3L4 14h7v7l9-11h-7z" />
-        <StatChip label="Menunggu" value={stats.menunggu} iconBg="bg-accent-500" icon="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        <StatChip
+        <StatCard
+          label="Sedang Aktif"
+          value={stats.aktif}
+          icon={
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M13 10V3L4 14h7v7l9-11h-7z"
+              />
+            </svg>
+          }
+          accent="primary"
+        />
+        <StatCard
+          label="Menunggu"
+          value={stats.menunggu}
+          icon={
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+          }
+          accent="accent"
+        />
+        <StatCard
           label="Perlu Verifikasi"
           value={stats.perluVerifikasi}
-          iconBg="bg-amber-500"
-          icon="M12 9v2m0 4h.01M16.5 5.5L4.5 19.5m12.6-.1L4.5 6.5M4.5 19.5L21 4.5M6.5 18.5h11a1 1 0 001-1v-2.5a1 1 0 00-.3-.7M6 18v-2.5a1 1 0 01.3-.7"
+          icon={
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M12 9v2m0 4h.01M16.5 5.5L4.5 19.5m12.6-.1L4.5 6.5M4.5 19.5L21 4.5M6.5 18.5h11a1 1 0 001-1v-2.5a1 1 0 00-.3-.7M6 18v-2.5a1 1 0 01.3-.7"
+              />
+            </svg>
+          }
+          accent="accent"
         />
-        <StatChip
+        <StatCard
           label="Terlambat"
           value={stats.terlambat}
-          iconBg="bg-error-500"
-          icon="M12 9v2m0 4h.01M4.93 19h14.14a1 1 0 00.87-1.5L12.87 4.5a1 1 0 00-1.74 0L4.06 17.5A1 1 0 004.93 19z"
+          icon={
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M12 9v2m0 4h.01M4.93 19h14.14a1 1 0 00.87-1.5L12.87 4.5a1 1 0 00-1.74 0L4.06 17.5A1 1 0 004.93 19z"
+              />
+            </svg>
+          }
+          accent="error"
         />
       </div>
 
@@ -1529,38 +1606,36 @@ export default function Orders() {
           />
         </div>
         <StatusFilterTabs active={statusFilter} onChange={setStatusFilter} overdueCount={stats.terlambat} verifikasiCount={stats.perluVerifikasi} />
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2 text-sm text-black-400">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 text-sm text-black-400">
             <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
             <span className="hidden sm:inline">Periode</span>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => handleDateFrom(e.target.value)}
-              className={`${inputClass} max-w-[160px]`}
-              aria-label="Tanggal mulai"
-            />
-            <span className="text-sm text-black-400">s/d</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => handleDateTo(e.target.value)}
-              className={`${inputClass} max-w-[160px]`}
-              aria-label="Tanggal selesai"
-            />
-            {(dateFrom || dateTo) && (
-              <button
-                onClick={resetPeriode}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-black-200 text-black-400 transition-colors hover:bg-canvas hover:text-error-600"
-                title="Reset periode"
-                aria-label="Reset periode"
-              >
-                <CloseIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => handleDateFrom(e.target.value)}
+            className={`${inputClass} max-w-[160px]`}
+            aria-label="Tanggal mulai"
+          />
+          <span className="text-sm text-black-400">s/d</span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => handleDateTo(e.target.value)}
+            className={`${inputClass} max-w-[160px]`}
+            aria-label="Tanggal selesai"
+          />
+          {(dateFrom || dateTo) && (
+            <button
+              onClick={resetPeriode}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-black-200 text-black-400 transition-colors hover:bg-canvas hover:text-error-600"
+              title="Reset periode"
+              aria-label="Reset periode"
+            >
+              <CloseIcon className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1676,7 +1751,7 @@ export default function Orders() {
                       <CloseIcon className="h-3 w-3" /> Ganti customer
                     </button>
                   ) : form.customer_name ? (
-                    <p className="mt-1.5 text-xs text-accent-600">Customer baru akan dibuat otomatis</p>
+                    <p className="mt-1.5 text-xs text-primary-600">Customer baru akan dibuat otomatis</p>
                   ) : null}
                   {nameConflict && (
                     <p className="mt-1.5 text-xs text-amber-600">
@@ -2200,14 +2275,14 @@ export default function Orders() {
             </div>
             <form onSubmit={handleEditSubmit} className="space-y-5 p-6">
               {isCoreLocked && (
-                <div className={`flex items-start gap-2 rounded-lg px-4 py-3 text-sm ${isFullyLocked ? 'border border-black-200 bg-accent-50 text-black-600' : 'border border-accent-200 bg-accent-50 text-accent-700'}`}>
+                <div className={`flex items-start gap-2 rounded-lg px-4 py-3 text-sm ${isFullyLocked ? 'border border-black-200 bg-primary-50 text-black-600' : 'border border-primary-200 bg-primary-50 text-primary-700'}`}>
                   <svg className="mt-0.5 h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M4.93 19h14.14a1 1 0 00.87-1.5L12.87 4.5a1 1 0 00-1.74 0L4.06 17.5A1 1 0 004.93 19z" /></svg>
                   <span>{isFullyLocked ? 'Order sudah final. Semua data bersifat read-only.' : isConfirmedBerAktivitas ? 'Order confirmed sudah ber-aktivitas (pembayaran/request garasi/task petugas) — data inti terkunci. Koreksi kesepakatan via Batal.' : 'Order aktif — data inti (customer, kendaraan, tanggal, harga) tidak bisa diubah. Hanya status pembayaran, metode bayar, bukti pembayaran, dan catatan yang bisa diperbarui.'}</span>
                 </div>
               )}
               {(isLockedOrder || isPlainCoreLocked) && (
                 <div className="space-y-5">
-                  <div className="space-y-3 rounded-xl border border-black-200 bg-accent-50 p-4">
+                  <div className="space-y-3 rounded-xl border border-black-200 bg-primary-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wider text-black-400">Data Customer</p>
                     <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
                       <div><span className="text-black-400">Nama</span><p className="font-medium text-black-900">{editingOrder.customer?.nama_lengkap || '-'}</p></div>
@@ -2218,14 +2293,14 @@ export default function Orders() {
                       {editingOrder.customer?.alamat && <div className="md:col-span-2"><span className="text-black-400">Alamat</span><p className="text-black-900">{editingOrder.customer.alamat}</p></div>}
                     </div>
                   </div>
-                  <div className="space-y-3 rounded-xl border border-black-200 bg-accent-50 p-4">
+                  <div className="space-y-3 rounded-xl border border-black-200 bg-primary-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wider text-black-400">Kendaraan</p>
                     <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
                       <div><span className="text-black-400">Kendaraan</span><p className="font-medium text-black-900">{editingOrder.kendaraan?.nama_kendaraan || '-'}</p></div>
                       <div><span className="text-black-400">Plat Nomor</span><p className="font-mono text-black-900">{editingOrder.kendaraan?.plat_nomor || '-'}</p></div>
                     </div>
                   </div>
-                  <div className="space-y-3 rounded-xl border border-black-200 bg-accent-50 p-4">
+                  <div className="space-y-3 rounded-xl border border-black-200 bg-primary-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wider text-black-400">Jadwal & Lokasi</p>
                     <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-2">
                       <div><span className="text-black-400">Tanggal Mulai</span><p className="font-medium text-black-900">{editingOrder.tanggal_mulai} {editingOrder.jam_mulai || '08:00'} WIB</p></div>
@@ -2245,11 +2320,11 @@ export default function Orders() {
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                       <div>
                         <label className="mb-1 block text-sm font-medium text-black-700">Status Pembayaran</label>
-                        <p className={`${inputClass} border-black-200 bg-accent-50`}>{statusPembayaranLabels[editingOrder.status_pembayaran] || '-'}</p>
+                        <p className={`${inputClass} border-black-200 bg-primary-50`}>{statusPembayaranLabels[editingOrder.status_pembayaran] || '-'}</p>
                       </div>
                       <div>
                         <label className="mb-1 block text-sm font-medium text-black-700">Metode Bayar</label>
-                        <p className={`${inputClass} border-black-200 bg-accent-50`}>{editingOrder.metode_pembayaran ? metodePembayaranLabels[editingOrder.metode_pembayaran as MetodePembayaran] || editingOrder.metode_pembayaran : '-'}</p>
+                        <p className={`${inputClass} border-black-200 bg-primary-50`}>{editingOrder.metode_pembayaran ? metodePembayaranLabels[editingOrder.metode_pembayaran as MetodePembayaran] || editingOrder.metode_pembayaran : '-'}</p>
                       </div>
                     </div>
                   ) : null}
@@ -2258,7 +2333,7 @@ export default function Orders() {
 
               {/* ── Riwayat Pembayaran (locked orders) ── */}
               {(isLockedOrder || isPlainCoreLocked) && editingOrder.pembayarans && editingOrder.pembayarans.length > 0 && (
-                <div className="space-y-3 rounded-xl border border-black-200 bg-accent-50 p-4">
+                <div className="space-y-3 rounded-xl border border-black-200 bg-primary-50 p-4">
                   <p className="text-xs font-semibold uppercase tracking-wider text-black-400">Riwayat Pembayaran</p>
                   <div className="space-y-3">
                     {editingOrder.pembayarans.map((p) => (
@@ -2438,7 +2513,7 @@ export default function Orders() {
                       <CloseIcon className="h-3 w-3" /> Ganti customer
                     </button>
                   ) : editForm.customer_name ? (
-                    <p className="mt-1.5 text-xs text-accent-600">Customer baru akan dibuat otomatis</p>
+                    <p className="mt-1.5 text-xs text-primary-600">Customer baru akan dibuat otomatis</p>
                   ) : null}
                   {editNameConflict && (
                     <p className="mt-1.5 text-xs text-amber-600">
@@ -2901,7 +2976,7 @@ export default function Orders() {
               <div>
                 <label className="mb-1 block text-sm font-medium text-black-700">Catatan</label>
                 {isFullyLocked ? (
-                  <p className={`${inputClass} border-black-200 bg-accent-50 whitespace-pre-wrap`}>{editForm.catatan || <span className="italic text-black-400">Tidak ada catatan</span>}</p>
+                  <p className={`${inputClass} border-black-200 bg-primary-50 whitespace-pre-wrap`}>{editForm.catatan || <span className="italic text-black-400">Tidak ada catatan</span>}</p>
                 ) : (
                   <textarea
                     value={editForm.catatan || ''}
@@ -3067,7 +3142,7 @@ export default function Orders() {
                   </span>
                 )}
                 {detailOrder.metode_penyerahan === 'antar' && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-100 px-3 py-1.5 text-sm font-semibold text-accent-600">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-100 px-3 py-1.5 text-sm font-semibold text-primary-600">
                     Diantar
                   </span>
                 )}
@@ -3097,7 +3172,7 @@ export default function Orders() {
                     <div>
                       <p className="mb-1 text-xs text-black-400">Alamat</p>
                       <div className="flex items-start gap-1.5 text-sm text-black-700">
-                        <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-black-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                         <span className="truncate">{detailOrder.customer.alamat}</span>
                       </div>
                     </div>
@@ -3284,7 +3359,7 @@ export default function Orders() {
                 {detailOrder.alamat_jemput && (
                   <div className="rounded-xl bg-canvas p-3">
                     <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-black-400">
-                      <svg className="h-3.5 w-3.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      <svg className="h-3.5 w-3.5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                       {detailOrder.metode_penyerahan === 'antar' ? 'Alamat Pengantaran' : 'Alamat Jemput'}
                     </div>
                     <p className="text-sm font-medium text-black-800">{detailOrder.alamat_jemput}</p>
@@ -3808,7 +3883,7 @@ export default function Orders() {
                   <button
                     onClick={handleCompleteOrder}
                     disabled={submitting || completeInspeksiLoading || !completeReturnInspeksi}
-                    className="flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-600 disabled:opacity-50"
+                    className="flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
                   >
                     {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
                     Ya, Selesaikan
@@ -3929,7 +4004,9 @@ export default function Orders() {
                     <button onClick={() => setDetailOrder(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-canvas hover:text-black-700" title="Lihat detail" aria-label="Lihat detail"><EyeIcon /></button>
                     {canManage && (
                       <>
-                        <button onClick={() => openEditModal(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-primary-50 hover:text-primary-600" title="Edit order" aria-label="Edit order"><PencilIcon /></button>
+                        {item.status_order !== 'cancelled' && (
+                          <button onClick={() => openEditModal(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-primary-50 hover:text-primary-600" title="Edit order" aria-label="Edit order"><PencilIcon /></button>
+                        )}
                         {canDelete && (
                           <button onClick={() => setConfirmDelete(item)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-error-50 hover:text-error-600" title="Hapus permanen" aria-label="Hapus permanen"><TrashIcon /></button>
                         )}
@@ -4064,7 +4141,7 @@ export default function Orders() {
                   {/* LOKASI */}
                   {(item.alamat_jemput || item.tujuan) && (
                     <div className="flex items-center gap-1.5 rounded-lg border border-black-200 bg-canvas px-3 py-2 text-xs text-black-600">
-                      <svg className="h-3.5 w-3.5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      <svg className="h-3.5 w-3.5 shrink-0 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                       {item.metode_penyerahan === 'antar' ? (
                         <>
                           <span className="font-medium text-accent-600">{item.alamat_jemput || 'Diantar'}</span>
@@ -4123,8 +4200,8 @@ export default function Orders() {
                     <div className="mt-auto flex flex-wrap gap-2 pt-1">
                         {isAktif && (
                           <>
-                            <button onClick={() => openCompleteModal(item)} className="flex-1 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-accent-500">Selesai</button>
-                            <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-error-200 bg-white px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50">Batal</button>
+                            <button onClick={() => openCompleteModal(item)} className="flex-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-500">Selesai</button>
+                            <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-black-500 transition-colors hover:bg-gray-50">Batal</button>
                           </>
                         )}
                         {isSelesai && (
@@ -4148,17 +4225,17 @@ export default function Orders() {
                             >
                               Kembalikan ke Sedang Disewa
                             </button>
-                            <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-error-200 bg-white px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50">Batal</button>
+                            <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-black-500 transition-colors hover:bg-gray-50">Batal</button>
                           </>
                         )}
                         {item.status_order === 'pending' && (
                           <>
                             <button onClick={() => openEditModal(item, { konfirmasi: true })} className="flex-1 rounded-lg bg-primary-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-600">Konfirmasi</button>
-                            <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-error-200 bg-white px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50">Batal</button>
+                            <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-black-500 transition-colors hover:bg-gray-50">Batal</button>
                           </>
                         )}
                         {item.status_order === 'confirmed' && (
-                          <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-error-200 bg-white px-3 py-1.5 text-xs font-medium text-error-600 transition-colors hover:bg-error-50">Batal</button>
+                          <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-black-500 transition-colors hover:bg-gray-50">Batal</button>
                         )}
                     </div>
                   )}

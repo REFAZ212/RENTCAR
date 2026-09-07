@@ -489,7 +489,7 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-black-700"
+          accent="neutral"
         />
         <StatCard
           label="Tersedia"
@@ -499,7 +499,7 @@ export default function Kendaraan() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
             </svg>
           }
-          iconClass="bg-success-500"
+          accent="success"
         />
         <StatCard
           label="Disewa"
@@ -514,7 +514,7 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-primary-500"
+          accent="primary"
         />
         <StatCard
           label="Dalam Servis"
@@ -529,7 +529,7 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-accent-500"
+          accent="accent"
         />
         <StatCard
           label="Tidak Tersedia"
@@ -544,7 +544,7 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-error-500"
+          accent="error"
         />
       </div>
 
@@ -652,17 +652,17 @@ export default function Kendaraan() {
             </div>
             <form onSubmit={handleSubmit} className="space-y-4 p-6">
               {lastAdded && !editItem && (
-                <div className="flex items-center justify-between rounded-lg border border-accent-500/30 bg-accent-50 p-3">
-                  <div className="flex items-center gap-2">
-                    <svg className="h-5 w-5 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-sm font-medium text-accent-600">Kendaraan berhasil ditambahkan!</span>
+<div className="flex items-center justify-between rounded-lg border border-primary-500/30 bg-primary-50 p-3">
+                    <div className="flex items-center gap-2">
+                      <svg className="h-5 w-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm font-medium text-primary-600">Kendaraan berhasil ditambahkan!</span>
+                    </div>
+                    <button type="button" onClick={() => setLastAdded(false)} className="text-sm font-medium text-primary-600 underline hover:text-primary-500">
+                      Sembunyikan
+                    </button>
                   </div>
-                  <button type="button" onClick={() => setLastAdded(false)} className="text-sm font-medium text-accent-600 underline hover:text-accent-500">
-                    Sembunyikan
-                  </button>
-                </div>
               )}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
@@ -840,7 +840,7 @@ export default function Kendaraan() {
                     />
                     <p className="mt-1 text-xs text-black-400">Harga yang dibayar ke garasi partner per hari</p>
                     {form.harga_sewa_per_hari && form.harga_partner_per_hari && (
-                      <p className="mt-1.5 text-sm font-medium text-accent-600">
+                      <p className="mt-1.5 text-sm font-medium text-primary-600">
                         Margin: {formatRupiah(Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari))}/hari
                         ({(Math.round(((Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari)) / Number(form.harga_sewa_per_hari)) * 100))}%)
                       </p>
@@ -872,11 +872,11 @@ export default function Kendaraan() {
                       ))}
                     </select>
                     {editItem.status === 'disewa' && (
-                      <p className="mt-1 text-xs text-accent-600">Status dikendalikan oleh order aktif. Selesaikan atau batalkan order terlebih dahulu.</p>
+                      <p className="mt-1 text-xs text-primary-600">Status dikendalikan oleh order aktif. Selesaikan atau batalkan order terlebih dahulu.</p>
                     )}
                     {editItem.status !== 'disewa' &&
                       Number(editItem.order_pending_count ?? 0) + Number(editItem.order_confirmed_count ?? 0) > 0 && (
-                        <p className="mt-1 text-xs text-accent-600">
+                        <p className="mt-1 text-xs text-primary-600">
                           Kendaraan memiliki order menunggu/konfirmasi — status tidak boleh diubah ke Tidak Tersedia/Servis.
                         </p>
                       )}
@@ -1149,7 +1149,7 @@ export default function Kendaraan() {
         title="Masuk ke Servis"
         message={`Ubah status "${maintenanceTarget?.nama_kendaraan}" menjadi Servis? Kendaraan tidak akan bisa disewa selama dalam status ini.`}
         confirmLabel={maintenanceSubmitting ? 'Menyimpan...' : 'Masukkan Servis'}
-        danger
+        danger={false}
         onConfirm={handleEnterMaintenance}
         onCancel={() => {
           setMaintenanceTarget(null);
@@ -1283,7 +1283,7 @@ export default function Kendaraan() {
                     <>
                       <span className="rounded-full bg-canvas px-2 py-0.5">{item.garasiPartner.nama_partner}</span>
                       {canManageMaster && item.harga_partner_per_hari && item.margin_per_hari !== null && item.margin_per_hari !== undefined && (
-                        <span className="rounded-full bg-accent-50 text-accent-700 px-2 py-0.5 font-medium flex items-center gap-1">
+                        <span className="rounded-full bg-primary-50 text-primary-700 px-2 py-0.5 font-medium flex items-center gap-1">
                           <span className="text-[10px]">💰</span>
                           Margin: {formatRupiah(item.margin_per_hari)} ({item.margin_persen}%)
                         </span>
@@ -1304,7 +1304,7 @@ export default function Kendaraan() {
                 <p className="mb-3 text-sm font-bold text-primary-600">{formatRupiah(item.harga_sewa_per_hari)}/hari</p>
 
                 {waitingOrderCount > 0 && (
-                  <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-accent-50 px-2 py-1 text-[11px] font-medium text-accent-700">
+                  <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-primary-50 px-2 py-1 text-[11px] font-medium text-primary-700">
                     {sittingOrderLabel}
                   </p>
                 )}
@@ -1380,13 +1380,39 @@ export default function Kendaraan() {
 /* Small presentational helpers                                       */
 /* ------------------------------------------------------------------ */
 
-function StatCard({ label, value, icon, iconClass }: { label: string; value: number; icon: ReactNode; iconClass: string }) {
+type StatAccent = 'neutral' | 'success' | 'primary' | 'accent' | 'error';
+
+const statAccentStyles: Record<StatAccent, { bar: string; iconBg: string; iconText: string }> = {
+  neutral: { bar: 'bg-black-700', iconBg: 'bg-black-100', iconText: 'text-black-700' },
+  success: { bar: 'bg-success-500', iconBg: 'bg-success-50', iconText: 'text-success-600' },
+  primary: { bar: 'bg-primary-500', iconBg: 'bg-primary-50', iconText: 'text-primary-600' },
+  accent: { bar: 'bg-accent-500', iconBg: 'bg-accent-50', iconText: 'text-accent-600' },
+  error: { bar: 'bg-error-500', iconBg: 'bg-error-50', iconText: 'text-error-600' },
+};
+
+function StatCard({
+  label,
+  value,
+  icon,
+  accent,
+}: {
+  label: string;
+  value: number;
+  icon: ReactNode;
+  accent: StatAccent;
+}) {
+  const s = statAccentStyles[accent];
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-black-200">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white ${iconClass}`}>{icon}</div>
-      <div>
-        <div className="text-xs text-black-400">{label}</div>
-        <div className="text-xl font-bold text-black-900">{value}</div>
+    <div className="relative overflow-hidden rounded-xl bg-white p-4 shadow-sm ring-1 ring-black-200 transition-shadow hover:shadow-md">
+      <span className={`absolute left-0 top-0 h-full w-1 ${s.bar}`} aria-hidden="true" />
+      <div className="flex items-center gap-3 pl-1.5">
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${s.iconBg} ${s.iconText}`}>
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-[11px] font-medium uppercase tracking-wide text-black-400">{label}</div>
+          <div className="text-xl font-bold leading-tight text-black-900">{value}</div>
+        </div>
       </div>
     </div>
   );
@@ -1430,7 +1456,7 @@ function QuickStatusButton({
       className={`rounded-lg px-1.5 py-1.5 text-[11px] font-medium leading-tight transition-colors ${
         disabled
           ? `${active ? activeClass : 'cursor-not-allowed bg-canvas text-black-300'}`
-          : 'bg-canvas text-black-400 hover:bg-accent-100 hover:text-black-700'
+          : 'bg-canvas text-black-400 hover:bg-primary-100 hover:text-black-700'
       }`}
     >
       {label}

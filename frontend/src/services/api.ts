@@ -207,11 +207,41 @@ export interface KatalogItem extends Kendaraan {
 }
 
 export interface DashboardSummary {
-  total_kendaraan: number;
-  kendaraan_tersedia: number;
-  order_aktif: number;
-  order_pending: number;
-  pendapatan_hari_ini: number;
+  stats: {
+    total_kendaraan: number;
+    kendaraan_tersedia: number;
+    kendaraan_disewa: number;
+    kendaraan_maintenance: number;
+    kendaraan_tidak_tersedia: number;
+    total_customer: number;
+    total_garasi: number;
+    orders_hari_ini: number;
+    orders_aktif: number;
+    orders_pending: number;
+    pendapatan_hari_ini?: number | null;
+    pendapatan_bulan_ini?: number | null;
+    garasi_pending: number;
+    garasi_tersedia: number;
+    garasi_tidak_terjawab: number;
+    orders_kemarin: number;
+    pendapatan_kemarin?: number | null;
+  };
+  quick_actions?: {
+    inspeksi_pending: number;
+    garasi_pending: number;
+  };
+  activity_log?: ActivityLogItem[];
+}
+
+export interface ActivityLogItem {
+  id: string;
+  type: 'order' | 'garasi' | 'inspeksi';
+  tipe_event: string;
+  label: string;
+  kode: string;
+  detail: string;
+  link_order_id?: number | null;
+  waktu: string;
 }
 
 /* ─────────────────────────────────────────────────────────────
