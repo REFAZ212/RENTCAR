@@ -23,7 +23,7 @@ class PengaturanController extends Controller
             'nama' => $user->name,
             'email' => $user->email,
             'no_hp' => $user->phone ?? '',
-            'avatar_url' => $user->avatar ? Storage::disk('public')->url($user->avatar) : null,
+            'avatar_url' => $user->avatar ? '/storage/'.ltrim($user->avatar, '/') : null,
         ]);
     }
 
@@ -86,7 +86,7 @@ class PengaturanController extends Controller
             'alamat' => Setting::get('alamat_usaha', ''),
             'no_telp' => Setting::get('no_telp_usaha', ''),
             'email_usaha' => Setting::get('email_usaha', ''),
-            'logo_url' => Setting::get('logo_usaha', '') ? Storage::disk('public')->url(Setting::get('logo_usaha')) : null,
+            'logo_url' => Setting::get('logo_usaha', '') ? '/storage/'.ltrim(Setting::get('logo_usaha'), '/') : null,
             'jam_operasional' => $jamOperasional,
         ]);
     }
