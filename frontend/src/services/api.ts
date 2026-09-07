@@ -532,6 +532,25 @@ export const settingsAPI = {
 };
 
 /* ─────────────────────────────────────────────────────────────
+ * SOUND NOTIFIKASI (admin — upload custom notif sound, global)
+ * ───────────────────────────────────────────────────────────── */
+export interface NotifSoundInfo {
+  source: 'builtin' | 'custom' | 'none';
+  preset: 'classic' | 'pop' | 'bell' | 'pulse' | null;
+  url: string | null;
+  name: string | null;
+}
+
+export const notifSoundAPI = {
+  get: (): Promise<AxiosResponse<NotifSoundInfo>> => api.get('/pengaturan/notifikasi/sound'),
+  upload: (data: FormData): Promise<AxiosResponse<NotifSoundInfo>> =>
+    api.post('/pengaturan/notifikasi/sound', data),
+  selectBuiltin: (preset: NotifSoundInfo['preset']): Promise<AxiosResponse<NotifSoundInfo>> =>
+    api.put('/pengaturan/notifikasi/sound/builtin', { preset }),
+  remove: (): Promise<AxiosResponse<NotifSoundInfo>> => api.delete('/pengaturan/notifikasi/sound'),
+};
+
+/* ─────────────────────────────────────────────────────────────
  * ACTIVITY LOG (audit trail)
  * ───────────────────────────────────────────────────────────── */
 export interface ActivityLog {

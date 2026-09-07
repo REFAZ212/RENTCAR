@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Menu, Bell, ChevronDown, Plus, LogOut, CheckCheck } from 'lucide-react';
 import { notificationAPI, type AppNotification } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import useNotificationSound from '../hooks/useNotificationSound';
 
 /** Interval polling badge notifikasi (ms). */
 const POLL_INTERVAL_MS = 15000;
@@ -101,6 +102,7 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
   const notifRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef<number | null>(null);
   const toast = useToast();
+  const { play: playNotifSound, unlock: unlockSound } = useNotificationSound();
 
   const fetchNotifications = useCallback(async () => {
     setLoadingNotifications(true);
@@ -115,30 +117,49 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
     }
   }, []);
 
-  const handleNewNotifications = useCallback(() => {
-    if (showNotifications) fetchNotifications();
+  const handleNewNotifications = useCallback(
+    async (newCount: number) => {
+      if (showNotifications) fetchNotifications();
 
-    notificationAPI
-      .list({ per_page: 5 })
-      .then((res) => {
-        const items = Array.isArray(res.data) ? res.data : (res.data as unknown as { data: AppNotification[] }).data ?? [];
-        const newest = items[0];
-        if (newest && !newest.read_at && TOASTABLE_TYPES.has(newest.type)) {
+      let items: AppNotification[] = [];
+      try {
+        const res = await notificationAPI.list({ per_page: 5 });
+        items = Array.isArray(res.data) ? res.data : (res.data as unknown as { data: AppNotification[] }).data ?? [];
+      } catch {
+        // silent — tetap lanjut, tanpa data terbaru
+      }
+
+      const newest = items[0];
+      if (newest && !newest.read_at) {
+        // Bunyikan suara untuk SEMUA notifikasi baru (tidak hanya yang
+        // ditampilkan sebagai toast instan) supaya selalu terdengar.
+        playNotifSound();
+
+        if (TOASTABLE_TYPES.has(newest.type)) {
           toast.info(newest.title);
         }
-      })
-      .catch(() => {});
-  }, [showNotifications, fetchNotifications, toast]);
+      }
+
+      prevCountRef.current = newCount;
+    },
+    [showNotifications, fetchNotifications, toast, playNotifSound]
+  );
 
   const fetchUnreadCount = useCallback(async () => {
     try {
       const res = await notificationAPI.unreadCount();
       const count = res.data.count;
       const prev = prevCountRef.current;
-      prevCountRef.current = count;
 
-      if (prev !== null && count > prev) {
-        handleNewNotifications();
+      if (prev === null) {
+        prevCountRef.current = count;
+        return;
+      }
+
+      if (count > prev) {
+        await handleNewNotifications(count);
+      } else {
+        prevCountRef.current = count;
       }
     } catch {
       // silent
@@ -237,7 +258,10 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
 
         <div className="relative" ref={notifRef}>
           <button
-            onClick={() => setShowNotifications((v) => !v)}
+            onClick={() => {
+              unlockSound();
+              setShowNotifications((v) => !v);
+            }}
             className="relative rounded-full border border-black-200 p-2 text-black-400 hover:bg-canvas"
           >
             <Bell className="h-4 w-4" />

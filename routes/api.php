@@ -147,6 +147,10 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/notifikasi', [PengaturanController::class, 'getNotifikasi']);
             Route::put('/notifikasi', [PengaturanController::class, 'updateNotifikasi']);
             Route::post('/notifikasi/test', [PengaturanController::class, 'testNotifikasi']);
+            Route::get('/notifikasi/sound', [PengaturanController::class, 'getNotifSound']);
+            Route::post('/notifikasi/sound', [PengaturanController::class, 'uploadNotifSound']);
+            Route::put('/notifikasi/sound/builtin', [PengaturanController::class, 'selectBuiltinNotifSound']);
+            Route::delete('/notifikasi/sound', [PengaturanController::class, 'deleteNotifSound']);
             Route::get('/sistem', [PengaturanController::class, 'getSistem']);
             Route::put('/sistem', [PengaturanController::class, 'updateSistem']);
             Route::get('/backup', [PengaturanController::class, 'backup']);
