@@ -126,7 +126,6 @@ class OrderSchedulerCommandTest extends TestCase
             $t->timestamp('tanggal_pengembalian_aktual')->nullable();
             $t->timestamp('waktu_perlu_verifikasi')->nullable();
             $t->text('alasan_pembatalan')->nullable();
-            $t->date('tanggal_jatuh_tempo')->nullable();
             $t->decimal('biaya_pembatalan', 14, 2)->nullable();
             $t->decimal('total_refund', 14, 2)->nullable();
             $t->timestamps();

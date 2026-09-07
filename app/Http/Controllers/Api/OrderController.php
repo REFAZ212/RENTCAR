@@ -58,7 +58,6 @@ class OrderController extends Controller
             'komisi_calo' => 'nullable|numeric|min:0',
             'catatan' => 'nullable|string',
             'alasan_pembatalan' => 'nullable|string|max:500',
-            'tanggal_jatuh_tempo' => 'nullable|date|after_or_equal:today',
             'jumlah_bayar' => 'nullable|numeric|min:0',
         ]);
 
@@ -114,7 +113,6 @@ class OrderController extends Controller
             'tanggal_pengembalian_aktual' => 'nullable|date',
             'status_order' => 'nullable|in:pending,confirmed,active,perlu_verifikasi,completed,cancelled',
             'alasan_pembatalan' => 'nullable|string|max:500',
-            'tanggal_jatuh_tempo' => 'nullable|date',
             'metode_pembayaran' => 'nullable|in:cash,transfer,qris,lainnya',
             'status_pembayaran' => 'nullable|in:unpaid,partial,paid',
             'status_pengiriman' => 'nullable|in:belum_diambil,sudah_diantarkan,dalam_penyewaan,selesai,sudah_dikembalikan',

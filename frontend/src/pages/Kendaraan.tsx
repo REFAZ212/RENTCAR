@@ -18,7 +18,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from '../components/ConfirmModal';
 import KategoriTipeQuickCreate from '../components/KategoriTipeQuickCreate';
-import { RotateCcw, Pencil, Trash2, Eye } from 'lucide-react';
+import { RotateCcw, Pencil, Trash2, Eye, Clock } from 'lucide-react';
 
 type Kendaraan = ApiKendaraan & {
   garasiPartner?: { nama_partner: string };
@@ -100,6 +100,12 @@ const emptyForm: KendaraanFormState = {
 };
 
 const fotoUrl = (foto?: string | null) => (foto ? (foto.startsWith('http') ? foto : `/storage/${foto}`) : null);
+
+const formatTgl = (v?: string | null) => {
+  if (!v) return '-';
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? v : d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+};
 
 const inputClass =
   'w-full rounded-lg border border-black-200 px-3 py-2 text-sm text-black-900 outline-none transition-colors focus:border-primary-500 focus:ring-1 focus:ring-primary-500';
@@ -298,6 +304,18 @@ export default function Kendaraan() {
     }
   };
 
+  const openDetail = (item: Kendaraan) => {
+    setDetailItem(item);
+    kendaraanAPI
+      .get(item.id)
+      .then(({ data }) => {
+        const res = data as unknown as { data?: Kendaraan };
+        const fresh = res.data ?? (data as unknown as Kendaraan);
+        setDetailItem(fresh);
+      })
+      .catch(() => {});
+  };
+
   const handleEdit = (item: Kendaraan) => {
     setForm({
       garasi_partner_id: item.garasi_partner_id ? String(item.garasi_partner_id) : '',
@@ -471,7 +489,7 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-black-700"
+          accent="neutral"
         />
         <StatCard
           label="Tersedia"
@@ -481,7 +499,7 @@ export default function Kendaraan() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
             </svg>
           }
-          iconClass="bg-success-500"
+          accent="success"
         />
         <StatCard
           label="Disewa"
@@ -496,7 +514,7 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-primary-500"
+          accent="primary"
         />
         <StatCard
           label="Dalam Servis"
@@ -511,7 +529,7 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-accent-500"
+          accent="accent"
         />
         <StatCard
           label="Tidak Tersedia"
@@ -526,7 +544,7 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          iconClass="bg-error-500"
+          accent="error"
         />
       </div>
 
@@ -634,17 +652,17 @@ export default function Kendaraan() {
             </div>
             <form onSubmit={handleSubmit} className="space-y-4 p-6">
               {lastAdded && !editItem && (
-                <div className="flex items-center justify-between rounded-lg border border-accent-500/30 bg-accent-50 p-3">
-                  <div className="flex items-center gap-2">
-                    <svg className="h-5 w-5 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                    <span className="text-sm font-medium text-accent-600">Kendaraan berhasil ditambahkan!</span>
+<div className="flex items-center justify-between rounded-lg border border-primary-500/30 bg-primary-50 p-3">
+                    <div className="flex items-center gap-2">
+                      <svg className="h-5 w-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-sm font-medium text-primary-600">Kendaraan berhasil ditambahkan!</span>
+                    </div>
+                    <button type="button" onClick={() => setLastAdded(false)} className="text-sm font-medium text-primary-600 underline hover:text-primary-500">
+                      Sembunyikan
+                    </button>
                   </div>
-                  <button type="button" onClick={() => setLastAdded(false)} className="text-sm font-medium text-accent-600 underline hover:text-accent-500">
-                    Sembunyikan
-                  </button>
-                </div>
               )}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
@@ -822,7 +840,7 @@ export default function Kendaraan() {
                     />
                     <p className="mt-1 text-xs text-black-400">Harga yang dibayar ke garasi partner per hari</p>
                     {form.harga_sewa_per_hari && form.harga_partner_per_hari && (
-                      <p className="mt-1.5 text-sm font-medium text-accent-600">
+                      <p className="mt-1.5 text-sm font-medium text-primary-600">
                         Margin: {formatRupiah(Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari))}/hari
                         ({(Math.round(((Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari)) / Number(form.harga_sewa_per_hari)) * 100))}%)
                       </p>
@@ -840,14 +858,28 @@ export default function Kendaraan() {
                       className={`${inputClass} ${editItem.status === 'disewa' ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`}
                     >
                       {VEHICLE_STATUSES.map((s) => (
-                        <option key={s} value={s}>
+                        <option
+                          key={s}
+                          value={s}
+                          disabled={
+                            editItem.status !== 'disewa' &&
+                            ['tidak_tersedia', 'maintenance'].includes(s) &&
+                            Number(editItem.order_pending_count ?? 0) + Number(editItem.order_confirmed_count ?? 0) > 0
+                          }
+                        >
                           {vehicleStatusLabels[s]}
                         </option>
                       ))}
                     </select>
                     {editItem.status === 'disewa' && (
-                      <p className="mt-1 text-xs text-accent-600">Status dikendalikan oleh order aktif. Selesaikan atau batalkan order terlebih dahulu.</p>
+                      <p className="mt-1 text-xs text-primary-600">Status dikendalikan oleh order aktif. Selesaikan atau batalkan order terlebih dahulu.</p>
                     )}
+                    {editItem.status !== 'disewa' &&
+                      Number(editItem.order_pending_count ?? 0) + Number(editItem.order_confirmed_count ?? 0) > 0 && (
+                        <p className="mt-1 text-xs text-primary-600">
+                          Kendaraan memiliki order menunggu/konfirmasi — status tidak boleh diubah ke Tidak Tersedia/Servis.
+                        </p>
+                      )}
                   </div>
                 )}
               </div>
@@ -1034,6 +1066,26 @@ export default function Kendaraan() {
                   </div>
                 </div>
 
+                {(detailItem.orders?.length ?? 0) > 0 && (
+                  <div className="rounded-xl border border-error-200 bg-error-50 p-3">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-error-700">
+                      <Clock size={13} />
+                      Sedang dipakai pelanggan
+                    </div>
+                    {detailItem.orders!.map((ord) => (
+                      <div key={ord.id} className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-error-700">
+                        <span className="rounded bg-white px-1.5 py-0.5 font-mono font-semibold">{ord.kode_order}</span>
+                        <span>·</span>
+                        <span>
+                          {formatTgl(ord.tanggal_mulai)}
+                          {ord.jam_mulai ? ` ${ord.jam_mulai}` : ''} → {formatTgl(ord.tanggal_selesai)}
+                          {ord.jam_selesai ? ` ${ord.jam_selesai}` : ''}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <DetailField label="Plat Nomor" value={detailItem.plat_nomor} mono />
                   <DetailField label="Warna" value={detailItem.warna} />
@@ -1097,7 +1149,7 @@ export default function Kendaraan() {
         title="Masuk ke Servis"
         message={`Ubah status "${maintenanceTarget?.nama_kendaraan}" menjadi Servis? Kendaraan tidak akan bisa disewa selama dalam status ini.`}
         confirmLabel={maintenanceSubmitting ? 'Menyimpan...' : 'Masukkan Servis'}
-        danger
+        danger={false}
         onConfirm={handleEnterMaintenance}
         onCancel={() => {
           setMaintenanceTarget(null);
@@ -1162,10 +1214,13 @@ export default function Kendaraan() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {items.map((item) => (
+          {items.map((item) => {
+            const waitingOrderCount = Number(item.order_pending_count ?? 0) + Number(item.order_confirmed_count ?? 0);
+            const sittingOrderLabel = Number(item.order_confirmed_count ?? 0) > 0 ? 'Ada order Dikonfirmasi' : 'Ada order Menunggu Konfirmasi';
+            return (
             <div
               key={item.id}
-              onClick={() => setDetailItem(item)}
+              onClick={() => openDetail(item)}
               className="cursor-pointer overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black-200 transition-all hover:shadow-md"
             >
               {/* Foto + badge status + tombol edit/hapus */}
@@ -1228,7 +1283,7 @@ export default function Kendaraan() {
                     <>
                       <span className="rounded-full bg-canvas px-2 py-0.5">{item.garasiPartner.nama_partner}</span>
                       {canManageMaster && item.harga_partner_per_hari && item.margin_per_hari !== null && item.margin_per_hari !== undefined && (
-                        <span className="rounded-full bg-accent-50 text-accent-700 px-2 py-0.5 font-medium flex items-center gap-1">
+                        <span className="rounded-full bg-primary-50 text-primary-700 px-2 py-0.5 font-medium flex items-center gap-1">
                           <span className="text-[10px]">💰</span>
                           Margin: {formatRupiah(item.margin_per_hari)} ({item.margin_persen}%)
                         </span>
@@ -1248,24 +1303,33 @@ export default function Kendaraan() {
 
                 <p className="mb-3 text-sm font-bold text-primary-600">{formatRupiah(item.harga_sewa_per_hari)}/hari</p>
 
+                {waitingOrderCount > 0 && (
+                  <p className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-primary-50 px-2 py-1 text-[11px] font-medium text-primary-700">
+                    {sittingOrderLabel}
+                  </p>
+                )}
+
                 {/* 3 aksi cepat status */}
                 <div className="grid grid-cols-3 gap-1.5 border-t border-black-200 pt-3" onClick={(e) => e.stopPropagation()}>
                   <QuickStatusButton
                     label="Tersedia"
                     active={item.status === 'tersedia'}
                     activeClass="bg-success-500 text-white"
+                    blocked={item.status === 'disewa'}
                     onClick={() => handleQuickStatus(item, 'tersedia')}
                   />
                   <QuickStatusButton
                     label="Tidak Tersedia"
                     active={item.status === 'tidak_tersedia'}
                     activeClass="bg-error-500 text-white"
+                    blocked={waitingOrderCount > 0 || item.status === 'disewa'}
                     onClick={() => handleQuickStatus(item, 'tidak_tersedia')}
                   />
                   <QuickStatusButton
                     label="Servis"
                     active={item.status === 'maintenance'}
                     activeClass="bg-accent-500 text-white"
+                    blocked={waitingOrderCount > 0 || item.status === 'disewa'}
                     onClick={() => handleQuickStatus(item, 'maintenance')}
                   />
                 </div>
@@ -1273,7 +1337,7 @@ export default function Kendaraan() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    setDetailItem(item);
+                    openDetail(item);
                   }}
                   className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-black-400 transition-colors hover:bg-canvas hover:text-black-700"
                 >
@@ -1282,7 +1346,8 @@ export default function Kendaraan() {
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1315,13 +1380,39 @@ export default function Kendaraan() {
 /* Small presentational helpers                                       */
 /* ------------------------------------------------------------------ */
 
-function StatCard({ label, value, icon, iconClass }: { label: string; value: number; icon: ReactNode; iconClass: string }) {
+type StatAccent = 'neutral' | 'success' | 'primary' | 'accent' | 'error';
+
+const statAccentStyles: Record<StatAccent, { bar: string; iconBg: string; iconText: string }> = {
+  neutral: { bar: 'bg-black-700', iconBg: 'bg-black-100', iconText: 'text-black-700' },
+  success: { bar: 'bg-success-500', iconBg: 'bg-success-50', iconText: 'text-success-600' },
+  primary: { bar: 'bg-primary-500', iconBg: 'bg-primary-50', iconText: 'text-primary-600' },
+  accent: { bar: 'bg-accent-500', iconBg: 'bg-accent-50', iconText: 'text-accent-600' },
+  error: { bar: 'bg-error-500', iconBg: 'bg-error-50', iconText: 'text-error-600' },
+};
+
+function StatCard({
+  label,
+  value,
+  icon,
+  accent,
+}: {
+  label: string;
+  value: number;
+  icon: ReactNode;
+  accent: StatAccent;
+}) {
+  const s = statAccentStyles[accent];
   return (
-    <div className="flex items-center gap-3 rounded-xl bg-white p-4 shadow-sm ring-1 ring-black-200">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white ${iconClass}`}>{icon}</div>
-      <div>
-        <div className="text-xs text-black-400">{label}</div>
-        <div className="text-xl font-bold text-black-900">{value}</div>
+    <div className="relative overflow-hidden rounded-xl bg-white p-4 shadow-sm ring-1 ring-black-200 transition-shadow hover:shadow-md">
+      <span className={`absolute left-0 top-0 h-full w-1 ${s.bar}`} aria-hidden="true" />
+      <div className="flex items-center gap-3 pl-1.5">
+        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${s.iconBg} ${s.iconText}`}>
+          {icon}
+        </div>
+        <div className="min-w-0">
+          <div className="truncate text-[11px] font-medium uppercase tracking-wide text-black-400">{label}</div>
+          <div className="text-xl font-bold leading-tight text-black-900">{value}</div>
+        </div>
       </div>
     </div>
   );
@@ -1341,20 +1432,31 @@ function QuickStatusButton({
   active,
   activeClass,
   onClick,
+  blocked = false,
 }: {
   label: string;
   active: boolean;
   activeClass: string;
   onClick: () => void;
+  blocked?: boolean;
 }) {
+  const disabled = active || blocked;
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={active}
-      title={active ? `Sudah berstatus ${label}` : `Tandai sebagai ${label}`}
+      disabled={disabled}
+      title={
+        blocked && !active
+          ? 'Kendaraan sedang dipakai atau memiliki order menunggu/konfirmasi. Selesaikan atau batalkan order terlebih dahulu.'
+          : active
+            ? `Sudah berstatus ${label}`
+            : `Tandai sebagai ${label}`
+      }
       className={`rounded-lg px-1.5 py-1.5 text-[11px] font-medium leading-tight transition-colors ${
-        active ? `${activeClass} cursor-default` : 'bg-canvas text-black-400 hover:bg-accent-100 hover:text-black-700'
+        disabled
+          ? `${active ? activeClass : 'cursor-not-allowed bg-canvas text-black-300'}`
+          : 'bg-canvas text-black-400 hover:bg-primary-100 hover:text-black-700'
       }`}
     >
       {label}

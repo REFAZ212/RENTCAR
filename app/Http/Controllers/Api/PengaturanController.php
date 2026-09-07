@@ -23,7 +23,7 @@ class PengaturanController extends Controller
             'nama' => $user->name,
             'email' => $user->email,
             'no_hp' => $user->phone ?? '',
-            'avatar_url' => $user->avatar ? Storage::disk('public')->url($user->avatar) : null,
+            'avatar_url' => $user->avatar ? '/storage/'.ltrim($user->avatar, '/') : null,
         ]);
     }
 
@@ -86,7 +86,7 @@ class PengaturanController extends Controller
             'alamat' => Setting::get('alamat_usaha', ''),
             'no_telp' => Setting::get('no_telp_usaha', ''),
             'email_usaha' => Setting::get('email_usaha', ''),
-            'logo_url' => Setting::get('logo_usaha', '') ? Storage::disk('public')->url(Setting::get('logo_usaha')) : null,
+            'logo_url' => Setting::get('logo_usaha', '') ? '/storage/'.ltrim(Setting::get('logo_usaha'), '/') : null,
             'jam_operasional' => $jamOperasional,
         ]);
     }
@@ -308,6 +308,100 @@ class PengaturanController extends Controller
         return response()->json([
             'message' => 'Gagal mengirim pesan test: '.mb_substr((string) $alasan, 0, 200),
         ], 422);
+    }
+
+    /**
+     * Nilai `notif_sound_admin` disimpan dalam dua bentuk:
+     * - `builtin:<preset>` → pilihan suara bawaan (classic/pop/bell/pulse), atau
+     * - path file (mis. `notification-sounds/xxx.mp3`) → suara custom upload.
+     */
+    private const BUILTIN_PRESETS = ['classic', 'pop', 'bell', 'pulse'];
+
+    public function getNotifSound(): JsonResponse
+    {
+        return response()->json($this->resolveNotifSound());
+    }
+
+    public function selectBuiltinNotifSound(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'preset' => 'required|in:'.implode(',', self::BUILTIN_PRESETS),
+        ]);
+
+        $old = Setting::get('notif_sound_admin', '');
+        if ($old && ! str_starts_with($old, 'builtin:') && Storage::disk('public')->exists($old)) {
+            Storage::disk('public')->delete($old);
+        }
+
+        Setting::set('notif_sound_admin', 'builtin:'.$validated['preset']);
+
+        return response()->json($this->resolveNotifSound());
+    }
+
+    public function uploadNotifSound(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'notif_sound' => 'required|file|mimes:mp3,wav|max:2048',
+        ]);
+
+        $old = Setting::get('notif_sound_admin', '');
+        if ($old && ! str_starts_with($old, 'builtin:') && Storage::disk('public')->exists($old)) {
+            Storage::disk('public')->delete($old);
+        }
+
+        $path = $validated['notif_sound']->store('notification-sounds', 'public');
+        Setting::set('notif_sound_admin', $path);
+
+        return response()->json($this->resolveNotifSoundWith($path));
+    }
+
+    public function deleteNotifSound(): JsonResponse
+    {
+        $old = Setting::get('notif_sound_admin', '');
+        if ($old && ! str_starts_with($old, 'builtin:') && Storage::disk('public')->exists($old)) {
+            Storage::disk('public')->delete($old);
+        }
+
+        Setting::set('notif_sound_admin', '');
+
+        return response()->json($this->resolveNotifSoundWith(''));
+    }
+
+    /**
+     * Baca nilai setting `notif_sound_admin` lalu terjemahkan ke bentuk respon
+     * terstruktur (source: builtin | custom | none).
+     */
+    private function resolveNotifSound(): array
+    {
+        return $this->resolveNotifSoundWith(Setting::get('notif_sound_admin', ''));
+    }
+
+    private function resolveNotifSoundWith(string $value): array
+    {
+        if (str_starts_with($value, 'builtin:')) {
+            return [
+                'source' => 'builtin',
+                'preset' => substr($value, strlen('builtin:')),
+                'url' => null,
+                'name' => null,
+            ];
+        }
+
+        if (! empty($value) && Storage::disk('public')->exists($value)) {
+            return [
+                'source' => 'custom',
+                'preset' => null,
+                'url' => '/storage/'.ltrim($value, '/'),
+                'name' => basename($value),
+            ];
+        }
+
+        return [
+            'source' => 'none',
+            'preset' => null,
+            'url' => null,
+            'name' => null,
+        ];
     }
 
     public function getSistem(): JsonResponse

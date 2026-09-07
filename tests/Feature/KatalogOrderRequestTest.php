@@ -139,7 +139,6 @@ class KatalogOrderRequestTest extends TestCase
             $t->integer('jam_overtime')->default(0);
             $t->timestamp('tanggal_pengembalian_aktual')->nullable();
             $t->text('alasan_pembatalan')->nullable();
-            $t->date('tanggal_jatuh_tempo')->nullable();
             $t->decimal('biaya_pembatalan', 14, 2)->nullable();
             $t->decimal('total_refund', 14, 2)->nullable();
             $t->timestamps();

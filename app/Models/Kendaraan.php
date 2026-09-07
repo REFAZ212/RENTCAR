@@ -89,7 +89,31 @@ class Kendaraan extends Model
     {
         return $this->hasMany(Order::class)
             ->whereNull('deleted_at')
-            ->whereIn('status_order', ['pending', 'confirmed', 'active']);
+            ->whereIn('status_order', ['pending', 'confirmed', 'active', 'perlu_verifikasi']);
+    }
+
+    /**
+     * Selaraskan kolom `status` dengan order yang sedang berjalan.
+     *
+     * Kendaraan dengan order belum-dihapus (active/perlu_verifikasi) wajib
+     * berstatus `disewa`, sedangkan kendaraan `disewa` yang tidak lagi punya
+     * order berjalan dikembalikan ke `tersedia`. Status manual lainnya
+     * (tersedia/maintenance/tidak_tersedia) tanpa order berjalan tetap dibiarkan.
+     * Idempotent — aman dipanggil berulang.
+     */
+    public static function sinkronkanStatusDariOrder(): void
+    {
+        $berjalan = fn ($q) => $q
+            ->whereNull('deleted_at')
+            ->whereIn('status_order', ['active', 'perlu_verifikasi']);
+
+        static::where('status', '!=', 'disewa')
+            ->whereHas('orders', $berjalan)
+            ->update(['status' => 'disewa']);
+
+        static::where('status', 'disewa')
+            ->whereDoesntHave('orders', $berjalan)
+            ->update(['status' => 'tersedia']);
     }
 
     public function gpsDevices(): HasMany

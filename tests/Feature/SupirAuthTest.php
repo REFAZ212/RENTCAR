@@ -192,7 +192,7 @@ class SupirAuthTest extends TestCase
             ->assertJsonPath('wajib_ganti_password', true);
     }
 
-    public function test_seeder_generates_random_passwords_and_requires_change(): void
+    public function test_seeder_menghasilkan_password_default_untuk_dev(): void
     {
         $this->seed(SupirCaloSeeder::class);
 
@@ -200,8 +200,8 @@ class SupirAuthTest extends TestCase
         $this->assertCount(14, $supirs);
 
         foreach ($supirs as $supir) {
-            $this->assertTrue((bool) $supir->must_change_password, "{$supir->nama} harus wajib ganti password");
-            $this->assertFalse(Hash::check('password', $supir->password), "{$supir->nama} tidak boleh pakai password default");
+            $this->assertFalse((bool) $supir->must_change_password, "{$supir->nama} tidak perlu wajib ganti password di seeder dev");
+            $this->assertTrue(Hash::check('password', $supir->password), "{$supir->nama} memakai password default dev");
         }
     }
 

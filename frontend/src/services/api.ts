@@ -41,6 +41,17 @@ export interface Customer {
   } | null;
 }
 
+export interface KendaraanOrderInfo {
+  id: number;
+  kode_order: string;
+  status_order: string;
+  status_pengiriman?: string | null;
+  tanggal_mulai?: string | null;
+  tanggal_selesai?: string | null;
+  jam_mulai?: string | null;
+  jam_selesai?: string | null;
+}
+
 export interface Kendaraan {
   id: number;
   nama_kendaraan: string;
@@ -61,9 +72,12 @@ export interface Kendaraan {
   garasiPartner?: GarasiPartner;
   active_orders_count?: number;
   catatan?: string | null;
+  order_pending_count?: number;
+  order_confirmed_count?: number;
   garasi_partner_id?: number;
   kategori?: KategoriKendaraan;
   tipe?: TipeKendaraan;
+  orders?: KendaraanOrderInfo[];
 }
 
 export interface SupirCalo {
@@ -123,11 +137,11 @@ export interface Order {
   denda_overtime: number;
   jam_overtime_saat_ini: number;
   denda_overtime_saat_ini: number;
-  tanggal_jatuh_tempo: string | null;
   biaya_pembatalan: number | null;
   total_refund: number | null;
   biaya_kerusakan: number | null;
   operator?: { id: number; name: string; phone: string | null };
+  pickup_draft_count?: number;
   customer?: Customer;
   kendaraan?: Kendaraan;
   supir?: SupirCalo;
@@ -193,11 +207,41 @@ export interface KatalogItem extends Kendaraan {
 }
 
 export interface DashboardSummary {
-  total_kendaraan: number;
-  kendaraan_tersedia: number;
-  order_aktif: number;
-  order_pending: number;
-  pendapatan_hari_ini: number;
+  stats: {
+    total_kendaraan: number;
+    kendaraan_tersedia: number;
+    kendaraan_disewa: number;
+    kendaraan_maintenance: number;
+    kendaraan_tidak_tersedia: number;
+    total_customer: number;
+    total_garasi: number;
+    orders_hari_ini: number;
+    orders_aktif: number;
+    orders_pending: number;
+    pendapatan_hari_ini?: number | null;
+    pendapatan_bulan_ini?: number | null;
+    garasi_pending: number;
+    garasi_tersedia: number;
+    garasi_tidak_terjawab: number;
+    orders_kemarin: number;
+    pendapatan_kemarin?: number | null;
+  };
+  quick_actions?: {
+    inspeksi_pending: number;
+    garasi_pending: number;
+  };
+  activity_log?: ActivityLogItem[];
+}
+
+export interface ActivityLogItem {
+  id: string;
+  type: 'order' | 'garasi' | 'inspeksi';
+  tipe_event: string;
+  label: string;
+  kode: string;
+  detail: string;
+  link_order_id?: number | null;
+  waktu: string;
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -458,6 +502,14 @@ export const laporanAPI = {
   order: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/order', { params }),
   bagiHasil: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/bagi-hasil', { params }),
   komisiCalo: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/komisi-calo', { params }),
+  rekapGarasi: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/rekap-garasi', { params }),
+  growth: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/growth', { params }),
+  piutang: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/piutang', { params }),
+  profitabilitas: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/profitabilitas', { params }),
+  detailOrder: (params: Record<string, unknown>): Promise<AxiosResponse<unknown>> => api.get('/laporan/detail-order', { params }),
+  decision: (params: LaporanParams): Promise<AxiosResponse<unknown>> => api.get('/laporan/decision', { params }),
+  exportDetailOrder: (format: 'csv' | 'xlsx', params: LaporanParams): Promise<AxiosResponse<Blob>> =>
+    api.get(`/laporan/export/detail-lengkap/${format}`, { params, responseType: 'blob' }),
   export: (type: string, format: 'csv' | 'xlsx', params: LaporanParams): Promise<AxiosResponse<Blob>> =>
     api.get(`/laporan/export/${type}/${format}`, { params, responseType: 'blob' }),
 };
@@ -507,6 +559,25 @@ export interface AppSettings {
 export const settingsAPI = {
   get: (): Promise<AxiosResponse<AppSettings>> => api.get('/settings'),
   update: (data: Partial<AppSettings>): Promise<AxiosResponse<{ message: string }>> => api.patch('/settings', data),
+};
+
+/* ─────────────────────────────────────────────────────────────
+ * SOUND NOTIFIKASI (admin — upload custom notif sound, global)
+ * ───────────────────────────────────────────────────────────── */
+export interface NotifSoundInfo {
+  source: 'builtin' | 'custom' | 'none';
+  preset: 'classic' | 'pop' | 'bell' | 'pulse' | null;
+  url: string | null;
+  name: string | null;
+}
+
+export const notifSoundAPI = {
+  get: (): Promise<AxiosResponse<NotifSoundInfo>> => api.get('/pengaturan/notifikasi/sound'),
+  upload: (data: FormData): Promise<AxiosResponse<NotifSoundInfo>> =>
+    api.post('/pengaturan/notifikasi/sound', data),
+  selectBuiltin: (preset: NotifSoundInfo['preset']): Promise<AxiosResponse<NotifSoundInfo>> =>
+    api.put('/pengaturan/notifikasi/sound/builtin', { preset }),
+  remove: (): Promise<AxiosResponse<NotifSoundInfo>> => api.delete('/pengaturan/notifikasi/sound'),
 };
 
 /* ─────────────────────────────────────────────────────────────

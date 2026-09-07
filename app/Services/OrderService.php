@@ -24,7 +24,11 @@ class OrderService
 {
     public function list(array $filters): array
     {
-        $query = Order::with(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo', 'pembayarans']);
+        $query = Order::with(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo', 'pembayarans', 'operator']);
+
+        if (Schema::hasTable('inspeksi_kendaraans')) {
+            $query->withCount(['inspeksis as pickup_draft_count' => fn ($q) => $q->where('jenis', 'pickup')->where('status', 'draft')]);
+        }
 
         if (! empty($filters['search'])) {
             $search = $filters['search'];
@@ -244,7 +248,6 @@ class OrderService
                 'calo_id' => $validated['calo_id'] ?? null,
                 'komisi_calo' => $komisiCalo,
                 'admin_id' => $request->user()->id,
-                'tanggal_jatuh_tempo' => $validated['tanggal_jatuh_tempo'] ?? null,
             ]);
 
             $this->validateAndRecordPayment($order, $request->user()->id, $validated);
@@ -1287,8 +1290,15 @@ class OrderService
     {
         if ($newKendaraanId != $oldKendaraanId) {
             $oldKendaraan = Kendaraan::find($oldKendaraanId);
+            $oldKendaraan?->refresh();
             if ($oldKendaraan && $oldKendaraan->status === 'disewa') {
-                $oldKendaraan->update(['status' => 'tersedia']);
+                $oldKendaraan->update([
+                    'status' => $oldKendaraan->activeOrders()
+                        ->where('id', '!=', $order->id)
+                        ->exists()
+                        ? 'disewa'
+                        : 'tersedia',
+                ]);
             }
         }
 

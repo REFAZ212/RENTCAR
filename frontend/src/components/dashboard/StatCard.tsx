@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 import Sparkline from './Sparkline';
 
 /**
@@ -32,6 +33,7 @@ interface StatCardProps {
   sparkData: number[];
   sparkColor: string;
   sparkId: string;
+  trend?: ReactNode;
 }
 
 export default function StatCard({
@@ -43,11 +45,15 @@ export default function StatCard({
   sparkData,
   sparkColor,
   sparkId,
+  trend,
 }: StatCardProps) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-accent-100 p-5 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-2xl shadow-sm border border-primary-100 p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between">
-        <p className="text-sm font-medium text-black-400">{label}</p>
+        <div>
+          <p className="text-sm font-medium text-black-400">{label}</p>
+          {trend && <div className="mt-1.5">{trend}</div>}
+        </div>
         <div className={`flex h-9 w-9 items-center justify-center rounded-lg ${iconBg} shrink-0`}>
           <Icon size={18} className={iconColor} />
         </div>

@@ -14,7 +14,7 @@ type StatusOrder = 'pending' | 'confirmed' | 'active' | 'perlu_verifikasi' | 'co
 const statusOrderLabels: Record<StatusOrder, string> = {
     pending: 'Menunggu',
     confirmed: 'Dikonfirmasi',
-    active: 'Aktif',
+    active: 'Sedang Disewa',
     perlu_verifikasi: 'Perlu Verifikasi',
     completed: 'Selesai',
     cancelled: 'Dibatalkan',

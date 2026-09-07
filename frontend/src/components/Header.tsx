@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Search, Bell, ChevronDown, Plus, LogOut, CheckCheck } from 'lucide-react';
+import { Menu, Bell, ChevronDown, Plus, LogOut, CheckCheck } from 'lucide-react';
 import { notificationAPI, type AppNotification } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import useNotificationSound from '../hooks/useNotificationSound';
 
 /** Interval polling badge notifikasi (ms). */
 const POLL_INTERVAL_MS = 15000;
@@ -101,6 +102,7 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
   const notifRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef<number | null>(null);
   const toast = useToast();
+  const { play: playNotifSound, unlock: unlockSound } = useNotificationSound();
 
   const fetchNotifications = useCallback(async () => {
     setLoadingNotifications(true);
@@ -115,30 +117,49 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
     }
   }, []);
 
-  const handleNewNotifications = useCallback(() => {
-    if (showNotifications) fetchNotifications();
+  const handleNewNotifications = useCallback(
+    async (newCount: number) => {
+      if (showNotifications) fetchNotifications();
 
-    notificationAPI
-      .list({ per_page: 5 })
-      .then((res) => {
-        const items = Array.isArray(res.data) ? res.data : (res.data as unknown as { data: AppNotification[] }).data ?? [];
-        const newest = items[0];
-        if (newest && !newest.read_at && TOASTABLE_TYPES.has(newest.type)) {
+      let items: AppNotification[] = [];
+      try {
+        const res = await notificationAPI.list({ per_page: 5 });
+        items = Array.isArray(res.data) ? res.data : (res.data as unknown as { data: AppNotification[] }).data ?? [];
+      } catch {
+        // silent — tetap lanjut, tanpa data terbaru
+      }
+
+      const newest = items[0];
+      if (newest && !newest.read_at) {
+        // Bunyikan suara untuk SEMUA notifikasi baru (tidak hanya yang
+        // ditampilkan sebagai toast instan) supaya selalu terdengar.
+        playNotifSound();
+
+        if (TOASTABLE_TYPES.has(newest.type)) {
           toast.info(newest.title);
         }
-      })
-      .catch(() => {});
-  }, [showNotifications, fetchNotifications, toast]);
+      }
+
+      prevCountRef.current = newCount;
+    },
+    [showNotifications, fetchNotifications, toast, playNotifSound]
+  );
 
   const fetchUnreadCount = useCallback(async () => {
     try {
       const res = await notificationAPI.unreadCount();
       const count = res.data.count;
       const prev = prevCountRef.current;
-      prevCountRef.current = count;
 
-      if (prev !== null && count > prev) {
-        handleNewNotifications();
+      if (prev === null) {
+        prevCountRef.current = count;
+        return;
+      }
+
+      if (count > prev) {
+        await handleNewNotifications(count);
+      } else {
+        prevCountRef.current = count;
       }
     } catch {
       // silent
@@ -222,18 +243,6 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
         >
           <Menu className="h-4 w-4" />
         </button>
-
-        <div className="relative hidden sm:block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black-400" />
-          <input
-            type="text"
-            placeholder="Cari booking, unit, atau pelanggan..."
-            className="w-80 rounded-lg border border-black-200 bg-canvas py-2 pl-9 pr-14 text-sm text-black-400 placeholder:text-black-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary-100"
-          />
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded border border-black-200 px-1.5 py-0.5 text-[10px] font-medium text-black-400">
-            ⌘K
-          </span>
-        </div>
       </div>
 
       <div className="flex items-center gap-3">
@@ -249,7 +258,10 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
 
         <div className="relative" ref={notifRef}>
           <button
-            onClick={() => setShowNotifications((v) => !v)}
+            onClick={() => {
+              unlockSound();
+              setShowNotifications((v) => !v);
+            }}
             className="relative rounded-full border border-black-200 p-2 text-black-400 hover:bg-canvas"
           >
             <Bell className="h-4 w-4" />

@@ -66,7 +66,6 @@ class Order extends Model
         'alasan_pembatalan',
         'tanggal_pengembalian_aktual',
         'waktu_perlu_verifikasi',
-        'tanggal_jatuh_tempo',
         'jam_overtime',
         'denda_overtime',
         'biaya_pembatalan',
@@ -80,7 +79,6 @@ class Order extends Model
         'tanggal_pengembalian_aktual' => 'datetime',
         'waktu_perlu_verifikasi' => 'datetime',
         'waktu_klaim' => 'datetime',
-        'tanggal_jatuh_tempo' => 'date',
         'durasi_hari' => 'integer',
         'harga_per_hari' => 'decimal:2',
         'harga_total' => 'decimal:2',
@@ -95,7 +93,7 @@ class Order extends Model
     /**
      * Serialisasi tanggal untuk response JSON.
      *
-     * Kolom bertipe DATE (tanggal_mulai, tanggal_selesai, tanggal_jatuh_tempo)
+     * Kolom bertipe DATE (tanggal_mulai, tanggal_selesai)
      * selalu tengah malam WIB, jadi dikirim polos "Y-m-d" supaya frontend
      * menampilkan tanggal yang sama dengan yang dipilih user. Kalau dibiarkan
      * default (ISO8601 UTC), tanggal 05 00:00 WIB berubah jadi "04T17:00Z" dan

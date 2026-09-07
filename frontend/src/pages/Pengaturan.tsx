@@ -1,7 +1,8 @@
-import { useState, useEffect, type ReactNode, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type ReactNode, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import api from '../services/api';
-import { settingsAPI } from '../services/api';
+import { settingsAPI, notifSoundAPI, type NotifSoundInfo } from '../services/api';
+import useNotificationSound, { SOUND_LABELS, SOUND_PRESETS, type SoundPreset } from '../hooks/useNotificationSound';
 import { useToast } from '../contexts/ToastContext';
 
 const tabs = [
@@ -18,7 +19,7 @@ const tabs = [
   },
   {
     key: 'notifikasi',
-    label: 'Notifikasi WA',
+    label: 'Notifikasi',
     icon: 'M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z',
   },
   {
@@ -39,6 +40,7 @@ const ICONS = {
   plus: 'M12 4v16m8-8H4',
   download: 'M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4',
   trash: 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16',
+  x: 'M18 6L6 18M6 6l12 12',
 } as const;
 
 /* ─────────────────────────────────────────────────────────────
@@ -539,7 +541,7 @@ function BisnisTab() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <SectionCard title="Identitas Usaha" description="Ditampilkan di landing page, invoice, dan pesan WhatsApp otomatis">
+      <SectionCard title="Identitas Usaha" description="Dipakai sebagai identitas bisnis pada invoice dan watermark foto kendaraan">
         <div className="space-y-5">
           <Field label="Logo Usaha">
             <AvatarUpload imageUrl={logoPreview ?? form.logo_url} onFileSelected={(f) => { setLogoFile(f); setLogoPreview(URL.createObjectURL(f)); }} shape="square" />
@@ -984,6 +986,69 @@ function NotifikasiTab() {
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [showToken, setShowToken] = useState(false);
+  const [notifSoundInfo, setNotifSoundInfo] = useState<NotifSoundInfo>({ source: 'none', preset: null, url: null, name: null });
+  const [soundFile, setSoundFile] = useState<File | null>(null);
+  const [uploadingSound, setUploadingSound] = useState(false);
+  const { preview: previewBuiltin, previewCustom, unlock, stopAll } = useNotificationSound();
+  const soundInputRef = useRef<HTMLInputElement>(null);
+
+  const clearSoundInput = () => {
+    setSoundFile(null);
+    if (soundInputRef.current) soundInputRef.current.value = '';
+  };
+
+  useEffect(() => {
+    notifSoundAPI.get().then(({ data }) => setNotifSoundInfo(data)).catch(() => {});
+  }, []);
+
+  const handleSelectBuiltin = async (preset: SoundPreset) => {
+    unlock();
+    previewBuiltin(preset);
+    setUploadingSound(true);
+    try {
+      const { data } = await notifSoundAPI.selectBuiltin(preset);
+      setNotifSoundInfo(data);
+      clearSoundInput();
+      toast.success('Suara bawaan dipilih');
+    } catch {
+      toast.error('Gagal mengganti suara');
+    } finally {
+      setUploadingSound(false);
+    }
+  };
+
+  const handleUploadSound = async () => {
+    if (!soundFile) return;
+    setUploadingSound(true);
+    try {
+      const fd = new FormData();
+      fd.append('notif_sound', soundFile);
+      const { data } = await notifSoundAPI.upload(fd);
+      setNotifSoundInfo(data);
+      clearSoundInput();
+      toast.success('Suara notifikasi berhasil diunggah');
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal mengunggah suara — gunakan file MP3/WAV');
+    } finally {
+      setUploadingSound(false);
+    }
+  };
+
+  const handleRemoveSound = async () => {
+    setUploadingSound(true);
+    stopAll();
+    try {
+      const { data } = await notifSoundAPI.remove();
+      setNotifSoundInfo(data);
+      clearSoundInput();
+      toast.success('Suara notifikasi dikembalikan ke setelan default');
+    } catch {
+      toast.error('Gagal menghapus suara notifikasi');
+    } finally {
+      setUploadingSound(false);
+    }
+  };
 
   useEffect(() => {
     api
@@ -1039,6 +1104,153 @@ function NotifikasiTab() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <SectionCard
+        title="Suara Notifikasi"
+        description="Pilih suara bawaan atau unggah file audio (MP3/WAV) sebagai bunyi notifikasi di seluruh aplikasi."
+      >
+        <div className="space-y-6">
+          {notifSoundInfo.source === 'custom' && (
+            <div className="flex flex-col gap-2 rounded-xl bg-canvas p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-medium text-black-900">Suara kustom aktif</p>
+                <p className="mt-0.5 text-xs text-black-400">{notifSoundInfo.name}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => notifSoundInfo.url && previewCustom(notifSoundInfo.url)}
+                  className="rounded-lg border border-black-200 bg-white px-3 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas"
+                >
+                  Putar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRemoveSound}
+                  disabled={uploadingSound}
+                  className="flex items-center gap-1.5 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-sm font-medium text-error-600 transition-colors hover:bg-error-100 disabled:opacity-50"
+                >
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={ICONS.trash} />
+                  </svg>
+                  Hapus
+                </button>
+              </div>
+            </div>
+          )}
+          {notifSoundInfo.source === 'builtin' && notifSoundInfo.preset && (
+            <div className="flex items-center justify-between rounded-xl bg-canvas p-4">
+              <div>
+                <p className="text-sm font-medium text-black-900">Suara bawaan aktif</p>
+                <p className="mt-0.5 text-xs text-black-400">{SOUND_LABELS[notifSoundInfo.preset]}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => notifSoundInfo.preset && previewBuiltin(notifSoundInfo.preset)}
+                className="rounded-lg border border-black-200 bg-white px-3 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas"
+              >
+                Putar
+              </button>
+            </div>
+          )}
+          {notifSoundInfo.source === 'none' && (
+            <div className="rounded-xl bg-canvas p-4">
+              <p className="text-sm font-medium text-black-900">Menggunakan suara default aplikasi</p>
+              <p className="mt-0.5 text-xs text-black-400">Pilih suara bawaan di bawah atau unggah file custom.</p>
+            </div>
+          )}
+
+          <div>
+            <div className="mb-2">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-black-400">Suara Bawaan</p>
+              <p className="mt-0.5 text-xs text-black-300">Klik <span className="font-medium text-black-500">Pilih</span> untuk menyimpan — perubahan langsung tersimpan untuk semua pengguna.</p>
+            </div>
+            <div className="space-y-2">
+              {SOUND_PRESETS.map((preset) => {
+                const active = notifSoundInfo.source === 'builtin' && notifSoundInfo.preset === preset;
+                return (
+                  <div
+                    key={preset}
+                    className={`flex items-center justify-between rounded-xl border px-4 py-3 transition-colors ${
+                      active ? 'border-primary-500 bg-primary-50' : 'border-black-200 bg-white'
+                    }`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => handleSelectBuiltin(preset)}
+                      className="text-sm font-medium text-black-800"
+                    >
+                      {SOUND_LABELS[preset]}
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSelectBuiltin(preset)}
+                        disabled={active || uploadingSound}
+                        className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 ${
+                          active
+                            ? 'bg-primary-50 text-primary-600'
+                            : 'bg-primary-500 text-white hover:bg-primary-600'
+                        }`}
+                      >
+                        {active ? 'Aktif' : 'Pilih'}
+                      </button>
+                      {active && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveSound}
+                          disabled={uploadingSound}
+                          className="flex items-center gap-1.5 rounded-lg border border-black-200 bg-white px-3 py-1.5 text-sm font-medium text-black-700 transition-colors hover:border-error-200 hover:bg-error-50 hover:text-error-600 disabled:opacity-50"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={ICONS.x} />
+                          </svg>
+                          Batalkan
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          unlock();
+                          previewBuiltin(preset);
+                        }}
+                        className="rounded-lg border border-black-200 bg-white px-3 py-1.5 text-sm font-medium text-black-700 transition-colors hover:bg-canvas"
+                      >
+                        Putar
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <p className="pb-2 text-[11px] font-semibold uppercase tracking-widest text-black-400">Suara Kustom</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <input
+                ref={soundInputRef}
+                type="file"
+                accept=".mp3,.wav,audio/mpeg,audio/wav"
+                onChange={(e) => setSoundFile(e.target.files?.[0] ?? null)}
+                className="block w-full max-w-sm text-sm text-black-500 file:mr-3 file:rounded-lg file:border-0 file:bg-primary-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-600 hover:file:bg-primary-100"
+              />
+              <button
+                type="button"
+                onClick={handleUploadSound}
+                disabled={!soundFile || uploadingSound}
+                className="flex items-center justify-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={ICONS.upload} />
+                </svg>
+                {uploadingSound ? 'Memproses...' : 'Unggah'}
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-black-400">Maksimal 2 MB. Klik <span className="font-medium text-black-500">Unggah</span> untuk menyimpan — suara langsung aktif menggantikan bunyi bawaan untuk semua pengguna.</p>
+          </div>
+        </div>
+      </SectionCard>
+
       <SectionCard title="Koneksi WhatsApp Gateway" description="Token didapat dari dashboard penyedia gateway (mis. Fonnte)">
         <div className="space-y-5">
           <Field label="Token Gateway" hint="Jangan bagikan token ini ke siapapun">
@@ -1356,7 +1568,7 @@ function SistemTab() {
             type="button"
             onClick={handleBackup}
             disabled={exporting}
-            className="flex items-center gap-2 rounded-lg bg-accent-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-600 disabled:opacity-50"
+            className="flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
           >
             <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={ICONS.download} />
