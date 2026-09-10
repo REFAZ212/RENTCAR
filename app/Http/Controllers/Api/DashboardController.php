@@ -33,7 +33,7 @@ class DashboardController extends Controller
             'kendaraan_maintenance' => Kendaraan::where('status', 'maintenance')->count(),
             'kendaraan_tidak_tersedia' => Kendaraan::where('status', 'tidak_tersedia')->count(),
 
-            'total_customer' => Customer::withTrashed()->count(),
+            'total_customer' => Customer::count(),
             'total_garasi' => GarasiPartner::where('status_aktif', true)->count(),
 
             'orders_hari_ini' => Order::whereDate('created_at', $today)->count(),

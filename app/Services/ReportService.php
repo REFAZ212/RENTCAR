@@ -75,7 +75,7 @@ class ReportService
         $utilization = $totalVehicles > 0 ? round(($rentedVehicles / $totalVehicles) * 100, 1) : 0;
 
         $newVehicles = Kendaraan::whereBetween('created_at', [$start, $end])->count();
-        $newCustomers = Customer::withTrashed()->whereBetween('created_at', [$start, $end])->count();
+        $newCustomers = Customer::whereBetween('created_at', [$start, $end])->count();
         $newGarageRequests = GarasiRequest::whereBetween('created_at', [$start, $end])->count();
 
         $pendingGarageRequests = GarasiRequest::where('status_permintaan', 'pending')->count();
@@ -246,7 +246,7 @@ class ReportService
         $topCustomers = collect();
 
         if ($topIds->isNotEmpty()) {
-            $customerMap = Customer::withTrashed()->whereIn('id', $topIds)->get()->keyBy('id');
+            $customerMap = Customer::whereIn('id', $topIds)->get()->keyBy('id');
 
             $stats = Order::where('status_order', 'completed')
                 ->whereIn('customer_id', $topIds)
@@ -271,10 +271,10 @@ class ReportService
             });
         }
 
-        $totalCustomers = Customer::withTrashed()->count();
-        $newCustomers = Customer::withTrashed()->whereBetween('created_at', [$start, $end])->count();
+        $totalCustomers = Customer::count();
+        $newCustomers = Customer::whereBetween('created_at', [$start, $end])->count();
         $activeCustomers = Order::whereBetween('created_at', [$start, $end])->distinct('customer_id')->count('customer_id');
-        $repeatCustomers = Customer::withTrashed()->has('orders', '>', 1)->count();
+        $repeatCustomers = Customer::has('orders', '>', 1)->count();
 
         return [
             'customer_top' => $topCustomers,
@@ -526,10 +526,8 @@ class ReportService
         $currentOrders = Order::whereBetween('created_at', [$start, $end])->count();
         $prevOrders = Order::whereBetween('created_at', [$prevStart, $prevEnd])->count();
 
-        $currentCustomers = Customer::withTrashed()
-            ->whereBetween('created_at', [$start, $end])->count();
-        $prevCustomers = Customer::withTrashed()
-            ->whereBetween('created_at', [$prevStart, $prevEnd])->count();
+        $currentCustomers = Customer::whereBetween('created_at', [$start, $end])->count();
+        $prevCustomers = Customer::whereBetween('created_at', [$prevStart, $prevEnd])->count();
 
         return [
             'pendapatan' => ['current' => (float) $currentRevenue, 'previous' => (float) $prevRevenue],

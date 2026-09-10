@@ -5,15 +5,10 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatHpDisplay } from '../lib/format';
 import ConfirmModal from '../components/ConfirmModal';
-import { Search, Eye, Users, Trash2, RotateCcw } from 'lucide-react';
+import { Search, Eye, Users, Trash2 } from 'lucide-react';
 
 const inputClass =
   'w-full rounded-lg border border-black-200 px-3 py-2 text-sm text-black-900 outline-none transition-colors focus:border-primary-500 focus:ring-1 focus:ring-primary-500';
-
-const tabs = [
-  { key: 'semua', label: 'Semua' },
-  { key: 'arsip', label: 'Arsip' },
-];
 
 export default function Customers() {
   const { success: toastSuccess, error: toastError } = useToast();
@@ -22,20 +17,18 @@ export default function Customers() {
   const [items, setItems] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [tab, setTab] = useState('semua');
   const [confirmDelete, setConfirmDelete] = useState<Customer | null>(null);
-  const [confirmRestore, setConfirmRestore] = useState<Customer | null>(null);
 
-  const canManageArchive = user?.role === 'admin_utama';
+  const canDelete = user?.role === 'admin_utama';
 
   const load = useCallback(() => {
     setLoading(true);
     customerAPI
-      .list({ search, trashed: tab === 'arsip' || undefined })
+      .list({ search })
       .then(({ data }) => setItems(data.data))
       .catch(() => toastError('Gagal memuat data customer'))
       .finally(() => setLoading(false));
-  }, [search, tab, toastError]);
+  }, [search, toastError]);
 
   useEffect(() => {
     load();
@@ -53,18 +46,6 @@ export default function Customers() {
     load();
   };
 
-  const handleRestore = async () => {
-    if (!confirmRestore) return;
-    try {
-      await customerAPI.restore(confirmRestore.id);
-      toastSuccess('Customer berhasil dipulihkan');
-    } catch {
-      toastError('Gagal memulihkan customer');
-    }
-    setConfirmRestore(null);
-    load();
-  };
-
   return (
     <div className="space-y-6">
       <div>
@@ -73,32 +54,15 @@ export default function Customers() {
       </div>
 
       <div className="rounded-xl border border-black-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative max-w-md">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-black-400" />
-            <input
-              type="text"
-              placeholder="Cari nama, no HP, no KTP..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className={`${inputClass} pl-10`}
-            />
-          </div>
-          <div className="flex gap-2">
-            {tabs.map((t) => (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  tab === t.key
-                    ? 'bg-primary-500 text-white'
-                    : 'bg-black-200 text-black-600 hover:bg-black-200'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+        <div className="relative max-w-md">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-black-400" />
+          <input
+            type="text"
+            placeholder="Cari nama, no HP, no KTP..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className={`${inputClass} pl-10`}
+          />
         </div>
       </div>
 
@@ -123,9 +87,7 @@ export default function Customers() {
                 <tr>
                   <td colSpan={7} className="p-12 text-center">
                     <Users size={40} className="mx-auto mb-3 text-black-400" />
-                    <p className="text-sm text-black-500">
-                      {tab === 'arsip' ? 'Tidak ada customer di arsip' : 'Tidak ada data customer'}
-                    </p>
+                    <p className="text-sm text-black-500">Tidak ada data customer</p>
                   </td>
                 </tr>
               ) : (
@@ -136,12 +98,7 @@ export default function Customers() {
                     onClick={() => navigate(`/customers/${item.id}`)}
                   >
                     <td className="px-4 py-3 font-medium text-black-900">
-                      <div className="flex items-center gap-2">
-                        {item.nama_lengkap}
-                        {item.deleted_at && (
-                          <span className="rounded-full bg-black-200 px-2 py-0.5 text-xs font-medium text-black-500">Dihapus</span>
-                        )}
-                      </div>
+                      <div className="flex items-center gap-2">{item.nama_lengkap}</div>
                     </td>
                     <td className="px-4 py-3 text-black-700">{formatHpDisplay(item.no_hp)}</td>
                     <td className="px-4 py-3 text-black-600">{item.email || '-'}</td>
@@ -166,19 +123,7 @@ export default function Customers() {
                         >
                           <Eye size={16} />
                         </button>
-                        {canManageArchive && item.deleted_at && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setConfirmRestore(item);
-                            }}
-                            className="text-black-400 hover:text-primary-600"
-                            title="Pulihkan"
-                          >
-                            <RotateCcw size={16} />
-                          </button>
-                        )}
-                        {canManageArchive && !item.deleted_at && (
+                        {canDelete && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -203,19 +148,9 @@ export default function Customers() {
       <ConfirmModal
         open={!!confirmDelete}
         title="Hapus Customer"
-        message={`Yakin ingin menghapus "${confirmDelete?.nama_lengkap}"? Data riwayat transaksinya tetap tersimpan dan bisa dipulihkan dari tab Arsip.`}
+        message={`Yakin ingin menghapus "${confirmDelete?.nama_lengkap}"? Tindakan ini tidak dapat dibatalkan.`}
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(null)}
-      />
-
-      <ConfirmModal
-        open={!!confirmRestore}
-        title="Pulihkan Customer"
-        message={`Pulihkan customer "${confirmRestore?.nama_lengkap}" dari arsip?`}
-        confirmLabel="Pulihkan"
-        danger={false}
-        onConfirm={handleRestore}
-        onCancel={() => setConfirmRestore(null)}
       />
     </div>
   );

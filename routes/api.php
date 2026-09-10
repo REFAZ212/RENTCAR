@@ -85,8 +85,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/garasi-saya', [GarasiPartnerController::class, 'garasiSaya']);
     Route::apiResource('garasi-partners', GarasiPartnerController::class);
     Route::apiResource('kendaraans', KendaraanController::class)->middleware('throttle:60,1');
-    Route::apiResource('customers', CustomerController::class)->withTrashed()->middleware('throttle:60,1');
-    Route::post('/customers/{customer}/restore', [CustomerController::class, 'restore'])->withTrashed()->middleware('throttle:60,1');
+    Route::apiResource('customers', CustomerController::class)->middleware('throttle:60,1');
     Route::apiResource('orders', OrderController::class)->middleware('throttle:60,1');
     Route::get('/orders/{order}/invoice', [InvoiceController::class, 'download']);
     Route::apiResource('garasi-requests', GarasiRequestController::class)->middleware('throttle:60,1');

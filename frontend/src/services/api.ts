@@ -25,7 +25,6 @@ export interface Customer {
   no_ktp: string | null;
   no_sim: string | null;
   catatan: string | null;
-  deleted_at?: string | null;
   foto_ktp: string | null;
   foto_sim: string | null;
   orders_count?: number;
@@ -391,7 +390,6 @@ export const customerAPI = {
   create: (data: Payload): Promise<AxiosResponse<SingleResponse<Customer>>> => api.post('/customers', data),
   update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<Customer>>> => api.put(`/customers/${id}`, data),
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/customers/${id}`),
-  restore: (id: number): Promise<AxiosResponse<void>> => api.post(`/customers/${id}/restore`),
 };
 
 /* ─────────────────────────────────────────────────────────────
