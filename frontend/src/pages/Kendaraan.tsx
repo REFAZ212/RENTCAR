@@ -489,7 +489,6 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          accent="neutral"
         />
         <StatCard
           label="Tersedia"
@@ -499,7 +498,6 @@ export default function Kendaraan() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 13l4 4L19 7" />
             </svg>
           }
-          accent="success"
         />
         <StatCard
           label="Disewa"
@@ -514,7 +512,6 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          accent="primary"
         />
         <StatCard
           label="Dalam Servis"
@@ -529,7 +526,6 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          accent="accent"
         />
         <StatCard
           label="Tidak Tersedia"
@@ -544,7 +540,6 @@ export default function Kendaraan() {
               />
             </svg>
           }
-          accent="error"
         />
       </div>
 
@@ -862,9 +857,10 @@ export default function Kendaraan() {
                           key={s}
                           value={s}
                           disabled={
-                            editItem.status !== 'disewa' &&
-                            ['tidak_tersedia', 'maintenance'].includes(s) &&
-                            Number(editItem.order_pending_count ?? 0) + Number(editItem.order_confirmed_count ?? 0) > 0
+                            s === 'disewa' ||
+                            (editItem.status !== 'disewa' &&
+                              ['tidak_tersedia', 'maintenance'].includes(s) &&
+                              Number(editItem.order_pending_count ?? 0) + Number(editItem.order_confirmed_count ?? 0) > 0)
                           }
                         >
                           {vehicleStatusLabels[s]}
@@ -1380,38 +1376,16 @@ export default function Kendaraan() {
 /* Small presentational helpers                                       */
 /* ------------------------------------------------------------------ */
 
-type StatAccent = 'neutral' | 'success' | 'primary' | 'accent' | 'error';
-
-const statAccentStyles: Record<StatAccent, { bar: string; iconBg: string; iconText: string }> = {
-  neutral: { bar: 'bg-black-700', iconBg: 'bg-black-100', iconText: 'text-black-700' },
-  success: { bar: 'bg-success-500', iconBg: 'bg-success-50', iconText: 'text-success-600' },
-  primary: { bar: 'bg-primary-500', iconBg: 'bg-primary-50', iconText: 'text-primary-600' },
-  accent: { bar: 'bg-accent-500', iconBg: 'bg-accent-50', iconText: 'text-accent-600' },
-  error: { bar: 'bg-error-500', iconBg: 'bg-error-50', iconText: 'text-error-600' },
-};
-
-function StatCard({
-  label,
-  value,
-  icon,
-  accent,
-}: {
-  label: string;
-  value: number;
-  icon: ReactNode;
-  accent: StatAccent;
-}) {
-  const s = statAccentStyles[accent];
+function StatCard({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
   return (
-    <div className="relative overflow-hidden rounded-xl bg-white p-4 shadow-sm ring-1 ring-black-200 transition-shadow hover:shadow-md">
-      <span className={`absolute left-0 top-0 h-full w-1 ${s.bar}`} aria-hidden="true" />
-      <div className="flex items-center gap-3 pl-1.5">
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${s.iconBg} ${s.iconText}`}>
+    <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black-200">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
           {icon}
         </div>
         <div className="min-w-0">
-          <div className="truncate text-[11px] font-medium uppercase tracking-wide text-black-400">{label}</div>
-          <div className="text-xl font-bold leading-tight text-black-900">{value}</div>
+          <p className="truncate text-sm font-medium text-black-600">{label}</p>
+          <p className="text-2xl font-bold leading-tight text-black-900">{value}</p>
         </div>
       </div>
     </div>

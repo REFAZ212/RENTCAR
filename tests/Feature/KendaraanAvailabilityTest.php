@@ -429,6 +429,37 @@ class KendaraanAvailabilityTest extends TestCase
         $this->assertSame('tersedia', $kendaraan->fresh()->status);
     }
 
+    public function test_kendaraan_tanpa_order_tidak_bisa_diubah_ke_disewa(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 30 DD', 'tersedia');
+
+        $response = $this->actingAs($this->admin)->putJson("/api/kendaraans/{$kendaraan->id}", [
+            'status' => 'disewa',
+        ]);
+
+        $response->assertStatus(422)
+            ->assertJsonPath('message', 'Status "Disewa" hanya diatur otomatis oleh sistem melalui order aktif.');
+        $this->assertSame('tersedia', $kendaraan->fresh()->status);
+    }
+
+    public function test_kendaraan_sedang_disewa_tetap_bisa_disimpan_dengan_status_sama(): void
+    {
+        Storage::fake('public');
+        $kendaraan = $this->buatKendaraan('B 31 EE', 'disewa');
+        $this->buatOrder($kendaraan, 'ORD-DISEWA-EDIT', 'active');
+
+        $response = $this->actingAs($this->admin)->putJson("/api/kendaraans/{$kendaraan->id}", [
+            'nama_kendaraan' => 'Toyota Avanza (Edit)',
+            'status' => 'disewa',
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('status', 'disewa')
+            ->assertJsonPath('nama_kendaraan', 'Toyota Avanza (Edit)');
+        $this->assertSame('disewa', $kendaraan->fresh()->status);
+    }
+
     public function test_order_confirmed_soft_deleted_tidak_memblokir_perubahan_status(): void
     {
         Storage::fake('public');

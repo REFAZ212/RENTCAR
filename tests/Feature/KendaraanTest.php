@@ -121,6 +121,18 @@ class KendaraanTest extends TestCase
         $this->assertDatabaseHas('kendaraans', ['plat_nomor' => 'B 123 CD']);
     }
 
+    public function test_store_rejects_disewa_status(): void
+    {
+        $garasi = $this->buatGarasi();
+
+        $response = $this->actingAs($this->admin)->postJson('/api/kendaraans', $this->payload($garasi, [
+            'status' => 'disewa',
+        ]));
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors('status');
+    }
+
     public function test_store_rejects_zero_harga_with_indonesian_message(): void
     {
         $garasi = $this->buatGarasi();

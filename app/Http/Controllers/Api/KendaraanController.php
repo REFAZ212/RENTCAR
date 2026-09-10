@@ -117,7 +117,7 @@ class KendaraanController extends Controller
             'kapasitas_penumpang' => 'required|integer|min:1|max:50',
             'harga_sewa_per_hari' => 'required|numeric|min:1',
             'harga_partner_per_hari' => 'required_if:garasi_partner_id,!=,null|nullable|numeric|min:0',
-            'status' => 'nullable|in:tersedia,disewa,maintenance,tidak_tersedia',
+            'status' => 'nullable|in:tersedia,maintenance,tidak_tersedia',
             'foto' => 'nullable|image|max:2048',
             'catatan' => 'nullable|string',
         ]);
@@ -209,6 +209,14 @@ class KendaraanController extends Controller
             if ($hasOngoingRental && $validated['status'] !== 'disewa') {
                 return response()->json([
                     'message' => 'Kendaraan masih memiliki order aktif. Selesaikan atau batalkan order terlebih dahulu.',
+                ], 422);
+            }
+
+            // "disewa" hanya boleh ditetapkan otomatis oleh sistem melalui order
+            // aktif — admin dilarang mengubah kendaraan menjadi Disewa manual.
+            if ($validated['status'] === 'disewa' && $kendaraan->status !== 'disewa') {
+                return response()->json([
+                    'message' => 'Status "Disewa" hanya diatur otomatis oleh sistem melalui order aktif.',
                 ], 422);
             }
         }
