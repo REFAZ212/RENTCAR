@@ -33,7 +33,7 @@ import {
 } from 'recharts';
 import { laporanAPI, garasiPartnerAPI, type GarasiPartner, type LaporanParams } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
-import { formatRupiah, formatRupiahShort, formatTanggal, addDaysYmd, todayJakarta, monthRangeYmd, diffDaysYmd, periodPresetLabel } from '../lib/format';
+import { formatRupiah, formatRupiahShort, formatTanggal, addDaysYmd, todayJakarta, monthRangeYmd, diffDaysYmd } from '../lib/format';
 import { vehicleStatusLabels, type StatusKendaraan } from '../lib/vehicleStatus';
 
 /**
@@ -175,13 +175,109 @@ interface DateParams {
   end_date: string;
 }
 
-function useDebounced<T>(value: T, delay = 500): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-  return debounced;
+/* Filter periode independen per bagian — state lokal (range preset + kustom) */
+interface PeriodFilterState {
+  range: QuickRange;
+  setRange: (key: QuickRange) => void;
+  custom: DateParams | null;
+  handleManualChange: (which: 'start' | 'end', value: string) => void;
+  params: DateParams;
+  label: string;
+}
+
+function usePeriodFilter(toast: { error: (message: string) => void }): PeriodFilterState {
+  const [range, setRangeState] = useState<QuickRange>('semua');
+  const [custom, setCustom] = useState<DateParams | null>(null);
+
+  const params = useMemo<DateParams>(() => {
+    if (range === 'kustom') {
+      const c = custom ?? { start_date: defaultStart(), end_date: defaultEnd() };
+      return { start_date: c.start_date, end_date: c.end_date };
+    }
+    const r = quickRangeDates(range);
+    return { start_date: r.start, end_date: r.end };
+  }, [range, custom]);
+
+  const label = useMemo(() => {
+    if (range === 'kustom' && custom) {
+      return `${formatTanggal(custom.start_date)} – ${formatTanggal(custom.end_date)}`;
+    }
+    return QUICK_RANGES.find((q) => q.key === range)?.label ?? 'Semua Waktu';
+  }, [range, custom]);
+
+  const setRange = (key: QuickRange) => {
+    if (key === 'kustom') {
+      setRangeState('kustom');
+      setCustom({ start_date: params.start_date, end_date: params.end_date });
+      return;
+    }
+    setRangeState(key);
+    setCustom(null);
+  };
+
+  const handleManualChange = (which: 'start' | 'end', value: string) => {
+    const current = custom ?? { start_date: params.start_date, end_date: params.end_date };
+    const candidateStart = which === 'start' ? value : current.start_date;
+    const candidateEnd = which === 'end' ? value : current.end_date;
+    if (!candidateStart || !candidateEnd) {
+      toast.error('Tanggal awal dan akhir harus diisi.');
+      return;
+    }
+    if (candidateStart > candidateEnd) {
+      toast.error('Tanggal awal tidak boleh melewati tanggal akhir.');
+      return;
+    }
+    if (diffDaysYmd(candidateStart, candidateEnd) > 90) {
+      toast.error('Rentang tanggal maksimal 90 hari.');
+      return;
+    }
+    setCustom({ start_date: candidateStart, end_date: candidateEnd });
+  };
+
+  return { range, setRange, custom, handleManualChange, params, label };
+}
+
+function PeriodFilter({ state }: { state: PeriodFilterState }) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <div className="inline-flex rounded-lg bg-canvas p-1">
+        {QUICK_RANGES.map((r) => (
+          <button
+            key={r.key}
+            onClick={() => state.setRange(r.key)}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              state.range === r.key
+                ? 'bg-surface text-primary-600 shadow-sm ring-1 ring-black-200'
+                : 'text-black-500 hover:text-black-800'
+            }`}
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
+
+      {state.range === 'kustom' && state.custom && (
+        <div className="flex items-center gap-1.5 rounded-lg border border-black-200 bg-surface px-2.5 py-1.5">
+          <CalendarDays className="h-4 w-4 text-black-400" />
+          <input
+            type="date"
+            value={state.custom.start_date}
+            max={todayJakarta()}
+            onChange={(e) => state.handleManualChange('start', e.target.value)}
+            className="bg-transparent text-sm text-black-800 outline-none"
+          />
+          <span className="text-black-300">s/d</span>
+          <input
+            type="date"
+            value={state.custom.end_date}
+            max={todayJakarta()}
+            onChange={(e) => state.handleManualChange('end', e.target.value)}
+            className="bg-transparent text-sm text-black-800 outline-none"
+          />
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -199,7 +295,10 @@ type SectionExportType =
   | 'piutang'
   | 'profitabilitas'
   | 'detail-order'
-  | 'rekap-garasi';
+  | 'rekap-garasi'
+  | 'per-kategori'
+  | 'top-kendaraan'
+  | 'top-pelanggan';
 
 function downloadBlob(blobData: BlobPart, filename: string, format: 'csv' | 'xlsx') {
   const blob = new Blob([blobData], {
@@ -311,6 +410,62 @@ function TotalRow({ colSpan, totals, label = 'Total' }: { colSpan: number; total
         ))}
       </tr>
     </tfoot>
+  );
+}
+
+function PaginationControls({
+  pagination,
+  onPage,
+}: {
+  pagination: DetailOrderData['pagination'];
+  onPage: (p: number) => void;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-between gap-3 border-t border-black-200 px-5 py-3 sm:flex-row">
+      <span className="text-xs text-black-400">
+        Menampilkan{' '}
+        <span className="font-semibold text-black-700">
+          {(pagination.current_page - 1) * pagination.per_page + 1}–
+          {Math.min(pagination.current_page * pagination.per_page, pagination.total)}
+        </span>{' '}
+        dari <span className="font-semibold text-black-700">{pagination.total}</span> data
+      </span>
+      <div className="flex items-center gap-1">
+        <button
+          disabled={pagination.current_page <= 1}
+          onClick={() => onPage(pagination.current_page - 1)}
+          className="rounded-lg border border-black-200 bg-surface px-2.5 py-1.5 text-xs font-medium text-black-700 transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Sebelumnya
+        </button>
+        {Array.from({ length: pagination.last_page }).map((_, i) => {
+          const n = i + 1;
+          const show = n === 1 || n === pagination.last_page || Math.abs(n - pagination.current_page) <= 1;
+          if (!show) {
+            const prevShown = n === 2 || (n === pagination.current_page - 2 && pagination.current_page > 3);
+            return prevShown ? <span key={`e-${n}`} className="px-1 text-xs text-black-400">…</span> : null;
+          }
+          return (
+            <button
+              key={n}
+              onClick={() => onPage(n)}
+              className={`h-7 min-w-7 rounded-lg px-2 text-xs font-semibold transition-colors ${
+                n === pagination.current_page ? 'bg-primary-500 text-white' : 'text-black-700 hover:bg-canvas'
+              }`}
+            >
+              {n}
+            </button>
+          );
+        })}
+        <button
+          disabled={pagination.current_page >= pagination.last_page}
+          onClick={() => onPage(pagination.current_page + 1)}
+          className="rounded-lg border border-black-200 bg-surface px-2.5 py-1.5 text-xs font-medium text-black-700 transition-colors hover:bg-canvas disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Berikutnya
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -709,6 +864,18 @@ function SectionCard({ title, action, children }: { title: string; action?: Reac
   );
 }
 
+function SectionCardShell({ title, filter, children }: { title: string; filter: ReactNode; children: ReactNode }) {
+  return (
+    <div className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-black-200">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black-200 px-5 py-4">
+        <h2 className="font-display text-lg font-bold text-black-900">{title}</h2>
+        <div className="flex flex-wrap items-center justify-end gap-2">{filter}</div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function StatCard({
   label,
   value,
@@ -911,7 +1078,9 @@ function KategoriBarChart({ data }: { data: KategoriStatRow[] }) {
 /* ─────────────────────────────────────────────────────────────
  * EXECUTIVE SUMMARY — KPI inti yang selalu terlihat di atas
  * ───────────────────────────────────────────────────────────── */
-function ExecutiveSummary({ params }: { params: DateParams }) {
+function ExecutiveSummary() {
+  const toast = useToast();
+  const pf = usePeriodFilter(toast);
   const [data, setData] = useState<{ ringkasan: Record<string, unknown>; decision: DecisionData | null; piutang: PiutangData | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -920,9 +1089,9 @@ function ExecutiveSummary({ params }: { params: DateParams }) {
     setLoading(true);
     setError(null);
     Promise.all([
-      laporanAPI.ringkasan(params),
-      laporanAPI.decision(params),
-      laporanAPI.piutang(params),
+      laporanAPI.ringkasan(pf.params),
+      laporanAPI.decision(pf.params),
+      laporanAPI.piutang(pf.params),
     ])
       .then(([ringkasanRes, decisionRes, piutangRes]) => {
         setData({
@@ -933,14 +1102,20 @@ function ExecutiveSummary({ params }: { params: DateParams }) {
       })
       .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [params]);
+  }, [pf.params]);
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <SkeletonCard key={i} />
-        ))}
+      <div className="rounded-2xl bg-surface p-5 shadow-sm ring-1 ring-black-200">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-lg font-bold text-black-900">Ringkasan Eksekutif</h2>
+          <PeriodFilter state={pf} />
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
       </div>
     );
   }
@@ -956,7 +1131,12 @@ function ExecutiveSummary({ params }: { params: DateParams }) {
   const utilisasi = Number(r.utilization ?? 0);
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+    <div className="rounded-2xl bg-surface p-5 shadow-sm ring-1 ring-black-200">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-display text-lg font-bold text-black-900">Ringkasan Eksekutif</h2>
+        <PeriodFilter state={pf} />
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
       <StatCard label="Total Pendapatan" value={formatRupiah(Number(r.total_revenue ?? 0))} mono icon={ICONS.money} iconBg={ICON_BG.avail} />
       <StatCard label="Total Order" value={Number(r.total_orders ?? 0)} icon={ICONS.order} iconBg={ICON_BG.brand} />
       <StatCard
@@ -988,6 +1168,7 @@ function ExecutiveSummary({ params }: { params: DateParams }) {
         iconBg={ICON_BG.maint}
         tone={piutangTertunggak > 0 ? 'negative' : 'positive'}
       />
+      </div>
     </div>
   );
 }
@@ -995,7 +1176,9 @@ function ExecutiveSummary({ params }: { params: DateParams }) {
 /* ─────────────────────────────────────────────────────────────
  * TAB — Pendapatan
  * ───────────────────────────────────────────────────────────── */
-function PendapatanTab({ params }: { params: DateParams }) {
+function PendapatanTab({ title }: { title: string }) {
+  const toast = useToast();
+  const pf = usePeriodFilter(toast);
   const [data, setData] = useState<PendapatanData | null>(null);
   const [growth, setGrowth] = useState<GrowthApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1005,8 +1188,8 @@ function PendapatanTab({ params }: { params: DateParams }) {
     setLoading(true);
     setError(null);
     Promise.all([
-      laporanAPI.pendapatan(params),
-      laporanAPI.growth(params),
+      laporanAPI.pendapatan(pf.params),
+      laporanAPI.growth(pf.params),
     ])
       .then(([pendapatanRes, growthRes]) => {
         const d = (pendapatanRes.data as { data: PendapatanApiResponse }).data;
@@ -1036,14 +1219,18 @@ function PendapatanTab({ params }: { params: DateParams }) {
       })
       .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [params]);
+  }, [pf.params]);
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <TableSkeleton />
-        <TableSkeleton />
-      </div>
+      <SectionCardShell title={title} filter={<PeriodFilter state={pf} />}>
+        <div className="p-5">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <TableSkeleton />
+            <TableSkeleton />
+          </div>
+        </div>
+      </SectionCardShell>
     );
   }
   if (error) return <ErrorState message={error} />;
@@ -1062,7 +1249,17 @@ function PendapatanTab({ params }: { params: DateParams }) {
   );
 
   return (
-    <div className="space-y-6">
+    <SectionCardShell
+      title={title}
+      filter={
+        <>
+          <PeriodFilter state={pf} />
+          <ExportSectionButton type="pendapatan" params={pf.params} label="Pendapatan" />
+        </>
+      }
+    >
+      <div className="p-5">
+        <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total Pendapatan" value={formatRupiah(ringkasan.total_pendapatan)} mono icon={ICONS.money} iconBg={ICON_BG.avail} growth={growth?.pendapatan} />
         <StatCard label="Total Denda" value={formatRupiah(ringkasan.total_denda)} mono icon={ICONS.alert} iconBg={ICON_BG.maint} growth={growth?.denda} />
@@ -1075,10 +1272,7 @@ function PendapatanTab({ params }: { params: DateParams }) {
       </SectionCard>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <SectionCard
-          title="Pendapatan Per Periode"
-          action={<ExportSectionButton type="pendapatan" params={params} label="Pendapatan" />}
-        >
+        <SectionCard title="Pendapatan Per Periode">
           <DataTable
             columns={[
               { label: 'Periode' },
@@ -1113,14 +1307,18 @@ function PendapatanTab({ params }: { params: DateParams }) {
           <PaymentMethodPieChart data={metode_pembayaran} />
         </SectionCard>
       </div>
-    </div>
+      </div>
+      </div>
+    </SectionCardShell>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────
  * TAB — Kendaraan
  * ───────────────────────────────────────────────────────────── */
-function KendaraanTab({ params }: { params: DateParams }) {
+function KendaraanTab({ title }: { title: string }) {
+  const toast = useToast();
+  const pf = usePeriodFilter(toast);
   const [data, setData] = useState<KendaraanData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1129,7 +1327,7 @@ function KendaraanTab({ params }: { params: DateParams }) {
     setLoading(true);
     setError(null);
     laporanAPI
-      .kendaraan(params)
+      .kendaraan(pf.params)
       .then((res) => {
         const d = (res.data as { data: KendaraanApiResponse }).data;
         setData({
@@ -1144,14 +1342,18 @@ function KendaraanTab({ params }: { params: DateParams }) {
       })
       .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [params]);
+  }, [pf.params]);
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <TableSkeleton />
-        <TableSkeleton />
-      </div>
+      <SectionCardShell title={title} filter={<PeriodFilter state={pf} />}>
+        <div className="p-5">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <TableSkeleton />
+            <TableSkeleton />
+          </div>
+        </div>
+      </SectionCardShell>
     );
   }
   if (error) return <ErrorState message={error} />;
@@ -1161,7 +1363,9 @@ function KendaraanTab({ params }: { params: DateParams }) {
   const totalKendaraan = status_kendaraan.reduce((sum, s) => sum + s.total, 0);
 
   return (
-    <div className="space-y-6">
+    <SectionCardShell title={title} filter={<PeriodFilter state={pf} />}>
+      <div className="p-5">
+        <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total Kendaraan" value={totalKendaraan} icon={ICONS.car} iconBg={ICON_BG.rented} />
         {status_kendaraan.map((s) => (
@@ -1180,14 +1384,18 @@ function KendaraanTab({ params }: { params: DateParams }) {
           <KategoriBarChart data={kategori_stats} />
         </SectionCard>
       )}
-    </div>
+      </div>
+      </div>
+    </SectionCardShell>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────
  * TAB — Rekap per Garasi
  * ───────────────────────────────────────────────────────────── */
-function RekapGarasiTab({ params }: { params: DateParams }) {
+function RekapGarasiTab({ title }: { title: string }) {
+  const toast = useToast();
+  const pf = usePeriodFilter(toast);
   const [data, setData] = useState<RekapGarasiData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1197,22 +1405,26 @@ function RekapGarasiTab({ params }: { params: DateParams }) {
     setLoading(true);
     setError(null);
     laporanAPI
-      .rekapGarasi(params)
+      .rekapGarasi(pf.params)
       .then((res) => {
         const d = (res.data as { data: RekapGarasiData }).data;
         setData(d);
       })
       .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [params]);
+  }, [pf.params]);
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <SkeletonCard key={i} />
-        ))}
-      </div>
+      <SectionCardShell title={title} filter={<PeriodFilter state={pf} />}>
+        <div className="p-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        </div>
+      </SectionCardShell>
     );
   }
   if (error) return <ErrorState message={error} />;
@@ -1221,7 +1433,18 @@ function RekapGarasiTab({ params }: { params: DateParams }) {
   const { partners, grand_total } = data;
 
   return (
-    <div className="space-y-6">
+    <>
+      <SectionCardShell
+        title={title}
+        filter={
+          <>
+            <PeriodFilter state={pf} />
+            <ExportSectionButton type="rekap-garasi" params={pf.params} label="Rekap Garasi" />
+          </>
+        }
+      >
+        <div className="p-5">
+          <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Jumlah Partner" value={partners.length} icon={ICONS.users} iconBg={ICON_BG.brand} />
         <StatCard label="Total Pendapatan" value={formatRupiah(grand_total.pendapatan)} mono icon={ICONS.money} iconBg={ICON_BG.avail} />
@@ -1236,10 +1459,7 @@ function RekapGarasiTab({ params }: { params: DateParams }) {
         <StatCard label="Total Bagi Hasil" value={formatRupiah(grand_total.bagi_hasil)} mono icon={ICONS.wallet} iconBg={ICON_BG.brandDark} />
       </div>
 
-      <SectionCard
-        title="Rekap per Garasi Partner"
-        action={<ExportSectionButton type="rekap-garasi" params={params} label="Rekap Garasi" />}
-      >
+      <SectionCard title="Rekap per Garasi Partner">
         <DataTable
           columns={[
             { label: '#' },
@@ -1297,19 +1517,24 @@ function RekapGarasiTab({ params }: { params: DateParams }) {
         <OrderListModal
           title={selectedPartner.nama_garasi}
           subtitle={`${selectedPartner.order_count} order selesai • bagi hasil ${selectedPartner.persentase}%`}
-          params={params}
+          params={pf.params}
           garasiId={selectedPartner.garasi_partner_id}
           onClose={() => setSelectedPartner(null)}
         />
       )}
-    </div>
+      </div>
+      </div>
+      </SectionCardShell>
+    </>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────
  * TAB — Komisi Calo
  * ───────────────────────────────────────────────────────────── */
-function KomisiCaloTab({ params }: { params: DateParams }) {
+function KomisiCaloTab({ title }: { title: string }) {
+  const toast = useToast();
+  const pf = usePeriodFilter(toast);
   const [data, setData] = useState<KomisiCaloData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1318,7 +1543,7 @@ function KomisiCaloTab({ params }: { params: DateParams }) {
     setLoading(true);
     setError(null);
     laporanAPI
-      .komisiCalo(params)
+      .komisiCalo(pf.params)
       .then((res) => {
         const d = (res.data as { data: KomisiCaloApiResponse }).data;
         setData({
@@ -1339,15 +1564,19 @@ function KomisiCaloTab({ params }: { params: DateParams }) {
       })
       .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [params]);
+  }, [pf.params]);
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <SkeletonCard key={i} />
-        ))}
-      </div>
+      <SectionCardShell title={title} filter={<PeriodFilter state={pf} />}>
+        <div className="p-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        </div>
+      </SectionCardShell>
     );
   }
   if (error) return <ErrorState message={error} />;
@@ -1366,7 +1595,17 @@ function KomisiCaloTab({ params }: { params: DateParams }) {
   );
 
   return (
-    <div className="space-y-6">
+    <SectionCardShell
+      title={title}
+      filter={
+        <>
+          <PeriodFilter state={pf} />
+          <ExportSectionButton type="komisi-calo" params={pf.params} label="Komisi Calo" />
+        </>
+      }
+    >
+      <div className="p-5">
+        <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Jumlah Calo" value={ringkasan.jumlah_calo} icon={ICONS.users} iconBg={ICON_BG.brand} />
         <StatCard label="Total Pendapatan" value={formatRupiah(ringkasan.grand_total_pendapatan)} mono icon={ICONS.money} iconBg={ICON_BG.avail} />
@@ -1379,10 +1618,7 @@ function KomisiCaloTab({ params }: { params: DateParams }) {
         />
       </div>
 
-      <SectionCard
-        title="Detail Komisi per Calo"
-        action={<ExportSectionButton type="komisi-calo" params={params} label="Komisi Calo" />}
-      >
+      <SectionCard title="Detail Komisi per Calo">
         <DataTable
           columns={[
             { label: '#' },
@@ -1416,7 +1652,9 @@ function KomisiCaloTab({ params }: { params: DateParams }) {
         </DataTable>
         {rows.length === 0 && <EmptyState label="Belum ada data komisi calo" />}
       </SectionCard>
-    </div>
+      </div>
+      </div>
+    </SectionCardShell>
   );
 }
 
@@ -1424,10 +1662,10 @@ function KomisiCaloTab({ params }: { params: DateParams }) {
  * TAB — Piutang (Aging Report)
  * ───────────────────────────────────────────────────────────── */
 const AGING_LABELS: Record<PiutangRow['aging'], string> = {
-  belum_tertunggak: 'Belum Tertunggak',
-  '1_30_hari': '1-30 Hari',
-  '31_60_hari': '31-60 Hari',
-  lebih_60_hari: '60+ Hari',
+  belum_tertunggak: 'Belum Lewat Jatuh Tempo',
+  '1_30_hari': 'Lewat Jatuh Tempo 1–30 Hari',
+  '31_60_hari': 'Lewat Jatuh Tempo 31–60 Hari',
+  lebih_60_hari: 'Lewat Jatuh Tempo >60 Hari',
 };
 
 const AGING_COLORS: Record<PiutangRow['aging'], string> = {
@@ -1437,14 +1675,9 @@ const AGING_COLORS: Record<PiutangRow['aging'], string> = {
   lebih_60_hari: 'bg-error-50 text-error-600',
 };
 
-const AGING_CARD_BG: Record<PiutangRow['aging'], string> = {
-  belum_tertunggak: 'bg-success-500',
-  '1_30_hari': 'bg-accent-500',
-  '31_60_hari': 'bg-accent-600',
-  lebih_60_hari: 'bg-error-500',
-};
-
-function PiutangTab({ params }: { params: DateParams }) {
+function PiutangTab({ title }: { title: string }) {
+  const toast = useToast();
+  const pf = usePeriodFilter(toast);
   const [data, setData] = useState<PiutangData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1453,29 +1686,32 @@ function PiutangTab({ params }: { params: DateParams }) {
     setLoading(true);
     setError(null);
     laporanAPI
-      .piutang(params)
+      .piutang(pf.params)
       .then((res) => {
         const d = (res.data as { data: PiutangData }).data;
         setData(d);
       })
       .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [params]);
+  }, [pf.params]);
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <SkeletonCard key={i} />
-        ))}
-      </div>
+      <SectionCardShell title={title} filter={<PeriodFilter state={pf} />}>
+        <div className="p-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        </div>
+      </SectionCardShell>
     );
   }
   if (error) return <ErrorState message={error} />;
   if (!data) return null;
 
   const { data: rows, ringkasan } = data;
-  const agingKeys: PiutangRow['aging'][] = ['belum_tertunggak', '1_30_hari', '31_60_hari', 'lebih_60_hari'];
 
   const totalPiutang = rows.reduce(
     (acc, r) => {
@@ -1488,13 +1724,23 @@ function PiutangTab({ params }: { params: DateParams }) {
   );
 
   return (
-    <div className="space-y-6">
+    <SectionCardShell
+      title={title}
+      filter={
+        <>
+          <PeriodFilter state={pf} />
+          <ExportSectionButton type="piutang" params={pf.params} label="Piutang" />
+        </>
+      }
+    >
+      <div className="p-5">
+        <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total Piutang" value={formatRupiah(ringkasan.total_piutang)} mono icon={ICONS.wallet} iconBg={ICON_BG.maint} />
         <StatCard label="Total Tertunggak" value={formatRupiah(ringkasan.total_tertunggak)} mono icon={ICONS.alert} iconBg={ICON_BG.maint} />
         <StatCard label="Jumlah Order" value={ringkasan.jumlah_order} icon={ICONS.order} iconBg={ICON_BG.brand} />
         <StatCard
-          label="Rasio Piutang"
+          label="Rasio Tertunggak"
           value={ringkasan.total_piutang > 0 && ringkasan.total_tertunggak > 0
             ? `${((ringkasan.total_tertunggak / ringkasan.total_piutang) * 100).toFixed(1)}%`
             : '0%'}
@@ -1503,28 +1749,7 @@ function PiutangTab({ params }: { params: DateParams }) {
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {agingKeys.map((key) => {
-          const bucket = ringkasan.aging_buckets[key];
-          const count = bucket?.count ?? 0;
-          const total = bucket?.total ?? 0;
-          return (
-            <div key={key} className="rounded-2xl bg-surface p-5 shadow-sm ring-1 ring-black-200">
-              <div className="mb-3 flex items-center gap-2">
-                <div className={`h-3 w-3 rounded-full ${AGING_CARD_BG[key]}`} />
-                <p className="text-xs font-medium text-black-400">{AGING_LABELS[key]}</p>
-              </div>
-              <p className="text-xl font-bold text-black-900">{count} <span className="text-sm font-normal text-black-400">order</span></p>
-              <p className="mt-1 font-mono text-sm font-semibold text-black-700">{formatRupiah(total)}</p>
-            </div>
-          );
-        })}
-      </div>
-
-      <SectionCard
-        title="Detail Piutang"
-        action={<ExportSectionButton type="piutang" params={params} label="Piutang" />}
-      >
+      <SectionCard title="Detail Piutang">
         <DataTable
           columns={[
             { label: '#' },
@@ -1574,7 +1799,9 @@ function PiutangTab({ params }: { params: DateParams }) {
         </DataTable>
         {rows.length === 0 && <EmptyState label="Tidak ada piutang aktif" />}
       </SectionCard>
-    </div>
+      </div>
+      </div>
+    </SectionCardShell>
   );
 }
 
@@ -1972,7 +2199,118 @@ function OrderListModal({
   );
 }
 
-function DetailOrderTab({ params }: { params: DateParams }) {
+/* Modal daftar order ringkas untuk drill-down "Top Pelanggan".
+ * Hanya menampilkan order selesai pelanggan dalam periode laporan
+ * (Info Order-esque: kode, tanggal, kendaraan, status, total) —
+ * tanpa kolom finansial berat dan tanpa membuka DetailModal penuh. */
+function InfoOrderListModal({
+  title,
+  subtitle,
+  params,
+  customerId,
+  onClose,
+}: {
+  title: string;
+  subtitle?: string;
+  params: DateParams;
+  customerId: number;
+  onClose: () => void;
+}) {
+  const [data, setData] = useState<DetailOrderData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    laporanAPI
+      .detailOrder({
+        start_date: params.start_date,
+        end_date: params.end_date,
+        status_order: 'completed',
+        customer_id: customerId,
+        page,
+        per_page: 10,
+      })
+      .then((res) => {
+        const d = (res.data as { data: DetailOrderData }).data;
+        setData(d);
+      })
+      .catch((err) => setError(apiErrorMessage(err)))
+      .finally(() => setLoading(false));
+  }, [params, customerId, page]);
+
+  const { pagination } = data ?? { pagination: null };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black-900/50 p-4" onClick={onClose}>
+      <div className="my-8 w-full max-w-4xl rounded-2xl bg-surface p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h3 className="font-display text-xl font-bold text-black-900">{title}</h3>
+            {subtitle && <p className="mt-1 text-sm text-black-400">{subtitle}</p>}
+          </div>
+          <button onClick={onClose} className="rounded-lg bg-black-100 px-2.5 py-1.5 text-sm text-black-700 hover:bg-black-200">
+            Tutup
+          </button>
+        </div>
+
+        <div className="rounded-2xl border border-black-200">
+          {loading ? (
+            <TableSkeleton rows={6} />
+          ) : error ? (
+            <ErrorState message={error} />
+          ) : data && data.data.length > 0 ? (
+            <>
+              <DataTable
+                columns={[
+                  { label: 'Kode' },
+                  { label: 'Mulai' },
+                  { label: 'Selesai' },
+                  { label: 'Kendaraan' },
+                  { label: 'Status Order', align: 'center' },
+                  { label: 'Status Bayar', align: 'center' },
+                  { label: 'Total', align: 'right' },
+                ]}
+              >
+                {data.data.map((o) => (
+                  <tr key={o.order_id} className="transition-colors odd:bg-white even:bg-canvas/40 hover:bg-primary-50/40">
+                    <td className="px-5 py-3 font-mono font-medium text-black-900">{o.kode_order}</td>
+                    <td className="px-5 py-3 text-black-700">{o.tanggal_mulai}</td>
+                    <td className="px-5 py-3 text-black-700">{o.tanggal_selesai}</td>
+                    <td className="px-5 py-3 text-black-700">
+                      {o.nama_kendaraan ?? '-'}
+                      {o.kategori && <span className="ml-1 text-xs text-black-400">({o.kategori})</span>}
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusOrderColors[o.status_order]}`}>
+                        {statusOrderLabels[o.status_order]}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusPembayaranColors[o.status_pembayaran]}`}>
+                        {statusPembayaranLabels[o.status_pembayaran]}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(o.harga_total)}</td>
+                  </tr>
+                ))}
+              </DataTable>
+              {pagination && pagination.last_page > 1 && <PaginationControls pagination={pagination} onPage={setPage} />}
+            </>
+          ) : (
+            <EmptyState label="Belum ada data order" />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailOrderTab({ title }: { title: string }) {
+  const toast = useToast();
+  const pf = usePeriodFilter(toast);
   const [data, setData] = useState<DetailOrderData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -2004,8 +2342,8 @@ function DetailOrderTab({ params }: { params: DateParams }) {
     setLoading(true);
     setError(null);
     const query: Record<string, unknown> = {
-      start_date: params.start_date,
-      end_date: params.end_date,
+      start_date: pf.params.start_date,
+      end_date: pf.params.end_date,
       page,
       per_page: 25,
     };
@@ -2015,7 +2353,7 @@ function DetailOrderTab({ params }: { params: DateParams }) {
 
     Promise.all([
       laporanAPI.detailOrder(query),
-      laporanAPI.order({ start_date: params.start_date, end_date: params.end_date }),
+      laporanAPI.order({ start_date: pf.params.start_date, end_date: pf.params.end_date }),
     ])
       .then(([detailRes, orderRes]) => {
         const d = (detailRes.data as { data: DetailOrderData }).data;
@@ -2029,7 +2367,7 @@ function DetailOrderTab({ params }: { params: DateParams }) {
       })
       .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [params, page, statusFilter, sourceFilter, garasiFilter]);
+  }, [pf.params, page, statusFilter, sourceFilter, garasiFilter]);
 
   if (error) return <ErrorState message={error} />;
 
@@ -2053,7 +2391,18 @@ function DetailOrderTab({ params }: { params: DateParams }) {
   const pageMargin = pageTotals.total > 0 ? (pageTotals.laba / pageTotals.total) * 100 : 0;
 
   return (
-    <div className="space-y-6">
+    <>
+      <SectionCardShell
+        title={title}
+        filter={
+          <>
+            <PeriodFilter state={pf} />
+            <ExportSectionButton type="order" params={pf.params} label="Order" />
+          </>
+        }
+      >
+        <div className="p-5">
+          <div className="space-y-6">
       {ringkasan && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard label="Total Order" value={ringkasan.total_order} icon={ICONS.order} iconBg={ICON_BG.brand} />
@@ -2071,9 +2420,7 @@ function DetailOrderTab({ params }: { params: DateParams }) {
 
       {statusData && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <SectionCard title="Status Order"
-            action={<ExportSectionButton type="order" params={params} label="Order" />}
-          >
+          <SectionCard title="Status Order">
             <div className="divide-y divide-black-200">
               {statusData.status_order.length === 0 ? (
                 <EmptyState />
@@ -2128,7 +2475,7 @@ function DetailOrderTab({ params }: { params: DateParams }) {
 
       <SectionCard
         title="Daftar Order"
-        action={<ExportSectionButton type="detail-order" params={params} label="Detail Order" extraParams={detailExportParams} />}
+        action={<ExportSectionButton type="detail-order" params={pf.params} label="Detail Order" extraParams={detailExportParams} />}
       >
         <div className="flex flex-wrap items-center gap-3 border-b border-black-200 p-5">
           <select
@@ -2295,14 +2642,19 @@ function DetailOrderTab({ params }: { params: DateParams }) {
       </SectionCard>
 
       {selectedOrder && <DetailModal order={selectedOrder} onClose={() => setSelectedOrder(null)} />}
-    </div>
+      </div>
+      </div>
+      </SectionCardShell>
+    </>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────
  * TAB — Per Kategori Kendaraan
  * ───────────────────────────────────────────────────────────── */
-function PerKategoriTab({ params }: { params: DateParams }) {
+function PerKategoriTab({ title }: { title: string }) {
+  const toast = useToast();
+  const pf = usePeriodFilter(toast);
   const [data, setData] = useState<DecisionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -2312,21 +2664,28 @@ function PerKategoriTab({ params }: { params: DateParams }) {
     setLoading(true);
     setError(null);
     laporanAPI
-      .decision(params)
+      .decision(pf.params)
       .then((res) => {
         const d = (res.data as { data: DecisionData }).data;
         setData(d);
       })
       .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [params]);
+  }, [pf.params]);
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <TableSkeleton />
-        <TableSkeleton />
-      </div>
+      <SectionCardShell title={title} filter={<PeriodFilter state={pf} />}>
+        <div className="divide-y divide-black-200">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 p-4">
+              <div className="skeleton h-3 w-1/4" />
+              <div className="skeleton h-3 w-1/6" />
+              <div className="skeleton ml-auto h-3 w-1/6" />
+            </div>
+          ))}
+        </div>
+      </SectionCardShell>
     );
   }
   if (error) return <ErrorState message={error} />;
@@ -2345,8 +2704,16 @@ function PerKategoriTab({ params }: { params: DateParams }) {
   );
 
   return (
-    <div className="space-y-6">
-      <SectionCard title="Rekap per Kategori Kendaraan">
+    <>
+      <SectionCardShell
+        title={title}
+        filter={
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <PeriodFilter state={pf} />
+            <ExportSectionButton type="per-kategori" params={pf.params} label="Per Kategori" />
+          </div>
+        }
+      >
         {data.per_kategori.length > 0 ? (
           <DataTable
             columns={[
@@ -2405,33 +2772,37 @@ function PerKategoriTab({ params }: { params: DateParams }) {
         ) : (
           <EmptyState label="Belum ada data kategori" />
         )}
-      </SectionCard>
+      </SectionCardShell>
 
       {selectedKategori && selectedKategori.kategori_id != null && (
         <OrderListModal
           title={selectedKategori.nama_kategori}
-          params={params}
+          params={pf.params}
           kategoriId={selectedKategori.kategori_id}
           onClose={() => setSelectedKategori(null)}
         />
       )}
-    </div>
+    </>
   );
 }
 
 /* ─────────────────────────────────────────────────────────────
  * TAB — Top Performa
  * ───────────────────────────────────────────────────────────── */
-function TopPerformaTab({ params }: { params: DateParams }) {
+function TopPerformaTab({ title }: { title: string }) {
+  const toast = useToast();
   const [decision, setDecision] = useState<DecisionData | null>(null);
   const [customer, setCustomer] = useState<CustomerData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerTopRow | null>(null);
+  const pf = usePeriodFilter(toast);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
-    Promise.all([laporanAPI.decision(params), laporanAPI.customer(params)])
+    setSelectedCustomer(null);
+    Promise.all([laporanAPI.decision(pf.params), laporanAPI.customer(pf.params)])
       .then(([dRes, cRes]) => {
         const d = (dRes.data as { data: DecisionData }).data;
         const raw = (cRes.data as { data: CustomerApiResponse }).data;
@@ -2455,26 +2826,55 @@ function TopPerformaTab({ params }: { params: DateParams }) {
       })
       .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setLoading(false));
-  }, [params]);
+  }, [pf.params]);
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <TableSkeleton />
-        <TableSkeleton />
-      </div>
+      <SectionCardShell title={title} filter={<PeriodFilter state={pf} />}>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <TableSkeleton />
+          <TableSkeleton />
+        </div>
+      </SectionCardShell>
     );
   }
   if (error) return <ErrorState message={error} />;
   if (!decision || !customer) return null;
 
   return (
-    <div className="space-y-6">
-      <SectionCard title="Top 5 Kendaraan Terlaris">
-        <TopKendaraanTable rows={decision.top_kendaraan_terlaris} />
-      </SectionCard>
+    <>
+      {/* Satu kartu: filter periode + tabel performa */}
+      <div className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-black-200">
+        {/* Header — judul + filter periode lokal tab */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-black-200 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <h2 className="font-display text-lg font-bold text-black-900">{title}</h2>
+            <span className="rounded-full bg-canvas px-2.5 py-0.5 text-xs font-medium text-black-500">{pf.label}</span>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <PeriodFilter state={pf} />
+            <ExportSectionButton type="top-kendaraan" params={pf.params} label="Top Kendaraan Terlaris" />
+            <ExportSectionButton type="top-pelanggan" params={pf.params} label="Top Pelanggan" />
+          </div>
+        </div>
 
-      <SectionCard title="Top Pelanggan">
+        {/* Sub-tabel: Top 5 Kendaraan Terlaris */}
+        <div className="px-5 pt-5">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h4 className="font-medium text-black-700">Top 5 Kendaraan Terlaris</h4>
+          </div>
+        </div>
+        <TopKendaraanTable rows={decision.top_kendaraan_terlaris} />
+
+        {/* Pembatas antar sub-tabel */}
+        <div className="mx-5 mt-6 border-t border-black-100" />
+
+        {/* Sub-tabel: Top Pelanggan */}
+        <div className="px-5 pt-6">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h4 className="font-medium text-black-700">Top Pelanggan</h4>
+          </div>
+        </div>
         {customer.customer_top.length > 0 ? (
           <DataTable
             columns={[
@@ -2487,9 +2887,14 @@ function TopPerformaTab({ params }: { params: DateParams }) {
             ]}
           >
             {customer.customer_top.map((c, i) => (
-              <tr key={c.id}>
+              <tr
+                key={c.id}
+                className="cursor-pointer transition-colors odd:bg-white even:bg-canvas/40 hover:bg-primary-50/40"
+                onClick={() => setSelectedCustomer(c)}
+                title="Lihat daftar order"
+              >
                 <td className="px-5 py-3 text-black-400">{i + 1}</td>
-                <td className="px-5 py-3 font-medium text-black-900">{c.nama_lengkap}</td>
+                <td className="px-5 py-3 font-medium text-primary-600">{c.nama_lengkap}</td>
                 <td className="px-5 py-3 text-black-700">{c.no_hp || '-'}</td>
                 <td className="px-5 py-3 text-right text-black-900">{c.orders_count}</td>
                 <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(c.orders_sum_harga_total)}</td>
@@ -2502,8 +2907,18 @@ function TopPerformaTab({ params }: { params: DateParams }) {
         ) : (
           <EmptyState label="Belum ada data pelanggan" />
         )}
-      </SectionCard>
-    </div>
+      </div>
+
+      {selectedCustomer && (
+        <InfoOrderListModal
+          title={selectedCustomer.nama_lengkap}
+          subtitle={`${selectedCustomer.orders_count} order selesai • ${pf.label}`}
+          params={pf.params}
+          customerId={selectedCustomer.id}
+          onClose={() => setSelectedCustomer(null)}
+        />
+      )}
+    </>
   );
 }
 
@@ -2534,13 +2949,9 @@ function TopKendaraanTable({ rows }: { rows: DecisionKendaraanRow[] }) {
   );
 }
 
-function SectionWrapper({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+function SectionWrapper({ id, children }: { id: string; children: ReactNode }) {
   return (
     <section id={id} className="scroll-mt-20">
-      <div className="mb-3 flex items-center gap-3">
-        <h2 className="font-display text-lg font-bold text-black-900">{title}</h2>
-        <div className="h-px flex-1 bg-black-200" />
-      </div>
       {children}
     </section>
   );
@@ -2551,53 +2962,11 @@ function SectionWrapper({ id, title, children }: { id: string; title: string; ch
  * ───────────────────────────────────────────────────────────── */
 export default function Laporan() {
   const toast = useToast();
-  const [startDate, setStartDate] = useState(defaultStart);
-  const [endDate, setEndDate] = useState(defaultEnd);
   const [exporting, setExporting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [customMode, setCustomMode] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [activeSection, setActiveSection] = useState(sections[0].id);
-
-  const params = useMemo<DateParams>(() => ({ start_date: startDate, end_date: endDate }), [startDate, endDate]);
-  const debouncedParams = useDebounced(params);
-
-  const activeRange = useMemo(() => {
-    if (customMode) return 'kustom';
-    if (startDate === SEMUA_WAKTU_START) return 'Semua Waktu';
-    return periodPresetLabel(startDate, endDate) ?? 'kustom';
-  }, [customMode, startDate, endDate]);
-
-  const applyQuickRange = (key: QuickRange) => {
-    if (key === 'kustom') {
-      setCustomMode(true);
-      return;
-    }
-    const r = quickRangeDates(key);
-    setStartDate(r.start);
-    setEndDate(r.end);
-    setCustomMode(false);
-  };
-
-  const handleManualChange = (which: 'start' | 'end', value: string) => {
-    setCustomMode(true);
-    const candidateStart = which === 'start' ? value : startDate;
-    const candidateEnd = which === 'end' ? value : endDate;
-    if (!candidateStart || !candidateEnd) {
-      toast.error('Tanggal awal dan akhir harus diisi.');
-      return;
-    }
-    if (candidateStart > candidateEnd) {
-      toast.error('Tanggal awal tidak boleh melewati tanggal akhir.');
-      return;
-    }
-    if (diffDaysYmd(candidateStart, candidateEnd) > 90) {
-      toast.error('Rentang tanggal maksimal 90 hari.');
-      return;
-    }
-    if (which === 'start') setStartDate(value);
-    else setEndDate(value);
-  };
+  const exportPf = usePeriodFilter(toast);
 
   // Scroll-spy: tandai bagian yang sedang terlihat di viewport
   useEffect(() => {
@@ -2626,8 +2995,8 @@ export default function Laporan() {
   const handleDownloadDetail = async (format: 'csv' | 'xlsx') => {
     setExporting(true);
     try {
-      const resp = await laporanAPI.exportDetailOrder(format, params);
-      downloadBlob(resp.data, `laporan-detail-${startDate}-${endDate}.${format}`, format);
+      const resp = await laporanAPI.exportDetailOrder(format, exportPf.params);
+      downloadBlob(resp.data, `laporan-detail-${exportPf.params.start_date}-${exportPf.params.end_date}.${format}`, format);
       toast.success('Laporan berhasil diunduh');
     } catch (err) {
       exportErrorToast(err, toast);
@@ -2639,8 +3008,8 @@ export default function Laporan() {
   const handleDownloadAll = async () => {
     setExporting(true);
     try {
-      const resp = await laporanAPI.export('all', 'xlsx', params);
-      downloadBlob(resp.data, `laporan-semua-${startDate}-${endDate}.xlsx`, 'xlsx');
+      const resp = await laporanAPI.export('all', 'xlsx', exportPf.params);
+      downloadBlob(resp.data, `laporan-semua-${exportPf.params.start_date}-${exportPf.params.end_date}.xlsx`, 'xlsx');
       toast.success('Semua laporan berhasil diunduh');
     } catch (err) {
       exportErrorToast(err, toast);
@@ -2674,7 +3043,7 @@ export default function Laporan() {
               <button
                 onClick={() => setExportOpen((o) => !o)}
                 disabled={exporting}
-                className="flex h-9 items-center gap-1.5 rounded-lg bg-accent-500 px-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent-600 disabled:opacity-50"
+                className="flex h-9 items-center gap-1.5 rounded-lg bg-primary-500 px-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-600 disabled:opacity-50"
               >
                 <Download className="h-4 w-4" />
                 {exporting ? 'Mengunduh...' : 'Export'}
@@ -2683,7 +3052,13 @@ export default function Laporan() {
                 </svg>
               </button>
               {exportOpen && (
-                <div className="absolute right-0 z-30 mt-2 w-60 overflow-hidden rounded-xl border border-black-200 bg-surface shadow-lg">
+                <div className="absolute right-0 z-30 mt-2 w-[28rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-black-200 bg-surface shadow-lg">
+                  <div className="border-b border-black-200 px-4 py-3">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-black-400">
+                      Periode Export
+                    </p>
+                    <PeriodFilter state={exportPf} />
+                  </div>
                   <p className="border-b border-black-200 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-black-400">
                     Detail Order
                   </p>
@@ -2709,7 +3084,7 @@ export default function Laporan() {
                       disabled={exporting}
                       className="flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium text-black-700 transition-colors hover:bg-canvas disabled:opacity-50"
                     >
-                    <Download className="h-4 w-4 text-accent-600" />
+                    <Download className="h-4 w-4 text-success-500" />
                     <span>
                       <span className="block">Semua Laporan (Excel)</span>
                       <span className="block text-xs font-normal text-black-400">Detail order + keputusan + 9 laporan</span>
@@ -2723,59 +3098,9 @@ export default function Laporan() {
         </div>
       </div>
 
-      {/* Kartu kontrol — preset periode + navigasi lompat section */}
+      {/* Kartu kontrol — navigasi lompat section */}
       <div className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-black-200">
-        {/* Baris 1 — kontrol periode */}
-        <div className="flex flex-wrap items-center gap-3 px-3 py-3">
-          <div className="inline-flex rounded-lg bg-canvas p-1">
-            {QUICK_RANGES.map((r) => (
-              <button
-                key={r.key}
-                onClick={() => applyQuickRange(r.key)}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  activeRange === r.label ? 'bg-surface text-primary-600 shadow-sm ring-1 ring-black-200' : 'text-black-500 hover:text-black-800'
-                }`}
-              >
-                {r.label}
-              </button>
-            ))}
-          </div>
-
-          {customMode && (
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1.5 rounded-lg border border-black-200 bg-surface px-2.5 py-1.5">
-                <CalendarDays className="h-4 w-4 text-black-400" />
-                <input
-                  id="start_date"
-                  type="date"
-                  value={startDate}
-                  max={todayJakarta()}
-                  onChange={(e) => handleManualChange('start', e.target.value)}
-                  className="bg-transparent text-sm text-black-800 outline-none"
-                />
-                <span className="text-black-300">s/d</span>
-                <input
-                  id="end_date"
-                  type="date"
-                  value={endDate}
-                  max={todayJakarta()}
-                  onChange={(e) => handleManualChange('end', e.target.value)}
-                  className="bg-transparent text-sm text-black-800 outline-none"
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="ml-auto hidden items-center gap-1.5 text-xs text-black-400 sm:flex">
-            <span className="font-medium text-black-600">Periode:</span>
-            <CalendarDays className="h-3.5 w-3.5" />
-            {activeRange === 'Semua Waktu'
-              ? 'Semua Waktu'
-              : `${formatTanggal(startDate)} – ${formatTanggal(endDate)}`}
-          </div>
-        </div>
-
-        {/* Baris 2 — navigasi lompat cepat, sticky, sorot bagian aktif */}
+        {/* Navigasi lompat cepat, sticky, sorot bagian aktif */}
         <div className="sticky top-0 z-10 border-t border-black-200 bg-surface px-2 py-2 shadow-sm">
           <div className="flex gap-1 overflow-x-auto rounded-lg bg-canvas p-1">
             {sections.map((sec) => {
@@ -2803,33 +3128,33 @@ export default function Laporan() {
       </div>
 
       {/* Eksekutif Summary — ringkasan cepat */}
-      <ExecutiveSummary params={debouncedParams} />
+      <ExecutiveSummary />
 
-      {/* Semua bagian bertumpuk — satu kesatuan laporan */}
+      {/* Semua bagian bertumpuk — satu kartu per nomor */}
       <div className="space-y-8">
-        <SectionWrapper id="detail-order" title="1. Detail Order">
-          <DetailOrderTab key={refreshKey} params={debouncedParams} />
+        <SectionWrapper id="detail-order">
+          <DetailOrderTab key={refreshKey} title="1. Detail Order" />
         </SectionWrapper>
-        <SectionWrapper id="per-kategori" title="2. Per Kategori">
-          <PerKategoriTab key={`pk-${refreshKey}`} params={debouncedParams} />
+        <SectionWrapper id="per-kategori">
+          <PerKategoriTab key={`pk-${refreshKey}`} title="2. Per Kategori" />
         </SectionWrapper>
-        <SectionWrapper id="top-performa" title="3. Top Performa">
-          <TopPerformaTab key={`tp-${refreshKey}`} params={debouncedParams} />
+        <SectionWrapper id="top-performa">
+          <TopPerformaTab key={`tp-${refreshKey}`} title="3. Top Performa" />
         </SectionWrapper>
-        <SectionWrapper id="pendapatan" title="4. Pendapatan">
-          <PendapatanTab key={`pend-${refreshKey}`} params={debouncedParams} />
+        <SectionWrapper id="pendapatan">
+          <PendapatanTab key={`pend-${refreshKey}`} title="4. Pendapatan" />
         </SectionWrapper>
-        <SectionWrapper id="kendaraan" title="5. Kendaraan">
-          <KendaraanTab key={`kend-${refreshKey}`} params={debouncedParams} />
+        <SectionWrapper id="kendaraan">
+          <KendaraanTab key={`kend-${refreshKey}`} title="5. Kendaraan" />
         </SectionWrapper>
-        <SectionWrapper id="rekap-garasi" title="6. Rekap per Garasi">
-          <RekapGarasiTab key={`rg-${refreshKey}`} params={debouncedParams} />
+        <SectionWrapper id="rekap-garasi">
+          <RekapGarasiTab key={`rg-${refreshKey}`} title="6. Rekap per Garasi" />
         </SectionWrapper>
-        <SectionWrapper id="komisi-calo" title="8. Komisi Calo">
-          <KomisiCaloTab key={`kc-${refreshKey}`} params={debouncedParams} />
+        <SectionWrapper id="komisi-calo">
+          <KomisiCaloTab key={`kc-${refreshKey}`} title="7. Komisi Calo" />
         </SectionWrapper>
-        <SectionWrapper id="piutang" title="9. Piutang">
-          <PiutangTab key={`piut-${refreshKey}`} params={debouncedParams} />
+        <SectionWrapper id="piutang">
+          <PiutangTab key={`piut-${refreshKey}`} title="8. Piutang" />
         </SectionWrapper>
       </div>
     </div>

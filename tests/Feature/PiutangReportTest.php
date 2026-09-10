@@ -284,7 +284,7 @@ class PiutangReportTest extends TestCase
         $this->assertContains('Tgl Kembali', $detail['headers']);
 
         $aging = collect($sections)->firstWhere('title', 'Aging Buckets');
-        $this->assertContains('Belum Tertunggak', array_column($aging['rows'], 0));
+        $this->assertContains('Belum Lewat Jatuh Tempo', array_column($aging['rows'], 0));
     }
 
     public function test_api_order_create_mengabaikan_tanggal_jatuh_tempo(): void

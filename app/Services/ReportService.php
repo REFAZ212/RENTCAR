@@ -726,6 +726,78 @@ class ReportService
         return [['title' => 'Rekap per Garasi Partner', 'headers' => ['Nama Garasi', 'Order', 'Pendapatan', 'Beban', 'Komisi', 'Laba', 'Bagi Hasil', 'Persentase'], 'rows' => $rows]];
     }
 
+    public function sectionsPerKategori(): array
+    {
+        $data = $this->dashboardDecision();
+
+        $rows = array_map(function (array $k): array {
+            $margin = $k['total_harga'] > 0 ? round(($k['total_laba'] / $k['total_harga']) * 100, 1) : 0;
+
+            return [
+                $k['nama_kategori'],
+                $k['jumlah_order'],
+                number_format($k['total_harga'], 0, ',', '.'),
+                number_format($k['total_beban'], 0, ',', '.'),
+                number_format($k['total_komisi'], 0, ',', '.'),
+                number_format($k['total_laba'], 0, ',', '.'),
+                number_format($margin, 1, ',', '.').'%',
+            ];
+        }, $data['per_kategori']);
+
+        $total = array_reduce($data['per_kategori'], function (array $acc, array $k): array {
+            $acc['jumlah_order'] += $k['jumlah_order'];
+            $acc['total_harga'] += $k['total_harga'];
+            $acc['total_beban'] += $k['total_beban'];
+            $acc['total_komisi'] += $k['total_komisi'];
+            $acc['total_laba'] += $k['total_laba'];
+
+            return $acc;
+        }, ['jumlah_order' => 0, 'total_harga' => 0, 'total_beban' => 0, 'total_komisi' => 0, 'total_laba' => 0]);
+
+        $marginTotal = $total['total_harga'] > 0 ? number_format(($total['total_laba'] / $total['total_harga']) * 100, 1, ',', '.').'%' : '0,0%';
+        $rows[] = [
+            'TOTAL',
+            $total['jumlah_order'],
+            number_format($total['total_harga'], 0, ',', '.'),
+            number_format($total['total_beban'], 0, ',', '.'),
+            number_format($total['total_komisi'], 0, ',', '.'),
+            number_format($total['total_laba'], 0, ',', '.'),
+            $marginTotal,
+        ];
+
+        return [['title' => 'Rekap per Kategori Kendaraan', 'headers' => ['Kategori', 'Order', 'Total Harga', 'Total Beban', 'Total Komisi', 'Total Laba', 'Margin'], 'rows' => $rows]];
+    }
+
+    public function sectionsTopKendaraan(): array
+    {
+        $data = $this->dashboardDecision();
+
+        $rows = array_map(fn ($v) => [
+            $v['nama_kendaraan'],
+            $v['kategori'],
+            $v['jumlah_order'],
+            number_format($v['total_harga'], 0, ',', '.'),
+            number_format($v['total_laba'], 0, ',', '.'),
+        ], $data['top_kendaraan_terlaris']);
+
+        return [['title' => 'Top 5 Kendaraan Terlaris', 'headers' => ['Kendaraan', 'Kategori', 'Jumlah Order', 'Total Harga', 'Total Laba'], 'rows' => $rows]];
+    }
+
+    public function sectionsTopPelanggan(): array
+    {
+        $data = $this->customer();
+
+        $rows = array_map(fn ($c) => [
+            $c['nama_lengkap'],
+            $c['no_hp'],
+            $c['order_count'],
+            number_format($c['total_spend'], 0, ',', '.'),
+            number_format($c['avg_duration'], 1, ',', '.').' hari',
+        ], $data['customer_top']);
+
+        return [['title' => 'Top Pelanggan', 'headers' => ['Pelanggan', 'No. HP', 'Jumlah Order', 'Total Harga', 'Rata-rata Durasi'], 'rows' => $rows]];
+    }
+
     public function sectionsKomisiCalo(): array
     {
         $data = $this->komisiCalo();
@@ -752,10 +824,10 @@ class ReportService
         ]];
 
         $agingLabels = [
-            'belum_tertunggak' => 'Belum Tertunggak',
-            '1_30_hari' => '1-30 Hari',
-            '31_60_hari' => '31-60 Hari',
-            'lebih_60_hari' => '60+ Hari',
+            'belum_tertunggak' => 'Belum Lewat Jatuh Tempo',
+            '1_30_hari' => 'Lewat Jatuh Tempo 1-30 Hari',
+            '31_60_hari' => 'Lewat Jatuh Tempo 31-60 Hari',
+            'lebih_60_hari' => 'Lewat Jatuh Tempo >60 Hari',
         ];
         $agingRows = [];
         foreach ($ringkasan['aging_buckets'] as $key => $bucket) {
@@ -770,7 +842,7 @@ class ReportService
             number_format($p['total_bayar'], 0, ',', '.'),
             number_format($p['sisa_pembayaran'], 0, ',', '.'),
             $p['hari_tertunggak'],
-            str_replace('_', ' ', $p['aging']),
+            $agingLabels[$p['aging']] ?? $p['aging'],
         ], $data['data']);
         $sections[] = ['title' => 'Detail Piutang', 'headers' => ['Kode', 'Customer', 'Kendaraan', 'Mulai', 'Tgl Kembali', 'Total', 'Dibayar', 'Sisa', 'Hari Tertunggak', 'Aging'], 'rows' => $detailRows];
 
@@ -932,6 +1004,9 @@ class ReportService
         if (! empty($filters['kategori_id'])) {
             $query->whereHas('kendaraan', fn ($q) => $q->where('kategori_id', $filters['kategori_id']));
         }
+        if (! empty($filters['customer_id'])) {
+            $query->where('customer_id', $filters['customer_id']);
+        }
 
         $query->orderByDesc('created_at');
 
@@ -976,6 +1051,9 @@ class ReportService
         }
         if (! empty($filters['kategori_id'])) {
             $query->whereHas('kendaraan', fn ($q) => $q->where('kategori_id', $filters['kategori_id']));
+        }
+        if (! empty($filters['customer_id'])) {
+            $query->where('customer_id', $filters['customer_id']);
         }
 
         $completed = (clone $query)->where('status_order', 'completed')->get();
