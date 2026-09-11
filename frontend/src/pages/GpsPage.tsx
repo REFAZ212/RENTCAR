@@ -45,7 +45,7 @@ const statusLabels: Record<GpsStatus, string> = {
 const statusStyles: Record<GpsStatus, string> = {
   bergerak: 'bg-accent-50 text-accent-500',
   diam: 'bg-primary-50 text-primary-600',
-  offline: 'bg-accent-100 text-black-400',
+  offline: 'bg-black-100 text-black-400',
 };
 
 const statusDot: Record<GpsStatus, string> = {
@@ -290,7 +290,7 @@ export default function GpsPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white rounded-2xl shadow-sm border border-accent-100 p-5">
+        <div className="bg-white rounded-2xl shadow-sm border border-black-200 p-5">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-lg bg-black-900/5 flex items-center justify-center shrink-0">
               <Radio size={20} className="text-black-900" />
@@ -301,7 +301,7 @@ export default function GpsPage() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-accent-100 p-5">
+        <div className="bg-white rounded-2xl shadow-sm border border-black-200 p-5">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-lg bg-accent-50 flex items-center justify-center shrink-0">
               <Navigation size={20} className="text-accent-500" />
@@ -312,7 +312,7 @@ export default function GpsPage() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-accent-100 p-5">
+        <div className="bg-white rounded-2xl shadow-sm border border-black-200 p-5">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-lg bg-primary-50 flex items-center justify-center shrink-0">
               <PauseCircle size={20} className="text-primary-600" />
@@ -323,9 +323,9 @@ export default function GpsPage() {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-accent-100 p-5">
+        <div className="bg-white rounded-2xl shadow-sm border border-black-200 p-5">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-lg bg-accent-100 flex items-center justify-center shrink-0">
+            <div className="w-11 h-11 rounded-lg bg-black-100 flex items-center justify-center shrink-0">
               <WifiOff size={20} className="text-black-400" />
             </div>
             <div>
@@ -337,8 +337,8 @@ export default function GpsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-accent-100 flex flex-col max-h-[640px]">
-          <div className="p-4 border-b border-accent-100 space-y-3 shrink-0">
+        <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-black-200 flex flex-col max-h-[640px]">
+          <div className="p-4 border-b border-black-200 space-y-3 shrink-0">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black-400" />
               <input
@@ -355,7 +355,7 @@ export default function GpsPage() {
                   key={s}
                   onClick={() => setStatusFilter(s)}
                   className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                    statusFilter === s ? 'bg-black-900 text-white' : 'bg-accent-100 text-black-400 hover:bg-black-200'
+                    statusFilter === s ? 'bg-black-900 text-white' : 'bg-black-200 text-black-600 hover:bg-black-200'
                   }`}
                 >
                   {s === 'Semua' ? 'Semua' : statusLabels[s]}
@@ -364,7 +364,7 @@ export default function GpsPage() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto divide-y divide-accent-50">
+          <div className="flex-1 overflow-y-auto divide-y divide-black-200">
             {loading && vehicles.length === 0 ? (
               <div className="p-8 text-center text-sm text-black-400">Memuat...</div>
             ) : filtered.length === 0 ? (
@@ -402,7 +402,7 @@ export default function GpsPage() {
           </div>
         </div>
 
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-accent-100 overflow-hidden relative">
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-black-200 overflow-hidden relative">
           <div className="h-[420px] lg:h-[520px] w-full">
             <MapContainer center={[-6.6, 107.1]} zoom={9} scrollWheelZoom className="h-full w-full">
               <TileLayer
@@ -441,7 +441,7 @@ export default function GpsPage() {
       </div>
 
       {selected && (
-        <div className="bg-white rounded-2xl shadow-sm border border-accent-100 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-black-200 p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
@@ -504,7 +504,7 @@ export default function GpsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleAddDevice} className="mt-5 rounded-xl border border-accent-100 bg-canvas p-4">
+            <form onSubmit={handleAddDevice} className="mt-5 rounded-xl border border-black-200 bg-canvas p-4">
               <p className="text-sm font-semibold text-black-800">Daftarkan Perangkat Baru</p>
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
@@ -574,7 +574,7 @@ export default function GpsPage() {
                 <p className="py-6 text-center text-sm text-black-400">Belum ada perangkat terdaftar.</p>
               )}
               {devices.map((d) => (
-                <div key={d.id} className="rounded-xl border border-accent-100 p-4">
+                <div key={d.id} className="rounded-xl border border-black-200 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-black-900">
@@ -589,7 +589,7 @@ export default function GpsPage() {
                       <button
                         onClick={() => handleToggleDevice(d)}
                         className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                          d.status_aktif ? 'bg-accent-100 text-accent-700' : 'bg-black-100 text-black-400'
+                          d.status_aktif ? 'bg-primary-50 text-primary-500' : 'bg-black-100 text-black-400'
                         }`}
                       >
                         {d.status_aktif ? 'Aktif' : 'Nonaktif'}

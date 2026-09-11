@@ -392,9 +392,9 @@ export default function Dashboard() {
           value: stats.total_customer,
           rawValue: stats.total_customer,
           icon: Users,
-          iconBg: 'bg-black-900/5',
-          iconColor: 'text-black-800',
-          sparkColor: '#2a2a2a',
+          iconBg: 'bg-primary-50',
+          iconColor: 'text-primary-600',
+          sparkColor: '#0d2e6b',
         },
       ]
     : [
@@ -435,9 +435,9 @@ export default function Dashboard() {
           value: stats.total_customer,
           rawValue: stats.total_customer,
           icon: Users,
-          iconBg: 'bg-black-900/5',
-          iconColor: 'text-black-800',
-          sparkColor: '#2a2a2a',
+          iconBg: 'bg-primary-50',
+          iconColor: 'text-primary-600',
+          sparkColor: '#0d2e6b',
         },
       ];
 
@@ -502,22 +502,15 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Welcome banner */}
-      <div className="relative overflow-hidden rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50 via-white to-accent-50 p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="rounded-2xl bg-gradient-to-r from-black-900 via-black-800 to-primary-700 p-6 text-white shadow-sm sm:p-7">
+        <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
-            <h1 className="font-display text-2xl font-semibold text-black-900">
+            <h1 className="font-display text-2xl font-bold">
               {getGreeting()}, {user?.name?.split(' ')[0] ?? 'Admin'}
             </h1>
-            <p className="mt-1 text-sm text-black-400">
+            <p className="mt-1 text-sm text-black-200">
               {timeLabel} · {tipItems.length > 0 ? tipItems.map((t) => `• ${t}`).join(' · ') : todayOrderTip}
             </p>
-          </div>
-          <div className="hidden sm:flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-sm text-black-600 shadow-sm">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-success-500 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-success-500" />
-            </span>
-            Sistem berjalan normal
           </div>
         </div>
       </div>
@@ -550,17 +543,13 @@ export default function Dashboard() {
           <Link
             key={qa.label}
             to={qa.to}
-            className="group flex items-center gap-3 rounded-2xl border border-primary-100 bg-white p-4 text-left shadow-sm transition-all hover:border-primary-300 hover:shadow-md"
+            className="group flex items-center justify-center gap-2.5 rounded-xl bg-primary-500 px-4 py-3 text-white shadow-sm transition-all hover:bg-primary-600 hover:shadow-md"
           >
-            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${qa.iconBg}`}>
-              <qa.icon size={20} className={qa.color} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-black-900">{qa.label}</p>
-              {typeof qa.badge === 'number' && qa.badge > 0 && (
-                <p className="text-xs text-accent-600 font-semibold">{qa.badge} menunggu</p>
-              )}
-            </div>
+            <qa.icon size={18} className="shrink-0 text-white" />
+            <span className="text-sm font-semibold">{qa.label}</span>
+            {typeof qa.badge === 'number' && qa.badge > 0 && (
+              <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-semibold">{qa.badge} menunggu</span>
+            )}
           </Link>
         ))}
       </div>

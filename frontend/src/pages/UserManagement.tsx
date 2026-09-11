@@ -16,7 +16,7 @@ const roleLabels: Record<string, string> = {
 
 const roleColors: Record<string, string> = {
   admin_utama: 'bg-primary-100 text-primary-700',
-  admin_operasional: 'bg-accent-50 text-accent-600',
+  admin_operasional: 'bg-primary-50 text-primary-600',
   petugas: 'bg-black-200 text-black-600',
 };
 
@@ -324,7 +324,7 @@ export default function UserManagement() {
                 )}
               </div>
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-600 hover:bg-accent-50">Batal</button>
+                <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-600 hover:bg-canvas">Batal</button>
                 <button type="submit" disabled={submitting} className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50">
                   {submitting ? 'Menyimpan...' : 'Simpan'}
                 </button>

@@ -605,7 +605,7 @@ const formatDate = (d: string) => {
       <div className="overflow-hidden rounded-xl border border-black-200 bg-white">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-black-200 bg-accent-50">
+            <thead className="border-b border-black-200 bg-canvas">
               <tr>
                 <th className="px-4 py-3 font-medium text-black-600">Tanggal</th>
                 <th className="px-4 py-3 font-medium text-black-600">Order</th>
@@ -630,7 +630,7 @@ const formatDate = (d: string) => {
                 </tr>
               ) : (
                 inspeksis.map((item) => (
-                  <tr key={item.id} className="hover:bg-accent-50 transition-colors">
+                  <tr key={item.id} className="hover:bg-canvas transition-colors">
                     <td className="whitespace-nowrap px-4 py-3 text-black-700">{formatDate(item.created_at)}</td>
                     <td className="whitespace-nowrap px-4 py-3 font-medium text-black-900">{item.order?.kode_order ?? `#${item.order_id}`}</td>
 <td className="px-4 py-3">
@@ -665,7 +665,7 @@ const formatDate = (d: string) => {
                       <div className="flex items-center gap-1.5">
                         <span>{item.inspeksi_oleh ?? item.admin?.name ?? '-'}</span>
                         {isSupirOfOrder(item) && (
-                          <span className="inline-flex rounded-full bg-accent-100 px-2 py-0.5 text-[10px] font-medium text-accent-700" title="Petugas ini adalah supir dari order tersebut">
+                          <span className="inline-flex rounded-full bg-black-100 px-2 py-0.5 text-[10px] font-medium text-black-500" title="Petugas ini adalah supir dari order tersebut">
                             supir order
                           </span>
                         )}
@@ -747,7 +747,7 @@ const formatDate = (d: string) => {
               <fieldset disabled={formMode === 'kirim'} className={`space-y-4 ${formMode === 'kirim' ? 'opacity-70' : ''}`}>
               {/* Ringkasan Order dari Task */}
               {selectedOrder && (
-                <div className="rounded-xl bg-accent-50 p-4 text-sm">
+                <div className="rounded-xl bg-canvas p-4 text-sm">
                   <p className="font-semibold text-black-900">{selectedOrder.kode_order} — {selectedOrder.kendaraan?.nama_kendaraan}</p>
                   <p className="mt-1 text-black-600">Customer: {selectedOrder.customer?.nama_lengkap} ({selectedOrder.customer?.no_hp})</p>
                   <p className="text-black-600">
@@ -1036,12 +1036,12 @@ const formatDate = (d: string) => {
                     setShowForm(false);
                     setDraft(null);
                   }}
-                  className="rounded-lg border border-black-200 px-4 py-2.5 text-sm font-medium text-black-600 hover:bg-accent-50"
+                  className="rounded-lg border border-black-200 px-4 py-2.5 text-sm font-medium text-black-600 hover:bg-canvas"
                 >
                   Batal
                 </button>
                 {formMode === 'simpan' && (
-                  <button type="submit" disabled={submitting} className="rounded-lg bg-accent-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-700 disabled:opacity-50">
+                  <button type="submit" disabled={submitting} className="rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-600 disabled:opacity-50">
                     {submitting ? 'Menyimpan...' : 'Simpan Draft Inspeksi'}
                   </button>
                 )}
@@ -1072,7 +1072,7 @@ const formatDate = (d: string) => {
 
             <div className="space-y-4">
               {/* Info Dasar */}
-              <div className="grid grid-cols-2 gap-4 rounded-lg bg-accent-50 p-4">
+              <div className="grid grid-cols-2 gap-4 rounded-lg bg-canvas p-4">
                 <div>
                   <p className="text-xs font-medium text-black-500">Order</p>
                   <p className="text-sm font-semibold text-black-900">{showDetail.order?.kode_order ?? `#${showDetail.order_id}`}</p>
@@ -1100,7 +1100,7 @@ const formatDate = (d: string) => {
                   <div className="flex items-center gap-1.5">
                     <p className="text-sm text-black-700">{showDetail.inspeksi_oleh ?? showDetail.admin?.name ?? '-'}</p>
                     {isSupirOfOrder(showDetail) && (
-                      <span className="inline-flex rounded-full bg-accent-100 px-2 py-0.5 text-[10px] font-medium text-accent-700" title="Petugas ini adalah supir dari order tersebut">
+                      <span className="inline-flex rounded-full bg-black-100 px-2 py-0.5 text-[10px] font-medium text-black-500" title="Petugas ini adalah supir dari order tersebut">
                         supir order
                       </span>
                     )}
@@ -1132,7 +1132,7 @@ const formatDate = (d: string) => {
                     { label: 'Lampu', value: showDetail.kondisi_lampu, labels: kondisiLampuLabels },
                     { label: 'Kerusakan', value: showDetail.ada_damagenya ? 'Ya' : 'Tidak', labels: {} },
                   ].map((item) => (
-                    <div key={item.label} className="rounded-lg bg-accent-50 px-3 py-2">
+                    <div key={item.label} className="rounded-lg bg-canvas px-3 py-2">
                       <p className="text-xs text-black-500">{item.label}</p>
                       <Badge
                         label={item.labels[item.value] ?? item.value}
@@ -1148,7 +1148,7 @@ const formatDate = (d: string) => {
                 <p className="mb-2 text-xs font-medium text-black-500 uppercase tracking-wider">Checklist Serah Terima</p>
                 <div className={`grid grid-cols-2 gap-2 ${showDetail.checklist_serah_terima?.length ? '' : 'hidden'}`}>
                   {CHECKLIST_ITEMS.map((item) => (
-                    <div key={item.key} className="flex items-center gap-2 rounded-lg bg-accent-50 px-3 py-2">
+                    <div key={item.key} className="flex items-center gap-2 rounded-lg bg-canvas px-3 py-2">
                       <span className={`flex h-5 w-5 items-center justify-center rounded border ${showDetail.checklist_serah_terima?.includes(item.key) ? 'border-primary-500 bg-primary-500 text-white' : 'border-black-300 bg-white'}`}>
                         {showDetail.checklist_serah_terima?.includes(item.key) && (
                           <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
@@ -1232,7 +1232,7 @@ const formatDate = (d: string) => {
             </div>
 
             <div className="mt-6 flex justify-end">
-              <button onClick={() => setShowDetail(null)} className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-600 hover:bg-accent-50">Tutup</button>
+              <button onClick={() => setShowDetail(null)} className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-600 hover:bg-canvas">Tutup</button>
             </div>
           </div>
         </div>
@@ -1259,7 +1259,7 @@ const formatDate = (d: string) => {
               <SignaturePad label="Tanda Tangan Petugas" onChange={setPerbaikiTtdPetugas} />
             </div>
             <div className="mt-5 flex justify-end gap-2">
-              <button onClick={() => setPerbaikiTarget(null)} className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-600 hover:bg-accent-50">
+              <button onClick={() => setPerbaikiTarget(null)} className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-600 hover:bg-canvas">
                 Batal
               </button>
               <button

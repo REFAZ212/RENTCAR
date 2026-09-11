@@ -29,7 +29,7 @@ export default function KendaraanPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-1 bg-accent-100 p-1 rounded-lg w-fit">
+      <div className="flex items-center gap-1 bg-canvas p-1 rounded-lg w-fit">
         <button
           onClick={() => switchTab('kendaraan')}
           className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${

@@ -316,9 +316,9 @@ function GarasiPartnerTab() {
       {showForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => { setShowForm(false); setEditItem(null); }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-accent-100 flex items-center justify-between sticky top-0 bg-white z-10">
+            <div className="p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <h2 className="font-display text-lg font-semibold text-black-900">{editItem ? 'Edit Garasi Partner' : 'Tambah Garasi Partner'}</h2>
-              <button onClick={() => { setShowForm(false); setEditItem(null); }} className="p-1 hover:bg-accent-100 rounded-lg transition-colors">
+              <button onClick={() => { setShowForm(false); setEditItem(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors">
                 <X size={20} className="text-black-400" />
               </button>
             </div>
@@ -363,7 +363,7 @@ function GarasiPartnerTab() {
                 <span className="text-sm text-black-700">Milik Sendiri</span>
                 <span className="text-xs text-black-400">— Centang jika ini garasi milik perusahaan Anda</span>
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-accent-100">
+              <div className="flex justify-end gap-3 pt-4 border-t border-black-200">
                 <button type="button" onClick={() => { setShowForm(false); setEditItem(null); }} className="px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors">Batal</button>
                 <button type="submit" disabled={submitting}
                   className="px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors flex items-center gap-2">
@@ -379,12 +379,12 @@ function GarasiPartnerTab() {
       {showKendaraanForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => { setShowKendaraanForm(false); setKendaraanGarasi(null); setEditKendaraanItem(null); setKendaraanFotoFile(null); setKendaraanFotoPreview(null); }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-accent-100 flex items-center justify-between sticky top-0 bg-white z-10">
+            <div className="p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <div>
                 <h2 className="font-display text-lg font-semibold text-black-900">{editKendaraanItem ? 'Edit Kendaraan' : 'Tambah Kendaraan'}</h2>
                 <p className="text-sm text-black-400">untuk {kendaraanGarasi?.nama_garasi}</p>
               </div>
-              <button onClick={() => { setShowKendaraanForm(false); setKendaraanGarasi(null); setEditKendaraanItem(null); setKendaraanFotoFile(null); setKendaraanFotoPreview(null); }} className="p-1 hover:bg-accent-100 rounded-lg transition-colors">
+              <button onClick={() => { setShowKendaraanForm(false); setKendaraanGarasi(null); setEditKendaraanItem(null); setKendaraanFotoFile(null); setKendaraanFotoPreview(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors">
                 <X size={20} className="text-black-400" />
               </button>
             </div>
@@ -402,7 +402,7 @@ function GarasiPartnerTab() {
                   <label className="block text-sm font-medium text-black-700 mb-1">Tipe Kendaraan</label>
                   <select value={kendaraanForm.tipe_id || ''} onChange={(e) => setKendaraanField('tipe_id', e.target.value)}
                     disabled={!kendaraanForm.kategori_id}
-                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm disabled:bg-accent-100 disabled:text-black-400">
+                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm disabled:bg-black-200 disabled:text-black-400">
                     <option value="">{kendaraanForm.kategori_id ? 'Pilih Tipe' : 'Pilih kategori dulu'}</option>
                     {tipes.filter((t) => t.aktif && t.kategori_id?.toString() === kendaraanForm.kategori_id).map((t) => <option key={t.id} value={t.id}>{t.nama_tipe}</option>)}
                   </select>
@@ -487,7 +487,7 @@ function GarasiPartnerTab() {
                   )}
                 </div>
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-accent-100">
+              <div className="flex justify-end gap-3 pt-4 border-t border-black-200">
                 <button type="button" onClick={() => { setShowKendaraanForm(false); setKendaraanGarasi(null); setEditKendaraanItem(null); setKendaraanFotoFile(null); setKendaraanFotoPreview(null); }}
                   className="px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors">Batal</button>
                 <button type="submit" disabled={submittingKendaraan}
@@ -517,10 +517,10 @@ function GarasiPartnerTab() {
         onCancel={() => setConfirmDeleteKendaraan(null)}
       />
 
-      <div className="bg-white rounded-2xl shadow-sm border border-accent-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-black-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-canvas border-b border-accent-100">
+            <thead className="bg-canvas border-b border-black-200">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-black-400">Garasi</th>
                 <th className="text-left px-4 py-3 font-medium text-black-400">Pemilik</th>
@@ -530,7 +530,7 @@ function GarasiPartnerTab() {
                 <th className="text-right px-4 py-3 font-medium text-black-400">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-accent-50">
+            <tbody className="divide-y divide-black-200">
               {loading ? (
                 <tr><td colSpan={6} className="p-12 text-center">
                   <Loader2 size={24} className="text-primary-500 animate-spin mx-auto mb-2" />
@@ -558,7 +558,7 @@ function GarasiPartnerTab() {
                     <td className="px-4 py-3 text-black-700">{formatHpDisplay(item.no_hp)}</td>
                     <td className="px-4 py-3 text-black-700">{item.kendaraans_count} unit</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${item.status_aktif ? 'bg-accent-50 text-accent-500' : 'bg-error-50 text-error-500'}`}>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${item.status_aktif ? 'bg-primary-50 text-primary-500' : 'bg-error-50 text-error-500'}`}>
                         {item.status_aktif ? 'Aktif' : 'Nonaktif'}
                       </span>
                     </td>
@@ -576,7 +576,7 @@ function GarasiPartnerTab() {
                   {expandedIds.has(item.id) && (
                     <tr>
                       <td colSpan={6} className="p-0">
-                        <div className="bg-canvas border-t border-accent-100 px-6 py-4">
+                        <div className="bg-canvas border-t border-black-200 px-6 py-4">
                           {loadingKendaraans.has(item.id) ? (
                             <div className="flex items-center gap-2 py-4">
                               <Loader2 size={18} className="text-primary-500 animate-spin" />
@@ -601,9 +601,9 @@ function GarasiPartnerTab() {
                                   Tambah Kendaraan
                                 </button>
                               </div>
-                              <div className="bg-white rounded-xl border border-accent-100 overflow-hidden">
+                              <div className="bg-white rounded-xl border border-black-200 overflow-hidden">
                               <table className="w-full text-sm">
-                                <thead className="bg-accent-100 border-b border-black-200">
+                                <thead className="bg-canvas border-b border-black-200">
                                   <tr>
                                     <th className="text-left px-4 py-2 font-medium text-black-400">Foto</th>
                                     <th className="text-left px-4 py-2 font-medium text-black-400">Kendaraan</th>
@@ -625,7 +625,7 @@ function GarasiPartnerTab() {
                                             className={`w-12 h-12 object-cover rounded-lg border border-black-200 ${statusPhotoClass(k.status)}`}
                                           />
                                         ) : (
-                                          <div className="w-12 h-12 bg-accent-100 rounded-lg border border-black-200 flex items-center justify-center">
+                                          <div className="w-12 h-12 bg-canvas rounded-lg border border-black-200 flex items-center justify-center">
                                             <ImagePlus size={20} className="text-black-400" />
                                           </div>
                                         )}
@@ -923,10 +923,10 @@ function GarasiSayaTab() {
                 autoFocus
                 className="px-2 py-1 border border-primary-400 rounded-lg text-sm font-medium text-black-900 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none"
               />
-              <button onClick={saveName} className="p-1 text-accent-500 hover:bg-accent-50 rounded-lg transition-colors" title="Simpan">
+              <button onClick={saveName} className="p-1 text-primary-500 hover:bg-primary-50 rounded-lg transition-colors" title="Simpan">
                 <Check size={16} />
               </button>
-              <button onClick={() => setEditingName(false)} className="p-1 text-black-400 hover:bg-accent-100 rounded-lg transition-colors" title="Batal">
+              <button onClick={() => setEditingName(false)} className="p-1 text-black-400 hover:bg-canvas rounded-lg transition-colors" title="Batal">
                 <X size={16} />
               </button>
             </div>
@@ -957,7 +957,7 @@ function GarasiSayaTab() {
           { label: 'Disewa', value: stats.disewa, color: 'text-primary-500' },
           { label: 'Servis', value: stats.maintenance, color: 'text-error-500' },
         ].map((s) => (
-          <div key={s.label} className="bg-white rounded-2xl shadow-sm border border-accent-100 p-3 text-center">
+          <div key={s.label} className="bg-white rounded-2xl shadow-sm border border-black-200 p-3 text-center">
             <div className={`text-xl font-bold ${s.color}`}>{s.value}</div>
             <div className="text-xs text-black-400">{s.label}</div>
           </div>
@@ -987,20 +987,20 @@ function GarasiSayaTab() {
       {showForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => { setShowForm(false); setEditItem(null); }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-accent-100 flex items-center justify-between sticky top-0 bg-white z-10">
+            <div className="p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <h2 className="font-display text-lg font-semibold text-black-900">{editItem ? 'Edit Kendaraan' : 'Tambah Kendaraan'}</h2>
-              <button onClick={() => { setShowForm(false); setEditItem(null); }} className="p-1 hover:bg-accent-100 rounded-lg transition-colors">
+              <button onClick={() => { setShowForm(false); setEditItem(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors">
                 <X size={20} className="text-black-400" />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               {lastAdded && !editItem && (
-                <div className="flex items-center justify-between p-3 bg-accent-50 border border-accent-500/20 rounded-lg">
+                <div className="flex items-center justify-between p-3 bg-primary-50 border border-primary-500/20 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <Check size={20} className="text-accent-500" />
-                    <span className="text-sm font-medium text-accent-600">Kendaraan berhasil ditambahkan!</span>
+                    <Check size={20} className="text-primary-500" />
+                    <span className="text-sm font-medium text-primary-600">Kendaraan berhasil ditambahkan!</span>
                   </div>
-                  <button type="button" onClick={() => setLastAdded(false)} className="text-sm font-medium text-accent-600 hover:text-accent-600 underline">Sembunyikan</button>
+                  <button type="button" onClick={() => setLastAdded(false)} className="text-sm font-medium text-primary-600 hover:text-primary-600 underline">Sembunyikan</button>
                 </div>
               )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1016,7 +1016,7 @@ function GarasiSayaTab() {
                   <label className="block text-sm font-medium text-black-700 mb-1">Tipe Kendaraan</label>
                   <select value={form.tipe_id} onChange={(e) => setField('tipe_id', e.target.value)}
                     disabled={!form.kategori_id}
-                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm disabled:bg-accent-100 disabled:text-black-400">
+                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm disabled:bg-black-200 disabled:text-black-400">
                     <option value="">{form.kategori_id ? 'Pilih Tipe' : 'Pilih kategori dulu'}</option>
                     {tipes.filter((t) => t.aktif && t.kategori_id?.toString() === form.kategori_id).map((t) => <option key={t.id} value={t.id}>{t.nama_tipe}</option>)}
                   </select>
@@ -1065,7 +1065,7 @@ function GarasiSayaTab() {
                       className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
                     <p className="mt-1 text-xs text-black-400">Harga yang dibayar ke garasi partner per hari</p>
                     {form.harga_sewa_per_hari && form.harga_partner_per_hari && (
-                      <p className="mt-1.5 text-sm font-medium text-accent-600">
+                      <p className="mt-1.5 text-sm font-medium text-primary-600">
                         Margin: {formatRupiah(Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari))}/hari
                         ({(Math.round(((Number(form.harga_sewa_per_hari) - Number(form.harga_partner_per_hari)) / Number(form.harga_sewa_per_hari)) * 100))}%)
                       </p>
@@ -1121,11 +1121,11 @@ function GarasiSayaTab() {
                 <textarea value={form.catatan} onChange={(e) => setField('catatan', e.target.value)} rows={2}
                   className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm resize-none" />
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-accent-100">
+              <div className="flex justify-end gap-3 pt-4 border-t border-black-200">
                 <button type="button" onClick={() => { setShowForm(false); setEditItem(null); setLastAdded(false); }} className="px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors">Batal</button>
                 {lastAdded && !editItem ? (
                   <button type="button" onClick={() => setLastAdded(false)}
-                    className="px-4 py-2 text-sm font-medium bg-accent-500 text-white rounded-lg hover:bg-accent-600 transition-colors flex items-center gap-2">
+                    className="px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center gap-2">
                     <Plus size={16} />
                     Tambah Lainnya
                   </button>
@@ -1150,10 +1150,10 @@ function GarasiSayaTab() {
         onCancel={() => setConfirmDelete(null)}
       />
 
-      <div className="bg-white rounded-2xl shadow-sm border border-accent-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-sm border border-black-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-canvas border-b border-accent-100">
+            <thead className="bg-canvas border-b border-black-200">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-black-400">Kendaraan</th>
                 <th className="text-left px-4 py-3 font-medium text-black-400">Plat</th>
@@ -1163,7 +1163,7 @@ function GarasiSayaTab() {
                 <th className="text-right px-4 py-3 font-medium text-black-400">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-accent-50">
+            <tbody className="divide-y divide-black-200">
               {filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="p-12 text-center">
@@ -1220,13 +1220,13 @@ export default function GarasiPage() {
         <p className="text-sm text-black-400 mt-1">Kelola garasi partner dan kendaraan di garasi milik sendiri</p>
       </div>
 
-      <div className="flex items-center gap-1 bg-accent-100 rounded-lg p-1 self-start">
+      <div className="flex items-center gap-1 bg-canvas rounded-xl p-1 self-start">
         {tabs.map((t) => (
           <button
             key={t}
             onClick={() => setActiveTab(t)}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              activeTab === t ? 'bg-black-900 text-white' : 'text-black-400 hover:text-black-700'
+            className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+              activeTab === t ? 'bg-white text-primary-600 shadow-sm' : 'text-black-400 hover:text-black-700'
             }`}
           >
             {t}

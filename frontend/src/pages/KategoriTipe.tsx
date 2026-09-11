@@ -186,10 +186,10 @@ export default function KategoriTipe() {
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari kategori atau tipe..."
-              className="pl-9 pr-3 py-2 border border-black-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none w-56" />
+              className="pl-9 pr-3 py-2 border border-black-200 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none w-56" />
           </div>
           <button onClick={() => { setKategoriForm(emptyKategori); setEditKategori(null); setTipeNames(['']); setShowKategoriForm(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shrink-0">
+            className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors shrink-0">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
             Tambah Kategori
           </button>
@@ -199,9 +199,9 @@ export default function KategoriTipe() {
       {showKategoriForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowKategoriForm(false); setEditKategori(null); setTipeNames(['']); }}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-accent-100 flex items-center justify-between">
+            <div className="p-6 border-b border-black-200 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-black-900">{editKategori ? 'Edit Kategori' : 'Tambah Kategori'}</h2>
-              <button onClick={() => { setShowKategoriForm(false); setEditKategori(null); setTipeNames(['']); }} className="p-1 hover:bg-accent-100 rounded-lg transition-colors">
+              <button onClick={() => { setShowKategoriForm(false); setEditKategori(null); setTipeNames(['']); }} className="p-1 hover:bg-canvas rounded-lg transition-colors">
                 <svg className="w-5 h-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -210,18 +210,18 @@ export default function KategoriTipe() {
                 <label className="block text-sm font-medium text-black-700 mb-1">Nama Kategori *</label>
                 <input type="text" value={kategoriForm.nama_kategori} onChange={(e) => setKategoriField('nama_kategori', e.target.value)} required
                   placeholder="Contoh: SUV, MPV, Sedan, Hatchback"
-                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
+                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-black-700 mb-1">Deskripsi</label>
                 <textarea value={kategoriForm.deskripsi} onChange={(e) => setKategoriField('deskripsi', e.target.value)} rows={2}
                   placeholder="Deskripsi singkat tentang kategori ini..."
-                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none" />
+                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm resize-none" />
               </div>
               <div className="flex items-center gap-3">
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" checked={kategoriForm.aktif} onChange={(e) => setKategoriField('aktif', e.target.checked)} className="sr-only peer" />
-                  <div className="w-9 h-5 bg-black-200 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black-200 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-600" />
+                  <div className="w-9 h-5 bg-black-200 peer-focus:ring-2 peer-focus:ring-primary-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black-200 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-500" />
                 </label>
                 <span className="text-sm text-black-700">Aktif</span>
               </div>
@@ -231,7 +231,7 @@ export default function KategoriTipe() {
                   <label className="block text-sm font-medium text-black-700">Tambah Tipe (opsional)</label>
                   <p className="text-xs text-black-400">Masukkan nama tipe untuk kategori ini. Kosongkan jika tidak perlu.</p>
                   {matchedSuggestions && tipeNames.every((n) => !n.trim()) && (
-                    <div className="flex items-center gap-2 p-2 bg-primary-50 rounded-lg border border-blue-100">
+                    <div className="flex items-center gap-2 p-2 bg-primary-50 rounded-lg border border-primary-100">
                       <svg className="w-4 h-4 text-primary-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
                       <span className="text-xs text-primary-600 flex-1">Saran tipe untuk <strong>{kategoriForm.nama_kategori}</strong></span>
                       <button type="button" onClick={applySuggestions}
@@ -246,7 +246,7 @@ export default function KategoriTipe() {
                         setTipeNames(next);
                       }}
                         placeholder={`Tipe ${i + 1}`}
-                        className="flex-1 px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
+                        className="flex-1 px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm" />
                       <button type="button" onClick={() => setTipeNames((prev) => prev.filter((_, j) => j !== i))}
                         className="p-1.5 text-black-400 hover:text-error-600 hover:bg-error-50 rounded-lg transition-colors shrink-0">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -261,10 +261,10 @@ export default function KategoriTipe() {
                 </div>
               )}
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-accent-100">
+              <div className="flex justify-end gap-3 pt-4 border-t border-black-200">
                 <button type="button" onClick={() => { setShowKategoriForm(false); setEditKategori(null); setTipeNames(['']); }} className="px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors">Batal</button>
                 <button type="submit" disabled={submittingKategori}
-                  className="px-4 py-2 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors flex items-center gap-2">
+                  className="px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors flex items-center gap-2">
                   {submittingKategori && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                   {editKategori ? 'Simpan' : 'Tambah'}
                 </button>
@@ -277,9 +277,9 @@ export default function KategoriTipe() {
       {showTipeForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowTipeForm(false); setEditTipe(null); }}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-accent-100 flex items-center justify-between">
+            <div className="p-6 border-b border-black-200 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-black-900">{editTipe ? 'Edit Tipe' : 'Tambah Tipe'}</h2>
-              <button onClick={() => { setShowTipeForm(false); setEditTipe(null); }} className="p-1 hover:bg-accent-100 rounded-lg transition-colors">
+              <button onClick={() => { setShowTipeForm(false); setEditTipe(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors">
                 <svg className="w-5 h-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
@@ -287,7 +287,7 @@ export default function KategoriTipe() {
               <div>
                 <label className="block text-sm font-medium text-black-700 mb-1">Kategori *</label>
                 <select value={tipeForm.kategori_id} onChange={(e) => setTipeField('kategori_id', e.target.value)} required
-                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm">
+                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm">
                   <option value="">Pilih Kategori</option>
                   {items
                     .filter((k) => k.aktif || k.id === Number(tipeForm.kategori_id))
@@ -298,12 +298,12 @@ export default function KategoriTipe() {
                 <label className="block text-sm font-medium text-black-700 mb-1">Nama Tipe *</label>
                 <input type="text" value={tipeForm.nama_tipe} onChange={(e) => setTipeField('nama_tipe', e.target.value)} required
                   placeholder="Contoh: Compact SUV, Low MPV"
-                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
+                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm" />
                 {matchedTipeSuggestions && !tipeForm.nama_tipe.trim() && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
                     {matchedTipeSuggestions.map((s) => (
                       <button key={s} type="button" onClick={() => setTipeField('nama_tipe', s)}
-                        className="px-2.5 py-1 text-xs font-medium bg-primary-50 text-primary-600 rounded-full border border-blue-100 hover:bg-primary-100 transition-colors">
+                        className="px-2.5 py-1 text-xs font-medium bg-primary-50 text-primary-600 rounded-full border border-primary-100 hover:bg-primary-100 transition-colors">
                         {s}
                       </button>
                     ))}
@@ -314,19 +314,19 @@ export default function KategoriTipe() {
                 <label className="block text-sm font-medium text-black-700 mb-1">Deskripsi</label>
                 <textarea value={tipeForm.deskripsi} onChange={(e) => setTipeField('deskripsi', e.target.value)} rows={2}
                   placeholder="Deskripsi singkat tentang tipe ini..."
-                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none" />
+                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm resize-none" />
               </div>
               <div className="flex items-center gap-3">
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" checked={tipeForm.aktif} onChange={(e) => setTipeField('aktif', e.target.checked)} className="sr-only peer" />
-                  <div className="w-9 h-5 bg-black-200 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black-200 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-600" />
+                  <div className="w-9 h-5 bg-black-200 peer-focus:ring-2 peer-focus:ring-primary-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black-200 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-500" />
                 </label>
                 <span className="text-sm text-black-700">Aktif</span>
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-accent-100">
+              <div className="flex justify-end gap-3 pt-4 border-t border-black-200">
                 <button type="button" onClick={() => { setShowTipeForm(false); setEditTipe(null); }} className="px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors">Batal</button>
                 <button type="submit" disabled={submittingTipe}
-                  className="px-4 py-2 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors flex items-center gap-2">
+                  className="px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors flex items-center gap-2">
                   {submittingTipe && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
                   {editTipe ? 'Simpan' : 'Tambah'}
                 </button>
@@ -350,7 +350,7 @@ export default function KategoriTipe() {
       <div className="bg-white rounded-xl shadow-sm border border-black-200 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center">
-            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
             <p className="text-sm text-black-400">Memuat data...</p>
           </div>
         ) : filtered.length === 0 ? (
@@ -386,7 +386,7 @@ export default function KategoriTipe() {
                       <span>{kategori.kendaraans_count ?? 0} unit</span>
                     </div>
 
-                    <span className={`px-2 py-1 text-xs font-medium rounded-full shrink-0 ${kategori.aktif ? 'bg-accent-100 text-accent-700' : 'bg-accent-100 text-black-400'}`}>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full shrink-0 ${kategori.aktif ? 'bg-primary-50 text-primary-500' : 'bg-black-100 text-black-400'}`}>
                       {kategori.aktif ? 'Aktif' : 'Nonaktif'}
                     </span>
 
@@ -405,7 +405,7 @@ export default function KategoriTipe() {
                   </div>
 
                   {isExpanded && (
-                    <div className="bg-canvas/70 border-t border-accent-100">
+                    <div className="bg-canvas/70 border-t border-black-200">
                       {kategori.tipes?.length > 0 ? (
                         <div className="divide-y divide-black-200">
                           {kategori.tipes.map((tipe) => {
@@ -415,7 +415,7 @@ export default function KategoriTipe() {
                             return (
                               <Fragment key={tipe.id}>
                                 <div
-                                  className={`flex items-center gap-3 pl-14 pr-4 py-2.5 hover:bg-accent-100/50 transition-colors cursor-pointer ${isTipeExpanded ? 'bg-primary-50/30' : ''}`}
+                                  className={`flex items-center gap-3 pl-14 pr-4 py-2.5 hover:bg-canvas/50 transition-colors cursor-pointer ${isTipeExpanded ? 'bg-primary-50/30' : ''}`}
                                   onClick={() => toggleTipeExpand(tipe.id)}
                                 >
                                   <svg className={`w-3.5 h-3.5 text-black-400 shrink-0 transition-transform duration-200 ${isTipeExpanded ? 'rotate-90' : ''}`}
@@ -431,7 +431,7 @@ export default function KategoriTipe() {
 
                                   <span className="text-xs text-black-400 shrink-0">{tipe.kendaraans_count ?? 0} unit</span>
 
-                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full shrink-0 ${tipe.aktif ? 'bg-accent-100 text-accent-700' : 'bg-accent-100 text-black-400'}`}>
+                                  <span className={`px-2 py-0.5 text-xs font-medium rounded-full shrink-0 ${tipe.aktif ? 'bg-primary-50 text-primary-500' : 'bg-black-100 text-black-400'}`}>
                                     {tipe.aktif ? 'Aktif' : 'Nonaktif'}
                                   </span>
 
@@ -450,11 +450,11 @@ export default function KategoriTipe() {
                                 </div>
 
                                 {isTipeExpanded && (
-                                  <div className="bg-canvas/70 border-t border-accent-100">
+                                  <div className="bg-canvas/70 border-t border-black-200">
                                     <div className="px-14 py-4">
                                       {isLoadingKendaraan ? (
                                         <div className="flex items-center gap-2 py-4">
-                                          <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                                          <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
                                           <span className="text-sm text-black-400">Memuat kendaraan...</span>
                                         </div>
                                       ) : kendaraanList.length === 0 ? (
@@ -466,7 +466,7 @@ export default function KategoriTipe() {
                                           <p className="text-sm font-medium text-black-700">{kendaraanList.length} kendaraan</p>
                                           <div className="bg-white rounded-lg border border-black-200 overflow-hidden">
                                             <table className="w-full text-sm">
-                                              <thead className="bg-accent-100 border-b border-black-200">
+                                              <thead className="bg-canvas border-b border-black-200">
                                                 <tr>
                                                   <th className="text-left px-4 py-2 font-medium text-black-400">Foto</th>
                                                   <th className="text-left px-4 py-2 font-medium text-black-400">Kendaraan</th>
@@ -487,7 +487,7 @@ export default function KategoriTipe() {
                                                           className="w-12 h-12 object-cover rounded-lg border border-black-200"
                                                         />
                                                       ) : (
-                                                        <div className="w-12 h-12 bg-accent-100 rounded-lg border border-black-200 flex items-center justify-center">
+                                                        <div className="w-12 h-12 bg-canvas rounded-lg border border-black-200 flex items-center justify-center">
                                                           <svg className="w-5 h-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                                                         </div>
                                                       )}
