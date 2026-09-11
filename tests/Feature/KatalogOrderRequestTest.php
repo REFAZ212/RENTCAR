@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\GarasiPartner;
 use App\Models\Kategori;
 use App\Models\Kendaraan;
+use App\Models\Notification;
 use App\Models\Order;
 use App\Models\Tipe;
 use App\Models\User;
@@ -147,6 +148,7 @@ class KatalogOrderRequestTest extends TestCase
         Schema::create('notifications', function ($t) {
             $t->id();
             $t->foreignId('user_id')->nullable();
+            $t->foreignId('supir_id')->nullable();
             $t->string('type');
             $t->string('title');
             $t->text('message');
@@ -336,6 +338,46 @@ class KatalogOrderRequestTest extends TestCase
             'customer_id' => $customerId,
             'source' => 'katalog',
         ]);
+    }
+
+    public function test_katalog_order_memicu_notifikasi_ke_admin_panel(): void
+    {
+        Carbon::setTestNow('2026-12-01 10:00:00');
+        try {
+            $this->postJson('/api/katalog/order-request', $this->payload())->assertStatus(201);
+
+            $this->assertDatabaseHas('notifications', [
+                'type' => 'order_baru',
+                'user_id' => null,
+                'supir_id' => null,
+            ]);
+
+            $notif = Notification::where('type', 'order_baru')->first();
+            $this->assertSame('Pesanan Baru dari Katalog', $notif->title);
+            $this->assertSame('/orders', $notif->data['link']);
+            $this->assertSame(Order::first()->id, $notif->data['order_id']);
+
+            $this->actingAs($this->admin)
+                ->getJson('/api/notifications/unread-count')
+                ->assertOk()
+                ->assertJson(['count' => 1]);
+
+            $this->actingAs($this->admin)
+                ->getJson('/api/notifications')
+                ->assertOk()
+                ->assertJsonPath('data.0.type', 'order_baru');
+
+            $this->actingAs($this->admin)
+                ->patchJson('/api/notifications/read-all')
+                ->assertOk();
+
+            $this->actingAs($this->admin)
+                ->getJson('/api/notifications/unread-count')
+                ->assertOk()
+                ->assertJson(['count' => 0]);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_order_request_throttles_per_phone_number(): void

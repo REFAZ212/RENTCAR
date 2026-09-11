@@ -151,16 +151,11 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
       const count = res.data.count;
       const prev = prevCountRef.current;
 
-      if (prev === null) {
-        prevCountRef.current = count;
-        return;
-      }
-
-      if (count > prev) {
+      if (prev !== null && count > prev) {
         await handleNewNotifications(count);
-      } else {
-        prevCountRef.current = count;
       }
+      prevCountRef.current = count;
+      setUnreadCount(count);
     } catch {
       // silent
     }
@@ -274,7 +269,7 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
 
           {showNotifications && (
             <div className="absolute right-0 top-full z-30 mt-2 w-80 overflow-hidden rounded-xl border border-black-200 bg-white shadow-xl sm:w-96">
-              <div className="flex items-center justify-between border-b border-accent-100 px-4 py-3">
+              <div className="flex items-center justify-between border-b border-black-200 px-4 py-3">
                 <h3 className="text-sm font-semibold text-black-800">Notifikasi</h3>
                 {unreadCount > 0 && (
                   <button

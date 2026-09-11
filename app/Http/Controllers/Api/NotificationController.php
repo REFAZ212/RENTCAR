@@ -14,9 +14,10 @@ class NotificationController extends Controller
     {
         $this->authorize('viewAny', Notification::class);
 
-        $notifications = Notification::where(function ($q) {
-            $q->where('user_id', auth()->id())->orWhereNull('user_id');
-        })->orderBy('created_at', 'desc')
+        $notifications = Notification::whereNull('supir_id')
+            ->where(function ($q) {
+                $q->where('user_id', auth()->id())->orWhereNull('user_id');
+            })->orderBy('created_at', 'desc')
             ->paginate(min((int) $request->input('per_page', 20), 50));
 
         return response()->json($notifications);
@@ -26,7 +27,10 @@ class NotificationController extends Controller
     {
         abort_if($request->user() instanceof SupirCalo, 403, 'Akses ditolak. Anda tidak memiliki izin yang cukup.');
 
-        $count = Notification::where('user_id', $request->user()->id)
+        $count = Notification::whereNull('supir_id')
+            ->where(function ($q) use ($request) {
+                $q->where('user_id', $request->user()->id)->orWhereNull('user_id');
+            })
             ->whereNull('read_at')->count();
 
         return response()->json(['count' => $count]);
@@ -45,7 +49,10 @@ class NotificationController extends Controller
     {
         abort_if($request->user() instanceof SupirCalo, 403, 'Akses ditolak. Anda tidak memiliki izin yang cukup.');
 
-        Notification::where('user_id', auth()->id())
+        Notification::whereNull('supir_id')
+            ->where(function ($q) use ($request) {
+                $q->where('user_id', $request->user()->id)->orWhereNull('user_id');
+            })
             ->whereNull('read_at')->update(['read_at' => now()]);
 
         return response()->json(['message' => 'Semua notifikasi ditandai sudah dibaca']);
