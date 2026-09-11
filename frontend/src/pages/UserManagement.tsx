@@ -191,14 +191,15 @@ export default function UserManagement() {
                 <th className="px-4 py-3 text-left font-medium text-black-400">Email</th>
                 <th className="px-4 py-3 text-left font-medium text-black-400">No. HP</th>
                 <th className="px-4 py-3 text-left font-medium text-black-400">Role</th>
+                <th className="px-4 py-3 text-left font-medium text-black-400">Status</th>
                 <th className="px-4 py-3 text-left font-medium text-black-400">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-black-200">
               {loading ? (
-                <tr><td colSpan={5} className="p-12 text-center text-black-400">Memuat data...</td></tr>
+                <tr><td colSpan={6} className="p-12 text-center text-black-400">Memuat data...</td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={5} className="p-12 text-center text-black-400">Tidak ada data user</td></tr>
+                <tr><td colSpan={6} className="p-12 text-center text-black-400">Tidak ada data user</td></tr>
               ) : (
                 items.map((item) => (
                   <tr key={item.id} className="hover:bg-canvas transition-colors">
@@ -227,6 +228,13 @@ export default function UserManagement() {
                           </span>
                         )}
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {item.email_verified_at ? (
+                        <span className="inline-flex rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-600">Aktif</span>
+                      ) : (
+                        <span className="inline-flex rounded-full bg-accent-100 px-2 py-0.5 text-xs font-medium text-accent-700">Belum verifikasi</span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
@@ -258,7 +266,10 @@ export default function UserManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Email <span className="text-error-500">*</span></label>
-                  <input type="email" name="email" value={form.email} onChange={handleFormChange} required className={inputClass} />
+                  <input type="email" name="email" value={form.email} onChange={handleFormChange} required placeholder="nama@gmail.com" className={inputClass} />
+                  <p className="mt-1 text-xs text-black-400">
+                    Wajib akun @gmail.com. Kode OTP akan dikirim ke email ini untuk aktivasi akun.
+                  </p>
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">No. HP</label>

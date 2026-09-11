@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DriverTaskController;
+use App\Http\Controllers\Api\EmailOtpController;
 use App\Http\Controllers\Api\GarasiPartnerController;
 use App\Http\Controllers\Api\GarasiRequestController;
 use App\Http\Controllers\Api\GpsController;
@@ -29,6 +30,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 Route::post('/supir/login', [SupirAuthController::class, 'login'])->middleware('throttle:10,1');
+
+Route::post('/otp/verify', [EmailOtpController::class, 'verify'])->middleware('throttle:10,1');
+Route::post('/otp/resend', [EmailOtpController::class, 'resend'])->middleware('throttle:5,10');
 
 Route::get('/katalog', [KatalogPublicController::class, 'index'])->middleware('throttle:120,1');
 Route::get('/katalog/kategoris', [KatalogPublicController::class, 'kategoris'])->middleware('throttle:120,1');

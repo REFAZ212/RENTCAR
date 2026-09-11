@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\SupirCalo;
 use App\Models\User;
+use App\Services\EmailOtpService;
 use App\Services\WatermarkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,6 +23,13 @@ class UserController extends Controller
             'phone' => 'required|string|max:20',
             'no_sim' => 'required|string|max:64',
             'tarif_per_hari' => 'required|numeric|min:0',
+        ];
+    }
+
+    private static function gmailEmailMessages(): array
+    {
+        return [
+            'email.ends_with' => 'Email harus menggunakan akun @gmail.com.',
         ];
     }
 
@@ -102,7 +110,7 @@ class UserController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
+            'email' => 'required|email|ends_with:@gmail.com|unique:users,email',
             'phone' => ['nullable', 'string', 'max:20', Rule::requiredIf($request->input('role') === 'petugas')],
             'role' => 'required|in:admin_utama,admin_operasional,petugas',
             'password' => ['required', 'confirmed', Password::min(8)],
@@ -110,7 +118,7 @@ class UserController extends Controller
             'nyambi_supir' => 'nullable|boolean',
             'no_sim' => 'nullable|string|max:64',
             'tarif_per_hari' => 'nullable|numeric|min:0',
-        ]);
+        ], self::gmailEmailMessages());
 
         $nyambi = (bool) ($validated['nyambi_supir'] ?? false);
 
@@ -136,7 +144,12 @@ class UserController extends Controller
             $this->syncSupirCalo($user, true, $validated);
         }
 
-        return response()->json($user, 201);
+        app(EmailOtpService::class)->send($user);
+
+        return response()->json([
+            ...$user->toArray(),
+            'email_verified' => $user->email_verified_at !== null,
+        ], 201);
     }
 
     public function show(User $user): JsonResponse
@@ -154,7 +167,7 @@ class UserController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|email|unique:users,email,'.$user->id,
+            'email' => 'sometimes|required|email|ends_with:@gmail.com|unique:users,email,'.$user->id,
             'phone' => ['sometimes', 'nullable', 'string', 'max:20', Rule::requiredIf(($request->input('role') ?? $user->role) === 'petugas')],
             'role' => 'sometimes|required|in:admin_utama,admin_operasional,petugas',
             'password' => ['nullable', 'confirmed', Password::min(8)],
@@ -162,7 +175,7 @@ class UserController extends Controller
             'nyambi_supir' => 'nullable|boolean',
             'no_sim' => 'nullable|string|max:64',
             'tarif_per_hari' => 'nullable|numeric|min:0',
-        ]);
+        ], self::gmailEmailMessages());
 
         $nyambi = $request->has('nyambi_supir')
             ? $request->boolean('nyambi_supir')

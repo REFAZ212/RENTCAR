@@ -26,6 +26,14 @@ class AuthController extends Controller
             ]);
         }
 
+        if ($user->email_verified_at === null) {
+            return response()->json([
+                'message' => 'Email belum diverifikasi. Masukkan kode OTP yang dikirim ke email Anda.',
+                'unverified' => true,
+                'email' => $user->email,
+            ], 422);
+        }
+
         $token = $user->createToken('auth-token')->plainTextToken;
 
         return response()->json([

@@ -342,6 +342,15 @@ export const authAPI = {
 };
 
 /* ─────────────────────────────────────────────────────────────
+ * OTP (verifikasi email aktivasi akun)
+ * ───────────────────────────────────────────────────────────── */
+export const otpAPI = {
+  verify: (data: { email: string; otp: string }): Promise<AxiosResponse<{ message: string; verified?: boolean }>> =>
+    api.post('/otp/verify', data),
+  resend: (data: { email: string }): Promise<AxiosResponse<{ message: string }>> => api.post('/otp/resend', data),
+};
+
+/* ─────────────────────────────────────────────────────────────
  * DASHBOARD
  * ───────────────────────────────────────────────────────────── */
 export interface ChartPendapatanPoint {
@@ -640,6 +649,7 @@ export interface AppUser {
   phone: string | null;
   role: 'admin_utama' | 'admin_operasional' | 'petugas';
   avatar: string | null;
+  email_verified_at: string | null;
   supir_calo?: { id: number; no_sim: string | null; tarif_per_hari: string | number | null } | null;
   created_at: string;
 }

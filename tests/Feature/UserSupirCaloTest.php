@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\SupirCalo;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -16,8 +17,11 @@ class UserSupirCaloTest extends TestCase
     {
         parent::setUp();
 
+        Mail::fake();
+
         Schema::dropIfExists('orders');
         Schema::dropIfExists('supir_calos');
+        Schema::dropIfExists('email_otps');
         Schema::dropIfExists('users');
 
         Schema::create('users', function ($t) {
@@ -30,6 +34,16 @@ class UserSupirCaloTest extends TestCase
             $t->timestamp('email_verified_at')->nullable();
             $t->string('password');
             $t->rememberToken();
+            $t->timestamps();
+        });
+        Schema::create('email_otps', function ($t) {
+            $t->id();
+            $t->string('email')->index();
+            $t->string('token_hash');
+            $t->string('purpose')->default('verify_email');
+            $t->timestamp('expires_at');
+            $t->timestamp('used_at')->nullable();
+            $t->unsignedTinyInteger('attempts')->default(0);
             $t->timestamps();
         });
         Schema::create('supir_calos', function ($t) {
@@ -57,7 +71,7 @@ class UserSupirCaloTest extends TestCase
 
         $this->admin = User::create([
             'name' => 'Admin Utama',
-            'email' => 'admin@test.test',
+            'email' => 'admin@gmail.com',
             'phone' => '081111',
             'role' => 'admin_utama',
             'password' => 'password',
@@ -68,7 +82,7 @@ class UserSupirCaloTest extends TestCase
     {
         $res = $this->actingAs($this->admin)->postJson('/api/users', [
             'name' => 'Petugas A',
-            'email' => 'petugas-a@test.test',
+            'email' => 'petugas-a@gmail.com',
             'phone' => '081234567890',
             'role' => 'petugas',
             'password' => 'password',
@@ -96,7 +110,7 @@ class UserSupirCaloTest extends TestCase
     {
         $res = $this->actingAs($this->admin)->postJson('/api/users', [
             'name' => 'Petugas B',
-            'email' => 'petugas-b@test.test',
+            'email' => 'petugas-b@gmail.com',
             'role' => 'petugas',
             'password' => 'password',
             'password_confirmation' => 'password',
@@ -111,7 +125,7 @@ class UserSupirCaloTest extends TestCase
     {
         $petugas = User::create([
             'name' => 'Petugas Lama',
-            'email' => 'petugas-c@test.test',
+            'email' => 'petugas-c@gmail.com',
             'phone' => '081111222333',
             'role' => 'petugas',
             'password' => 'password',
@@ -141,7 +155,7 @@ class UserSupirCaloTest extends TestCase
     {
         $petugas = User::create([
             'name' => 'Petugas D',
-            'email' => 'petugas-d@test.test',
+            'email' => 'petugas-d@gmail.com',
             'phone' => '081123456789',
             'role' => 'petugas',
             'password' => 'password',
@@ -166,7 +180,7 @@ class UserSupirCaloTest extends TestCase
     {
         $petugas = User::create([
             'name' => 'Petugas E',
-            'email' => 'petugas-e@test.test',
+            'email' => 'petugas-e@gmail.com',
             'phone' => '081987654321',
             'role' => 'petugas',
             'password' => 'password',
