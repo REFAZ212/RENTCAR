@@ -117,14 +117,6 @@ const orderCardBorderColor: Record<string, string> = {
   completed: 'border-t-success-500',
   cancelled: 'border-t-error-500',
 };
-const orderStatusDotColor: Record<string, string> = {
-  pending: 'bg-accent-500',
-  confirmed: 'bg-primary-500',
-  active: 'bg-primary-500',
-  perlu_verifikasi: 'bg-accent-500',
-  completed: 'bg-success-500',
-  cancelled: 'bg-error-500',
-};
 
 interface OrderForm {
   customer_id: string;
@@ -313,44 +305,6 @@ function ImagePreview({ src, onRemove }: { src: string | null; onRemove?: () => 
           <CloseIcon className="h-3 w-3" />
         </button>
       )}
-    </div>
-  );
-}
-
-type StatAccent = 'neutral' | 'success' | 'primary' | 'accent' | 'error';
-
-const statAccentStyles: Record<StatAccent, { bar: string; iconBg: string; iconText: string }> = {
-  neutral: { bar: 'bg-black-700', iconBg: 'bg-black-100', iconText: 'text-black-700' },
-  success: { bar: 'bg-success-500', iconBg: 'bg-success-50', iconText: 'text-success-600' },
-  primary: { bar: 'bg-primary-500', iconBg: 'bg-primary-50', iconText: 'text-primary-600' },
-  accent: { bar: 'bg-accent-500', iconBg: 'bg-accent-50', iconText: 'text-accent-600' },
-  error: { bar: 'bg-error-500', iconBg: 'bg-error-50', iconText: 'text-error-600' },
-};
-
-function StatCard({
-  label,
-  value,
-  icon,
-  accent,
-}: {
-  label: string;
-  value: number;
-  icon: ReactNode;
-  accent: StatAccent;
-}) {
-  const s = statAccentStyles[accent];
-  return (
-    <div className="relative overflow-hidden rounded-xl bg-white p-4 shadow-sm ring-1 ring-black-200 transition-shadow hover:shadow-md">
-      <span className={`absolute left-0 top-0 h-full w-1 ${s.bar}`} aria-hidden="true" />
-      <div className="flex items-center gap-3 pl-1.5">
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${s.iconBg} ${s.iconText}`}>
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <div className="truncate text-[11px] font-medium uppercase tracking-wide text-black-400">{label}</div>
-          <div className="text-xl font-bold leading-tight text-black-900">{value}</div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -716,38 +670,21 @@ export default function Orders() {
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(o);
     }
-    return Array.from(map.entries()).map(([key, list]) => {
-      const [y, m] = key.split('-').map(Number);
-      const label =
-        key === 'tanpa-tanggal' || !y || !m || Number.isNaN(y) || Number.isNaN(m)
-          ? 'Tanpa Tanggal'
-          : new Date(y, m - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-      return { key, label, list };
-    });
+    return Array.from(map.entries())
+      .map(([key, list]) => {
+        const [y, m] = key.split('-').map(Number);
+        const label =
+          key === 'tanpa-tanggal' || !y || !m || Number.isNaN(y) || Number.isNaN(m)
+            ? 'Tanpa Tanggal'
+            : new Date(y, m - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+        return { key, label, list };
+      })
+      .sort((a, b) => {
+        if (a.key === 'tanpa-tanggal') return 1;
+        if (b.key === 'tanpa-tanggal') return -1;
+        return b.key < a.key ? -1 : b.key > a.key ? 1 : 0;
+      });
   }, [items]);
-
-  // Order yang sedang aktif TAPI sudah lewat batas waktu pengembalian.
-  const overdueItems = useMemo(() => items.filter((i) => i.status_order === 'active' && i.jam_overtime_saat_ini > 0), [items]);
-  const verifikasiItems = useMemo(() => items.filter((i) => i.status_order === 'perlu_verifikasi'), [items]);
-  const [alertDismissed, setAlertDismissed] = useState(false);
-  const prevOverdueCountRef = useRef(overdueItems.length);
-  useEffect(() => {
-    // Reset alert hanya jika jumlah overdue BERUBAH (order baru terlambat
-    // atau order terlambat terselesaikan), bukan setiap kali items di-poll.
-    if (overdueItems.length !== prevOverdueCountRef.current) {
-      setAlertDismissed(false);
-      prevOverdueCountRef.current = overdueItems.length;
-    }
-  }, [overdueItems]);
-
-  const [alertVerifikasiDismissed, setAlertVerifikasiDismissed] = useState(false);
-  const prevVerifikasiCountRef = useRef(verifikasiItems.length);
-  useEffect(() => {
-    if (verifikasiItems.length !== prevVerifikasiCountRef.current) {
-      setAlertVerifikasiDismissed(false);
-      prevVerifikasiCountRef.current = verifikasiItems.length;
-    }
-  }, [verifikasiItems]);
 
   const closeCreateModal = () => {
     setShowForm(false);
@@ -1396,201 +1333,6 @@ export default function Orders() {
         </div>
       </div>
 
-      {overdueItems.length > 0 && !alertDismissed && (
-        <div className="animate-fade-in rounded-2xl border border-error-500/30 bg-error-50 p-4 sm:p-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-error-500">
-              <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01M4.93 19h14.14a1 1 0 00.87-1.5L12.87 4.5a1 1 0 00-1.74 0L4.06 17.5A1 1 0 004.93 19z"
-                />
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold text-error-600">{overdueItems.length} order terlambat dikembalikan</h3>
-                <button
-                  onClick={() => setAlertDismissed(true)}
-                  className="shrink-0 rounded-lg p-1 text-error-500 transition-colors hover:bg-error-50 hover:text-error-600"
-                  title="Tutup"
-                >
-                  <CloseIcon className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="mt-2.5 space-y-1.5">
-                {overdueItems.slice(0, 5).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg bg-white/70 px-3 py-2 text-xs">
-                    <div className="min-w-0 truncate">
-                      <span className="font-mono font-semibold text-error-600">{item.kode_order}</span>
-                      <span className="text-error-600">
-                        {' '}
-                        — {item.customer?.nama_lengkap} · {item.kendaraan?.nama_kendaraan}
-                      </span>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="whitespace-nowrap font-medium text-error-600">
-                        {formatJam(item.jam_overtime_saat_ini)} · {formatRupiah(item.denda_overtime_saat_ini)}
-                      </span>
-                      {canManage && (
-                        <button
-                          onClick={() => openCompleteModal(item)}
-                          className="whitespace-nowrap rounded-md bg-error-500 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-error-600"
-                        >
-                          Selesaikan
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {overdueItems.length > 5 && <p className="pl-1 text-xs text-error-600">+{overdueItems.length - 5} order lainnya juga terlambat</p>}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {verifikasiItems.length > 0 && !alertVerifikasiDismissed && (
-        <div className="animate-fade-in rounded-2xl border border-amber-500/30 bg-amber-50 p-4 sm:p-5">
-          <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500">
-              <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4m0 4h.01M16.5 5.5L4.5 19.5m12.6-.1L4.5 6.5M4.5 19.5L21 4.5M6.5 18.5h11a1 1 0 001-1v-2.5a1 1 0 00-.3-.7M6 18v-2.5a1 1 0 01.3-.7"
-                />
-              </svg>
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold text-amber-700">{verifikasiItems.length} order perlu verifikasi pengembalian</h3>
-                <button
-                  onClick={() => setAlertVerifikasiDismissed(true)}
-                  className="shrink-0 rounded-lg p-1 text-amber-600 transition-colors hover:bg-amber-50 hover:text-amber-700"
-                  title="Tutup"
-                >
-                  <CloseIcon className="h-4 w-4" />
-                </button>
-              </div>
-              <p className="mt-1 text-xs text-amber-700">
-                Order lewat batas waktu yang belum dikonfirmasi. Denda telah dibekukan; periksa dan konfirmasi pengembalian untuk melepaskan denda atau menyelesaikan order.
-              </p>
-              <div className="mt-2.5 space-y-1.5">
-                {verifikasiItems.slice(0, 5).map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg bg-white/70 px-3 py-2 text-xs">
-                    <div className="min-w-0 truncate">
-                      <span className="font-mono font-semibold text-amber-700">{item.kode_order}</span>
-                      <span className="text-amber-700">
-                        {' '}
-                        — {item.customer?.nama_lengkap} · {item.kendaraan?.nama_kendaraan}
-                      </span>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="whitespace-nowrap font-medium text-amber-700">
-                        {formatJam(item.jam_overtime_saat_ini)} · {formatRupiah(item.denda_overtime_saat_ini)}
-                      </span>
-                      {canManage && (
-                        <button
-                          onClick={() => openCompleteModal(item)}
-                          className="whitespace-nowrap rounded-md bg-amber-500 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-amber-600"
-                        >
-                          Selesaikan
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {verifikasiItems.length > 5 && (
-                  <p className="pl-1 text-xs text-amber-700">+{verifikasiItems.length - 5} order lainnya juga perlu verifikasi</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard
-          label="Total Order"
-          value={stats.total}
-          icon={
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-              />
-            </svg>
-          }
-          accent="neutral"
-        />
-        <StatCard
-          label="Sedang Aktif"
-          value={stats.aktif}
-          icon={
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M13 10V3L4 14h7v7l9-11h-7z"
-              />
-            </svg>
-          }
-          accent="primary"
-        />
-        <StatCard
-          label="Menunggu"
-          value={stats.menunggu}
-          icon={
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          }
-          accent="accent"
-        />
-        <StatCard
-          label="Perlu Verifikasi"
-          value={stats.perluVerifikasi}
-          icon={
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M12 9v2m0 4h.01M16.5 5.5L4.5 19.5m12.6-.1L4.5 6.5M4.5 19.5L21 4.5M6.5 18.5h11a1 1 0 001-1v-2.5a1 1 0 00-.3-.7M6 18v-2.5a1 1 0 01.3-.7"
-              />
-            </svg>
-          }
-          accent="accent"
-        />
-        <StatCard
-          label="Terlambat"
-          value={stats.terlambat}
-          icon={
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M12 9v2m0 4h.01M4.93 19h14.14a1 1 0 00.87-1.5L12.87 4.5a1 1 0 00-1.74 0L4.06 17.5A1 1 0 004.93 19z"
-              />
-            </svg>
-          }
-          accent="error"
-        />
-      </div>
-
       {/* ── Filter (disatukan) ── */}
       <div className="space-y-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black-200">
         <div className="relative">
@@ -1663,7 +1405,7 @@ export default function Orders() {
                       <div
                         className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-colors ${
                           createStep > s.step
-                            ? 'bg-accent-500 text-white'
+                            ? 'bg-primary-500 text-white'
                             : createStep === s.step
                               ? 'bg-primary-500 text-white'
                               : 'bg-black-200 text-black-500'
@@ -1680,7 +1422,7 @@ export default function Orders() {
                       </span>
                     </div>
                     {idx < 2 && (
-                      <div className={`mx-3 h-px w-8 sm:w-16 ${createStep > s.step ? 'bg-accent-400' : 'bg-black-200'}`} />
+                      <div className={`mx-3 h-px w-8 sm:w-16 ${createStep > s.step ? 'bg-primary-400' : 'bg-black-200'}`} />
                     )}
                   </div>
                 ))}
@@ -1697,7 +1439,7 @@ export default function Orders() {
                   </h3>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <label className="mb-1 block text-sm font-medium text-black-700">Nama Customer *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Nama Customer <span className="text-error-500">*</span></label>
                   <div className="relative" ref={customerSearchRef}>
                     <input
                       type="text"
@@ -1760,7 +1502,7 @@ export default function Orders() {
                   )}
                 </div>
                 <div>
-                      <label className="mb-1 block text-sm font-medium text-black-700">No. HP *</label>
+                      <label className="mb-1 block text-sm font-medium text-black-700">No. HP <span className="text-error-500">*</span></label>
                       <input type="text" value={form.customer_no_hp} onChange={(e) => setField('customer_no_hp', e.target.value)} required className={inputClass} placeholder="08xxx" />
                     </div>
                     <div>
@@ -1778,7 +1520,7 @@ export default function Orders() {
                       )}
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-black-700">No. SIM *</label>
+                      <label className="mb-1 block text-sm font-medium text-black-700">No. SIM <span className="text-error-500">*</span></label>
                       <input type="text" value={form.customer_no_sim} onChange={(e) => setField('customer_no_sim', e.target.value)} required className={inputClass} placeholder="Wajib diisi" />
                     </div>
                     <div>
@@ -1786,11 +1528,11 @@ export default function Orders() {
                       <input type="email" value={form.customer_email} onChange={(e) => setField('customer_email', e.target.value)} className={inputClass} placeholder="opsional" />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="mb-1 block text-sm font-medium text-black-700">Alamat *</label>
+                      <label className="mb-1 block text-sm font-medium text-black-700">Alamat <span className="text-error-500">*</span></label>
                       <input type="text" value={form.customer_alamat} onChange={(e) => setField('customer_alamat', e.target.value)} required className={inputClass} placeholder="Wajib diisi" />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="mb-1 block text-sm font-medium text-black-700">Dokumen Identitas * <span className="font-normal text-black-400">(wajib untuk customer baru)</span></label>
+                      <label className="mb-1 block text-sm font-medium text-black-700">Dokumen Identitas <span className="text-error-500">*</span> <span className="font-normal text-black-400">(wajib untuk customer baru)</span></label>
                       <p className="mb-2 text-xs text-black-400">Upload salah satu: KTP, Paspor, atau SIM</p>
                       {custFotoKtpPreview && (
                         <div className="mb-2">
@@ -1814,7 +1556,7 @@ export default function Orders() {
                   <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18M3 11v6a1 1 0 001 1h1a1 1 0 001-1v-1h12v1a1 1 0 001 1h1a1 1 0 001-1v-6" /></svg>
                   Pilih Kendaraan
                 </h3>
-                <label className="mb-1 block text-sm font-medium text-black-700">Kendaraan *</label>
+                <label className="mb-1 block text-sm font-medium text-black-700">Kendaraan <span className="text-error-500">*</span></label>
                 {kendaraans.length === 0 ? (
                   <p className="text-sm italic text-black-400">Tidak ada kendaraan tersedia</p>
                 ) : (
@@ -1886,9 +1628,9 @@ export default function Orders() {
                                   </svg>
                                 )}
                                 {!available && (
-                                  <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-error-500/90 px-2.5 py-0.5 text-[10px] font-semibold text-white shadow">
-                                    {k.status === 'maintenance' ? 'Maintenance' : 'Sedang Disewa'}
-                                  </span>
+<span className={`absolute bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-semibold text-white shadow ${k.status === 'maintenance' ? 'bg-amber-500/90' : 'bg-primary-500/90'}`}>
+                                {k.status === 'maintenance' ? 'Servis' : 'Sedang Disewa'}
+                              </span>
                                 )}
                               </div>
                               <div className="space-y-1 p-3">
@@ -1988,7 +1730,7 @@ export default function Orders() {
                 </h3>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-black-700">Tanggal Mulai *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Tanggal Mulai <span className="text-error-500">*</span></label>
                   <input
                     type="date"
                     value={form.tanggal_mulai}
@@ -2003,7 +1745,7 @@ export default function Orders() {
                   <input type="time" value={form.jam_mulai} onChange={(e) => setField('jam_mulai', e.target.value)} min={form.tanggal_mulai === todayJakarta() ? nowWIBTime() : undefined} className={inputClass} />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-black-700">Tanggal Selesai *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Tanggal Selesai <span className="text-error-500">*</span></label>
                   <input
                     type="date"
                     value={form.tanggal_selesai}
@@ -2054,7 +1796,7 @@ export default function Orders() {
                 {form.status_pembayaran !== 'unpaid' && (
                   <div>
                     <label className="mb-1 block text-sm font-medium text-black-700">
-                      Jumlah Dibayar (Rp) {form.status_pembayaran === 'paid' ? '*' : ''}
+                      Jumlah Dibayar (Rp) {form.status_pembayaran === 'paid' ? <span className="text-error-500">*</span> : ''}
                     </label>
                     <input
                       type="number"
@@ -2152,7 +1894,7 @@ export default function Orders() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">
-                    {form.metode_penyerahan === 'antar' ? 'Alamat Pengantaran *' : 'Lokasi Ambil'}
+                    {form.metode_penyerahan === 'antar' ? <>Alamat Pengantaran <span className="text-error-500">*</span></> : 'Lokasi Ambil'}
                   </label>
                   <input
                     type="text"
@@ -2165,7 +1907,7 @@ export default function Orders() {
                   {form.metode_penyerahan === 'antar' && <p className="mt-0.5 text-xs text-black-400">Biaya antar belum dihitung otomatis — hubungi admin untuk biaya pengantaran</p>}
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-black-700">Tujuan *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Tujuan <span className="text-error-500">*</span></label>
                   <input type="text" value={form.tujuan} onChange={(e) => setField('tujuan', e.target.value)} required className={inputClass} placeholder="Tujuan penggunaan kendaraan" />
                 </div>
               </div>
@@ -2469,7 +2211,7 @@ export default function Orders() {
                 </h3>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="md:col-span-2">
-                  <label className="mb-1 block text-sm font-medium text-black-700">Nama Customer *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Nama Customer <span className="text-error-500">*</span></label>
                   <div className="relative" ref={editCustomerSearchRef}>
                     <input
                       type="text"
@@ -2524,7 +2266,7 @@ export default function Orders() {
                 {(editForm.customer_id || editForm.customer_name) && (
                   <>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-black-700">No. HP *</label>
+                      <label className="mb-1 block text-sm font-medium text-black-700">No. HP <span className="text-error-500">*</span></label>
                       <input type="text" value={editForm.customer_no_hp || ''} onChange={(e) => setEditField('customer_no_hp', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="08xxx" />
                     </div>
                     <div>
@@ -2542,7 +2284,7 @@ export default function Orders() {
                       )}
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium text-black-700">No. SIM *</label>
+                      <label className="mb-1 block text-sm font-medium text-black-700">No. SIM <span className="text-error-500">*</span></label>
                       <input type="text" value={editForm.customer_no_sim || ''} onChange={(e) => setEditField('customer_no_sim', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="Wajib diisi" />
                     </div>
                     <div>
@@ -2550,7 +2292,7 @@ export default function Orders() {
                       <input type="email" value={editForm.customer_email || ''} onChange={(e) => setEditField('customer_email', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="opsional" />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="mb-1 block text-sm font-medium text-black-700">Alamat *</label>
+                      <label className="mb-1 block text-sm font-medium text-black-700">Alamat <span className="text-error-500">*</span></label>
                       <input type="text" value={editForm.customer_alamat || ''} onChange={(e) => setEditField('customer_alamat', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="Wajib diisi" />
                     </div>
                     <div className="md:col-span-2">
@@ -2746,8 +2488,8 @@ export default function Orders() {
                               </svg>
                             )}
                             {!available && (
-                              <span className="absolute bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-error-500/90 px-2.5 py-0.5 text-[10px] font-semibold text-white shadow">
-                                {k.status === 'maintenance' ? 'Maintenance' : 'Sedang Disewa'}
+                              <span className={`absolute bottom-1.5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full px-2.5 py-0.5 text-[10px] font-semibold text-white shadow ${k.status === 'maintenance' ? 'bg-amber-500/90' : 'bg-primary-500/90'}`}>
+                                {k.status === 'maintenance' ? 'Servis' : 'Sedang Disewa'}
                               </span>
                             )}
                           </div>
@@ -2961,12 +2703,12 @@ export default function Orders() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">
-                    {editForm.metode_penyerahan === 'antar' ? 'Alamat Pengantaran *' : 'Lokasi Ambil'}
+                    {editForm.metode_penyerahan === 'antar' ? <>Alamat Pengantaran <span className="text-error-500">*</span></> : 'Lokasi Ambil'}
                   </label>
                   <input type="text" value={editForm.alamat_jemput || ''} onChange={(e) => setEditField('alamat_jemput', e.target.value)} required={editForm.metode_penyerahan === 'antar'} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder={editForm.metode_penyerahan === 'antar' ? 'Alamat tujuan pengantaran kendaraan' : 'Lokasi pengambilan kendaraan'} />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-black-700">Tujuan *</label>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Tujuan <span className="text-error-500">*</span></label>
                   <input type="text" value={editForm.tujuan || ''} onChange={(e) => setEditField('tujuan', e.target.value)} disabled={isConfirmedBerAktivitas} className={`${inputClass} ${isConfirmedBerAktivitas ? 'cursor-not-allowed bg-canvas text-black-400' : ''}`} placeholder="Tujuan penggunaan kendaraan" />
                 </div>
               </div>
@@ -3956,11 +3698,12 @@ export default function Orders() {
           <div className="col-span-full space-y-8">
             {groupedItems.map((group) => (
               <section key={group.key} className="space-y-4" aria-label={group.label}>
-                <div className="sticky top-2 z-10 flex items-center gap-2 rounded-xl border border-black-200 bg-white/90 px-4 py-2.5 shadow-sm backdrop-blur">
-                  <span className="font-display text-sm font-bold text-black-900">{group.label}</span>
-                  <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-600">{group.list.length} order</span>
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-2xl bg-white p-4 shadow-sm">
+                  <div className="sticky top-2 z-10 mb-4 flex items-center gap-2 bg-white/95 backdrop-blur">
+                    <span className="font-display text-sm font-bold text-black-900">{group.label}</span>
+                    <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-600">{group.list.length} order</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {group.list.map((item) => {
                     const isAktif = item.status_order === 'active';
             const isPerluVerifikasi = item.status_order === 'perlu_verifikasi';
@@ -3989,14 +3732,9 @@ export default function Orders() {
                         {isTerlambat ? 'Terlambat' : statusOrderLabels[item.status_order]}
                       </span>
                     </div>
-                    {(isAktif || item.source === 'katalog') && (
+                    {item.source === 'katalog' && (
                       <div className="mt-1 flex items-center gap-1.5">
-                        {isAktif && (
-                          <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isTerlambat ? 'bg-error-500' : orderStatusDotColor[item.status_order]} animate-pulse`} />
-                        )}
-                        {item.source === 'katalog' && (
-                          <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-600">Katalog</span>
-                        )}
+                        <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-600">Katalog</span>
                       </div>
                     )}
                   </div>
@@ -4017,34 +3755,6 @@ export default function Orders() {
 
                 {/* ── Body ── */}
                 <div className="flex flex-1 flex-col gap-3 p-4 pt-3">
-                  {/* ── Stepper status ── */}
-                  {item.status_order !== 'cancelled' ? (
-                    <div className="flex items-center gap-1.5">
-                      {['Dikonfirmasi', 'Disewa', 'Selesai'].map((label, i) => {
-                        const stepIndex =
-                          item.status_order === 'pending' ? 0
-                          : item.status_order === 'confirmed' ? 1
-                          : item.status_order === 'active' || item.status_order === 'perlu_verifikasi' ? 2
-                          : 3;
-                        const done = i < stepIndex;
-                        const stepColor = done ? 'bg-primary-500' : 'bg-black-200';
-                        const textColor = done ? 'text-primary-600' : 'text-black-400';
-                        return (
-                          <div key={label} className="flex min-w-0 flex-1 items-center gap-1.5">
-                            <span className={`h-2 w-2 shrink-0 rounded-full ${i === 1 && isPerluVerifikasi ? 'bg-accent-500' : stepColor} ${isPerluVerifikasi && i === 1 ? 'animate-pulse' : ''}`} />
-                            <span className={`truncate text-[10px] font-medium ${i === 1 && isPerluVerifikasi ? 'text-accent-700' : textColor}`}>{label}</span>
-                            {i < 2 && <span className={`h-px flex-1 ${i + 1 < stepIndex ? 'bg-primary-300' : 'bg-black-200'}`} />}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 shrink-0 rounded-full bg-error-500" />
-                      <span className="text-[10px] font-medium text-error-600">Order dibatalkan</span>
-                    </div>
-                  )}
-
                   {/* ── Inspeksi status banner ── */}
                   {item.status_order === 'confirmed' && item.operator_id && (
                     <div className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${
@@ -4064,7 +3774,6 @@ export default function Orders() {
 
                   {/* CUSTOMER */}
                   <div>
-                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-black-300">Customer</p>
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex min-w-0 items-center gap-2.5">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-bold text-primary-600">
@@ -4092,7 +3801,6 @@ export default function Orders() {
 
                   {/* KENDARAAN */}
                   <div>
-                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-black-300">Kendaraan</p>
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-black-50 text-black-400">
                         {item.kendaraan?.foto ? (
@@ -4104,27 +3812,33 @@ export default function Orders() {
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium text-black-900">{item.kendaraan?.nama_kendaraan}</p>
                         <p className="truncate font-mono text-xs text-black-400">{item.kendaraan?.plat_nomor}</p>
+                        {item.kendaraan?.warna && (
+                          <p className="mt-0.5 flex items-center gap-1.5 text-xs text-black-400">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-black-200" style={{ backgroundColor: warnaKendaraanHex(item.kendaraan.warna) || '#E5E7EB' }} />
+                            <span className="truncate">{item.kendaraan.warna}</span>
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
 
                   {/* PERIODE / TOTAL */}
-                  <div className="border-t border-gray-100 pt-3">
+                  <div>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-black-300">Periode</p>
-                        <div className="flex items-center gap-1.5 text-xs text-black-600">
-                          <svg className="h-3.5 w-3.5 shrink-0 text-black-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                          <span>{fmtDate(item.tanggal_mulai)} {fmtTime(item.jam_mulai)}</span>
-                        </div>
-                        <div className="mt-0.5 flex items-center gap-1.5 pl-5 text-xs text-black-600">
-                          <span className="text-black-300">→</span>
-                          <span>{fmtDate(item.tanggal_selesai)} {fmtTime(item.jam_selesai)}</span>
+                        <div className="flex items-start gap-1.5 text-xs text-black-600">
+                          <div className="flex w-3.5 shrink-0 flex-col items-center text-black-300">
+                            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            <span className="mt-1 leading-none">→</span>
+                          </div>
+                          <div className="min-w-0">
+                            <div className="leading-tight">{fmtDate(item.tanggal_mulai)} {fmtTime(item.jam_mulai)}</div>
+                            <div className="mt-0.5 leading-tight">{fmtDate(item.tanggal_selesai)} {fmtTime(item.jam_selesai)}</div>
+                          </div>
                         </div>
                         <p className="mt-1 pl-5 text-[11px] text-black-400">{item.durasi_hari} hari</p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-black-300">Total</p>
                         <p className="text-sm font-bold text-black-900">
                           {formatRupiah(
                             Number(item.harga_total) +
@@ -4180,41 +3894,24 @@ export default function Orders() {
                   )}
 
                   {/* Bayar / Pengiriman */}
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-gray-100 pt-3 text-xs">
-                    <span className="text-black-400">
-                      Bayar:{' '}
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusPembayaranColors[item.status_pembayaran]}`}>
-                        {statusPembayaranLabels[item.status_pembayaran]}
-                      </span>
+                  <div className="flex flex-wrap items-center border-t border-gray-100 pt-3 text-xs">
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${item.status_order === 'cancelled' ? 'bg-black-100 text-black-400' : statusPembayaranColors[item.status_pembayaran]}`}>
+                      {statusPembayaranLabels[item.status_pembayaran]}
                     </span>
-                    <span className="text-black-400">
-                      Pengiriman:{' '}
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusPengirimanColors[item.status_pengiriman]}`}>
-                        {statusPengirimanLabels[item.status_pengiriman]}
-                      </span>
+                    <span className="mx-1.5 text-black-300">·</span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${item.status_order === 'cancelled' ? 'bg-black-100 text-black-400' : statusPengirimanColors[item.status_pengiriman]}`}>
+                      {statusPengirimanLabels[item.status_pengiriman]}
                     </span>
                   </div>
 
                   {/* Actions */}
                   {canManage && item.status_order !== 'cancelled' && (
-                    <div className="mt-auto flex flex-wrap gap-2 pt-1">
+                    <div className="mt-auto grid grid-cols-2 gap-2 pt-1">
                         {isAktif && (
                           <>
                             <button onClick={() => openCompleteModal(item)} className="flex-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-500">Selesai</button>
                             <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-black-500 transition-colors hover:bg-gray-50">Batal</button>
                           </>
-                        )}
-                        {isSelesai && (
-                          <button
-                            disabled
-                            title="Order sudah selesai"
-                            className="flex flex-1 cursor-not-allowed items-center justify-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-black-400"
-                          >
-                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                            </svg>
-                            Selesai
-                          </button>
                         )}
                         {isPerluVerifikasi && (
                           <>
@@ -4235,7 +3932,7 @@ export default function Orders() {
                           </>
                         )}
                         {item.status_order === 'confirmed' && (
-                          <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-black-500 transition-colors hover:bg-gray-50">Batal</button>
+                          <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="col-span-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-black-500 transition-colors hover:bg-gray-50">Batal</button>
                         )}
                     </div>
                   )}
@@ -4243,6 +3940,7 @@ export default function Orders() {
               </div>
             );
                   })}
+                </div>
                 </div>
               </section>
             ))}
