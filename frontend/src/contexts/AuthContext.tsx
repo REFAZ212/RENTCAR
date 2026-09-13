@@ -5,11 +5,12 @@ import {
   useEffect,
   ReactNode,
 } from "react";
+
 import { authAPI } from "../services/api";
 
 /* ============================
    Types
-======================== */
+============================ */
 
 export interface User {
   id: number;
@@ -27,14 +28,17 @@ interface LoginResponse {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-
   login: (
     email: string,
     password: string
   ) => Promise<LoginResponse>;
-
+  setSession: (token: string, user: User) => void;
   logout: () => Promise<void>;
 }
+
+/* ============================
+   Auth Helpers
+============================ */
 
 function clearAuth() {
   localStorage.removeItem("token");
@@ -42,14 +46,41 @@ function clearAuth() {
 }
 
 /* ============================
-   Context
-======================== */
+   Device ID
+============================ */
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+/**
+ * Mengambil device ID dari localStorage.
+ *
+ * Jika belum ada, buat ID unik baru.
+ * ID ini akan tetap sama selama localStorage
+ * browser tersebut tidak dihapus.
+ */
+function getDeviceId(): string {
+  const STORAGE_KEY = "rentcar_device_id";
+
+  let deviceId = localStorage.getItem(STORAGE_KEY);
+
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+
+    localStorage.setItem(STORAGE_KEY, deviceId);
+  }
+
+  return deviceId;
+}
+
+/* ============================
+   Context
+============================ */
+
+const AuthContext = createContext<AuthContextType | undefined>(
+  undefined
+);
 
 /* ============================
    Provider
-======================== */
+============================ */
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -77,13 +108,26 @@ export function AuthProvider({
     setLoading(false);
   }, []);
 
+  /* ============================
+     Login
+  ============================ */
+
   const login = async (
     email: string,
     password: string
   ): Promise<LoginResponse> => {
+    /*
+     * Ambil device ID browser ini.
+     *
+     * Device ID tidak berubah setiap login.
+     * Device baru akan mempunyai ID berbeda.
+     */
+    const deviceId = getDeviceId();
+
     const { data } = await authAPI.login({
       email,
       password,
+      device_id: deviceId,
     });
 
     localStorage.setItem("token", data.token);
@@ -98,6 +142,10 @@ export function AuthProvider({
     return data;
   };
 
+  /* ============================
+     Logout
+  ============================ */
+
   const logout = async (): Promise<void> => {
     try {
       await authAPI.logout();
@@ -106,19 +154,25 @@ export function AuthProvider({
     }
 
     clearAuth();
-
     setUser(null);
   };
 
+const setSession = (token: string, user: User): void => {
+  localStorage.setItem("token", token);
+  localStorage.setItem("user", JSON.stringify(user));
+  setUser(user);
+};
+
   return (
     <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        login,
-        logout,
-      }}
-    >
+  value={{
+    user,
+    loading,
+    login,
+    setSession,
+    logout,
+  }}
+>
       {children}
     </AuthContext.Provider>
   );
@@ -126,7 +180,7 @@ export function AuthProvider({
 
 /* ============================
    Hook
-======================== */
+============================ */
 
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);

@@ -36,4 +36,9 @@ class User extends Authenticatable
     {
         return $this->hasOne(SupirCalo::class);
     }
+
+    public function devices(): HasMany
+    {
+        return $this->hasMany(UserDevice::class);
+    }
 }

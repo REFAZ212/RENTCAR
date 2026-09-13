@@ -12,7 +12,7 @@ class UserSeeder extends Seeder
     {
         User::create([
             'name' => 'Admin Utama',
-            'email' => 'admin@udin-renctcar.com',
+            'email' => 'admin@udinrentcar.com',
             'phone' => '0895361054272',
             'role' => 'admin_utama',
             'password' => Hash::make('password'),

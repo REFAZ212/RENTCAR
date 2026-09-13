@@ -99,7 +99,12 @@ const emptyForm: KendaraanFormState = {
   catatan: '',
 };
 
-const fotoUrl = (foto?: string | null) => (foto ? (foto.startsWith('http') ? foto : `/storage/${foto}`) : null);
+const fotoUrl = (foto?: string | null) =>
+  foto
+    ? foto.startsWith('http')
+      ? foto
+      : `https://api.udinrentcar.com/storage/${foto}`
+    : null;
 
 const formatTgl = (v?: string | null) => {
   if (!v) return '-';
