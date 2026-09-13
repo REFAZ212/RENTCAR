@@ -84,6 +84,14 @@ const fmtTime = (t: string | null | undefined) => {
     return t.length > 5 ? t.substring(0, 5) : t;
 };
 
+const getStorageUrl = (path: string | null | undefined): string | null => {
+    if (!path) return null;
+
+    if (path.startsWith('http')) return path;
+
+    return `https://api.udinrentcar.com/storage/${path}`;
+};
+
 const SectionHeading = ({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) => (
     <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-black-500">
         {icon}
@@ -330,7 +338,7 @@ export default function OrderDetail() {
                     <div className="flex flex-wrap items-start gap-4">
                         <div className="flex items-center gap-3">
                             {order.kendaraan?.foto ? (
-                                <img src={`/storage/${order.kendaraan.foto}`} alt="" className="h-14 w-16 shrink-0 rounded-lg object-cover" />
+                                <img src={getStorageUrl(order.kendaraan.foto) || ''} alt="" className="h-14 w-16 shrink-0 rounded-lg object-cover" />
                             ) : (
                                 <div className="flex h-14 w-16 shrink-0 items-center justify-center rounded-lg bg-black-50 text-black-300">
                                     <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18" /></svg>
@@ -521,9 +529,9 @@ export default function OrderDetail() {
                             {order.bukti_transfer && (
                                 <div>
                                     <p className="mb-1.5 text-xs text-black-400">Bukti Pembayaran</p>
-                                    <a href={`/storage/${order.bukti_transfer}`} target="_blank" rel="noopener noreferrer">
-                                        <img
-                                            src={`/storage/${order.bukti_transfer}`}
+                                    <a href={getStorageUrl(order.bukti_transfer) || '#'} target="_blank" rel="noopener noreferrer">
+    <img
+        src={getStorageUrl(order.bukti_transfer) || ''}
                                             alt="Bukti Transfer"
                                             className="h-24 w-full cursor-pointer rounded-xl border border-gray-200 object-cover transition-all hover:ring-2 hover:ring-primary-400 sm:h-32"
                                         />
@@ -533,9 +541,9 @@ export default function OrderDetail() {
                             {order.bukti_pengiriman && (
                                 <div>
                                     <p className="mb-1.5 text-xs text-black-400">Bukti Pengiriman</p>
-                                    <a href={`/storage/${order.bukti_pengiriman}`} target="_blank" rel="noopener noreferrer">
-                                        <img
-                                            src={`/storage/${order.bukti_pengiriman}`}
+                                    <a href={getStorageUrl(order.bukti_pengiriman) || '#'} target="_blank" rel="noopener noreferrer">
+    <img
+        src={getStorageUrl(order.bukti_pengiriman) || ''}
                                             alt="Bukti Pengiriman"
                                             className="h-24 w-full cursor-pointer rounded-xl border border-gray-200 object-cover transition-all hover:ring-2 hover:ring-primary-400 sm:h-32"
                                         />
@@ -545,9 +553,9 @@ export default function OrderDetail() {
                             {order.bukti_pengembalian && (
                                 <div>
                                     <p className="mb-1.5 text-xs text-black-400">Bukti Pengembalian</p>
-                                    <a href={`/storage/${order.bukti_pengembalian}`} target="_blank" rel="noopener noreferrer">
-                                        <img
-                                            src={`/storage/${order.bukti_pengembalian}`}
+                                    <a href={getStorageUrl(order.bukti_pengembalian) || '#'} target="_blank" rel="noopener noreferrer">
+    <img
+        src={getStorageUrl(order.bukti_pengembalian) || ''}
                                             alt="Bukti Pengembalian"
                                             className="h-24 w-full cursor-pointer rounded-xl border border-gray-200 object-cover transition-all hover:ring-2 hover:ring-primary-400 sm:h-32"
                                         />

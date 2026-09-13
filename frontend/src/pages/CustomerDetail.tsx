@@ -37,6 +37,14 @@ const statusFilters = [
     { key: 'pending', label: 'Menunggu' },
 ];
 
+const getStorageUrl = (path: string | null | undefined): string | null => {
+    if (!path) return null;
+
+    if (path.startsWith('http')) return path;
+
+    return `https://api.udinrentcar.com/storage/${path}`;
+};
+
 function DetailSkeleton() {
     return (
         <div className="space-y-6">
@@ -169,7 +177,7 @@ active: 'Sedang Disewa',
                         <div className="flex gap-4">
                             {k?.foto ? (
                                 <img
-                                    src={`/storage/${k.foto}`}
+                                    src={getStorageUrl(k.foto) || ''}
                                     alt={k.nama_kendaraan}
                                     className="w-24 h-20 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
                                 />
@@ -323,12 +331,16 @@ active: 'Sedang Disewa',
                                     <div className="text-center">
                                         <p className="text-xs text-black-400 mb-1">Bukti Transfer</p>
                                         <a
-                                            href={`/storage/${order.bukti_transfer}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="block w-20 h-20 rounded-lg border border-black-200 overflow-hidden hover:border-primary-300 transition-colors"
-                                        >
-                                            <img src={`/storage/${order.bukti_transfer}`} alt="Bukti transfer" className="w-full h-full object-cover" />
+    href={`https://api.udinrentcar.com/storage/${order.bukti_transfer}`}
+    target="_blank"
+    rel="noopener noreferrer"
+    className="block w-20 h-20 rounded-lg border border-black-200 overflow-hidden hover:border-primary-300 transition-colors"
+>
+                                            <img
+  src={`https://api.udinrentcar.com/storage/${order.bukti_transfer}`}
+  alt="Bukti transfer"
+  className="w-full h-full object-cover"
+/>
                                         </a>
                                     </div>
                                 )}
@@ -336,12 +348,16 @@ active: 'Sedang Disewa',
                                     <div className="text-center">
                                         <p className="text-xs text-black-400 mb-1">Bukti Pengiriman</p>
                                         <a
-                                            href={`/storage/${order.bukti_pengiriman}`}
+                                            href={`https://api.udinrentcar.com/storage/${order.bukti_pengiriman}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="block w-20 h-20 rounded-lg border border-black-200 overflow-hidden hover:border-primary-300 transition-colors"
                                         >
-                                            <img src={`/storage/${order.bukti_pengiriman}`} alt="Bukti pengiriman" className="w-full h-full object-cover" />
+                                            <img
+  src={`https://api.udinrentcar.com/storage/${order.bukti_pengiriman}`}
+  alt="Bukti pengiriman"
+  className="w-full h-full object-cover"
+/>
                                         </a>
                                     </div>
                                 )}
@@ -349,12 +365,16 @@ active: 'Sedang Disewa',
                                     <div className="text-center">
                                         <p className="text-xs text-black-400 mb-1">Bukti Pengembalian</p>
                                         <a
-                                            href={`/storage/${order.bukti_pengembalian}`}
+                                            href={`https://api.udinrentcar.com/storage/${order.bukti_pengembalian}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="block w-20 h-20 rounded-lg border border-black-200 overflow-hidden hover:border-primary-300 transition-colors"
                                         >
-                                            <img src={`/storage/${order.bukti_pengembalian}`} alt="Bukti pengembalian" className="w-full h-full object-cover" />
+                                            <img
+  src={`https://api.udinrentcar.com/storage/${order.bukti_pengembalian}`}
+  alt="Bukti pengembalian"
+  className="w-full h-full object-cover"
+/>
                                         </a>
                                     </div>
                                 )}
@@ -548,10 +568,15 @@ export default function CustomerDetail() {
                             <div className="space-y-2">
                                 <p className="text-xs font-medium text-black-500">KTP</p>
                                 <img
-                                    src={`/storage/${customer.foto_ktp}`}
+                                    src={getStorageUrl(customer.foto_ktp) || ''}
                                     alt={`KTP ${customer.nama_lengkap}`}
                                     className="h-32 w-48 cursor-pointer rounded-lg border border-black-200 object-cover transition-shadow hover:shadow-md"
-                                    onClick={() => openZoom(`/storage/${customer.foto_ktp}`, `KTP ${customer.nama_lengkap}`)}
+                                    onClick={() =>
+    openZoom(
+        getStorageUrl(customer.foto_ktp) || '',
+        `KTP ${customer.nama_lengkap}`
+    )
+}
                                 />
                             </div>
                         )}
@@ -559,10 +584,15 @@ export default function CustomerDetail() {
                             <div className="space-y-2">
                                 <p className="text-xs font-medium text-black-500">SIM</p>
                                 <img
-                                    src={`/storage/${customer.foto_sim}`}
+                                    src={getStorageUrl(customer.foto_sim) || ''}
                                     alt={`SIM ${customer.nama_lengkap}`}
                                     className="h-32 w-48 cursor-pointer rounded-lg border border-black-200 object-cover transition-shadow hover:shadow-md"
-                                    onClick={() => openZoom(`/storage/${customer.foto_sim}`, `SIM ${customer.nama_lengkap}`)}
+                                    onClick={() =>
+                                        openZoom(
+                                            getStorageUrl(customer.foto_sim) || '',
+                                            `SIM ${customer.nama_lengkap}`
+                                        )
+                                    }
                                 />
                             </div>
                         )}

@@ -200,10 +200,12 @@ function GarasiPartnerTab() {
     });
     setKendaraanFotoFile(null);
     setKendaraanFotoPreview(
-      k.foto
-        ? k.foto.startsWith('http') ? k.foto : `/storage/${k.foto}`
-        : null,
-    );
+  k.foto
+    ? k.foto.startsWith('http')
+      ? k.foto
+      : `https://api.udinrentcar.com/storage/${k.foto}`
+    : null,
+);
     setEditKendaraanItem(k);
     setShowKendaraanForm(true);
   };
@@ -620,7 +622,7 @@ function GarasiPartnerTab() {
                                       <td className="px-4 py-2.5">
                                         {k.foto ? (
                                           <img
-                                            src={k.foto.startsWith('http') ? k.foto : `/storage/${k.foto}`}
+                                            src={k.foto.startsWith('http') ? k.foto : `https://api.udinrentcar.com/storage/${k.foto}`}
                                             alt={k.nama_kendaraan}
                                             className={`w-12 h-12 object-cover rounded-lg border border-black-200 ${statusPhotoClass(k.status)}`}
                                           />
@@ -860,12 +862,12 @@ function GarasiSayaTab() {
     });
     setFotoFile(null);
     setFotoPreview(
-      item.foto
-        ? item.foto.startsWith('http')
-          ? item.foto
-          : `/storage/${item.foto}`
-        : null,
-    );
+  item.foto
+    ? item.foto.startsWith('http')
+      ? item.foto
+      : `https://api.udinrentcar.com/storage/${item.foto}`
+    : null,
+);
     setEditItem(item);
     setShowForm(true);
   };

@@ -206,7 +206,11 @@ export default function UserManagement() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {item.avatar ? (
-                          <img src={`/storage/${item.avatar}`} alt="" className="h-8 w-8 rounded-full object-cover" />
+                          <img
+  src={`https://api.udinrentcar.com/storage/${item.avatar}`}
+  alt=""
+  className="h-8 w-8 rounded-full object-cover"
+/>
                         ) : (
                           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black-200">
                             <Users size={14} className="text-black-400" />

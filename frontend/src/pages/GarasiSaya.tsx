@@ -155,7 +155,13 @@ export default function GarasiSaya() {
       harga_sewa_per_hari: item.harga_sewa_per_hari, harga_partner_per_hari: item.harga_partner_per_hari ?? '', status: item.status, catatan: item.catatan || '',
     });
     setFotoFile(null);
-    setFotoPreview(item.foto ? (item.foto.startsWith('http') ? item.foto : `/storage/${item.foto}`) : null);
+    setFotoPreview(
+  item.foto
+    ? item.foto.startsWith('http')
+      ? item.foto
+      : `https://api.udinrentcar.com/storage/${item.foto}`
+    : null,
+);
     setEditItem(item);
     setShowForm(true);
   };
@@ -445,8 +451,11 @@ export default function GarasiSaya() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       {item.foto ? (
-                        <img src={item.foto.startsWith('http') ? item.foto : `/storage/${item.foto}`}
-                          alt={item.nama_kendaraan} className={`w-10 h-10 rounded-lg object-cover border border-black-200 shrink-0 ${statusPhotoClass(item.status)}`} />
+                       <img
+  src={item.foto.startsWith('http') ? item.foto : `https://api.udinrentcar.com/storage/${item.foto}`}
+  alt={item.nama_kendaraan}
+  className={`w-10 h-10 rounded-lg object-cover border border-black-200 shrink-0 ${statusPhotoClass(item.status)}`}
+/>
                       ) : (
                         <div className="w-10 h-10 bg-accent-100 rounded-lg flex items-center justify-center shrink-0">
                           <svg className="w-5 h-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
