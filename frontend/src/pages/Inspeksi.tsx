@@ -1191,10 +1191,15 @@ const formatDate = (d: string) => {
                   <p className="text-xs font-medium text-black-500">Dokumentasi Kendaraan</p>
                   <div className="mt-2 grid grid-cols-2 gap-3">
                     {(showDetail.fotos ?? []).map((foto, i) => (
-                      <img key={`foto-${i}`} src={`/storage/${foto}`} alt={`Foto ${i + 1}`} className="max-h-40 w-full rounded-lg object-cover" />
+                      <img
+  key={`foto-${i}`}
+  src={`https://api.udinrentcar.com/storage/${foto}`}
+  alt={`Foto ${i + 1}`}
+  className="max-h-40 w-full rounded-lg object-cover"
+/>
                     ))}
                     {(showDetail.videos ?? []).map((video, i) => (
-                      <video key={`video-${i}`} src={`/storage/${video}`} controls className="max-h-40 w-full rounded-lg bg-black" />
+                      <video key={`video-${i}`} src={`https://api.udinrentcar.com/storage/${video}`} controls className="max-h-40 w-full rounded-lg bg-black" />
                     ))}
                   </div>
                 </div>
@@ -1205,10 +1210,10 @@ const formatDate = (d: string) => {
                 <div>
                   <p className="text-xs font-medium text-black-500">Foto Kendaraan</p>
                   <img
-                    src={`/storage/${showDetail.foto}`}
-                    alt={`Inspeksi #${showDetail.id}`}
-                    className="mt-2 max-h-64 rounded-lg object-cover"
-                  />
+  src={`https://api.udinrentcar.com/storage/${showDetail.foto}`}
+  alt={`Inspeksi #${showDetail.id}`}
+  className="mt-2 max-h-64 rounded-lg object-cover"
+/>
                 </div>
               )}
 
@@ -1218,13 +1223,17 @@ const formatDate = (d: string) => {
                   {showDetail.ttd_customer && (
                     <div>
                       <p className="text-xs font-medium text-black-500">Tanda Tangan Customer</p>
-                      <img src={`/storage/${showDetail.ttd_customer}`} alt="TTD Customer" className="mt-2 h-16 rounded-lg border border-black-200 bg-white object-contain" />
+                      <img
+  src={`https://api.udinrentcar.com/storage/${showDetail.ttd_customer}`}
+  alt="TTD Customer"
+  className="mt-2 h-16 rounded-lg border border-black-200 bg-white object-contain"
+/>
                     </div>
                   )}
                   {showDetail.ttd_petugas && (
                     <div>
                       <p className="text-xs font-medium text-black-500">Tanda Tangan Petugas</p>
-                      <img src={`/storage/${showDetail.ttd_petugas}`} alt="TTD Petugas" className="mt-2 h-16 rounded-lg border border-black-200 bg-white object-contain" />
+                      <img src={`https://api.udinrentcar.com/storage/${showDetail.ttd_petugas}`} alt="TTD Petugas" className="mt-2 h-16 rounded-lg border border-black-200 bg-white object-contain" />
                     </div>
                   )}
                 </div>

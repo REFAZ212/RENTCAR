@@ -268,7 +268,7 @@ type QueryParams = Record<string, string | number | boolean | undefined>;
  * AXIOS INSTANCE
  * ───────────────────────────────────────────────────────────── */
 const api = axios.create({
-  baseURL: '/api',
+   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -327,6 +327,7 @@ export default api;
 export interface LoginPayload {
   email: string;
   password: string;
+  device_id: string;
 }
 
 export interface LoginResponse {
@@ -335,9 +336,34 @@ export interface LoginResponse {
 }
 
 export const authAPI = {
-  login: (data: LoginPayload): Promise<AxiosResponse<LoginResponse>> => api.post('/login', data),
-  logout: (): Promise<AxiosResponse<void>> => api.post('/logout'),
-  me: (): Promise<AxiosResponse<SingleResponse<AuthUser>>> => api.get('/me'),
+  login: (
+    data: LoginPayload
+  ): Promise<AxiosResponse<LoginResponse>> =>
+    api.post('/login', data),
+
+  verifyLoginOtp: (
+    data: {
+      email: string;
+      otp: string;
+      device_id: string;
+    }
+  ): Promise<AxiosResponse<LoginResponse>> =>
+    api.post('/otp/login/verify', data),
+
+  resendLoginOtp: (
+    data: {
+      email: string;
+    }
+  ): Promise<AxiosResponse<{ message: string }>> =>
+    api.post('/otp/login/resend', data),
+
+  logout: (): Promise<AxiosResponse<void>> =>
+    api.post('/logout'),
+
+  me: (): Promise<
+    AxiosResponse<SingleResponse<AuthUser>>
+  > =>
+    api.get('/me'),
 };
 
 /* ─────────────────────────────────────────────────────────────

@@ -33,8 +33,10 @@ const SORT_OPTIONS = [
 
 const getFotoUrl = (foto: string | null | undefined): string | null => {
   if (!foto) return null;
+
   if (foto.startsWith('http')) return foto;
-  return `/storage/${foto}`;
+
+  return `https://api.udinrentcar.com/storage/${foto}`;
 };
 
 function useDebounce<T>(value: T, delay: number): T {

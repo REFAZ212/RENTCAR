@@ -229,7 +229,8 @@ export default function SupirCalo() {
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const getFileUrl = (path) => path ? `/storage/${path}` : null;
+  const getFileUrl = (path) =>
+  path ? `https://api.udinrentcar.com/storage/${path}` : null;
 
   const openCreate = () => {
     setForm(emptyForm);

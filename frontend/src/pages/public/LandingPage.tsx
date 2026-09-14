@@ -19,6 +19,7 @@ import {
   Heart,
   Quote,
   AlertCircle,
+  Wrench,
 } from 'lucide-react';
 import { katalogAPI, type KatalogItem } from '../../services/api';
 import { formatRupiah, ADMIN_WA } from '../../lib/format';
@@ -27,9 +28,53 @@ import heroVideo from '../../assets/hero.mp4';
 
 const getFotoUrl = (foto: string | null | undefined): string | null => {
   if (!foto) return null;
+
   if (foto.startsWith('http')) return foto;
-  return `/storage/${foto}`;
+
+  return `https://api.udinrentcar.com/storage/${foto}`;
 };
+
+/**
+ * Menentukan label & style badge status kendaraan.
+ * Menangani 3 kondisi: tersedia, sedang disewa, dan sedang servis (maintenance).
+ * Pola ini disamakan dengan getStatusInfo di halaman Katalog.tsx.
+ */
+function getStatusInfo(item: KatalogItem) {
+  if (item.status === 'maintenance') {
+    return {
+      label: 'Sedang Servis',
+      color: 'bg-accent-500',
+      textColor: 'text-accent-600',
+      bgColor: 'bg-accent-50',
+      borderColor: 'border-accent-200',
+      disabled: true,
+      reason: 'maintenance' as const,
+      icon: Wrench,
+    };
+  }
+  if (item.status === 'disewa') {
+    return {
+      label: 'Sedang Disewa',
+      color: 'bg-error-500',
+      textColor: 'text-error-600',
+      bgColor: 'bg-error-50',
+      borderColor: 'border-error-200',
+      disabled: true,
+      reason: 'disewa' as const,
+      icon: Clock,
+    };
+  }
+  return {
+    label: 'Tersedia',
+    color: 'bg-success-500',
+    textColor: 'text-success-600',
+    bgColor: 'bg-success-50',
+    borderColor: 'border-success-200',
+    disabled: false,
+    reason: null as null,
+    icon: Check,
+  };
+}
 
 const layananItems = [
   { icon: Car, title: 'Rental Harian', desc: 'Sewa mobil untuk kebutuhan harian Anda' },
@@ -313,6 +358,8 @@ export default function LandingPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {featured.map((item) => {
                 const fotoUrl = getFotoUrl(item.foto);
+                const statusInfo = getStatusInfo(item);
+                const StatusIcon = statusInfo.icon;
                 return (
                   <AnimatedSection key={item.id} delay={0}>
                     <Link
@@ -337,6 +384,13 @@ export default function LandingPage() {
                             {item.tipe.nama_tipe}
                           </span>
                         )}
+                        {statusInfo.disabled && (
+                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                            <span className={`px-3 py-1.5 ${statusInfo.color} text-white text-xs font-bold rounded-full shadow-lg`}>
+                              {statusInfo.label}
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div className="p-4">
                         <h3 className="font-bold text-black group-hover:text-primary-600 transition-colors line-clamp-1">
@@ -350,17 +404,36 @@ export default function LandingPage() {
                             <Star key={i} className="w-3.5 h-3.5 text-accent-500 fill-accent-500" />
                           ))}
                         </div>
-                        <div className="mt-3 pt-3 border-t border-accent-100 flex items-center justify-between">
+                        <div className="mt-3 pt-3 border-t border-accent-100 flex items-center justify-between gap-2">
                           <span className="text-lg font-bold text-primary-600">
                             {formatRupiah(item.harga_sewa_per_hari)}
                             <span className="text-xs text-black-400 font-normal">/Hari</span>
                           </span>
-                          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-success-50 text-success-600">
-                            Tersedia
+                          <span
+                            className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${statusInfo.bgColor} ${statusInfo.textColor}`}
+                          >
+                            <StatusIcon className="w-3 h-3" />
+                            {statusInfo.label}
                           </span>
                         </div>
-                        <span className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl group-hover:bg-primary-700 transition-colors">
-                          Sewa Sekarang
+                        {statusInfo.reason === 'disewa' && item.estimated_return_date && (
+                          <p className="text-[11px] text-black-400 mt-1.5">
+                            Perkiraan kembali:{' '}
+                            {new Date(item.estimated_return_date + 'T00:00:00').toLocaleDateString('id-ID', {
+                              day: 'numeric',
+                              month: 'long',
+                              year: 'numeric',
+                            })}
+                          </p>
+                        )}
+                        <span
+                          className={`mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors ${
+                            statusInfo.disabled
+                              ? 'bg-canvas text-black-600 border border-black-200 group-hover:bg-black-200'
+                              : 'bg-primary-600 text-white group-hover:bg-primary-700'
+                          }`}
+                        >
+                          {statusInfo.disabled ? 'Lihat Detail' : 'Sewa Sekarang'}
                         </span>
                       </div>
                     </Link>

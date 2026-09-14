@@ -977,13 +977,26 @@ export default function Orders() {
       catatan: item.catatan || '',
     });
     setEditBuktiFile(null);
-    setEditBuktiPreview(item.bukti_transfer ? `/storage/${item.bukti_transfer}` : null);
-    setEditBuktiNewPreview(null);
-    setEditCustFotoKtpFile(null);
-    setEditCustFotoKtpPreview(item.customer?.foto_ktp ? `/storage/${item.customer.foto_ktp}` : null);
-    setEditCustFotoKtpDelete(false);
-    setNewPaymentAmount('');
-    setShowEditForm(true);
+
+setEditBuktiPreview(
+    item.bukti_transfer
+        ? `https://api.udinrentcar.com/storage/${item.bukti_transfer}`
+        : null
+);
+
+setEditBuktiNewPreview(null);
+
+setEditCustFotoKtpFile(null);
+
+setEditCustFotoKtpPreview(
+    item.customer?.foto_ktp
+        ? `https://api.udinrentcar.com/storage/${item.customer.foto_ktp}`
+        : null
+);
+
+setEditCustFotoKtpDelete(false);
+setNewPaymentAmount('');
+setShowEditForm(true);
   };
 
   const closeEditModal = () => {
@@ -1613,10 +1626,14 @@ export default function Orders() {
                               <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-t-[10px] bg-canvas">
                                 {k.foto ? (
                                   <img
-                                    src={k.foto.startsWith('http') ? k.foto : `/storage/${k.foto}`}
-                                    alt={k.nama_kendaraan}
-                                    className={`h-full w-full object-cover ${!available ? 'grayscale blur-[1px]' : ''}`}
-                                  />
+                                    src={
+                                      k.foto.startsWith('http')
+                                      ? k.foto
+                                      : `https://api.udinrentcar.com/storage/${k.foto}`
+                                           }
+                                         alt={k.nama_kendaraan}
+                                           className={`h-full w-full object-cover ${!available ? 'grayscale blur-[1px]' : ''}`}
+                                    />
                                 ) : (
                                   <svg className={`h-10 w-10 text-black-200 ${!available ? 'grayscale' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path
@@ -2095,7 +2112,11 @@ export default function Orders() {
                           {p.catatan && <p className="mt-1 text-xs text-black-500 italic">{p.catatan}</p>}
                         </div>
                         {p.bukti_transfer && (
-                          <img src={`/storage/${p.bukti_transfer}`} alt="Bukti" className="h-12 w-16 shrink-0 rounded border border-black-200 object-cover" />
+                          <img
+  src={`https://api.udinrentcar.com/storage/${p.bukti_transfer}`}
+  alt="Bukti"
+  className="h-12 w-16 shrink-0 rounded border border-black-200 object-cover"
+/>
                         )}
                       </div>
                     ))}
@@ -2302,7 +2323,11 @@ export default function Orders() {
                           {editingOrder.customer?.foto_ktp ? (
                             <div>
                               <p className="mb-1 text-xs text-black-400">Dokumen Identitas</p>
-                              <img src={`/storage/${editingOrder.customer.foto_ktp}`} alt="Dokumen Identitas" className="h-20 w-28 rounded-lg border border-black-200 object-cover" />
+                              <img
+  src={`https://api.udinrentcar.com/storage/${editingOrder.customer.foto_ktp}`}
+  alt="Dokumen Identitas"
+  className="h-20 w-28 rounded-lg border border-black-200 object-cover"
+/>
                             </div>
                           ) : (
                             <p className="text-xs italic text-black-400">Dokumen tidak diunggah</p>
@@ -2316,7 +2341,11 @@ export default function Orders() {
                               onRemove={() => {
                                 if (editCustFotoKtpPreview) URL.revokeObjectURL(editCustFotoKtpPreview);
                                 setEditCustFotoKtpFile(null);
-                                setEditCustFotoKtpPreview(editingOrder.customer?.foto_ktp ? `/storage/${editingOrder.customer.foto_ktp}` : null);
+                                setEditCustFotoKtpPreview(
+  editingOrder.customer?.foto_ktp
+    ? `https://api.udinrentcar.com/storage/${editingOrder.customer.foto_ktp}`
+    : null
+);
                               }}
                             />
                           ) : editCustFotoKtpPreview && !editCustFotoKtpDelete ? (
@@ -2473,10 +2502,14 @@ export default function Orders() {
                           <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-t-[10px] bg-canvas">
                             {k.foto ? (
                               <img
-                                src={k.foto.startsWith('http') ? k.foto : `/storage/${k.foto}`}
-                                alt={k.nama_kendaraan}
-                                className={`h-full w-full object-cover ${!available ? 'grayscale blur-[1px]' : ''}`}
-                              />
+  src={
+    k.foto.startsWith('http')
+      ? k.foto
+      : `https://api.udinrentcar.com/storage/${k.foto}`
+  }
+  alt={k.nama_kendaraan}
+  className={`h-full w-full object-cover ${!available ? 'grayscale blur-[1px]' : ''}`}
+/>
                             ) : (
                               <svg className={`h-10 w-10 text-black-200 ${!available ? 'grayscale' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
@@ -2734,7 +2767,11 @@ export default function Orders() {
                 <label className="mb-1 block text-sm font-medium text-black-700">Bukti Pembayaran</label>
                 {isFullyLocked ? (
                   editingOrder.bukti_transfer ? (
-                    <img src={`/storage/${editingOrder.bukti_transfer}`} alt="Bukti Pembayaran" className="h-24 w-32 rounded-lg border border-black-200 object-cover" />
+                    <img
+  src={`https://api.udinrentcar.com/storage/${editingOrder.bukti_transfer}`}
+  alt="Bukti Pembayaran"
+  className="h-24 w-32 rounded-lg border border-black-200 object-cover"
+/>
                   ) : (
                     <p className="text-sm italic text-black-400">Tidak ada bukti pembayaran</p>
                   )
@@ -2755,7 +2792,11 @@ export default function Orders() {
                     onRemove={() => {
                       if (editBuktiNewPreview) URL.revokeObjectURL(editBuktiNewPreview);
                       setEditBuktiFile(null);
-                      setEditBuktiPreview(editingOrder.bukti_transfer ? `/storage/${editingOrder.bukti_transfer}` : null);
+                      setEditBuktiPreview(
+  editingOrder.bukti_transfer
+    ? `https://api.udinrentcar.com/storage/${editingOrder.bukti_transfer}`
+    : null
+);
                       setEditBuktiNewPreview(null);
                     }}
                   />
@@ -2931,7 +2972,11 @@ export default function Orders() {
                 <div className="flex flex-wrap items-start gap-4">
                   <div className="flex items-center gap-3">
                     {detailOrder.kendaraan?.foto ? (
-                      <img src={`/storage/${detailOrder.kendaraan.foto}`} alt="" className="h-14 w-16 shrink-0 rounded-lg object-cover" />
+                      <img
+  src={`https://api.udinrentcar.com/storage/${detailOrder.kendaraan.foto}`}
+  alt=""
+  className="h-14 w-16 shrink-0 rounded-lg object-cover"
+/>
                     ) : (
                       <div className="flex h-14 w-16 shrink-0 items-center justify-center rounded-lg bg-black-50 text-black-300">
                         <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18" /></svg>
@@ -3152,9 +3197,13 @@ export default function Orders() {
                   {detailOrder.bukti_transfer && (
                     <div>
                       <p className="mb-1.5 text-xs text-black-400">Bukti Pembayaran</p>
-                      <a href={`/storage/${detailOrder.bukti_transfer}`} target="_blank" rel="noopener noreferrer">
-                        <img
-                          src={`/storage/${detailOrder.bukti_transfer}`}
+                      <a
+  href={`https://api.udinrentcar.com/storage/${detailOrder.bukti_transfer}`}
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img
+    src={`https://api.udinrentcar.com/storage/${detailOrder.bukti_transfer}`}
                           alt="Bukti Transfer"
                           className="h-24 w-full cursor-pointer rounded-xl border border-gray-200 object-cover transition-all hover:ring-2 hover:ring-primary-400 sm:h-32"
                         />
@@ -3164,9 +3213,14 @@ export default function Orders() {
                   {detailOrder.bukti_pengiriman && (
                     <div>
                       <p className="mb-1.5 text-xs text-black-400">Bukti Pengiriman</p>
-                      <a href={`/storage/${detailOrder.bukti_pengiriman}`} target="_blank" rel="noopener noreferrer">
-                        <img
-                          src={`/storage/${detailOrder.bukti_pengiriman}`}
+                      <a
+  href={`https://api.udinrentcar.com/storage/${detailOrder.bukti_pengiriman}`}
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img
+    src={`https://api.udinrentcar.com/storage/${detailOrder.bukti_pengiriman}`}
+                      
                           alt="Bukti Pengiriman"
                           className="h-24 w-full cursor-pointer rounded-xl border border-gray-200 object-cover transition-all hover:ring-2 hover:ring-primary-400 sm:h-32"
                         />
@@ -3176,9 +3230,13 @@ export default function Orders() {
                   {detailOrder.bukti_pengembalian && (
                     <div>
                       <p className="mb-1.5 text-xs text-black-400">Bukti Pengembalian</p>
-                      <a href={`/storage/${detailOrder.bukti_pengembalian}`} target="_blank" rel="noopener noreferrer">
-                        <img
-                          src={`/storage/${detailOrder.bukti_pengembalian}`}
+                      <a
+  href={`https://api.udinrentcar.com/storage/${detailOrder.bukti_pengembalian}`}
+  target="_blank"
+  rel="noopener noreferrer"
+>
+  <img
+    src={`https://api.udinrentcar.com/storage/${detailOrder.bukti_pengembalian}`}
                           alt="Bukti Pengembalian"
                           className="h-24 w-full cursor-pointer rounded-xl border border-gray-200 object-cover transition-all hover:ring-2 hover:ring-primary-400 sm:h-32"
                         />
@@ -3804,7 +3862,11 @@ export default function Orders() {
                     <div className="flex items-center gap-2.5">
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-black-50 text-black-400">
                         {item.kendaraan?.foto ? (
-                          <img src={`/storage/${item.kendaraan.foto}`} alt="" className="h-8 w-8 rounded-lg object-cover" />
+                          <img
+  src={`https://api.udinrentcar.com/storage/${item.kendaraan.foto}`}
+  alt=""
+  className="h-8 w-8 rounded-lg object-cover"
+/>
                         ) : (
                           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 17h.01M16 17h.01M3 11l1.5-5A2 2 0 016.4 4h11.2a2 2 0 011.9 1.4L21 11M3 11h18" /></svg>
                         )}

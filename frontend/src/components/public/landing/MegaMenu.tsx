@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import { ADMIN_WA } from '../../../lib/format';
 import logo from '../../../assets/logorentcar.png';
 
-/* ─── Navigation Data ────────────────────────────────────────────────── */
+/* Navigation Data */
 
 interface NavItem {
   label: string;
@@ -35,10 +35,7 @@ const navItems: NavItem[] = [
       { label: 'Event Transportation', href: '/layanan/event', desc: 'Transportasi skala besar' },
     ],
   },
-  {
-    label: 'Armada',
-    href: '/katalog',
-  },
+  { label: 'Armada', href: '/katalog' },
   {
     label: 'Media',
     children: [
@@ -51,7 +48,7 @@ const navItems: NavItem[] = [
   { label: 'Kontak', href: '/kontak' },
 ];
 
-/* ─── Mega Menu Dropdown ─────────────────────────────────────────────── */
+/* Mega Menu Dropdown */
 
 function MegaDropdown({ item, onClose }: { item: NavItem; onClose: () => void }) {
   if (!item.children) return null;
@@ -75,18 +72,28 @@ function MegaDropdown({ item, onClose }: { item: NavItem; onClose: () => void })
   );
 }
 
-/* ─── Mobile Menu ────────────────────────────────────────────────────── */
+/* Mobile Menu */
 
 function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [expanded, setExpanded] = useState<string | null>(null);
-  const location = useLocation();
 
-  useEffect(() => { onClose(); }, [location.pathname, onClose]);
+  useEffect(() => {
+    if (open) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [open]);
 
   if (!open) return null;
 
   return (
-    <div className="lg:hidden fixed inset-0 top-16 z-40 bg-white overflow-y-auto">
+    <div
+      className="lg:hidden fixed left-0 right-0 bottom-0 bg-white overflow-y-auto"
+      style={{ top: '64px', zIndex: 60 }}
+    >
       <div className="px-5 py-4 space-y-1">
         {navItems.map((item) => (
           <div key={item.label}>
@@ -102,8 +109,12 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
                 {expanded === item.label && (
                   <div className="pl-4 pb-1">
                     {item.children.map((child) => (
-                      <Link key={child.href} to={child.href} onClick={onClose}
-                        className="block px-3 py-2 text-sm text-black-600 rounded-lg hover:bg-canvas">
+                      <Link
+                        key={child.href}
+                        to={child.href}
+                        onClick={onClose}
+                        className="block px-3 py-2 text-sm text-black-600 rounded-lg hover:bg-canvas"
+                      >
                         {child.label}
                       </Link>
                     ))}
@@ -111,17 +122,23 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
                 )}
               </>
             ) : (
-              <Link to={item.href || '#'} onClick={onClose}
-                className="block px-3 py-2.5 text-sm font-medium text-black-700 rounded-lg hover:bg-canvas">
+              <Link
+                to={item.href || '#'}
+                onClick={onClose}
+                className="block px-3 py-2.5 text-sm font-medium text-black-700 rounded-lg hover:bg-canvas"
+              >
                 {item.label}
               </Link>
             )}
           </div>
         ))}
         <div className="pt-3 border-t border-accent-100 mt-3">
-          <a href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20reservasi`}
-            target="_blank" rel="noopener noreferrer"
-            className="block px-3 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-lg text-center">
+          <a
+            href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20reservasi`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block px-3 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-lg text-center"
+          >
             Reservasi
           </a>
         </div>
@@ -130,7 +147,7 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   );
 }
 
-/* ─── Main Navbar ────────────────────────────────────────────────────── */
+/* Main Navbar */
 
 export default function MegaMenu({ solid = false }: { solid?: boolean }) {
   const [scrolled, setScrolled] = useState(solid);
@@ -145,6 +162,14 @@ export default function MegaMenu({ solid = false }: { solid?: boolean }) {
     return () => window.removeEventListener('scroll', onScroll);
   }, [solid]);
 
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth >= 1024) setMobileOpen(false);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const handleMouseEnter = (label: string) => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setOpenDropdown(label);
@@ -155,18 +180,17 @@ export default function MegaMenu({ solid = false }: { solid?: boolean }) {
   };
 
   return (
-    <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      scrolled
-        ? 'bg-white/95 backdrop-blur-md shadow-md'
-        : 'bg-transparent'
-    }`}>
+    <>
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled ? 'bg-white/95 backdrop-blur-md shadow-md' : 'bg-transparent'
+      }`}
+    >
       <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20 flex items-center justify-between h-16">
-        {/* Logo */}
         <Link to="/" className="flex items-center gap-2.5 shrink-0">
           <img src={logo} alt="UDIN RENCTCAR" className="h-10 w-auto" />
         </Link>
 
-        {/* Desktop nav */}
         <div className="hidden lg:flex items-center gap-0.5">
           {navItems.map((item) => (
             <div
@@ -185,7 +209,10 @@ export default function MegaMenu({ solid = false }: { solid?: boolean }) {
               ) : (
                 <button className="inline-flex items-center gap-1 px-3 py-2 text-[13px] font-medium rounded-lg transition-colors text-black/70 hover:text-black hover:bg-black/5">
                   {item.label}
-                  <ChevronDown size={12} className={`transition-transform duration-200 ${openDropdown === item.label ? 'rotate-180' : ''}`} />
+                  <ChevronDown
+                    size={12}
+                    className={`transition-transform duration-200 ${openDropdown === item.label ? 'rotate-180' : ''}`}
+                  />
                 </button>
               )}
               {item.children && openDropdown === item.label && (
@@ -195,7 +222,6 @@ export default function MegaMenu({ solid = false }: { solid?: boolean }) {
           ))}
         </div>
 
-        {/* Right */}
         <div className="flex items-center gap-2">
           <a
             href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20reservasi`}
@@ -206,15 +232,17 @@ export default function MegaMenu({ solid = false }: { solid?: boolean }) {
             Reservasi
           </a>
           <button
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className="lg:hidden p-2 rounded-lg transition-colors text-black hover:bg-black/5"
+            type="button"
+            onClick={() => setMobileOpen((prev) => !prev)}
+            className="lg:hidden relative z-50 p-2 rounded-lg transition-colors text-black hover:bg-black/5"
+            aria-label={mobileOpen ? 'Tutup menu' : 'Buka menu'}
           >
             {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
       </div>
-
-      <MobileMenu open={mobileOpen} onClose={() => setMobileOpen(false)} />
     </nav>
+    <MobileMenu open={mobileOpen} onClose={() => setMobileOpen(false)} />
+    </>
   );
 }

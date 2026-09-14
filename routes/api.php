@@ -29,10 +29,30 @@ use App\Http\Controllers\Api\WhatsAppLogController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::options('/login', function () {
+    return response()->noContent()->withHeaders([
+        'Access-Control-Allow-Origin' => 'https://udinrentcar.com, http://localhost:5173, http://127.0.0.1:5173',
+        'Access-Control-Allow-Methods' => 'POST, OPTIONS',
+        'Access-Control-Allow-Headers' => 'Content-Type, Authorization',
+    ]);
+});
 Route::post('/supir/login', [SupirAuthController::class, 'login'])->middleware('throttle:10,1');
+Route::options('/supir/login', function () {
+    return response()->noContent()->withHeaders([
+        'Access-Control-Allow-Origin' => 'https://udinrentcar.com, http://localhost:5173, http://127.0.0.1:5173',
+        'Access-Control-Allow-Methods' => 'POST, OPTIONS',
+        'Access-Control-Allow-Headers' => 'Content-Type, Authorization',
+    ]);
+});
 
 Route::post('/otp/verify', [EmailOtpController::class, 'verify'])->middleware('throttle:10,1');
 Route::post('/otp/resend', [EmailOtpController::class, 'resend'])->middleware('throttle:5,10');
+
+Route::post('/otp/login/verify', [EmailOtpController::class, 'verifyLogin'])
+    ->middleware('throttle:10,1');
+
+Route::post('/otp/login/resend', [EmailOtpController::class, 'resendLogin'])
+    ->middleware('throttle:5,10');
 
 Route::get('/katalog', [KatalogPublicController::class, 'index'])->middleware('throttle:120,1');
 Route::get('/katalog/kategoris', [KatalogPublicController::class, 'kategoris'])->middleware('throttle:120,1');
