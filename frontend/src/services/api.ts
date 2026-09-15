@@ -205,6 +205,13 @@ export interface KatalogItem extends Kendaraan {
   rented_until_time?: string | null;
 }
 
+export interface JamOperasional {
+  hari: string;
+  buka?: string;
+  tutup?: string;
+  libur?: boolean;
+}
+
 export interface DashboardSummary {
   stats: {
     total_kendaraan: number;
@@ -253,6 +260,7 @@ export interface ListResponse<T> {
     last_page: number;
     total: number;
     per_page: number;
+    jam_operasional?: JamOperasional[];
   };
 }
 
@@ -490,14 +498,41 @@ export interface OrderRequestPayload {
 export interface OrderRequestResponse {
   order: Order;
   wa_link: string;
+  jam_operasional?: JamOperasional[];
 }
 
 export const katalogAPI = {
   list: (params?: QueryParams): Promise<AxiosResponse<ListResponse<KatalogItem>>> => api.get('/katalog', { params }),
   kategoris: (): Promise<AxiosResponse<ListResponse<KategoriKendaraan>>> => api.get('/katalog/kategoris'),
   tipes: (params?: QueryParams): Promise<AxiosResponse<ListResponse<TipeKendaraan>>> => api.get('/katalog/tipes', { params }),
+  jamOperasional: (): Promise<AxiosResponse<JamOperasional[]>> => api.get('/katalog/jam-operasional'),
   get: (id: number, params?: QueryParams): Promise<AxiosResponse<SingleResponse<KatalogItem>>> => api.get(`/katalog/${id}`, { params }),
   orderRequest: (data: OrderRequestPayload): Promise<AxiosResponse<OrderRequestResponse>> => api.post('/katalog/order-request', data),
+};
+
+/* ─────────────────────────────────────────────────────────────
+ * BANNER (iklan situs publik — dikelola admin, tampil di Beranda)
+ * ───────────────────────────────────────────────────────────── */
+export interface Banner {
+  id: number;
+  judul: string | null;
+  subjudul: string | null;
+  gambar: string;
+  tautan: string | null;
+  tombol_label: string | null;
+  urutan: number;
+  aktif: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export const bannerAPI = {
+  list: (): Promise<AxiosResponse<Banner[]>> => api.get('/banners/kelola'),
+  listPublic: (): Promise<AxiosResponse<Banner[]>> => api.get('/banners'),
+  create: (data: FormData): Promise<AxiosResponse<Banner>> => api.post('/banners', data),
+  update: (id: number, data: FormData): Promise<AxiosResponse<Banner>> => api.post(`/banners/${id}`, data),
+  toggle: (id: number): Promise<AxiosResponse<Banner>> => api.patch(`/banners/${id}/toggle`),
+  remove: (id: number): Promise<AxiosResponse<void>> => api.delete(`/banners/${id}`),
 };
 
 /* ─────────────────────────────────────────────────────────────

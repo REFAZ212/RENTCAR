@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BannerController;
 use App\Http\Controllers\Api\CustomerController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DriverTaskController;
@@ -57,8 +58,11 @@ Route::post('/otp/login/resend', [EmailOtpController::class, 'resendLogin'])
 Route::get('/katalog', [KatalogPublicController::class, 'index'])->middleware('throttle:120,1');
 Route::get('/katalog/kategoris', [KatalogPublicController::class, 'kategoris'])->middleware('throttle:120,1');
 Route::get('/katalog/tipes', [KatalogPublicController::class, 'tipes'])->middleware('throttle:120,1');
+Route::get('/katalog/jam-operasional', [KatalogPublicController::class, 'jamOperasional'])->middleware('throttle:120,1');
 Route::post('/katalog/order-request', [KatalogOrderRequestController::class, 'store'])->middleware('throttle:5,1');
 Route::get('/katalog/{kendaraan}', [KatalogPublicController::class, 'show'])->middleware('throttle:120,1');
+
+Route::get('/banners', [BannerController::class, 'indexPublic'])->middleware('throttle:120,1');
 
 Route::post('/gps/push', [GpsController::class, 'push'])->middleware('throttle:60,1');
 
@@ -97,6 +101,16 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/driver-tasks/{task}', [DriverTaskController::class, 'show']);
         Route::post('/driver-tasks/{task}/cancel', [DriverTaskController::class, 'cancel']);
         Route::post('/driver-tasks/{task}/release', [DriverTaskController::class, 'release']);
+    });
+
+    // Banner iklan situs publik — dikelola admin umum & admin operasional.
+    // GET /banners dipakai publik (indexPublic), jadi daftar admin pakai /banners/kelola.
+    Route::middleware('role:admin_utama,admin_operasional')->group(function () {
+        Route::get('/banners/kelola', [BannerController::class, 'index']);
+        Route::post('/banners', [BannerController::class, 'store']);
+        Route::post('/banners/{banner}', [BannerController::class, 'update']);
+        Route::patch('/banners/{banner}/toggle', [BannerController::class, 'toggle']);
+        Route::delete('/banners/{banner}', [BannerController::class, 'destroy']);
     });
 
     Route::get('/dashboard', [DashboardController::class, 'index']);

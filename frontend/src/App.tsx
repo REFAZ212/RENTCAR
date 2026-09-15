@@ -24,6 +24,7 @@ const UserManagement = lazy(() => import('./pages/UserManagement'));
 const CustomerDetail = lazy(() => import('./pages/CustomerDetail'));
 const OrderDetail = lazy(() => import('./pages/OrderDetail'));
 const WhatsappLogs = lazy(() => import('./pages/WhatsappLogs'));
+const BannerPage = lazy(() => import('./pages/Banner'));
 
 //public route will redirect to / if user is logged in, private route will redirect to /login if user is not logged in
 
@@ -33,10 +34,6 @@ import TentangKamiPage from './pages/public/TentangKamiPage';
 import KontakKamiPage from './pages/public/KontakKamiPage';
 import LayananPage from './pages/public/LayananPage';
 import LayananDetailPage from './pages/public/LayananDetailPage';
-import BeritaPage from './pages/public/BeritaPage';
-import ArtikelPage from './pages/public/ArtikelPage';
-import PromoPage from './pages/public/PromoPage';
-import KarirPage from './pages/public/KarirPage';
 
 
 function LoadingScreen() {
@@ -82,18 +79,14 @@ export default function App() {
           <Route path="/" element={<PublicLayout><LandingPage /></PublicLayout>} />
 
           {/* Public katalog routes — no auth */}
-          <Route path="/katalog" element={<Katalog />} />
-          <Route path="/katalog/:id" element={<KendaraanDetail />} />
+          <Route path="/katalog" element={<PublicLayout><Katalog /></PublicLayout>} />
+          <Route path="/katalog/:id" element={<PublicLayout><KendaraanDetail /></PublicLayout>} />
 
           {/* Public corporate pages — no auth */}
           <Route path="/tentang" element={<PublicLayout><TentangKamiPage /></PublicLayout>} />
           <Route path="/kontak" element={<PublicLayout><KontakKamiPage /></PublicLayout>} />
           <Route path="/layanan" element={<PublicLayout><LayananPage /></PublicLayout>} />
           <Route path="/layanan/:slug" element={<PublicLayout><LayananDetailPage /></PublicLayout>} />
-          <Route path="/berita" element={<PublicLayout><BeritaPage /></PublicLayout>} />
-          <Route path="/artikel" element={<PublicLayout><ArtikelPage /></PublicLayout>} />
-          <Route path="/promo" element={<PublicLayout><PromoPage /></PublicLayout>} />
-          <Route path="/karir" element={<PublicLayout><KarirPage /></PublicLayout>} />
 
           {/* Auth routes */}
           <Route path="/admin/login" element={<PublicRoute><Login /></PublicRoute>} />
@@ -114,6 +107,7 @@ export default function App() {
           <Route path="/users" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama']}><UserManagement /></RoleRoute></PrivateRoute>} />
           <Route path="/activity-log" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama']}><ActivityLog /></RoleRoute></PrivateRoute>} />
           <Route path="/wa-logs" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><WhatsappLogs /></RoleRoute></PrivateRoute>} />
+          <Route path="/banner" element={<PrivateRoute><RoleRoute allowedRoles={['admin_utama', 'admin_operasional']}><BannerPage /></RoleRoute></PrivateRoute>} />
 
           {/* 404 */}
           <Route path="*" element={<NotFound />} />

@@ -302,14 +302,14 @@ function GarasiPartnerTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="relative max-w-md w-full">
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black-400" />
           <input type="text" placeholder="Cari nama garasi, pemilik, no HP..." value={search} onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm transition" />
         </div>
         <button onClick={() => { setForm(emptyPartnerForm); setEditItem(null); setShowForm(true); }}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors shrink-0 ml-4">
+          className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors sm:w-auto sm:shrink-0">
           <Plus size={16} />
           Tambah Garasi
         </button>
@@ -318,13 +318,13 @@ function GarasiPartnerTab() {
       {showForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => { setShowForm(false); setEditItem(null); }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
+            <div className="p-4 sm:p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <h2 className="font-display text-lg font-semibold text-black-900">{editItem ? 'Edit Garasi Partner' : 'Tambah Garasi Partner'}</h2>
-              <button onClick={() => { setShowForm(false); setEditItem(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors">
+              <button onClick={() => { setShowForm(false); setEditItem(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors shrink-0">
                 <X size={20} className="text-black-400" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-black-700 mb-1">Nama Garasi *</label>
@@ -357,7 +357,7 @@ function GarasiPartnerTab() {
                 <textarea value={form.catatan} onChange={(e) => setField('catatan', e.target.value)} rows={2}
                   className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm resize-none" />
               </div>
-              <div className="flex items-center gap-3">
+<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" checked={form.is_own} onChange={(e) => setField('is_own', e.target.checked)} className="sr-only peer" />
                   <div className="w-9 h-5 bg-black-200 peer-focus:ring-2 peer-focus:ring-primary-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black-200 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-500"></div>
@@ -365,10 +365,10 @@ function GarasiPartnerTab() {
                 <span className="text-sm text-black-700">Milik Sendiri</span>
                 <span className="text-xs text-black-400">— Centang jika ini garasi milik perusahaan Anda</span>
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-black-200">
-                <button type="button" onClick={() => { setShowForm(false); setEditItem(null); }} className="px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors">Batal</button>
+              <div className="flex flex-col-reverse gap-3 pt-4 border-t border-black-200 sm:flex-row sm:justify-end">
+                <button type="button" onClick={() => { setShowForm(false); setEditItem(null); }} className="w-full px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors sm:w-auto">Batal</button>
                 <button type="submit" disabled={submitting}
-                  className="px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors flex items-center gap-2">
+                  className="w-full px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 sm:w-auto">
                   {submitting && <Loader2 size={16} className="animate-spin" />}
                   {editItem ? 'Simpan' : 'Tambah'}
                 </button>
@@ -381,16 +381,16 @@ function GarasiPartnerTab() {
       {showKendaraanForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => { setShowKendaraanForm(false); setKendaraanGarasi(null); setEditKendaraanItem(null); setKendaraanFotoFile(null); setKendaraanFotoPreview(null); }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
-              <div>
+            <div className="p-4 sm:p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
+              <div className="min-w-0">
                 <h2 className="font-display text-lg font-semibold text-black-900">{editKendaraanItem ? 'Edit Kendaraan' : 'Tambah Kendaraan'}</h2>
-                <p className="text-sm text-black-400">untuk {kendaraanGarasi?.nama_garasi}</p>
+                <p className="truncate text-sm text-black-400">untuk {kendaraanGarasi?.nama_garasi}</p>
               </div>
-              <button onClick={() => { setShowKendaraanForm(false); setKendaraanGarasi(null); setEditKendaraanItem(null); setKendaraanFotoFile(null); setKendaraanFotoPreview(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors">
+              <button onClick={() => { setShowKendaraanForm(false); setKendaraanGarasi(null); setEditKendaraanItem(null); setKendaraanFotoFile(null); setKendaraanFotoPreview(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors shrink-0">
                 <X size={20} className="text-black-400" />
               </button>
             </div>
-            <form onSubmit={handleKendaraanSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleKendaraanSubmit} className="p-4 sm:p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-black-700 mb-1">Kategori</label>
@@ -489,11 +489,11 @@ function GarasiPartnerTab() {
                   )}
                 </div>
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-black-200">
+              <div className="flex flex-col-reverse gap-3 pt-4 border-t border-black-200 sm:flex-row sm:justify-end">
                 <button type="button" onClick={() => { setShowKendaraanForm(false); setKendaraanGarasi(null); setEditKendaraanItem(null); setKendaraanFotoFile(null); setKendaraanFotoPreview(null); }}
-                  className="px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors">Batal</button>
+                  className="w-full px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors sm:w-auto">Batal</button>
                 <button type="submit" disabled={submittingKendaraan}
-                  className="px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors flex items-center gap-2">
+                  className="w-full px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 sm:w-auto">
                   {submittingKendaraan && <Loader2 size={16} className="animate-spin" />}
                   {editKendaraanItem ? 'Simpan' : 'Tambah'}
                 </button>
@@ -519,7 +519,116 @@ function GarasiPartnerTab() {
         onCancel={() => setConfirmDeleteKendaraan(null)}
       />
 
-      <div className="bg-white rounded-2xl shadow-sm border border-black-200 overflow-hidden">
+      {/* Mobile: card list */}
+      <div className="space-y-3 md:hidden">
+        {loading ? (
+          <div className="rounded-xl border border-black-200 bg-white p-12 text-center text-sm text-black-400 shadow-sm">
+            Memuat data...
+          </div>
+        ) : items.length === 0 ? (
+          <div className="rounded-xl border border-black-200 bg-white p-12 text-center text-sm text-black-400 shadow-sm">
+            Tidak ada data garasi partner
+          </div>
+        ) : (
+          items.map((item: any) => (
+            <div key={item.id} className="rounded-xl border border-black-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <button onClick={() => toggleExpand(item.id)} className="flex min-w-0 items-center gap-1.5 text-left">
+                  <ChevronRight size={16} className={`shrink-0 text-black-400 transition-transform ${expandedIds.has(item.id) ? 'rotate-90' : ''}`} />
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium text-black-900">{item.nama_garasi}</span>
+                    {item.email && <span className="block truncate text-xs text-black-400">{item.email}</span>}
+                  </span>
+                </button>
+                <span className={`shrink-0 px-2 py-1 text-xs font-medium rounded-full ${item.status_aktif ? 'bg-primary-50 text-primary-500' : 'bg-error-50 text-error-500'}`}>
+                  {item.status_aktif ? 'Aktif' : 'Nonaktif'}
+                </span>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <p className="text-black-400">Pemilik</p>
+                  <p className="text-black-700">{item.nama_pemilik}</p>
+                </div>
+                <div>
+                  <p className="text-black-400">No. HP</p>
+                  <p className="text-black-700">{formatHpDisplay(item.no_hp)}</p>
+                </div>
+                <div>
+                  <p className="text-black-400">Kendaraan</p>
+                  <p className="text-black-700">{item.kendaraans_count} unit</p>
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center gap-1 border-t border-black-200 pt-2">
+                <button onClick={() => openCreateKendaraan(item)} className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-primary-500 text-white hover:bg-primary-600 transition-colors">
+                  <Plus size={13} />
+                  Tambah
+                </button>
+                <button onClick={() => handleEdit(item)} className="rounded-lg p-2 text-black-400 transition-colors hover:bg-primary-50 hover:text-primary-600" title="Edit" aria-label="Edit">
+                  <Pencil size={18} />
+                </button>
+                <button onClick={() => setConfirmDelete(item)} className="rounded-lg p-2 text-black-400 transition-colors hover:bg-error-50 hover:text-error-600" title="Hapus" aria-label="Hapus">
+                  <Trash2 size={18} />
+                </button>
+              </div>
+
+              {expandedIds.has(item.id) && (
+                <div className="mt-3 space-y-2 border-t border-black-200 pt-3">
+                  {loadingKendaraans.has(item.id) ? (
+                    <div className="flex items-center gap-2 py-3 text-sm text-black-400">
+                      <Loader2 size={16} className="animate-spin text-primary-500" />
+                      Memuat kendaraan...
+                    </div>
+                  ) : (expandedKendaraans[item.id] || []).length === 0 ? (
+                    <div className="py-3 text-center">
+                      <p className="text-sm text-black-400">Belum ada kendaraan di garasi ini</p>
+                    </div>
+                  ) : (
+                    (expandedKendaraans[item.id] || []).map((k) => (
+                      <div key={k.id} className="flex gap-3 rounded-xl border border-black-200 bg-canvas/50 p-3">
+                        {k.foto ? (
+                          <img
+                            src={k.foto.startsWith('http') ? k.foto : `https://api.udinrentcar.com/storage/${k.foto}`}
+                            alt={k.nama_kendaraan}
+                            className={`h-14 w-14 shrink-0 rounded-lg border border-black-200 object-cover ${statusPhotoClass(k.status)}`}
+                          />
+                        ) : (
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border border-black-200 bg-white">
+                            <ImagePlus size={20} className="text-black-400" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium text-black-900">{k.nama_kendaraan}</p>
+                          <p className="truncate text-xs text-black-400">{k.merek} {k.model} · {k.tahun}</p>
+                          <p className="mt-1 truncate text-xs text-black-700">
+                            <span className="font-mono">{k.plat_nomor}</span> · {k.kategori?.nama_kategori || '-'}
+                          </p>
+                          <p className="mt-0.5 text-xs font-medium text-primary-600">{formatRupiah(k.harga_sewa_per_hari)}/hari</p>
+                          <span className={`mt-1.5 inline-block px-2 py-0.5 text-[11px] font-medium rounded-full ${vehicleStatusStyles[k.status as StatusKendaraan] || ''}`}>
+                            {vehicleStatusLabels[k.status as StatusKendaraan] || k.status}
+                          </span>
+                        </div>
+                        <div className="flex shrink-0 flex-col gap-1">
+                          <button onClick={() => openEditKendaraan(item, k)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-primary-50 hover:text-primary-600" title="Edit" aria-label="Edit">
+                            <Pencil size={16} />
+                          </button>
+                          <button onClick={() => setConfirmDeleteKendaraan(k)} className="rounded-lg p-1.5 text-black-400 transition-colors hover:bg-error-50 hover:text-error-600" title="Hapus" aria-label="Hapus">
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop/tablet: table */}
+      <div className="hidden bg-white rounded-2xl shadow-sm border border-black-200 overflow-hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-canvas border-b border-black-200">
@@ -595,7 +704,7 @@ function GarasiPartnerTab() {
                             </div>
                           ) : (
                             <div className="space-y-3">
-                              <div className="flex items-center justify-between">
+<div className="flex flex-wrap items-center justify-between gap-3">
                                 <p className="text-sm font-medium text-black-700">{(expandedKendaraans[item.id] || []).length} kendaraan</p>
                                 <button onClick={() => openCreateKendaraan(item)}
                                   className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-500 text-white text-xs font-medium rounded-lg hover:bg-primary-600 transition-colors">
@@ -912,32 +1021,32 @@ function GarasiSayaTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <p className="text-sm text-black-400">Garasi:</p>
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="shrink-0 text-sm text-black-400">Garasi:</p>
           {editingName ? (
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-1.5">
               <input
                 type="text"
                 value={nameDraft}
                 onChange={(e) => setNameDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false); }}
                 autoFocus
-                className="px-2 py-1 border border-primary-400 rounded-lg text-sm font-medium text-black-900 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none"
+                className="w-full min-w-0 px-2 py-1 border border-primary-400 rounded-lg text-sm font-medium text-black-900 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none"
               />
-              <button onClick={saveName} className="p-1 text-primary-500 hover:bg-primary-50 rounded-lg transition-colors" title="Simpan">
+              <button onClick={saveName} className="shrink-0 p-1 text-primary-500 hover:bg-primary-50 rounded-lg transition-colors" title="Simpan">
                 <Check size={16} />
               </button>
-              <button onClick={() => setEditingName(false)} className="p-1 text-black-400 hover:bg-canvas rounded-lg transition-colors" title="Batal">
+              <button onClick={() => setEditingName(false)} className="shrink-0 p-1 text-black-400 hover:bg-canvas rounded-lg transition-colors" title="Batal">
                 <X size={16} />
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5">
-              <span className="font-medium text-black-700">{garasi.nama_garasi}</span>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span className="min-w-0 truncate font-medium text-black-700">{garasi.nama_garasi}</span>
               <button
                 onClick={() => { setNameDraft(garasi.nama_garasi); setEditingName(true); }}
-                className="p-1 text-black-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                className="shrink-0 p-1 text-black-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                 title="Edit nama garasi"
               >
                 <Pencil size={14} />
@@ -946,7 +1055,7 @@ function GarasiSayaTab() {
           )}
         </div>
         <button onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors">
+          className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors sm:w-auto sm:shrink-0">
           <Plus size={16} />
           Tambah Kendaraan
         </button>
@@ -966,13 +1075,13 @@ function GarasiSayaTab() {
         ))}
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative max-w-sm w-full">
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
+        <div className="relative w-full sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black-400" />
           <input type="text" placeholder="Cari nama, plat, merek..." value={search} onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm transition" />
         </div>
-        <div className="flex gap-1.5 overflow-x-auto">
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
           {['', 'tersedia', 'disewa', 'maintenance', 'tidak_tersedia'].map((s) => (
             <button key={s} onClick={() => setFilterStatus(s)}
               className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-colors ${
@@ -989,17 +1098,17 @@ function GarasiSayaTab() {
       {showForm && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => { setShowForm(false); setEditItem(null); }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
+            <div className="p-4 sm:p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <h2 className="font-display text-lg font-semibold text-black-900">{editItem ? 'Edit Kendaraan' : 'Tambah Kendaraan'}</h2>
-              <button onClick={() => { setShowForm(false); setEditItem(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors">
+              <button onClick={() => { setShowForm(false); setEditItem(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors shrink-0">
                 <X size={20} className="text-black-400" />
               </button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
               {lastAdded && !editItem && (
-                <div className="flex items-center justify-between p-3 bg-primary-50 border border-primary-500/20 rounded-lg">
+                <div className="flex flex-col items-start gap-2 p-3 bg-primary-50 border border-primary-500/20 rounded-lg sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2">
-                    <Check size={20} className="text-primary-500" />
+                    <Check size={20} className="text-primary-500 shrink-0" />
                     <span className="text-sm font-medium text-primary-600">Kendaraan berhasil ditambahkan!</span>
                   </div>
                   <button type="button" onClick={() => setLastAdded(false)} className="text-sm font-medium text-primary-600 hover:text-primary-600 underline">Sembunyikan</button>
@@ -1123,17 +1232,17 @@ function GarasiSayaTab() {
                 <textarea value={form.catatan} onChange={(e) => setField('catatan', e.target.value)} rows={2}
                   className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm resize-none" />
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-black-200">
-                <button type="button" onClick={() => { setShowForm(false); setEditItem(null); setLastAdded(false); }} className="px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors">Batal</button>
+              <div className="flex flex-col-reverse gap-3 pt-4 border-t border-black-200 sm:flex-row sm:justify-end">
+                <button type="button" onClick={() => { setShowForm(false); setEditItem(null); setLastAdded(false); }} className="w-full px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors sm:w-auto">Batal</button>
                 {lastAdded && !editItem ? (
                   <button type="button" onClick={() => setLastAdded(false)}
-                    className="px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center gap-2">
+                    className="w-full px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex items-center justify-center gap-2 sm:w-auto">
                     <Plus size={16} />
                     Tambah Lainnya
                   </button>
                 ) : (
                   <button type="submit" disabled={submitting}
-                    className="px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors flex items-center gap-2">
+                    className="w-full px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 sm:w-auto">
                     {submitting && <Loader2 size={16} className="animate-spin" />}
                     {editItem ? 'Simpan' : 'Tambah'}
                   </button>
@@ -1152,7 +1261,57 @@ function GarasiSayaTab() {
         onCancel={() => setConfirmDelete(null)}
       />
 
-      <div className="bg-white rounded-2xl shadow-sm border border-black-200 overflow-hidden">
+      {/* Mobile: card list */}
+      <div className="space-y-3 md:hidden">
+        {loading ? (
+          <div className="rounded-xl border border-black-200 bg-white p-12 text-center text-sm text-black-400 shadow-sm">
+            Memuat data...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-xl border border-black-200 bg-white p-12 text-center text-sm text-black-400 shadow-sm">
+            Tidak ada kendaraan
+          </div>
+        ) : (
+          filtered.map((item) => (
+            <div key={item.id} className="rounded-xl border border-black-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <p className="min-w-0 truncate font-medium text-black-900">{item.nama_kendaraan}</p>
+                <span className={`shrink-0 px-2 py-1 text-xs font-medium rounded-full ${vehicleStatusStyles[item.status as StatusKendaraan] || ''}`}>
+                  {vehicleStatusLabels[item.status as StatusKendaraan] || item.status}
+                </span>
+              </div>
+              <p className="mt-0.5 text-xs text-black-400">{item.merek} · {item.tahun}</p>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <p className="text-black-400">Plat</p>
+                  <p className="font-mono text-black-700">{item.plat_nomor}</p>
+                </div>
+                <div>
+                  <p className="text-black-400">Kategori</p>
+                  <p className="text-black-700">{item.kategori?.nama_kategori || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-black-400">Harga/Hari</p>
+                  <p className="font-medium text-black-900">{formatRupiah(item.harga_sewa_per_hari)}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center justify-end gap-1 border-t border-black-200 pt-2">
+                <button onClick={() => handleEdit(item)} className="rounded-lg p-2 text-black-400 transition-colors hover:bg-primary-50 hover:text-primary-600" title="Edit" aria-label="Edit">
+                  <Pencil size={18} />
+                </button>
+                <button onClick={() => setConfirmDelete(item)} className="rounded-lg p-2 text-black-400 transition-colors hover:bg-error-50 hover:text-error-600" title="Hapus" aria-label="Hapus">
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop/tablet: table */}
+      <div className="hidden bg-white rounded-2xl shadow-sm border border-black-200 overflow-hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-canvas border-b border-black-200">

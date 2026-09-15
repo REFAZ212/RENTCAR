@@ -33,7 +33,7 @@ export default function LayananPage() {
         <div className="space-y-8">
           {services.map((s, i) => (
             <AnimatedSection key={s.slug} delay={i * 0.06}>
-              <Link to={`/layanan/${s.slug}`} className="group block bg-white rounded-[24px] border border-accent-100 p-8 sm:p-10 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5">
+              <Link to={`/layanan/${s.slug}`} className="group block bg-white rounded-[24px] border border-primary-100 p-8 sm:p-10 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-black/5">
                 <div className="flex flex-col lg:flex-row lg:items-center gap-6">
                   <div className="w-14 h-14 bg-canvas rounded-2xl flex items-center justify-center shrink-0 group-hover:bg-primary-50 transition-colors">
                     <s.icon size={24} className="text-black group-hover:text-primary-600 transition-colors" strokeWidth={1.5} />

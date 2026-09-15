@@ -9,7 +9,7 @@ return [
 
     'allowed_methods' => ['*'],
 
-'allowed_origins' => [
+    'allowed_origins' => [
         'https://udinrentcar.com',
         'http://localhost',
         'http://127.0.0.1',

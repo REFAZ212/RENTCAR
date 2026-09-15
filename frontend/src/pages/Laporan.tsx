@@ -14,6 +14,10 @@ import {
   CreditCard,
   TrendingUp,
   Loader2,
+  Banknote,
+  TriangleAlert,
+  User,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -111,14 +115,14 @@ const statusPengirimanColors: Record<string, string> = {
   sudah_dikembalikan: 'bg-success-50 text-success-600',
 };
 
-// Warna ikon StatCard — dipetakan by makna, bukan asal warna
+// Warna ikon StatCard — konsisten biru tema (primary), bukan macam-macam
 const ICON_BG = {
-  brand: 'bg-primary-500',
-  brandDark: 'bg-primary-700',
-  avail: 'bg-success-500',
-  maint: 'bg-error-500',
-  rented: 'bg-primary-500',
-  ink: 'bg-black-700',
+  brand: 'bg-primary-50 text-primary-600',
+  brandDark: 'bg-primary-100 text-primary-700',
+  avail: 'bg-primary-50 text-primary-600',
+  maint: 'bg-primary-50 text-primary-600',
+  rented: 'bg-primary-50 text-primary-600',
+  ink: 'bg-primary-50 text-primary-600',
 } as const;
 
 const sections: { id: string; label: string; icon: LucideIcon }[] = [
@@ -131,20 +135,6 @@ const sections: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'komisi-calo', label: 'Komisi Calo', icon: Coins },
   { id: 'piutang', label: 'Piutang', icon: CreditCard },
 ];
-
-const ICONS = {
-  order: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 7h6m-6 4h6',
-  check: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
-  x: 'M6 18L18 6M6 6l12 12',
-  money: 'M12 8c-1.66 0-3 .9-3 2s1.34 2 3 2 3 .9 3 2-1.34 2-3 2m0-8V6m0 2c1.66 0 3 .9 3 2m-3 6v2m0-2c-1.66 0-3-.9-3-2M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-  alert: 'M12 9v2m0 4h.01M4.93 19h14.14a1 1 0 00.87-1.5L12.87 4.5a1 1 0 00-1.74 0L4.06 17.5A1 1 0 004.93 19z',
-  wallet: 'M3 7a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z M16 12h.01',
-  car: 'M5 17h14M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0M5 17V9a1 1 0 011-1h1l2-4h6l2 4h1a1 1 0 011 1v8',
-  user: 'M12 12a4 4 0 100-8 4 4 0 000 8zm0 0c-4 0-7 2-7 4.5V19h14v-2.5C19 14 16 12 12 12z',
-  home: 'M3 12l2-2m0 0l7-7 7 7m-14 0v8a2 2 0 002 2h3m9-10l2 2m-2-2v8a2 2 0 01-2 2h-3m-6 0a2 2 0 002-2v-4a2 2 0 012-2h0a2 2 0 012 2v4a2 2 0 002 2m-6 0h6',
-  users: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4zm6 0a4 4 0 10-4-4',
-  trend: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6',
-} as const;
 
 const SEMUA_WAKTU_START = '2000-01-01';
 
@@ -240,12 +230,12 @@ function usePeriodFilter(toast: { error: (message: string) => void }): PeriodFil
 function PeriodFilter({ state }: { state: PeriodFilterState }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="inline-flex rounded-lg bg-canvas p-1">
+      <div className="flex flex-wrap rounded-lg bg-canvas p-1">
         {QUICK_RANGES.map((r) => (
           <button
             key={r.key}
             onClick={() => state.setRange(r.key)}
-            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+            className={`shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               state.range === r.key
                 ? 'bg-surface text-primary-600 shadow-sm ring-1 ring-black-200'
                 : 'text-black-500 hover:text-black-800'
@@ -257,22 +247,24 @@ function PeriodFilter({ state }: { state: PeriodFilterState }) {
       </div>
 
       {state.range === 'kustom' && state.custom && (
-        <div className="flex items-center gap-1.5 rounded-lg border border-black-200 bg-surface px-2.5 py-1.5">
-          <CalendarDays className="h-4 w-4 text-black-400" />
-          <input
-            type="date"
-            value={state.custom.start_date}
-            max={todayJakarta()}
-            onChange={(e) => state.handleManualChange('start', e.target.value)}
-            className="bg-transparent text-sm text-black-800 outline-none"
-          />
-          <span className="text-black-300">s/d</span>
+        <div className="flex w-full flex-col gap-1.5 rounded-lg border border-black-200 bg-surface px-2.5 py-2 sm:w-auto sm:flex-row sm:items-center">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <CalendarDays className="h-4 w-4 shrink-0 text-black-400" />
+            <input
+              type="date"
+              value={state.custom.start_date}
+              max={todayJakarta()}
+              onChange={(e) => state.handleManualChange('start', e.target.value)}
+              className="w-full min-w-0 bg-transparent text-sm text-black-800 outline-none"
+            />
+          </div>
+          <span className="shrink-0 self-start px-1 text-xs text-black-300 sm:self-center">s/d</span>
           <input
             type="date"
             value={state.custom.end_date}
             max={todayJakarta()}
             onChange={(e) => state.handleManualChange('end', e.target.value)}
-            className="bg-transparent text-sm text-black-800 outline-none"
+            className="w-full min-w-0 bg-transparent text-sm text-black-800 outline-none"
           />
         </div>
       )}
@@ -802,14 +794,7 @@ function TableSkeleton({ rows = 5 }: { rows?: number }) {
 function EmptyState({ label = 'Belum ada data' }: { label?: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 px-5 py-12 text-black-400">
-      <svg className="h-9 w-9" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M9 13h6m-6-4h6m2 9H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-        />
-      </svg>
+      <FileText className="h-9 w-9" />
       <p className="text-sm font-medium">{label}</p>
     </div>
   );
@@ -818,14 +803,7 @@ function EmptyState({ label = 'Belum ada data' }: { label?: string }) {
 function ErrorState({ message }: { message: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 rounded-2xl bg-surface px-5 py-12 text-center shadow-sm ring-1 ring-black-200">
-      <svg className="h-9 w-9 text-error-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={1.5}
-          d="M12 9v2m0 4h.01M4.93 19h14.14a1 1 0 00.87-1.5L12.87 4.5a1 1 0 00-1.74 0L4.06 17.5A1 1 0 004.93 19z"
-        />
-      </svg>
+      <TriangleAlert className="h-9 w-9 text-error-500" />
       <p className="text-sm font-medium text-black-700">{message}</p>
     </div>
   );
@@ -888,7 +866,7 @@ function StatCard({
   label: ReactNode;
   value: ReactNode;
   mono?: boolean;
-  icon: string;
+  icon: ReactNode;
   iconBg: string;
   growth?: { current: number; previous: number };
   tone?: 'positive' | 'negative';
@@ -898,15 +876,13 @@ function StatCard({
   return (
     <div className="group rounded-2xl bg-surface p-5 shadow-sm ring-1 ring-black-200 transition-all hover:-translate-y-0.5 hover:shadow-md">
       <div className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl ${iconBg}`}>
-        <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
-        </svg>
+        {icon}
       </div>
       <div className="mb-1 flex items-center">
         <p className="text-xs font-medium text-black-400">{label}</p>
         {growth && <GrowthBadge current={growth.current} previous={growth.previous} />}
       </div>
-      <p className={`truncate text-xl font-bold ${mono ? 'font-mono' : ''} ${valueColor}`}>{value}</p>
+      <p className={`truncate text-lg font-bold sm:text-xl ${mono ? 'font-mono' : ''} ${valueColor}`}>{value}</p>
     </div>
   );
 }
@@ -1137,13 +1113,13 @@ function ExecutiveSummary() {
         <PeriodFilter state={pf} />
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
-      <StatCard label="Total Pendapatan" value={formatRupiah(Number(r.total_revenue ?? 0))} mono icon={ICONS.money} iconBg={ICON_BG.avail} />
-      <StatCard label="Total Order" value={Number(r.total_orders ?? 0)} icon={ICONS.order} iconBg={ICON_BG.brand} />
+      <StatCard label="Total Pendapatan" value={formatRupiah(Number(r.total_revenue ?? 0))} mono icon={<Banknote className="h-5 w-5" />} iconBg={ICON_BG.avail} />
+      <StatCard label="Total Order" value={Number(r.total_orders ?? 0)} icon={<FileText className="h-5 w-5" />} iconBg={ICON_BG.brand} />
       <StatCard
         label="Laba Bersih"
         value={formatRupiah(laba)}
         mono
-        icon={ICONS.trend}
+        icon={<TrendingUp className="h-5 w-5" />}
         iconBg={laba >= 0 ? ICON_BG.avail : ICON_BG.maint}
         tone={laba >= 0 ? 'positive' : 'negative'}
       />
@@ -1151,20 +1127,20 @@ function ExecutiveSummary() {
         label="Margin Rata-rata"
         value={Number.isFinite(margin) ? `${margin.toFixed(1)}%` : '0,0%'}
         mono
-        icon={ICONS.trend}
+        icon={<TrendingUp className="h-5 w-5" />}
         iconBg={ICON_BG.brandDark}
       />
       <StatCard
         label="Utilisasi Kendaraan"
         value={totalVehicles > 0 ? `${rented}/${totalVehicles} (${utilisasi.toFixed(0)}%)` : '0/0 (0%)'}
-        icon={ICONS.car}
+        icon={<Car className="h-5 w-5" />}
         iconBg={ICON_BG.rented}
       />
       <StatCard
         label="Piutang Tertunggak"
         value={formatRupiah(piutangTertunggak)}
         mono
-        icon={ICONS.wallet}
+        icon={<Wallet className="h-5 w-5" />}
         iconBg={ICON_BG.maint}
         tone={piutangTertunggak > 0 ? 'negative' : 'positive'}
       />
@@ -1261,10 +1237,10 @@ function PendapatanTab({ title }: { title: string }) {
       <div className="p-5">
         <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Pendapatan" value={formatRupiah(ringkasan.total_pendapatan)} mono icon={ICONS.money} iconBg={ICON_BG.avail} growth={growth?.pendapatan} />
-        <StatCard label="Total Denda" value={formatRupiah(ringkasan.total_denda)} mono icon={ICONS.alert} iconBg={ICON_BG.maint} growth={growth?.denda} />
-        <StatCard label="Total Customer" value={ringkasan.total_customer} icon={ICONS.user} iconBg={ICON_BG.rented} growth={growth?.customer} />
-        <StatCard label="Rata-rata/Order" value={formatRupiah(ringkasan.rata_rata_order)} mono icon={ICONS.trend} iconBg={ICON_BG.brandDark} />
+        <StatCard label="Total Pendapatan" value={formatRupiah(ringkasan.total_pendapatan)} mono icon={<Banknote className="h-5 w-5" />} iconBg={ICON_BG.avail} growth={growth?.pendapatan} />
+        <StatCard label="Total Denda" value={formatRupiah(ringkasan.total_denda)} mono icon={<TriangleAlert className="h-5 w-5" />} iconBg={ICON_BG.maint} growth={growth?.denda} />
+        <StatCard label="Total Customer" value={ringkasan.total_customer} icon={<User className="h-5 w-5" />} iconBg={ICON_BG.rented} growth={growth?.customer} />
+        <StatCard label="Rata-rata/Order" value={formatRupiah(ringkasan.rata_rata_order)} mono icon={<TrendingUp className="h-5 w-5" />} iconBg={ICON_BG.brandDark} />
       </div>
 
       <SectionCard title="Tren Pendapatan per Periode">
@@ -1367,13 +1343,13 @@ function KendaraanTab({ title }: { title: string }) {
       <div className="p-5">
         <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Kendaraan" value={totalKendaraan} icon={ICONS.car} iconBg={ICON_BG.rented} />
+        <StatCard label="Total Kendaraan" value={totalKendaraan} icon={<Car className="h-5 w-5" />} iconBg={ICON_BG.rented} />
         {status_kendaraan.map((s) => (
           <StatCard
             key={s.status}
             label={vehicleStatusLabels[s.status as StatusKendaraan] ?? <span className="capitalize">{s.status}</span>}
             value={s.total}
-            icon={ICONS.car}
+            icon={<Car className="h-5 w-5" />}
             iconBg={s.status === 'tersedia' ? ICON_BG.avail : s.status === 'maintenance' || s.status === 'tidak_tersedia' ? ICON_BG.maint : ICON_BG.rented}
           />
         ))}
@@ -1446,17 +1422,17 @@ function RekapGarasiTab({ title }: { title: string }) {
         <div className="p-5">
           <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Jumlah Partner" value={partners.length} icon={ICONS.users} iconBg={ICON_BG.brand} />
-        <StatCard label="Total Pendapatan" value={formatRupiah(grand_total.pendapatan)} mono icon={ICONS.money} iconBg={ICON_BG.avail} />
+        <StatCard label="Jumlah Partner" value={partners.length} icon={<Users className="h-5 w-5" />} iconBg={ICON_BG.brand} />
+        <StatCard label="Total Pendapatan" value={formatRupiah(grand_total.pendapatan)} mono icon={<Banknote className="h-5 w-5" />} iconBg={ICON_BG.avail} />
         <StatCard
           label="Total Laba Bersih"
           value={formatRupiah(grand_total.laba)}
           mono
-          icon={ICONS.trend}
+          icon={<TrendingUp className="h-5 w-5" />}
           iconBg={grand_total.laba >= 0 ? ICON_BG.avail : ICON_BG.maint}
           tone={grand_total.laba >= 0 ? 'positive' : 'negative'}
         />
-        <StatCard label="Total Bagi Hasil" value={formatRupiah(grand_total.bagi_hasil)} mono icon={ICONS.wallet} iconBg={ICON_BG.brandDark} />
+        <StatCard label="Total Bagi Hasil" value={formatRupiah(grand_total.bagi_hasil)} mono icon={<Wallet className="h-5 w-5" />} iconBg={ICON_BG.brandDark} />
       </div>
 
       <SectionCard title="Rekap per Garasi Partner">
@@ -1607,13 +1583,13 @@ function KomisiCaloTab({ title }: { title: string }) {
       <div className="p-5">
         <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Jumlah Calo" value={ringkasan.jumlah_calo} icon={ICONS.users} iconBg={ICON_BG.brand} />
-        <StatCard label="Total Pendapatan" value={formatRupiah(ringkasan.grand_total_pendapatan)} mono icon={ICONS.money} iconBg={ICON_BG.avail} />
-        <StatCard label="Total Komisi" value={formatRupiah(ringkasan.grand_total_komisi)} mono icon={ICONS.wallet} iconBg={ICON_BG.brandDark} />
+        <StatCard label="Jumlah Calo" value={ringkasan.jumlah_calo} icon={<Users className="h-5 w-5" />} iconBg={ICON_BG.brand} />
+        <StatCard label="Total Pendapatan" value={formatRupiah(ringkasan.grand_total_pendapatan)} mono icon={<Banknote className="h-5 w-5" />} iconBg={ICON_BG.avail} />
+        <StatCard label="Total Komisi" value={formatRupiah(ringkasan.grand_total_komisi)} mono icon={<Wallet className="h-5 w-5" />} iconBg={ICON_BG.brandDark} />
         <StatCard
           label="Rasio Komisi"
           value={ringkasan.grand_total_pendapatan > 0 ? `${((ringkasan.grand_total_komisi / ringkasan.grand_total_pendapatan) * 100).toFixed(1)}%` : '0%'}
-          icon={ICONS.trend}
+          icon={<TrendingUp className="h-5 w-5" />}
           iconBg={ICON_BG.rented}
         />
       </div>
@@ -1736,15 +1712,15 @@ function PiutangTab({ title }: { title: string }) {
       <div className="p-5">
         <div className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total Piutang" value={formatRupiah(ringkasan.total_piutang)} mono icon={ICONS.wallet} iconBg={ICON_BG.maint} />
-        <StatCard label="Total Tertunggak" value={formatRupiah(ringkasan.total_tertunggak)} mono icon={ICONS.alert} iconBg={ICON_BG.maint} />
-        <StatCard label="Jumlah Order" value={ringkasan.jumlah_order} icon={ICONS.order} iconBg={ICON_BG.brand} />
+        <StatCard label="Total Piutang" value={formatRupiah(ringkasan.total_piutang)} mono icon={<Wallet className="h-5 w-5" />} iconBg={ICON_BG.maint} />
+        <StatCard label="Total Tertunggak" value={formatRupiah(ringkasan.total_tertunggak)} mono icon={<TriangleAlert className="h-5 w-5" />} iconBg={ICON_BG.maint} />
+        <StatCard label="Jumlah Order" value={ringkasan.jumlah_order} icon={<FileText className="h-5 w-5" />} iconBg={ICON_BG.brand} />
         <StatCard
           label="Rasio Tertunggak"
           value={ringkasan.total_piutang > 0 && ringkasan.total_tertunggak > 0
             ? `${((ringkasan.total_tertunggak / ringkasan.total_piutang) * 100).toFixed(1)}%`
             : '0%'}
-          icon={ICONS.trend}
+          icon={<TrendingUp className="h-5 w-5" />}
           iconBg={ICON_BG.rented}
         />
       </div>
@@ -1905,15 +1881,15 @@ function DetailModal({ order, onClose }: { order: DetailOrderRow; onClose: () =>
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black-900/50 p-4" onClick={onClose}>
-      <div className="my-8 w-full max-w-3xl rounded-2xl bg-surface p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-start justify-between">
-          <div>
+      <div className="my-8 w-full max-w-3xl rounded-2xl bg-surface p-4 shadow-xl sm:p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
             <h3 className="font-display text-xl font-bold text-black-900">{order.kode_order}</h3>
             <p className="mt-1 text-sm text-black-400">
               {order.nama_customer} • {order.nama_kendaraan ?? '-'} {order.plat_nomor ? `(${order.plat_nomor})` : ''}
             </p>
           </div>
-          <button onClick={onClose} className="rounded-lg bg-black-100 px-2.5 py-1.5 text-sm text-black-700 hover:bg-black-200">
+          <button onClick={onClose} className="shrink-0 rounded-lg bg-black-100 px-2.5 py-1.5 text-sm text-black-700 hover:bg-black-200">
             Tutup
           </button>
         </div>
@@ -2056,13 +2032,13 @@ function OrderListModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black-900/50 p-4" onClick={onClose}>
-      <div className="my-8 w-full max-w-5xl rounded-2xl bg-surface p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-start justify-between">
-          <div>
+      <div className="my-8 w-full max-w-5xl rounded-2xl bg-surface p-4 shadow-xl sm:p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
             <h3 className="font-display text-xl font-bold text-black-900">{title}</h3>
             {subtitle && <p className="mt-1 text-sm text-black-400">{subtitle}</p>}
           </div>
-          <button onClick={onClose} className="rounded-lg bg-black-100 px-2.5 py-1.5 text-sm text-black-700 hover:bg-black-200">
+          <button onClick={onClose} className="shrink-0 rounded-lg bg-black-100 px-2.5 py-1.5 text-sm text-black-700 hover:bg-black-200">
             Tutup
           </button>
         </div>
@@ -2245,13 +2221,13 @@ function InfoOrderListModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black-900/50 p-4" onClick={onClose}>
-      <div className="my-8 w-full max-w-4xl rounded-2xl bg-surface p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-start justify-between">
-          <div>
+      <div className="my-8 w-full max-w-4xl rounded-2xl bg-surface p-4 shadow-xl sm:p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
             <h3 className="font-display text-xl font-bold text-black-900">{title}</h3>
             {subtitle && <p className="mt-1 text-sm text-black-400">{subtitle}</p>}
           </div>
-          <button onClick={onClose} className="rounded-lg bg-black-100 px-2.5 py-1.5 text-sm text-black-700 hover:bg-black-200">
+          <button onClick={onClose} className="shrink-0 rounded-lg bg-black-100 px-2.5 py-1.5 text-sm text-black-700 hover:bg-black-200">
             Tutup
           </button>
         </div>
@@ -2405,14 +2381,14 @@ function DetailOrderTab({ title }: { title: string }) {
           <div className="space-y-6">
       {ringkasan && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Total Order" value={ringkasan.total_order} icon={ICONS.order} iconBg={ICON_BG.brand} />
-          <StatCard label="Total Harga" value={formatRupiah(ringkasan.total_harga)} mono icon={ICONS.money} iconBg={ICON_BG.avail} />
-          <StatCard label="Total Denda" value={formatRupiah(ringkasan.total_denda)} mono icon={ICONS.alert} iconBg={ICON_BG.maint} />
+          <StatCard label="Total Order" value={ringkasan.total_order} icon={<FileText className="h-5 w-5" />} iconBg={ICON_BG.brand} />
+          <StatCard label="Total Harga" value={formatRupiah(ringkasan.total_harga)} mono icon={<Banknote className="h-5 w-5" />} iconBg={ICON_BG.avail} />
+          <StatCard label="Total Denda" value={formatRupiah(ringkasan.total_denda)} mono icon={<TriangleAlert className="h-5 w-5" />} iconBg={ICON_BG.maint} />
           <StatCard
             label="Total Laba"
             value={formatRupiah(ringkasan.total_laba)}
             mono
-            icon={ICONS.trend}
+            icon={<TrendingUp className="h-5 w-5" />}
             iconBg={ringkasan.total_laba >= 0 ? ICON_BG.avail : ICON_BG.maint}
           />
         </div>
@@ -2481,7 +2457,7 @@ function DetailOrderTab({ title }: { title: string }) {
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="h-10 max-w-[180px] rounded-lg border border-black-200 bg-surface px-3 text-sm font-medium text-black-700 outline-none transition-colors focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+            className="h-10 w-full rounded-lg border border-black-200 bg-surface px-3 text-sm font-medium text-black-700 outline-none transition-colors focus:border-primary-400 focus:ring-2 focus:ring-primary-100 sm:max-w-[180px]"
           >
             <option value="">Semua Status Order</option>
             {detailFilters.status_order.map((s) => (
@@ -2491,7 +2467,7 @@ function DetailOrderTab({ title }: { title: string }) {
           <select
             value={sourceFilter}
             onChange={(e) => { setSourceFilter(e.target.value); setPage(1); }}
-            className="h-10 max-w-[150px] rounded-lg border border-black-200 bg-surface px-3 text-sm font-medium text-black-700 outline-none transition-colors focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+            className="h-10 w-full rounded-lg border border-black-200 bg-surface px-3 text-sm font-medium text-black-700 outline-none transition-colors focus:border-primary-400 focus:ring-2 focus:ring-primary-100 sm:max-w-[150px]"
           >
             <option value="">Semua Sumber</option>
             {detailFilters.source.map((s) => (
@@ -2501,7 +2477,7 @@ function DetailOrderTab({ title }: { title: string }) {
           <select
             value={garasiFilter}
             onChange={(e) => { setGarasiFilter(e.target.value); setPage(1); }}
-            className="h-10 max-w-[220px] rounded-lg border border-black-200 bg-surface px-3 text-sm font-medium text-black-700 outline-none transition-colors focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+            className="h-10 w-full rounded-lg border border-black-200 bg-surface px-3 text-sm font-medium text-black-700 outline-none transition-colors focus:border-primary-400 focus:ring-2 focus:ring-primary-100 sm:max-w-[220px]"
           >
             <option value="">Semua Garasi</option>
             {garasiOptions.map((g) => (
@@ -2515,7 +2491,7 @@ function DetailOrderTab({ title }: { title: string }) {
               setGarasiFilter('');
               setPage(1);
             }}
-            className="ml-auto h-10 rounded-lg border border-black-200 px-3 py-1.5 text-xs font-medium text-black-700 transition-colors hover:bg-canvas"
+            className="h-10 w-full rounded-lg border border-black-200 px-3 py-1.5 text-xs font-medium text-black-700 transition-colors hover:bg-canvas sm:ml-auto sm:w-auto"
           >
             Reset Filter
           </button>
@@ -2853,8 +2829,6 @@ function TopPerformaTab({ title }: { title: string }) {
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <PeriodFilter state={pf} />
-            <ExportSectionButton type="top-kendaraan" params={pf.params} label="Top Kendaraan Terlaris" />
-            <ExportSectionButton type="top-pelanggan" params={pf.params} label="Top Pelanggan" />
           </div>
         </div>
 
@@ -2862,6 +2836,7 @@ function TopPerformaTab({ title }: { title: string }) {
         <div className="px-5 pt-5">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h4 className="font-medium text-black-700">Top 5 Kendaraan Terlaris</h4>
+            <ExportSectionButton type="top-kendaraan" params={pf.params} label="Top Kendaraan Terlaris" />
           </div>
         </div>
         <TopKendaraanTable rows={decision.top_kendaraan_terlaris} />
@@ -2873,6 +2848,7 @@ function TopPerformaTab({ title }: { title: string }) {
         <div className="px-5 pt-6">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <h4 className="font-medium text-black-700">Top Pelanggan</h4>
+            <ExportSectionButton type="top-pelanggan" params={pf.params} label="Top Pelanggan" />
           </div>
         </div>
         {customer.customer_top.length > 0 ? (
@@ -3099,10 +3075,9 @@ export default function Laporan() {
       </div>
 
       {/* Kartu kontrol — navigasi lompat section */}
-      <div className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-black-200">
+      <div className="sticky top-0 z-20 rounded-2xl border-t border-black-200 bg-surface px-2 py-2 shadow-sm">
         {/* Navigasi lompat cepat, sticky, sorot bagian aktif */}
-        <div className="sticky top-0 z-10 border-t border-black-200 bg-surface px-2 py-2 shadow-sm">
-          <div className="flex gap-1 overflow-x-auto rounded-lg bg-canvas p-1">
+        <div className="flex gap-1 overflow-x-auto rounded-lg bg-canvas p-1">
             {sections.map((sec) => {
               const isActive = activeSection === sec.id;
               const Icon = sec.icon;
@@ -3123,7 +3098,6 @@ export default function Laporan() {
                 </button>
               );
             })}
-          </div>
         </div>
       </div>
 

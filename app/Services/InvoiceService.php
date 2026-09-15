@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\Setting;
 use Barryvdh\DomPDF\PDF;
+use Illuminate\Support\Facades\Storage;
 
 class InvoiceService
 {
@@ -32,6 +33,8 @@ class InvoiceService
                 'name' => Setting::get('nama_usaha', 'UDIN RENCTCAR'),
                 'alamat' => Setting::get('alamat_usaha', ''),
                 'phone' => Setting::get('no_telp_usaha', ''),
+                'email' => Setting::get('email_usaha', ''),
+                'logo' => $this->logoDataUri(),
             ],
         ];
 
@@ -39,5 +42,18 @@ class InvoiceService
         $pdf->setPaper('a4');
 
         return $pdf;
+    }
+
+    private function logoDataUri(): ?string
+    {
+        $logo = Setting::get('logo_usaha', '');
+
+        if ($logo && Storage::disk('public')->exists($logo)) {
+            $extension = pathinfo($logo, PATHINFO_EXTENSION);
+
+            return 'data:image/'.($extension ?: 'jpeg').';base64,'.base64_encode(Storage::disk('public')->get($logo));
+        }
+
+        return null;
     }
 }

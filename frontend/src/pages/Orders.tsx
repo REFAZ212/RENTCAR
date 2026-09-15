@@ -1335,7 +1335,7 @@ setShowEditForm(true);
                 setForm(emptyForm);
                 setShowForm(true);
               }}
-              className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary-600 shadow-sm transition-colors hover:bg-black-200"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary-600 shadow-sm transition-colors hover:bg-black-200 lg:w-auto"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1370,7 +1370,7 @@ setShowEditForm(true);
             type="date"
             value={dateFrom}
             onChange={(e) => handleDateFrom(e.target.value)}
-            className={`${inputClass} max-w-[160px]`}
+            className={`${inputClass} max-w-[160px] min-w-0 flex-1 basis-28 sm:flex-none`}
             aria-label="Tanggal mulai"
           />
           <span className="text-sm text-black-400">s/d</span>
@@ -1378,7 +1378,7 @@ setShowEditForm(true);
             type="date"
             value={dateTo}
             onChange={(e) => handleDateTo(e.target.value)}
-            className={`${inputClass} max-w-[160px]`}
+            className={`${inputClass} max-w-[160px] min-w-0 flex-1 basis-28 sm:flex-none`}
             aria-label="Tanggal selesai"
           />
           {(dateFrom || dateTo) && (
@@ -3193,7 +3193,7 @@ setShowEditForm(true);
                   <svg className="h-4 w-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                   Bukti Dokumen
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   {detailOrder.bukti_transfer && (
                     <div>
                       <p className="mb-1.5 text-xs text-black-400">Bukti Pembayaran</p>
@@ -3533,7 +3533,7 @@ setShowEditForm(true);
                 <CloseIcon />
               </button>
             </div>
-            <div className="flex gap-6 p-6">
+            <div className="flex flex-col gap-6 p-6 md:flex-row">
               <div className="flex-1 space-y-4">
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between rounded-lg bg-canvas p-2.5">
@@ -3691,7 +3691,7 @@ setShowEditForm(true);
                 </div>
               </div>
 
-              <div className="w-72 shrink-0 space-y-4">
+              <div className="w-full shrink-0 space-y-4 md:w-72">
                 {confirmComplete &&
                   (confirmComplete.status_pembayaran !== 'paid' || confirmComplete.jam_overtime_saat_ini > 0) && (
                     <div>
@@ -4011,7 +4011,7 @@ setShowEditForm(true);
       </div>
 
       {meta && meta.total > 0 && (
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-black-400">
             Menampilkan {items.length} dari {meta.total} order{dateFrom && dateTo ? ` · ${fmtPeriode(dateFrom)} s/d ${fmtPeriode(dateTo)}` : ''}
           </p>

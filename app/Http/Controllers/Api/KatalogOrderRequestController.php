@@ -235,6 +235,7 @@ class KatalogOrderRequestController extends Controller
         return response()->json([
             'order' => $order,
             'wa_link' => $waMessage,
+            'jam_operasional' => json_decode(Setting::get('jam_operasional', '[]'), true) ?? [],
         ], 201);
     }
 

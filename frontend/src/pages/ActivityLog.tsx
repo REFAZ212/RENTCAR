@@ -158,19 +158,53 @@ export default function ActivityLogPage() {
         </select>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-black-200 overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+      {/* Table / mobile cards */}
+      {loading ? (
+        <div className="bg-white rounded-xl border border-black-200 flex items-center justify-center py-20">
+          <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="bg-white rounded-xl border border-black-200 py-20 text-center text-black-400">
+          <p className="text-lg font-medium">Tidak ada aktivitas</p>
+          <p className="text-sm mt-1">Belum ada aktivitas sistem yang tercatat.</p>
+        </div>
+      ) : (
+        <>
+          {/* Mobile card list */}
+          <div className="space-y-3 md:hidden">
+            {logs.map((log) => (
+              <div key={log.id} className="bg-white rounded-xl border border-black-200 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-medium text-black-800">
+                      {formatSubjectType(log.subject_type)}
+                      {log.subject_id && <span className="ml-1 text-black-400">#{log.subject_id}</span>}
+                    </p>
+                    <p className="mt-0.5 text-xs text-black-400">
+                      {new Date(log.created_at).toLocaleString('id-ID', {
+                        day: '2-digit', month: 'short',
+                        hour: '2-digit', minute: '2-digit',
+                      })}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 inline-block px-2 py-0.5 rounded-full text-xs font-medium max-w-[45%] truncate ${eventColors[log.event ?? ''] ?? 'bg-accent-100 text-black-400'}`}>
+                    {eventLabels[log.event ?? ''] ?? log.event}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-black-600">Oleh: {log.causer?.name ?? '-'}</p>
+                <p
+                  className="mt-1 text-sm text-black-500 break-words"
+                  title={formatProperties(log.properties, log.event) || log.description}
+                >
+                  {(formatProperties(log.properties, log.event) || log.description)?.slice(0, 160)}
+                </p>
+              </div>
+            ))}
           </div>
-        ) : logs.length === 0 ? (
-          <div className="py-20 text-center text-black-400">
-            <p className="text-lg font-medium">Tidak ada aktivitas</p>
-            <p className="text-sm mt-1">Belum ada aktivitas sistem yang tercatat.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
+
+          {/* Desktop table */}
+          <div className="hidden md:block bg-white rounded-xl border border-black-200 overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-canvas border-b border-accent-100">
@@ -212,12 +246,13 @@ export default function ActivityLogPage() {
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+          </div>
+        </>
+      )}
 
       {/* Pagination */}
       {lastPage > 1 && (
-        <div className="flex items-center justify-between text-sm text-black-500">
+        <div className="flex flex-col items-center justify-between gap-3 text-sm text-black-500 sm:flex-row">
           <span>Halaman {page} dari {lastPage}</span>
           <div className="flex gap-2">
             <button

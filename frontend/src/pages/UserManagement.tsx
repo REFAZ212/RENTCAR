@@ -164,7 +164,7 @@ export default function UserManagement() {
           <h1 className="font-display text-2xl font-bold text-black-900">Manajemen User</h1>
           <p className="text-sm text-black-400">Kelola akun admin & petugas</p>
         </div>
-        <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-600">
+        <button onClick={openCreate} className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-600 sm:w-auto">
           <Plus size={16} /> Tambah User
         </button>
       </div>
@@ -182,7 +182,62 @@ export default function UserManagement() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-black-200 bg-white shadow-sm">
+      <>
+        {/* Mobile card list */}
+        <div className="space-y-4 md:hidden">
+          {loading ? (
+            <div className="rounded-xl border border-black-200 bg-white p-12 text-center text-sm text-black-400">Memuat data...</div>
+          ) : items.length === 0 ? (
+            <div className="rounded-xl border border-black-200 bg-white p-12 text-center text-sm text-black-400">Tidak ada data user</div>
+          ) : (
+            items.map((item) => (
+              <div key={item.id} className="rounded-xl border border-black-200 bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    {item.avatar ? (
+                      <img
+                        src={`https://api.udinrentcar.com/storage/${item.avatar}`}
+                        alt=""
+                        className="h-9 w-9 shrink-0 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-black-200">
+                        <Users size={14} className="text-black-400" />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-black-900">{item.name}</p>
+                      <p className="truncate text-xs text-black-500">{item.email}</p>
+                      <p className="truncate text-xs text-black-400">{item.phone || '-'}</p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button onClick={() => openEdit(item)} className="rounded-lg p-1.5 text-black-400 hover:bg-primary-50 hover:text-primary-500" title="Edit"><Pencil size={16} /></button>
+                    <button onClick={() => setDeleteTarget(item)} className="rounded-lg p-1.5 text-black-400 hover:bg-error-50 hover:text-error-500" title="Hapus"><Trash2 size={16} /></button>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${roleColors[item.role] ?? 'bg-black-200 text-black-600'}`}>
+                    {roleLabels[item.role] ?? item.role}
+                  </span>
+                  {item.supir_calo && (
+                    <span className="inline-flex rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-600" title="Nyambi sebagai supir">
+                      Supir
+                    </span>
+                  )}
+                  {item.email_verified_at ? (
+                    <span className="inline-flex rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-600">Aktif</span>
+                  ) : (
+                    <span className="inline-flex rounded-full bg-accent-100 px-2 py-0.5 text-xs font-medium text-accent-700">Belum verifikasi</span>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block overflow-hidden rounded-xl border border-black-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b border-black-200 bg-canvas">
@@ -249,15 +304,16 @@ export default function UserManagement() {
                   </tr>
                 ))
               )}
-            </tbody>
+</tbody>
           </table>
         </div>
       </div>
+        </>
 
-      {/* Form Modal */}
+        {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-4 shadow-xl sm:p-6">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-black-900">{editTarget ? 'Edit User' : 'Tambah User'}</h2>
               <button onClick={() => setShowForm(false)} className="text-black-400 hover:text-black-600"><X size={20} /></button>
@@ -267,7 +323,7 @@ export default function UserManagement() {
                 <label className="mb-1 block text-sm font-medium text-black-700">Nama <span className="text-error-500">*</span></label>
                 <input type="text" name="name" value={form.name} onChange={handleFormChange} required className={inputClass} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Email <span className="text-error-500">*</span></label>
                   <input type="email" name="email" value={form.email} onChange={handleFormChange} required placeholder="nama@gmail.com" className={inputClass} />
@@ -288,7 +344,7 @@ export default function UserManagement() {
                   <option value="petugas">Petugas</option>
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">
                     Password {editTarget ? '(kosongkan jika tidak ubah)' : <span className="text-error-500">*</span>}
@@ -327,9 +383,9 @@ export default function UserManagement() {
                   </div>
                 )}
               </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-600 hover:bg-canvas">Batal</button>
-                <button type="submit" disabled={submitting} className="rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50">
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+                <button type="button" onClick={() => setShowForm(false)} className="w-full rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-600 hover:bg-canvas sm:w-auto">Batal</button>
+                <button type="submit" disabled={submitting} className="w-full rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50 sm:w-auto">
                   {submitting ? 'Menyimpan...' : 'Simpan'}
                 </button>
               </div>

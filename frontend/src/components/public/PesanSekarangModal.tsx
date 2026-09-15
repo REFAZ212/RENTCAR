@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { katalogAPI, type KatalogItem, type OrderRequestPayload } from '../../services/api';
-import { todayJakarta, nowWIBTime, formatRupiah, ADMIN_WA } from '../../lib/format';
+import { katalogAPI, type KatalogItem, type OrderRequestPayload, type JamOperasional } from '../../services/api';
+import { todayJakarta, nowWIBTime, formatRupiah, ADMIN_WA, formatJamOperasional } from '../../lib/format';
+import { getFotoUrl } from '../../lib/katalogStatus';
 
 interface OrderForm {
   nama_lengkap: string;
@@ -12,12 +13,6 @@ interface OrderForm {
   opsi_supir: 'lepas_kunci' | 'dengan_supir';
   catatan: string;
 }
-
-const getFotoUrl = (foto?: string | null): string | null => {
-  if (!foto) return null;
-  if (foto.startsWith('http')) return foto;
-  return `/storage/${foto}`;
-};
 
 const pad2 = (n: number): string => String(n).padStart(2, '0');
 
@@ -59,6 +54,7 @@ export default function PesanSekarangModal({
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [waLink, setWaLink] = useState('');
+  const [jamOperasional, setJamOperasional] = useState<JamOperasional[] | undefined>(undefined);
   const modalRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
   const today = todayJakarta();
@@ -97,6 +93,10 @@ export default function PesanSekarangModal({
     }
     if (!form.no_hp.trim()) {
       setError('Nomor WhatsApp wajib diisi');
+      return;
+    }
+    if (form.no_hp.trim().length < 8 || form.no_hp.trim().length > 13) {
+      setError('Nomor WhatsApp tidak valid — masukkan 8–13 digit');
       return;
     }
     if (!form.tanggal_mulai) {
@@ -144,6 +144,7 @@ export default function PesanSekarangModal({
       if (form.catatan.trim()) payload.catatan = form.catatan.trim();
       const { data } = await katalogAPI.orderRequest(payload);
       setWaLink(data.wa_link);
+      setJamOperasional(data.jam_operasional);
       setSuccess(true);
     } catch (err: unknown) {
       let msg = 'Gagal mengirim pesanan. Silakan coba lagi.';
@@ -188,14 +189,14 @@ export default function PesanSekarangModal({
         ref={modalRef}
         className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
       >
-        <div className="sticky top-0 bg-white border-b border-accent-100 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+        <div className="sticky top-0 bg-white border-b border-primary-100 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
           <div>
             <h2 className="text-lg font-bold text-black">Pesan Sekarang</h2>
             <p className="text-sm text-black-400">{item.nama_kendaraan}</p>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-accent-100 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-primary-100 transition-colors"
             aria-label="Tutup"
           >
             <svg className="w-5 h-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -206,8 +207,8 @@ export default function PesanSekarangModal({
         <div className="px-6 py-5">
           {success ? (
             <div className="text-center py-6">
-              <div className="w-16 h-16 bg-accent-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
               </div>
@@ -215,6 +216,16 @@ export default function PesanSekarangModal({
               <p className="text-black-400 text-sm mb-6">
                 Admin akan segera mengkonfirmasi pesanan Anda via WhatsApp.
               </p>
+              {jamOperasional && jamOperasional.length > 0 && (
+                <div className="flex items-start gap-2.5 text-left p-3 bg-canvas rounded-xl mb-6 text-xs text-black-500">
+                  <svg className="w-4 h-4 text-primary-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>
+                    <span className="font-semibold text-black-700">Jam operasional:</span> {formatJamOperasional(jamOperasional)}
+                  </span>
+                </div>
+              )}
               <a
                 href={waLink}
                 target="_blank"
@@ -291,7 +302,7 @@ export default function PesanSekarangModal({
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-black-700 mb-1">
                       Tanggal Mulai <span className="text-error-500">*</span>
@@ -322,7 +333,7 @@ export default function PesanSekarangModal({
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-black-700 mb-1">
                       Jam Mulai <span className="text-black-400 font-normal">(opsional)</span>
@@ -351,7 +362,7 @@ export default function PesanSekarangModal({
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-black-700 mb-2">Opsi Supir</label>
-                  <div className="flex gap-4">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                     <label className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all flex-1 ${
                       form.opsi_supir === 'lepas_kunci'
                         ? 'border-primary-500 bg-primary-50'

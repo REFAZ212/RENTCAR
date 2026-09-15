@@ -10,6 +10,7 @@
         .header { display: flex; justify-content: space-between; border-bottom: 2px solid #2563eb; padding-bottom: 15px; margin-bottom: 20px; }
         .company-info h1 { font-size: 20px; color: #2563eb; margin-bottom: 5px; }
         .company-info p { font-size: 10px; color: #666; }
+        .company-logo img { max-height: 48px; max-width: 180px; margin-bottom: 4px; }
         .invoice-title { text-align: right; }
         .invoice-title h2 { font-size: 24px; color: #2563eb; }
         .invoice-title p { font-size: 10px; color: #666; margin-top: 5px; }
@@ -40,9 +41,13 @@
     <div class="invoice">
         <div class="header">
             <div class="company-info">
+                @if($company['logo'])
+                    <div class="company-logo"><img src="{{ $company['logo'] }}" alt="Logo" /></div>
+                @endif
                 <h1>{{ $company['name'] }}</h1>
                 @if($company['alamat'])<p>{{ $company['alamat'] }}</p>@endif
                 @if($company['phone'])<p>Telp: {{ $company['phone'] }}</p>@endif
+                @if($company['email'])<p>Email: {{ $company['email'] }}</p>@endif
             </div>
             <div class="invoice-title">
                 <h2>INVOICE</h2>

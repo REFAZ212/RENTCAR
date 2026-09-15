@@ -255,7 +255,7 @@ class OrderVerifyOverdue extends Command
         Notification::create([
             'type' => 'auto_completed',
             'title' => 'Order Otomatis Diselesaikan',
-            'message' => "Order {$order->kode_order} ({$order->customer?->nama_lengkap}) di-auto-complete karena lewat batas verifikasi. Denda: {$order->denda_overtime}.",
+            'message' => "Order {$order->kode_order} ({$order->customer?->nama_lengkap}) di-auto-complete karena lewat batas verifikasi. Denda: Rp ".number_format((float) $order->denda_overtime, 0, ',', '.'),
             'data' => [
                 'order_id' => $order->id,
                 'kode_order' => $order->kode_order,

@@ -113,8 +113,8 @@ export default function LayananDetailPage() {
         <div className="grid sm:grid-cols-2 gap-5">
           {data.features.map((f, i) => (
             <AnimatedSection key={f.title} delay={i * 0.06}>
-              <div className="bg-white rounded-[20px] border border-accent-100 p-7 hover:shadow-lg hover:shadow-black/5 transition-all duration-200 h-full">
-                <CheckCircle2 size={18} className="text-accent-500 mb-4" />
+              <div className="bg-white rounded-[20px] border border-primary-100 p-7 hover:shadow-lg hover:shadow-black/5 transition-all duration-200 h-full">
+                <CheckCircle2 size={18} className="text-primary-500 mb-4" />
                 <h3 className="font-semibold text-black text-[15px]">{f.title}</h3>
                 <p className="mt-2 text-black-400 text-sm leading-relaxed">{f.desc}</p>
               </div>

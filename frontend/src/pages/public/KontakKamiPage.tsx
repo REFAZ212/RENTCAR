@@ -69,7 +69,7 @@ export default function KontakKamiPage() {
 
             <div className="mt-10 p-6 bg-canvas rounded-[20px]">
               <div className="flex items-center gap-3 mb-3">
-                <MessageCircle size={18} className="text-accent-600" />
+                <MessageCircle size={18} className="text-primary-600" />
                 <span className="font-semibold text-black text-sm">Chat Langsung via WhatsApp</span>
               </div>
               <p className="text-black-400 text-sm leading-relaxed mb-4">
@@ -87,12 +87,12 @@ export default function KontakKamiPage() {
 
           {/* Form */}
           <AnimatedSection delay={0.1}>
-            <div className="bg-white rounded-[24px] border border-accent-100 p-8 sm:p-10">
+            <div className="bg-white rounded-[24px] border border-primary-100 p-8 sm:p-10">
               <h3 className="font-display text-xl font-bold text-black mb-6">Kirim Pesan</h3>
               {submitted ? (
                 <div className="text-center py-12">
-                  <div className="w-14 h-14 bg-accent-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Send size={22} className="text-accent-600" />
+                  <div className="w-14 h-14 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Send size={22} className="text-primary-600" />
                   </div>
                   <p className="font-semibold text-black">Pesan Anda Telah Dikirim!</p>
                   <p className="text-black-400 text-sm mt-2">Kami akan segera merespon melalui WhatsApp.</p>

@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Phone, Mail, MapPin } from 'lucide-react';
-import { ADMIN_WA, ADMIN_HP_DISPLAY } from '../../../lib/format';
+import { ADMIN_WA, ADMIN_HP_DISPLAY, formatJamOperasional } from '../../../lib/format';
+import { katalogAPI, type JamOperasional } from '../../../services/api';
 import logo from '../../../assets/logofooter.png';
 
 const footerLinks = {
@@ -18,6 +20,15 @@ const footerLinks = {
 };
 
 export default function LandingFooter() {
+  const [jamOperasional, setJamOperasional] = useState<JamOperasional[] | null>(null);
+
+  useEffect(() => {
+    katalogAPI
+      .jamOperasional()
+      .then(({ data }) => setJamOperasional(data))
+      .catch(() => setJamOperasional(null));
+  }, []);
+
   return (
     <footer className="bg-black text-black-400">
       <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20">
@@ -96,11 +107,12 @@ export default function LandingFooter() {
         {/* Bottom bar */}
         <div className="py-6 border-t border-black-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-black-400">
           <p>&copy; {new Date().getFullYear()} UDIN RENCTCAR. Hak cipta dilindungi.</p>
-          <div className="flex items-center gap-4">
-            <span>Senin - Sabtu: 08.00 - 17.00</span>
-            <span className="w-1 h-1 bg-black-700 rounded-full" />
-            <span>Minggu: 08.00 - 12.00</span>
-          </div>
+          {jamOperasional && jamOperasional.length > 0 && (
+            <div className="flex items-center gap-2 text-center sm:text-right">
+              <span className="w-1 h-1 bg-black-700 rounded-full hidden sm:block" />
+              <span>Jam operasional: {formatJamOperasional(jamOperasional)}</span>
+            </div>
+          )}
         </div>
       </div>
     </footer>

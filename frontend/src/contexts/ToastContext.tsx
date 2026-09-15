@@ -15,6 +15,8 @@ import {
 
 type ToastType = "success" | "error" | "info";
 
+const MAX_TOASTS = 3;
+
 interface Toast {
   id: number;
   message: string;
@@ -25,6 +27,7 @@ interface ToastContextType {
   success: (message: string) => void;
   error: (message: string) => void;
   info: (message: string) => void;
+  dismiss: (id: number) => void;
 }
 
 interface ToastProviderProps {
@@ -61,16 +64,28 @@ export function ToastProvider({ children }: ToastProviderProps) {
       type: ToastType = "success",
       duration: number = 3000
     ) => {
+      // Dedup: pesan identik yang masih tampil tidak ditumpuk ulang.
+      if (
+        toasts.some(
+          (t) => t.message === message && t.type === type
+        )
+      ) {
+        return;
+      }
+
       const id = ++toastId;
 
-      setToasts((prev) => [
-        ...prev,
-        {
-          id,
-          message,
-          type,
-        },
-      ]);
+      setToasts((prev) => {
+        const next = [
+          ...prev,
+          {
+            id,
+            message,
+            type,
+          },
+        ];
+        return next.slice(-MAX_TOASTS);
+      });
 
       const timer = setTimeout(() => {
         timersRef.current.delete(timer);
@@ -78,22 +93,27 @@ export function ToastProvider({ children }: ToastProviderProps) {
       }, duration);
       timersRef.current.add(timer);
     },
-    []
+    [toasts]
   );
+
+  const dismiss = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
 
   const toast: ToastContextType = useMemo(
     () => ({
       success: (message: string) => addToast(message, "success"),
       error: (message: string) => addToast(message, "error"),
       info: (message: string) => addToast(message, "info"),
+      dismiss,
     }),
-    [addToast]
+    [addToast, dismiss]
   );
 
   return (
     <ToastContext.Provider value={toast}>
       {children}
-      <ToastContainer toasts={toasts} />
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
     </ToastContext.Provider>
   );
 }
@@ -118,19 +138,19 @@ export function useToast(): ToastContextType {
    Toast Container (inline)
 ======================== */
 
-function ToastContainer({ toasts }: { toasts: Toast[] }) {
+function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
   if (toasts.length === 0) return null;
 
   return (
     <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
       {toasts.map((t) => (
-        <ToastItem key={t.id} toast={t} />
+        <ToastItem key={t.id} toast={t} onDismiss={onDismiss} />
       ))}
     </div>
   );
 }
 
-function ToastItem({ toast }: { toast: Toast }) {
+function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number) => void }) {
   const bg =
     toast.type === "success"
       ? "bg-primary-600"
@@ -140,9 +160,22 @@ function ToastItem({ toast }: { toast: Toast }) {
 
   return (
     <div
-      className={`${bg} text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium pointer-events-auto animate-slide-in`}
+      className={`${bg} max-w-[min(24rem,calc(100vw-2rem))] text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium pointer-events-auto animate-slide-in`}
     >
-      {toast.message}
+      <div className="flex items-start gap-2">
+        <p className="min-w-0 flex-1 break-words">{toast.message}</p>
+        <button
+          type="button"
+          aria-label="Tutup notifikasi"
+          onClick={() => onDismiss(toast.id)}
+          className="shrink-0 rounded p-0.5 text-white/70 hover:bg-white/15 hover:text-white transition"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 6 6 18" />
+            <path d="m6 6 12 12" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }

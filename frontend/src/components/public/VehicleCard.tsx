@@ -1,5 +1,5 @@
-import { useNavigate } from 'react-router-dom';
-import { Star } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Clock } from 'lucide-react';
 import type { KatalogItem } from '../../services/api';
 import { formatRupiah, warnaKendaraanHex } from '../../lib/format';
 import { getFotoUrl, getStatusInfo, statusPhotoClass } from '../../lib/katalogStatus';
@@ -10,38 +10,57 @@ export default function VehicleCard({
   availableForDates,
   tanggalMulai,
   durasiHari,
+  isHighlighted,
 }: {
   item: KatalogItem;
   onPesan: (item: KatalogItem) => void;
   availableForDates?: boolean;
   tanggalMulai?: string;
   durasiHari?: number;
+  isHighlighted?: boolean;
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const fotoUrl = getFotoUrl(item.foto);
   const status = getStatusInfo(item, availableForDates);
   const isDisabled = status.disabled;
 
-  const handleCardClick = (e: React.MouseEvent) => {
-    if (isDisabled) return;
-    if ((e.target as HTMLElement).closest('button')) return;
-    const params = new URLSearchParams();
+  const buildDetailUrl = () => {
+    const params = new URLSearchParams(location.search);
     if (tanggalMulai) params.set('tanggal_mulai', tanggalMulai);
     if (durasiHari && durasiHari > 0) params.set('durasi_hari', String(durasiHari));
     const qs = params.toString();
-    navigate(`/katalog/${item.id}${qs ? `?${qs}` : ''}`);
+    return `/katalog/${item.id}${qs ? `?${qs}` : ''}`;
+  };
+
+  const goToDetail = () => {
+    if (location.pathname === '/katalog') {
+      sessionStorage.setItem(
+        'katalog_return',
+        JSON.stringify({ itemId: item.id, scrollY: window.scrollY })
+      );
+    }
+    navigate(buildDetailUrl());
+  };
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    goToDetail();
   };
 
   return (
     <div
+      id={`vehicle-${item.id}`}
       onClick={handleCardClick}
       className={`group bg-white rounded-xl border overflow-hidden transition-all duration-200 ${
+        isHighlighted ? 'ring-2 ring-primary-500 border-primary-500' : ''
+      } ${
         isDisabled
-          ? 'border-black-200 opacity-80'
+          ? 'border-black-200 opacity-80 cursor-pointer hover:shadow-lg hover:border-primary-200'
           : 'border-black-200 hover:shadow-lg hover:border-primary-200 cursor-pointer'
       }`}
     >
-      <div className="relative h-44 bg-accent-100 overflow-hidden">
+      <div className="relative h-44 bg-primary-100 overflow-hidden">
         {fotoUrl ? (
           <img
             src={fotoUrl}
@@ -96,33 +115,44 @@ export default function VehicleCard({
             {item.warna}
           </p>
         )}
-        <div className="flex items-center gap-1 mt-2">
-          {[...Array(5)].map((_, i) => (
-            <Star key={i} className="w-3.5 h-3.5 text-accent-500 fill-accent-500" />
-          ))}
-        </div>
-        <div className="mt-3 pt-3 border-t border-accent-100 flex items-center justify-between">
-          <span className="text-lg font-bold text-primary-600">
+        <div className="mt-3 pt-3 border-t border-primary-100 flex items-center justify-between gap-2">
+          <span className="text-base sm:text-lg font-bold text-primary-600 truncate">
             {formatRupiah(item.harga_sewa_per_hari)}
             <span className="text-xs text-black-400 font-normal">/hari</span>
           </span>
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${status.bgColor} ${status.textColor}`}>
-            {status.label}
-          </span>
+          {!isDisabled && (
+            <span className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full ${status.bgColor} ${status.textColor}`}>
+              {status.label}
+            </span>
+          )}
         </div>
+        {isDisabled && status.reason === 'disewa' && status.estimatedReturn && (
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-black-400">
+            <Clock className="w-3.5 h-3.5 shrink-0" />
+            Estimasi kembali:{' '}
+            {new Date(status.estimatedReturn + 'T00:00:00').toLocaleDateString('id-ID', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric',
+            })}
+          </p>
+        )}
         <button
           onClick={(e) => {
             e.stopPropagation();
-            if (!isDisabled) onPesan(item);
+            if (isDisabled) {
+              goToDetail();
+            } else {
+              onPesan(item);
+            }
           }}
-          disabled={isDisabled}
           className={`mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors ${
             isDisabled
-              ? 'bg-black-200 text-black-400 cursor-not-allowed'
+              ? 'bg-canvas text-black-600 border border-black-200 hover:bg-black-200'
               : 'bg-primary-600 text-white hover:bg-primary-700'
           }`}
         >
-          {isDisabled ? status.label : 'Sewa Sekarang'}
+          {isDisabled ? 'Lihat Detail' : 'Sewa Sekarang'}
         </button>
       </div>
     </div>

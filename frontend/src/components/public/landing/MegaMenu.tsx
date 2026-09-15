@@ -36,15 +36,6 @@ const navItems: NavItem[] = [
     ],
   },
   { label: 'Armada', href: '/katalog' },
-  {
-    label: 'Media',
-    children: [
-      { label: 'Berita', href: '/berita', desc: 'Informasi terbaru dari perusahaan' },
-      { label: 'Artikel', href: '/artikel', desc: 'Tips dan panduan berguna' },
-      { label: 'Promo', href: '/promo', desc: 'Penawaran dan diskon terkini' },
-    ],
-  },
-  { label: 'Karir', href: '/karir' },
   { label: 'Kontak', href: '/kontak' },
 ];
 
@@ -55,7 +46,7 @@ function MegaDropdown({ item, onClose }: { item: NavItem; onClose: () => void })
 
   return (
     <div className="absolute top-full left-1/2 -translate-x-1/2 pt-3 w-max">
-      <div className="bg-white rounded-xl border border-accent-100 shadow-xl shadow-black/[0.06] p-5 grid grid-cols-2 gap-1 min-w-[480px]">
+      <div className="bg-white rounded-xl border border-primary-100 shadow-xl shadow-black/[0.06] p-5 grid grid-cols-2 gap-1 min-w-[480px]">
         {item.children.map((child) => (
           <Link
             key={child.href}
@@ -132,7 +123,7 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
             )}
           </div>
         ))}
-        <div className="pt-3 border-t border-accent-100 mt-3">
+        <div className="pt-3 border-t border-primary-100 mt-3">
           <a
             href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20reservasi`}
             target="_blank"
@@ -227,7 +218,7 @@ export default function MegaMenu({ solid = false }: { solid?: boolean }) {
             href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20reservasi`}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden sm:inline-flex items-center px-5 py-2 text-[13px] font-semibold rounded-lg transition-all duration-200 bg-white text-primary-600 hover:bg-accent-100"
+            className="hidden sm:inline-flex items-center px-5 py-2 text-[13px] font-semibold rounded-lg transition-all duration-200 bg-white text-primary-600 hover:bg-primary-50"
           >
             Reservasi
           </a>

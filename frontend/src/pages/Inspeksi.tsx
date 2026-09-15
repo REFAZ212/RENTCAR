@@ -601,8 +601,97 @@ const formatDate = (d: string) => {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-black-200 bg-white">
+      {/* Mobile: card list */}
+      <div className="space-y-3 md:hidden">
+        {loading ? (
+          <div className="rounded-xl border border-black-200 bg-white p-12 text-center text-sm text-black-400 shadow-sm">
+            Memuat data...
+          </div>
+        ) : inspeksis.length === 0 ? (
+          <div className="rounded-xl border border-black-200 bg-white p-12 text-center text-sm text-black-400 shadow-sm">
+            Belum ada data inspeksi
+          </div>
+        ) : (
+          inspeksis.map((item) => (
+            <div key={item.id} className="rounded-xl border border-black-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <p className="min-w-0 truncate font-medium text-black-900">{item.order?.kode_order ?? `#${item.order_id}`}</p>
+                <div className="flex shrink-0 items-center gap-1.5">
+                  <Badge
+                    label={jenisShort[item.jenis] ?? item.jenis}
+                    color={item.jenis === 'pickup' ? 'bg-accent-50 text-accent-600' : 'bg-primary-100 text-primary-600'}
+                  />
+                  {item.status === 'draft' && <Badge label="Draft" color="bg-error-50 text-error-600" />}
+                </div>
+              </div>
+
+              <p className="mt-1 text-xs text-black-400">{formatDate(item.created_at)}</p>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <p className="text-black-400">Odometer</p>
+                  <p className="text-black-700">{item.odometer ? `${item.odometer.toLocaleString('id-ID')} km` : '-'}</p>
+                </div>
+                <div>
+                  <p className="text-black-400">BBM</p>
+                  <Badge label={fuelLabels[item.fuel_level] ?? item.fuel_level} color={fuelColors[item.fuel_level] ?? 'bg-black-200 text-black-600'} />
+                </div>
+                <div>
+                  <p className="text-black-400">Body</p>
+                  <Badge label={kondisiBodyLabels[item.kondisi_body] ?? item.kondisi_body} color={kondisiColors[item.kondisi_body] ?? 'bg-black-200 text-black-600'} />
+                </div>
+                <div>
+                  <p className="text-black-400">Ban</p>
+                  <Badge label={kondisiBanLabels[item.kondisi_ban] ?? item.kondisi_ban} color={kondisiColors[item.kondisi_ban] ?? 'bg-black-200 text-black-600'} />
+                </div>
+                <div>
+                  <p className="text-black-400">Damage</p>
+                  {item.ada_damagenya ? (
+                    <span className="inline-flex items-center gap-1 font-medium text-error-600">
+                      <AlertTriangle size={13} /> Ya
+                    </span>
+                  ) : (
+                    <span className="text-black-400">Tidak</span>
+                  )}
+                </div>
+                <div>
+                  <p className="text-black-400">Petugas</p>
+                  <p className="flex items-center gap-1.5 text-black-700">
+                    <span className="truncate">{item.inspeksi_oleh ?? item.admin?.name ?? '-'}</span>
+                    {isSupirOfOrder(item) && (
+                      <span className="inline-flex rounded-full bg-black-100 px-2 py-0.5 text-[10px] font-medium text-black-500" title="Petugas ini adalah supir dari order tersebut">
+                        supir order
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 flex items-center justify-end gap-1 border-t border-black-200 pt-2">
+                <button onClick={() => setShowDetail(item)} className="rounded-lg p-2 text-black-400 transition-colors hover:bg-canvas hover:text-primary-500" title="Lihat Detail" aria-label="Lihat Detail">
+                  <Eye size={18} />
+                </button>
+                {user?.role !== 'petugas' && (
+                  <button
+                    onClick={() => { setPerbaikiTarget(item); setPerbaikiTtdCustomer(null); setPerbaikiTtdPetugas(null); }}
+                    className="rounded-lg p-2 text-black-400 transition-colors hover:bg-canvas hover:text-primary-500"
+                    title="Perbaiki Tanda Tangan (TTD)"
+                    aria-label="Perbaiki Tanda Tangan"
+                  >
+                    <PenLine size={18} />
+                  </button>
+                )}
+                <button onClick={() => setDeleteTarget(item)} className="rounded-lg p-2 text-black-400 transition-colors hover:bg-error-50 hover:text-error-600" title="Hapus" aria-label="Hapus">
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop/tablet: table */}
+      <div className="hidden overflow-hidden rounded-xl border border-black-200 bg-white md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-black-200 bg-canvas">

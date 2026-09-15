@@ -13,7 +13,8 @@ import {
   History,
   ClipboardCheck,
   Shield,
-  MessageSquareWarning,
+MessageSquareWarning,
+  Image as ImageIcon,
 } from 'lucide-react';
 import logo from '../assets/logorentcar.png';
 import { useAuth } from '../contexts/AuthContext';
@@ -62,7 +63,8 @@ const navGroups: NavGroup[] = [
     items: [
       { path: '/laporan', label: 'Laporan', icon: FileBarChart, roles: ROLES_ADMIN },
       { path: '/wa-logs', label: 'WA Log', icon: MessageSquareWarning, roles: ROLES_ADMIN },
-      { path: '/users', label: 'Users', icon: Shield, roles: ['admin_utama'] },
+      { path: '/banner', label: 'Banner Iklan', icon: ImageIcon, roles: ROLES_ADMIN },
+      { path: '/users', label: 'Pengguna', icon: Shield, roles: ['admin_utama'] },
       { path: '/activity-log', label: 'Aktivitas', icon: History, roles: ['admin_utama'] },
       { path: '/pengaturan', label: 'Pengaturan', icon: Settings, roles: ['admin_utama'] },
     ],

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { katalogAPI, type KatalogItem } from '../services/api';
 import { formatRupiah, ADMIN_WA } from '../lib/format';
 import PesanSekarangModal from '../components/public/PesanSekarangModal';
@@ -30,7 +30,7 @@ const buildWALink = (item: KatalogItem, tanggalMulai = '', durasiHari = ''): str
 
 function DetailSkeleton() {
   return (
-    <div className="min-h-screen bg-canvas">
+    <div className="min-h-[60vh] bg-canvas">
       <div className="max-w-4xl mx-auto px-4 py-10">
         <div className="skeleton h-6 w-32 mb-6 rounded" />
         <div className="skeleton h-80 w-full rounded-xl mb-6" />
@@ -46,7 +46,7 @@ function DetailSkeleton() {
               <div className="skeleton h-4 w-16 rounded ml-auto" />
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-accent-100">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-primary-100">
             {Array.from({ length: 4 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3">
                 <div className="skeleton h-9 w-9 rounded-lg" />
@@ -66,7 +66,7 @@ function DetailSkeleton() {
 
 function NotFoundView() {
   return (
-    <div className="min-h-screen bg-canvas flex items-center justify-center">
+    <div className="min-h-[60vh] bg-canvas flex items-center justify-center">
       <div className="text-center">
         <svg className="w-16 h-16 text-black-200 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -91,7 +91,7 @@ function NotFoundView() {
 
 function LoadErrorView({ onRetry }: { onRetry: () => void }) {
   return (
-    <div className="min-h-screen bg-canvas flex items-center justify-center">
+    <div className="min-h-[60vh] bg-canvas flex items-center justify-center">
       <div className="text-center">
         <svg className="w-16 h-16 text-black-200 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -117,6 +117,7 @@ function LoadErrorView({ onRetry }: { onRetry: () => void }) {
 export default function KendaraanDetail() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const [item, setItem] = useState<KatalogItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -198,6 +199,10 @@ export default function KendaraanDetail() {
   }, [item, id, tanggalMulai, durasiHari]);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
+
+  useEffect(() => {
     if (!item) return;
     const previous = document.title;
     document.title = `${item.nama_kendaraan} — UDIN RENTCAR`;
@@ -252,52 +257,40 @@ export default function KendaraanDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-canvas">
-      {/* Top bar */}
-      <nav className="bg-white border-b border-black-200 sticky top-0 z-40" aria-label="Navigasi detail kendaraan">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 flex items-center justify-between h-14">
-          <Link to="/katalog" className="flex items-center gap-2 text-sm text-black-400 hover:text-primary-600 transition-colors">
+    <div className="bg-canvas">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+        <nav className="mb-5 flex items-center justify-between gap-3" aria-label="Navigasi detail kendaraan">
+          <Link
+            to={{ pathname: '/katalog', search: location.search }}
+            className="inline-flex items-center gap-1.5 text-sm text-black-400 hover:text-primary-600 transition-colors"
+          >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Katalog
           </Link>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleShare}
-              aria-label="Bagikan kendaraan ini"
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-black-500 hover:text-primary-600 border border-black-200 rounded-lg hover:border-primary-200 transition-colors"
-            >
-              {copied ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
-                  />
-                </svg>
-              )}
-              {copied ? 'Tersalin' : 'Bagikan'}
-            </button>
-            <button
-              onClick={() => setModalItem(item)}
-              className="flex items-center gap-2 px-4 py-2 bg-accent-500 text-white text-sm font-medium rounded-lg hover:bg-accent-600 transition-colors"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+          <button
+            onClick={handleShare}
+            aria-label="Bagikan kendaraan ini"
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-black-500 hover:text-primary-600 border border-black-200 rounded-lg hover:border-primary-200 transition-colors shrink-0"
+          >
+            {copied ? (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              Pesan Sekarang
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+            ) : (
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
+                />
+              </svg>
+            )}
+            {copied ? 'Tersalin' : 'Bagikan'}
+          </button>
+        </nav>
         {/* Foto */}
         <article className="bg-white rounded-2xl border border-black-200 overflow-hidden mb-6">
           {fotoUrl ? (
@@ -307,7 +300,7 @@ export default function KendaraanDetail() {
               className={`w-full h-72 sm:h-96 object-cover ${statusPhotoClass(item.status)}`}
             />
           ) : (
-            <div className="w-full h-72 sm:h-96 bg-accent-100 flex items-center justify-center">
+            <div className="w-full h-72 sm:h-96 bg-primary-100 flex items-center justify-center">
               <svg className="w-20 h-20 text-black-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -354,7 +347,7 @@ export default function KendaraanDetail() {
           </div>
 
           {/* Specs grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-accent-100">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6 pt-6 border-t border-primary-100">
             {specs.map((s, i) => (
               <div key={i} className="flex items-center gap-3">
                 <div className="w-9 h-9 bg-canvas rounded-lg flex items-center justify-center shrink-0">
@@ -372,7 +365,7 @@ export default function KendaraanDetail() {
 
           {/* Garasi */}
           {item.garasiPartner && (
-            <div className="mt-4 pt-4 border-t border-accent-100 flex items-center gap-2 text-sm text-black-400">
+            <div className="mt-4 pt-4 border-t border-primary-100 flex items-center gap-2 text-sm text-black-400">
               <svg className="w-4 h-4 text-black-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -417,9 +410,9 @@ export default function KendaraanDetail() {
         )}
 
         {item.status === 'disewa' && (item.active_orders_count ?? 0) > 0 && item.available_for_dates !== false && (
-          <div className="bg-accent-50 border border-accent-200 rounded-2xl p-5 mb-6 flex items-start gap-3">
-            <div className="w-9 h-9 bg-accent-100 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
-              <svg className="w-5 h-5 text-accent-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-error-50 border border-error-200 rounded-2xl p-5 mb-6 flex items-start gap-3">
+            <div className="w-9 h-9 bg-error-100 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
+              <svg className="w-5 h-5 text-error-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -429,9 +422,9 @@ export default function KendaraanDetail() {
               </svg>
             </div>
             <div>
-              <p className="text-sm font-semibold text-accent-700">Kendaraan ini sedang disewa</p>
+              <p className="text-sm font-semibold text-error-700">Kendaraan ini sedang disewa</p>
               {item.rented_from && item.rented_until && item.rented_until >= item.rented_from ? (
-                <p className="text-xs text-accent-600 mt-1">
+                <p className="text-xs text-error-600 mt-1">
                   Tidak tersedia {formatTanggalId(item.rented_from)} s/d {formatTanggalId(item.rented_until)}
                   {item.rented_from_time && item.rented_until_time && (
                     <span>
@@ -440,17 +433,17 @@ export default function KendaraanDetail() {
                   )}
                 </p>
               ) : item.rented_from ? (
-                <p className="text-xs text-accent-600 mt-1">
+                <p className="text-xs text-error-600 mt-1">
                   Tidak tersedia mulai {formatTanggalId(item.rented_from)}
                 </p>
               ) : (
                 item.estimated_return_date && (
-                  <p className="text-xs text-accent-600 mt-1">
+                  <p className="text-xs text-error-600 mt-1">
                     Diperkirakan kembali: {formatTanggalId(item.estimated_return_date)}
                   </p>
                 )
               )}
-              <p className="text-xs text-accent-600 mt-1">
+              <p className="text-xs text-error-600 mt-1">
                 Hubungi kami untuk mengetahui ketersediaan kendaraan ini.
               </p>
             </div>
@@ -506,13 +499,13 @@ export default function KendaraanDetail() {
         )}
 
         {/* CTA */}
-        <section className="bg-gradient-to-br from-accent-500 to-accent-600 rounded-2xl p-6 text-white">
+        <section className="bg-gradient-to-br from-primary-600 to-primary-500 rounded-2xl p-6 text-white">
           <h2 className="text-lg font-bold">Tertarik dengan kendaraan ini?</h2>
-          <p className="text-accent-100 text-sm mt-1">Pesan langsung atau konsultasi via WhatsApp</p>
+          <p className="text-primary-100 text-sm mt-1">Pesan langsung atau konsultasi via WhatsApp</p>
           <div className="mt-4 flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => setModalItem(item)}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-accent-600 font-semibold rounded-xl hover:bg-accent-50 transition-colors shadow-lg"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-primary-600 font-semibold rounded-xl hover:bg-primary-50 transition-colors shadow-lg"
             >
               Pesan Sekarang
             </button>
@@ -520,7 +513,7 @@ export default function KendaraanDetail() {
               href={waLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 border-2 border-accent-300 text-accent-50 text-sm font-medium rounded-xl hover:bg-accent-600 transition-colors"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 border-2 border-white/50 text-white text-sm font-medium rounded-xl hover:bg-white/10 transition-colors"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
@@ -530,18 +523,6 @@ export default function KendaraanDetail() {
           </div>
         </section>
       </main>
-
-      <a
-        href={waLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="Konsultasi via WhatsApp"
-        className="md:hidden fixed bottom-4 right-4 z-40 w-14 h-14 bg-success-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-success-600 transition-colors"
-      >
-        <svg className="w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-        </svg>
-      </a>
 
         {modalItem && (
           <PesanSekarangModal

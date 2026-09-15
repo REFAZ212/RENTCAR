@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { storageUrl } from '../../lib/storage';
 import {
   ArrowRight,
   Car,
@@ -19,62 +20,13 @@ import {
   Heart,
   Quote,
   AlertCircle,
-  Wrench,
 } from 'lucide-react';
-import { katalogAPI, type KatalogItem } from '../../services/api';
-import { formatRupiah, ADMIN_WA } from '../../lib/format';
+import { katalogAPI, bannerAPI, type KatalogItem, type Banner } from '../../services/api';
+import { ADMIN_WA } from '../../lib/format';
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
+import VehicleCard from '../../components/public/VehicleCard';
+import PesanSekarangModal from '../../components/public/PesanSekarangModal';
 import heroVideo from '../../assets/hero.mp4';
-
-const getFotoUrl = (foto: string | null | undefined): string | null => {
-  if (!foto) return null;
-
-  if (foto.startsWith('http')) return foto;
-
-  return `https://api.udinrentcar.com/storage/${foto}`;
-};
-
-/**
- * Menentukan label & style badge status kendaraan.
- * Menangani 3 kondisi: tersedia, sedang disewa, dan sedang servis (maintenance).
- * Pola ini disamakan dengan getStatusInfo di halaman Katalog.tsx.
- */
-function getStatusInfo(item: KatalogItem) {
-  if (item.status === 'maintenance') {
-    return {
-      label: 'Sedang Servis',
-      color: 'bg-accent-500',
-      textColor: 'text-accent-600',
-      bgColor: 'bg-accent-50',
-      borderColor: 'border-accent-200',
-      disabled: true,
-      reason: 'maintenance' as const,
-      icon: Wrench,
-    };
-  }
-  if (item.status === 'disewa') {
-    return {
-      label: 'Sedang Disewa',
-      color: 'bg-error-500',
-      textColor: 'text-error-600',
-      bgColor: 'bg-error-50',
-      borderColor: 'border-error-200',
-      disabled: true,
-      reason: 'disewa' as const,
-      icon: Clock,
-    };
-  }
-  return {
-    label: 'Tersedia',
-    color: 'bg-success-500',
-    textColor: 'text-success-600',
-    bgColor: 'bg-success-50',
-    borderColor: 'border-success-200',
-    disabled: false,
-    reason: null as null,
-    icon: Check,
-  };
-}
 
 const layananItems = [
   { icon: Car, title: 'Rental Harian', desc: 'Sewa mobil untuk kebutuhan harian Anda' },
@@ -143,6 +95,9 @@ export default function LandingPage() {
   const [loadError, setLoadError] = useState(false);
   const [faqOpen, setFaqOpen] = useState<number | null>(0);
   const [testimonialIdx, setTestimonialIdx] = useState(0);
+  const [modalPesanItem, setModalPesanItem] = useState<KatalogItem | null>(null);
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [bannerIdx, setBannerIdx] = useState(0);
 
   // Search state — cari berdasarkan nama mobil atau kapasitas
   const [searchQuery, setSearchQuery] = useState('');
@@ -169,6 +124,27 @@ export default function LandingPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    bannerAPI.listPublic()
+      .then((res) => {
+        if (!cancelled) {
+          setBanners(res.data as Banner[]);
+          setBannerIdx(0);
+        }
+      })
+      .catch(() => { /* fallback ke banner statis */ });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (banners.length <= 1) return;
+    const t = window.setInterval(() => setBannerIdx((i) => (i + 1) % banners.length), 5000);
+    return () => window.clearInterval(t);
+  }, [banners.length]);
 
   const nextTestimonial = () => {
     setTestimonialIdx((prev) => (prev + 1) % testimoniData.length);
@@ -356,90 +332,11 @@ export default function LandingPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {featured.map((item) => {
-                const fotoUrl = getFotoUrl(item.foto);
-                const statusInfo = getStatusInfo(item);
-                const StatusIcon = statusInfo.icon;
-                return (
-                  <AnimatedSection key={item.id} delay={0}>
-                    <Link
-                      to={`/katalog/${item.id}`}
-                      className="group block bg-white rounded-xl border border-black-200 overflow-hidden hover:shadow-lg hover:border-primary-200 transition-all"
-                    >
-                      <div className="relative h-44 bg-canvas overflow-hidden">
-                        {fotoUrl ? (
-                          <img
-                            src={fotoUrl}
-                            alt={item.nama_kendaraan}
-                            loading="lazy"
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Car className="w-10 h-10 text-black-200" />
-                          </div>
-                        )}
-                        {item.tipe && (
-                          <span className="absolute top-3 left-3 px-2.5 py-1 bg-white/90 backdrop-blur-sm text-xs font-semibold text-black-700 rounded-lg uppercase">
-                            {item.tipe.nama_tipe}
-                          </span>
-                        )}
-                        {statusInfo.disabled && (
-                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                            <span className={`px-3 py-1.5 ${statusInfo.color} text-white text-xs font-bold rounded-full shadow-lg`}>
-                              {statusInfo.label}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        <h3 className="font-bold text-black group-hover:text-primary-600 transition-colors line-clamp-1">
-                          {item.nama_kendaraan}
-                        </h3>
-                        <p className="text-sm text-black-400 mt-0.5">
-                          {item.merek} &middot; {item.tahun}
-                        </p>
-                        <div className="flex items-center gap-1 mt-2">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className="w-3.5 h-3.5 text-accent-500 fill-accent-500" />
-                          ))}
-                        </div>
-                        <div className="mt-3 pt-3 border-t border-accent-100 flex items-center justify-between gap-2">
-                          <span className="text-lg font-bold text-primary-600">
-                            {formatRupiah(item.harga_sewa_per_hari)}
-                            <span className="text-xs text-black-400 font-normal">/Hari</span>
-                          </span>
-                          <span
-                            className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full shrink-0 ${statusInfo.bgColor} ${statusInfo.textColor}`}
-                          >
-                            <StatusIcon className="w-3 h-3" />
-                            {statusInfo.label}
-                          </span>
-                        </div>
-                        {statusInfo.reason === 'disewa' && item.estimated_return_date && (
-                          <p className="text-[11px] text-black-400 mt-1.5">
-                            Perkiraan kembali:{' '}
-                            {new Date(item.estimated_return_date + 'T00:00:00').toLocaleDateString('id-ID', {
-                              day: 'numeric',
-                              month: 'long',
-                              year: 'numeric',
-                            })}
-                          </p>
-                        )}
-                        <span
-                          className={`mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl transition-colors ${
-                            statusInfo.disabled
-                              ? 'bg-canvas text-black-600 border border-black-200 group-hover:bg-black-200'
-                              : 'bg-primary-600 text-white group-hover:bg-primary-700'
-                          }`}
-                        >
-                          {statusInfo.disabled ? 'Lihat Detail' : 'Sewa Sekarang'}
-                        </span>
-                      </div>
-                    </Link>
-                  </AnimatedSection>
-                );
-              })}
+              {featured.map((item) => (
+                <AnimatedSection key={item.id} delay={0}>
+                  <VehicleCard item={item} onPesan={setModalPesanItem} />
+                </AnimatedSection>
+              ))}
             </div>
           )}
 
@@ -481,45 +378,133 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ========== SECTION 5: PROMO + CTA (COMBINED) ========== */}
-      <section className="relative bg-primary-600 overflow-hidden py-16 sm:py-20">
-        <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary-700 to-primary-500" />
-          <svg className="absolute right-0 top-0 h-full w-1/3 opacity-10" viewBox="0 0 400 400" fill="none" aria-hidden="true">
-            <path d="M400 0L0 400V200L400 0Z" fill="white" />
-          </svg>
-        </div>
-        <div className="max-w-[1600px] mx-auto px-5 sm:px-8 lg:px-20 relative">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
-            <AnimatedSection>
-              <span className="text-[11px] font-semibold tracking-widest uppercase text-accent-400 mb-3 block">
-                Promo Spesial
-              </span>
-              <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight">
-                Diskon Hingga
-                <br />
-                <span className="text-accent-400">20%</span>
-              </h2>
-              <p className="mt-4 text-primary-100 text-sm leading-relaxed max-w-md">
-                Nikmati promo spesial untuk berbagai pilihan kendaraan.
-                Pesan sekarang dan dapatkan harga terbaik.
-              </p>
-              <Link
-                to="/katalog"
-                className="mt-6 inline-flex items-center gap-2 px-6 py-2.5 bg-accent-500 text-black font-semibold rounded-xl hover:bg-accent-400 transition-colors shadow-lg shadow-accent-500/25 text-sm"
-              >
-                Booking Sekarang
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </AnimatedSection>
-            <AnimatedSection delay={0.2} className="relative hidden lg:flex items-center justify-center">
-              <div className="w-64 h-64 bg-white/10 rounded-full blur-3xl" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Car className="w-32 h-32 text-white/20" />
-              </div>
-            </AnimatedSection>
+      {/* ========== SECTION 5: PROMO BANNER + CTA (di-upload admin) ========== */}
+      <section className="relative bg-primary-600 overflow-hidden">
+        {banners.length > 0 ? (
+          <div className="relative min-h-[300px] sm:min-h-[380px] lg:min-h-[420px]">
+            {banners.map((b, i) => {
+              const isActive = i === bannerIdx;
+              const href = b.tautan || '/katalog';
+              const content = (
+                <>
+                  <img
+                    src={storageUrl(b.gambar) || ''}
+                    alt={b.judul || 'Banner promosi'}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
+                  <div className="relative h-full max-w-[1600px] mx-auto px-5 sm:px-8 lg:px-20 flex items-center">
+                    <div className="max-w-xl py-16 sm:py-20">
+                      {b.judul && (
+                        <h2 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-white tracking-tight leading-tight">
+                          {b.judul}
+                        </h2>
+                      )}
+                      {b.subjudul && (
+                        <p className="mt-4 text-white/85 text-sm sm:text-base leading-relaxed max-w-md">
+                          {b.subjudul}
+                        </p>
+                      )}
+                      <span className="mt-6 inline-flex items-center gap-2 px-6 py-2.5 bg-white text-primary-600 font-semibold rounded-xl hover:bg-primary-50 transition-colors shadow-lg shadow-black/20 text-sm">
+                        {b.tombol_label || 'Pesan Sekarang'}
+                        <ArrowRight className="w-4 h-4" />
+                      </span>
+                    </div>
+                  </div>
+                </>
+              );
+              return (
+                <div
+                  key={b.id}
+                  className={`absolute inset-0 transition-opacity duration-700 ${
+                    isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}
+                >
+                  {href.startsWith('http') ? (
+                    <a href={href} target="_blank" rel="noopener noreferrer" className="block h-full">
+                      {content}
+                    </a>
+                  ) : (
+                    <Link to={href} className="block h-full">
+                      {content}
+                    </Link>
+                  )}
+                </div>
+              );
+            })}
+
+            {banners.length > 1 && (
+              <>
+                <button
+                  onClick={() => setBannerIdx((i) => (i - 1 + banners.length) % banners.length)}
+                  aria-label="Banner sebelumnya"
+                  className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setBannerIdx((i) => (i + 1) % banners.length)}
+                  aria-label="Banner berikutnya"
+                  className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
+                  {banners.map((b, i) => (
+                    <button
+                      key={b.id}
+                      onClick={() => setBannerIdx(i)}
+                      aria-label={`Ke banner ${i + 1}`}
+                      className={`h-2 rounded-full transition-all ${
+                        i === bannerIdx ? 'w-6 bg-white' : 'w-2 bg-white/50 hover:bg-white/80'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-        </div>
+        ) : (
+          <div className="relative bg-primary-600 py-16 sm:py-20">
+            <div className="absolute inset-0">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary-700 to-primary-500" />
+              <svg className="absolute right-0 top-0 h-full w-1/3 opacity-10" viewBox="0 0 400 400" fill="none" aria-hidden="true">
+                <path d="M400 0L0 400V200L400 0Z" fill="white" />
+              </svg>
+            </div>
+            <div className="max-w-[1600px] mx-auto px-5 sm:px-8 lg:px-20 relative">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
+                <AnimatedSection>
+                  <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-200 mb-3 block">
+                    Promo Spesial
+                  </span>
+                  <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight">
+                    Diskon Hingga
+                    <br />
+                    <span className="text-primary-200">20%</span>
+                  </h2>
+                  <p className="mt-4 text-primary-100 text-sm leading-relaxed max-w-md">
+                    Nikmati promo spesial untuk berbagai pilihan kendaraan.
+                    Pesan sekarang dan dapatkan harga terbaik.
+                  </p>
+                  <Link
+                    to="/katalog"
+                    className="mt-6 inline-flex items-center gap-2 px-6 py-2.5 bg-white text-primary-600 font-semibold rounded-xl hover:bg-primary-50 transition-colors shadow-lg shadow-black/20 text-sm"
+                  >
+                    Booking Sekarang
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </AnimatedSection>
+                <AnimatedSection delay={0.2} className="relative hidden lg:flex items-center justify-center">
+                  <div className="w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Car className="w-32 h-32 text-white/20" />
+                  </div>
+                </AnimatedSection>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ========== SECTION 6: CARA PEMESANAN ========== */}
@@ -566,7 +551,7 @@ export default function LandingPage() {
               <div className="bg-white rounded-2xl border border-black-200 shadow-sm p-6 sm:p-8">
                 <div className="flex items-center gap-1 mb-4">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-4 h-4 text-accent-500 fill-accent-500" />
+                    <Star key={i} className="w-4 h-4 text-primary-500 fill-primary-500" />
                   ))}
                 </div>
                 <Quote className="w-8 h-8 text-primary-200 mb-4" aria-hidden="true" />
@@ -583,12 +568,12 @@ export default function LandingPage() {
                     <p className="font-semibold text-black text-sm">{testimoniData[testimonialIdx].nama}</p>
                     <div className="flex items-center gap-1">
                       {[...Array(testimoniData[testimonialIdx].rating)].map((_, i) => (
-                        <Star key={i} className="w-3 h-3 text-accent-500 fill-accent-500" />
+                        <Star key={i} className="w-3 h-3 text-primary-500 fill-primary-500" />
                       ))}
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-between mt-6 pt-4 border-t border-accent-100">
+                <div className="flex items-center justify-between mt-6 pt-4 border-t border-primary-100">
                   <button
                     type="button"
                     onClick={prevTestimonial}
@@ -653,6 +638,9 @@ export default function LandingPage() {
       </section>
 
       {/* ========== FOOTER (via PublicLayout) ========== */}
+      {modalPesanItem && (
+        <PesanSekarangModal item={modalPesanItem} onClose={() => setModalPesanItem(null)} />
+      )}
     </div>
   );
 }

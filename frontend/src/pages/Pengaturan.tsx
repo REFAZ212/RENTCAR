@@ -541,7 +541,7 @@ function BisnisTab() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <SectionCard title="Identitas Usaha" description="Dipakai sebagai identitas bisnis pada invoice dan watermark foto kendaraan">
+      <SectionCard title="Identitas Usaha" description="Logo, nama, alamat, telepon & email tampil pada invoice. Nama usaha juga dipakai sebagai watermark pada foto kendaraan.">
         <div className="space-y-5">
           <Field label="Logo Usaha">
             <AvatarUpload imageUrl={logoPreview ?? form.logo_url} onFileSelected={(f) => { setLogoFile(f); setLogoPreview(URL.createObjectURL(f)); }} shape="square" />
@@ -590,7 +590,7 @@ function BisnisTab() {
       </SectionCard>
 
       <SectionCard title="Jam Operasional" description="Menentukan kapan booking baru bisa diproses admin">
-        <div className="overflow-hidden rounded-xl border border-black-200">
+        <div className="overflow-x-auto rounded-xl border border-black-200">
           <table className="w-full text-sm">
             <thead className="bg-canvas">
               <tr>

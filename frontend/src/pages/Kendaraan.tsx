@@ -463,14 +463,14 @@ export default function Kendaraan() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between rounded-2xl bg-gradient-to-r from-black-900 via-black-800 to-primary-700 p-6 text-white shadow-sm">
+      <div className="flex flex-col gap-3 rounded-2xl bg-gradient-to-r from-black-900 via-black-800 to-primary-700 p-6 text-white shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold">Manajemen Armada</h1>
           <p className="mt-1 text-sm text-black-200">Kelola data kendaraan, tarif, dan status ketersediaan</p>
         </div>
         <button
           onClick={openAddForm}
-          className="flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary-600 shadow-sm transition-colors hover:bg-black-200"
+          className="flex items-center justify-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-primary-600 shadow-sm transition-colors hover:bg-black-200 sm:shrink-0"
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -563,12 +563,12 @@ export default function Kendaraan() {
               className={`${inputClass} pl-10`}
             />
           </div>
-          <div className="flex items-center gap-1 self-start rounded-lg bg-canvas p-1 md:self-auto">
+          <div className="no-scrollbar -mx-1 flex items-center gap-1 overflow-x-auto rounded-lg bg-canvas p-1 md:mx-0 md:self-auto">
             {filterTabs.map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
-                className={`rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
+                className={`shrink-0 whitespace-nowrap rounded-md px-3.5 py-1.5 text-sm font-medium transition-colors ${
                   activeTab === tab.key ? 'bg-white text-primary-600 shadow-sm' : 'text-black-400 hover:text-black-700'
                 }`}
               >
@@ -584,7 +584,7 @@ export default function Kendaraan() {
               setFilterKategori(e.target.value);
               setFilterTipe('');
             }}
-            className={`${inputClass} w-auto py-1.5`}
+            className={`${inputClass} w-full py-1.5 sm:w-auto`}
           >
             <option value="">Semua Kategori</option>
             {kategoris
@@ -977,7 +977,7 @@ export default function Kendaraan() {
                   className={`${inputClass} resize-none`}
                 />
               </div>
-              <div className="flex justify-end gap-3 border-t border-black-200 pt-4">
+              <div className="flex flex-col-reverse gap-3 border-t border-black-200 pt-4 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={() => {
@@ -986,7 +986,7 @@ export default function Kendaraan() {
                     setHapusFoto(false);
                     setLastAdded(false);
                   }}
-                  className="rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas"
+                  className="flex w-full items-center justify-center rounded-lg border border-black-200 px-4 py-2 text-sm font-medium text-black-700 transition-colors hover:bg-canvas sm:w-auto"
                 >
                   Batal
                 </button>
@@ -994,7 +994,7 @@ export default function Kendaraan() {
                   <button
                     type="button"
                     onClick={() => setLastAdded(false)}
-                    className="flex items-center gap-2 rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success-600"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success-600 sm:w-auto"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1005,7 +1005,7 @@ export default function Kendaraan() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="flex items-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:opacity-50 sm:w-auto"
                   >
                     {submitting && <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
                     {editItem ? 'Simpan' : 'Tambah'}

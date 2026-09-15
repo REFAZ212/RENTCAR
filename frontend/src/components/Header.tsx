@@ -9,6 +9,12 @@ import useNotificationSound from '../hooks/useNotificationSound';
 /** Interval polling badge notifikasi (ms). */
 const POLL_INTERVAL_MS = 15000;
 
+/** Jeda minimal antar toast notifikasi (ms) supaya ledakan tidak jadi spam. */
+const TOAST_MIN_INTERVAL_MS = 8000;
+
+/** Panjang maksimal title yang ditampilkan di toast instan. */
+const TOAST_TITLE_MAX_LEN = 80;
+
 /** Tipe notifikasi yang layak dimunculkan sebagai toast instan. */
 const TOASTABLE_TYPES = new Set(['task_inspeksi_petugas', 'kendaraan_dikembalikan', 'order_baru', 'garasi_baru']);
 
@@ -19,9 +25,20 @@ const NOTIF_LINK_MAP: Record<string, string> = {
   garasi_timeout: '/garasi',
 };
 
+const ROLE_LABELS: Record<string, string> = {
+  admin_utama: 'Admin Utama',
+  admin_operasional: 'Admin Operasional',
+  petugas: 'Petugas',
+};
+
 function getNotifLink(n: AppNotification): string | null {
   if (n.data?.link && typeof n.data.link === 'string') return n.data.link;
   return NOTIF_LINK_MAP[n.type] ?? null;
+}
+
+function truncateTitle(title: string, maxLen = TOAST_TITLE_MAX_LEN): string {
+  const t = title.trim();
+  return t.length > maxLen ? `${t.slice(0, maxLen - 3)}...` : t;
 }
 
 interface HeaderUser {
@@ -101,6 +118,9 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef<number | null>(null);
+  const announcedNotifIdRef = useRef<number | null>(null);
+  const lastToastAtRef = useRef(0);
+  const fetchInFlightRef = useRef(false);
   const toast = useToast();
   const { play: playNotifSound, unlock: unlockSound } = useNotificationSound();
 
@@ -131,12 +151,22 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
 
       const newest = items[0];
       if (newest && !newest.read_at) {
-        // Bunyikan suara untuk SEMUA notifikasi baru (tidak hanya yang
-        // ditampilkan sebagai toast instan) supaya selalu terdengar.
-        playNotifSound();
+        const announcedRef = announcedNotifIdRef;
+        const lastAnnounced = announcedRef.current;
+        announcedRef.current = newest.id;
 
-        if (TOASTABLE_TYPES.has(newest.type)) {
-          toast.info(newest.title);
+        // Lewati kalau notifikasi ini sudah pernah diumumkan (sound/toast)
+        // sebelumnya — cegah re-fire akibat mark-as-read / polling dobel.
+        if (newest.id !== lastAnnounced) {
+          playNotifSound();
+
+          if (TOASTABLE_TYPES.has(newest.type)) {
+            const now = Date.now();
+            if (now - lastToastAtRef.current >= TOAST_MIN_INTERVAL_MS) {
+              lastToastAtRef.current = now;
+              toast.info(truncateTitle(newest.title));
+            }
+          }
         }
       }
 
@@ -146,6 +176,10 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
   );
 
   const fetchUnreadCount = useCallback(async () => {
+    // Guard konkurensi: focus/visibility/interval bisa memicu bersamaan dan
+    // dua panggilan async sama-sama lolos cek `count > prev` → suara/toast dobel.
+    if (fetchInFlightRef.current) return;
+    fetchInFlightRef.current = true;
     try {
       const res = await notificationAPI.unreadCount();
       const count = res.data.count;
@@ -158,6 +192,8 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
       setUnreadCount(count);
     } catch {
       // silent
+    } finally {
+      fetchInFlightRef.current = false;
     }
   }, [handleNewNotifications]);
 
@@ -268,7 +304,7 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
           </button>
 
           {showNotifications && (
-            <div className="absolute right-0 top-full z-30 mt-2 w-80 overflow-hidden rounded-xl border border-black-200 bg-white shadow-xl sm:w-96">
+            <div className="absolute right-0 top-full z-30 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-black-200 bg-white shadow-xl">
               <div className="flex items-center justify-between border-b border-black-200 px-4 py-3">
                 <h3 className="text-sm font-semibold text-black-800">Notifikasi</h3>
                 {unreadCount > 0 && (
@@ -307,10 +343,10 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
                     >
                       <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${!n.read_at ? 'bg-primary-500' : 'bg-transparent'}`} />
                       <div className="min-w-0 flex-1">
-                        <p className={`text-sm ${!n.read_at ? 'font-semibold text-black-900' : 'text-black-700'}`}>
+                        <p className={`min-w-0 break-words text-sm ${!n.read_at ? 'font-semibold text-black-900' : 'text-black-700'}`}>
                           {n.title}
                         </p>
-                        <p className="mt-0.5 text-xs text-black-400 line-clamp-2">{n.message}</p>
+                        <p className="mt-0.5 break-words text-xs text-black-400">{n.message}</p>
                         <p className="mt-1 text-[11px] text-black-400">{formatTime(n.created_at)}</p>
                       </div>
                     </button>
@@ -328,9 +364,9 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
             className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 hover:bg-canvas"
           >
             <UserAvatar name={user?.name} />
-            <div className="hidden text-left sm:block">
-              <p className="text-sm font-medium leading-tight text-black-700">{user?.name}</p>
-              <p className="text-xs capitalize text-black-400">{user?.role}</p>
+            <div className="hidden min-w-0 text-left sm:block">
+              <p className="truncate text-sm font-medium leading-tight text-black-700" title={user?.name}>{user?.name}</p>
+              <p className="truncate text-xs text-black-400">{ROLE_LABELS[user?.role ?? ''] ?? user?.role}</p>
             </div>
             <ChevronDown className="h-4 w-4 text-black-400" />
           </button>
@@ -338,7 +374,7 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
           {showUserMenu && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
-              <div className="absolute right-0 top-full z-20 mt-2 w-48 rounded-lg border border-black-200 bg-white py-1 shadow-lg">
+              <div className="absolute right-0 top-full z-20 mt-2 w-[min(12rem,calc(100vw-2rem))] rounded-lg border border-black-200 bg-white py-1 shadow-lg">
                 <button
                   onClick={() => {
                     setShowUserMenu(false);

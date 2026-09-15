@@ -83,7 +83,7 @@ export default function TentangKamiPage() {
         <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20">
           <div className="grid lg:grid-cols-2 gap-8">
             <AnimatedSection>
-              <div className="bg-white rounded-[20px] border border-accent-100 p-8 sm:p-10 h-full">
+              <div className="bg-white rounded-[20px] border border-primary-100 p-8 sm:p-10 h-full">
                 <div className="w-12 h-12 bg-primary-50 rounded-xl flex items-center justify-center mb-6">
                   <Eye size={22} className="text-primary-600" />
                 </div>
@@ -94,7 +94,7 @@ export default function TentangKamiPage() {
               </div>
             </AnimatedSection>
             <AnimatedSection delay={0.1}>
-              <div className="bg-white rounded-[20px] border border-accent-100 p-8 sm:p-10 h-full">
+              <div className="bg-white rounded-[20px] border border-primary-100 p-8 sm:p-10 h-full">
                 <div className="w-12 h-12 bg-primary-50 rounded-xl flex items-center justify-center mb-6">
                   <Target size={22} className="text-primary-600" />
                 </div>
@@ -120,7 +120,7 @@ export default function TentangKamiPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {values.map((v, i) => (
             <AnimatedSection key={v.title} delay={i * 0.06}>
-              <div className="flex gap-4 p-6 rounded-[20px] border border-accent-100 bg-white hover:shadow-lg hover:shadow-black/5 transition-all duration-200 h-full">
+              <div className="flex gap-4 p-6 rounded-[20px] border border-primary-100 bg-white hover:shadow-lg hover:shadow-black/5 transition-all duration-200 h-full">
                 <div className="w-10 h-10 bg-canvas rounded-xl flex items-center justify-center shrink-0">
                   <v.icon size={18} className="text-black" strokeWidth={1.5} />
                 </div>
@@ -172,8 +172,8 @@ export default function TentangKamiPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {leadership.map((l, i) => (
             <AnimatedSection key={l.name} delay={i * 0.08}>
-              <div className="bg-white rounded-[20px] border border-accent-100 p-7 text-center hover:shadow-lg hover:shadow-black/5 transition-all duration-200">
-                <div className="w-20 h-20 bg-accent-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+              <div className="bg-white rounded-[20px] border border-primary-100 p-7 text-center hover:shadow-lg hover:shadow-black/5 transition-all duration-200">
+                <div className="w-20 h-20 bg-primary-100 rounded-full mx-auto mb-4 flex items-center justify-center">
                   <Users size={28} className="text-black-200" />
                 </div>
                 <h3 className="font-display font-semibold text-black text-[15px]">{l.name}</h3>
@@ -192,7 +192,7 @@ export default function TentangKamiPage() {
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">Jadikan UDIN RENCTCAR Mitra Transportasi Anda</h2>
             <p className="mt-3 text-black-400 text-[15px] max-w-md mx-auto">Hubungi kami untuk konsultasi kebutuhan transportasi perusahaan Anda.</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link to="/kontak" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black text-sm font-semibold rounded-lg hover:bg-accent-100 transition-colors duration-200">
+              <Link to="/kontak" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black text-sm font-semibold rounded-lg hover:bg-primary-50 transition-colors duration-200">
                 Hubungi Kami <ArrowRight size={15} />
               </Link>
               <Link to="/katalog" className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-black-400 hover:text-white transition-colors duration-200">

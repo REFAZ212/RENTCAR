@@ -66,7 +66,88 @@ export default function Customers() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-black-200 bg-white shadow-sm">
+      {/* Mobile: card list */}
+      <div className="space-y-3 md:hidden">
+        {loading ? (
+          <div className="rounded-xl border border-black-200 bg-white p-12 text-center text-sm text-black-400 shadow-sm">
+            Memuat data...
+          </div>
+        ) : items.length === 0 ? (
+          <div className="rounded-xl border border-black-200 bg-white p-12 text-center shadow-sm">
+            <Users size={40} className="mx-auto mb-3 text-black-400" />
+            <p className="text-sm text-black-500">Tidak ada data customer</p>
+          </div>
+        ) : (
+          items.map((item) => (
+            <div
+              key={item.id}
+              className="rounded-xl border border-black-200 bg-white p-4 shadow-sm transition-colors active:bg-canvas"
+              onClick={() => navigate(`/customers/${item.id}`)}
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-600">
+                  {item.nama_lengkap?.charAt(0)?.toUpperCase() || '?'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-black-900">{item.nama_lengkap}</p>
+                  <p className="text-xs text-black-400">{formatHpDisplay(item.no_hp)}</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/customers/${item.id}`);
+                    }}
+                    className="rounded-lg p-2 text-black-400 transition-colors hover:bg-canvas hover:text-primary-500"
+                    title="Lihat Detail"
+                    aria-label="Lihat Detail"
+                  >
+                    <Eye size={18} />
+                  </button>
+                  {canDelete && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmDelete(item);
+                      }}
+                      className="rounded-lg p-2 text-black-400 transition-colors hover:bg-error-50 hover:text-error-600"
+                      title="Hapus"
+                      aria-label="Hapus"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <p className="text-black-400">Email</p>
+                  <p className="truncate text-black-700">{item.email || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-black-400">No. KTP</p>
+                  <p className="truncate font-mono text-black-700">{item.no_ktp || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-black-400">Pesanan</p>
+                  <p className="text-black-700">{item.orders_count ?? 0}</p>
+                </div>
+                <div>
+                  <p className="text-black-400">Dokumen</p>
+                  <div className="flex items-center gap-1.5">
+                    {item.foto_ktp && <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-500">KTP</span>}
+                    {item.foto_sim && <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-600">SIM</span>}
+                    {!item.foto_ktp && !item.foto_sim && <span className="text-black-400">-</span>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop/tablet: table */}
+      <div className="hidden overflow-hidden rounded-xl border border-black-200 bg-white shadow-sm md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b border-black-200 bg-canvas">

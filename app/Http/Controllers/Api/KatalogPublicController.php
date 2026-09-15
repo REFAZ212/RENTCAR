@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Kategori;
 use App\Models\Kendaraan;
 use App\Models\Order;
+use App\Models\Setting;
 use App\Models\Tipe;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -135,8 +136,14 @@ class KatalogPublicController extends Controller
                 'last_page' => $kendaraan->lastPage(),
                 'per_page' => $kendaraan->perPage(),
                 'total' => $kendaraan->total(),
+                'jam_operasional' => $this->jamOperasionalData(),
             ],
         ]);
+    }
+
+    public function jamOperasional(): JsonResponse
+    {
+        return response()->json($this->jamOperasionalData());
     }
 
     public function kategoris(): JsonResponse
@@ -212,5 +219,10 @@ class KatalogPublicController extends Controller
         $kendaraan->garasiPartner?->makeHidden(self::PARTNER_PUBLIC_HIDDEN);
 
         return response()->json($kendaraan);
+    }
+
+    private function jamOperasionalData(): array
+    {
+        return json_decode(Setting::get('jam_operasional', '[]'), true) ?? [];
     }
 }

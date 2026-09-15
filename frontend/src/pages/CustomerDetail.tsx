@@ -5,10 +5,7 @@ import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatHpDisplay, formatHpWa, formatRupiah } from '../lib/format';
 import ConfirmModal from '../components/ConfirmModal';
-import { ArrowLeft, Phone, Search, X, FileText, Trash2, Clock, CheckCircle2, XCircle, AlertCircle, Truck, MapPin, Calendar, User, Phone as PhoneIcon, Hash, Tag, DollarSign, Info, Image as ImageIcon, CreditCard, RefreshCw } from 'lucide-react';
-
-const inputClass =
-    'w-full rounded-lg border border-black-200 px-3 py-2 text-sm text-black-900 outline-none transition-colors focus:border-primary-500 focus:ring-1 focus:ring-primary-500';
+import { ArrowLeft, Phone, Search, X, FileText, Trash2, Clock, Tag, Image as ImageIcon, CreditCard, RefreshCw } from 'lucide-react';
 
 const statusOrderLabels: Record<string, string> = {
     pending: 'Menunggu',
@@ -73,7 +70,7 @@ function FotoModal({ src, alt, onClose }: { src: string; alt: string; onClose: (
 }
 
 function OrderDetailModal({ order, onClose }: { order: Order; onClose: () => void }) {
-    const getStatusBadge = (status: string, type: 'order' | 'pembayaran' | 'pengiriman') => {
+    const getStatusBadge = (status: string, _type: 'order' | 'pembayaran' | 'pengiriman') => {
         const labels: Record<string, string> = {
             pending: 'Menunggu',
             confirmed: 'Dikonfirmasi',
@@ -133,7 +130,7 @@ active: 'Sedang Disewa',
             }}
         >
             <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                <div className="sticky top-0 bg-white border-b border-black-200 px-6 py-4 flex items-center justify-between rounded-t-2xl z-10">
+                <div className="sticky top-0 bg-white border-b border-black-200 px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between rounded-t-2xl z-10">
                     <div className="flex items-center gap-3">
                         <h2 className="text-lg font-bold text-black">Detail Pesanan</h2>
                         <span className="text-xs font-mono text-black-400 bg-canvas px-2 py-0.5 rounded">{order.kode_order}</span>
@@ -147,7 +144,7 @@ active: 'Sedang Disewa',
                     </button>
                 </div>
 
-                <div className="px-6 py-5 space-y-5">
+                <div className="px-4 py-4 sm:px-6 sm:py-5 space-y-4 sm:space-y-5">
                     <div className="flex flex-wrap gap-2">
                         {getStatusBadge(order.status_order, 'order')}
                         {getStatusBadge(order.status_pembayaran, 'pembayaran')}
@@ -174,15 +171,15 @@ active: 'Sedang Disewa',
 
                     <div className="bg-canvas rounded-xl p-4">
                         <h3 className="text-xs font-semibold uppercase tracking-wider text-black-400 mb-3">Kendaraan</h3>
-                        <div className="flex gap-4">
+                        <div className="flex flex-col sm:flex-row gap-4">
                             {k?.foto ? (
                                 <img
                                     src={getStorageUrl(k.foto) || ''}
                                     alt={k.nama_kendaraan}
-                                    className="w-24 h-20 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                                    className="w-full h-32 sm:w-24 sm:h-20 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
                                 />
                             ) : (
-                                <div className="w-24 h-20 bg-black-200 rounded-lg flex items-center justify-center">
+                                <div className="w-full h-32 sm:w-24 sm:h-20 bg-black-200 rounded-lg flex items-center justify-center">
                                     <ImageIcon size={24} className="text-black-400" />
                                 </div>
                             )}
@@ -218,7 +215,7 @@ active: 'Sedang Disewa',
                     {(s || c) && (
                         <div className="bg-canvas rounded-xl p-4">
                             <h3 className="text-xs font-semibold uppercase tracking-wider text-black-400 mb-3">Supir / Calo</h3>
-                            <div className="flex gap-4">
+                            <div className="flex flex-col sm:flex-row gap-4">
                                 {s && (
                                     <div className="flex items-center gap-3">
                                         <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold text-xs">
@@ -514,7 +511,7 @@ export default function CustomerDetail() {
             </Link>
 
             {/* Data Diri */}
-            <div className="rounded-2xl border border-black-200 bg-white p-6">
+            <div className="rounded-2xl border border-black-200 bg-white p-4 sm:p-6">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-2">
                         <h1 className="font-display text-2xl font-bold text-black-900">{customer.nama_lengkap}</h1>
@@ -537,7 +534,7 @@ export default function CustomerDetail() {
                             <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-black-600">{customer.catatan}</p>
                         )}
                     </div>
-                    <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         {canDelete && (
                             <button
                                 onClick={() => setConfirmDelete(true)}
@@ -561,7 +558,7 @@ export default function CustomerDetail() {
 
             {/* Dokumen Identitas */}
             {(customer.foto_ktp || customer.foto_sim) && (
-                <div className="rounded-2xl border border-black-200 bg-white p-6">
+                <div className="rounded-2xl border border-black-200 bg-white p-4 sm:p-6">
                     <h2 className="mb-4 text-sm font-semibold uppercase tracking-wider text-black-400">Dokumen Identitas</h2>
                     <div className="flex flex-wrap gap-4">
                         {customer.foto_ktp && (
@@ -601,35 +598,35 @@ export default function CustomerDetail() {
             )}
 
             {/* Statistik */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <div className="rounded-2xl border border-black-200 bg-white p-4 text-center">
-                    <p className="text-2xl font-bold text-black-900">{stats.count}</p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+                <div className="min-w-0 rounded-2xl border border-black-200 bg-white px-2 py-4 text-center sm:px-4">
+                    <p className="truncate text-lg font-bold text-black-900 sm:text-2xl" title={String(stats.count)}>{stats.count}</p>
                     <p className="text-xs text-black-400">Total Order</p>
                 </div>
-                <div className="rounded-2xl border border-black-200 bg-white p-4 text-center">
-                    <p className="text-2xl font-bold text-primary-600">{stats.activeCount}</p>
+                <div className="min-w-0 rounded-2xl border border-black-200 bg-white px-2 py-4 text-center sm:px-4">
+                    <p className="truncate text-lg font-bold text-primary-600 sm:text-2xl" title={String(stats.activeCount)}>{stats.activeCount}</p>
                     <p className="text-xs text-black-400">Order Aktif</p>
                 </div>
-                <div className="rounded-2xl border border-black-200 bg-white p-4 text-center">
-                    <p className="text-2xl font-bold text-black-900">{formatRupiah(stats.totalSpent)}</p>
+                <div className="min-w-0 rounded-2xl border border-black-200 bg-white px-2 py-4 text-center sm:px-4">
+                    <p className="truncate text-sm font-bold text-black-900 sm:text-2xl" title={formatRupiah(stats.totalSpent)}>{formatRupiah(stats.totalSpent)}</p>
                     <p className="text-xs text-black-400">Total Pengeluaran</p>
                 </div>
-                <div className="rounded-2xl border border-black-200 bg-white p-4 text-center">
-                    <p className="text-2xl font-bold text-black-900">{formatRupiah(stats.avgSpend)}</p>
+                <div className="min-w-0 rounded-2xl border border-black-200 bg-white px-2 py-4 text-center sm:px-4">
+                    <p className="truncate text-sm font-bold text-black-900 sm:text-2xl" title={formatRupiah(stats.avgSpend)}>{formatRupiah(stats.avgSpend)}</p>
                     <p className="text-xs text-black-400">Rata-rata Sewa</p>
                 </div>
             </div>
 
             {/* Riwayat Pemesanan */}
             <div className="rounded-2xl border border-black-200 bg-white">
-                <div className="flex flex-col gap-3 border-b border-black-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 border-b border-black-200 px-4 py-3 sm:px-6 sm:py-4 sm:flex-row sm:items-center sm:justify-between">
                     <h2 className="font-display text-lg font-bold text-black-900">Riwayat Pemesanan</h2>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex gap-2 overflow-x-auto no-scrollbar">
                         {statusFilters.map((f) => (
                             <button
                                 key={f.key}
                                 onClick={() => setStatusFilter(f.key)}
-                                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                                className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                                     statusFilter === f.key
                                         ? 'bg-primary-500 text-white'
                                         : 'bg-black-200 text-black-600 hover:bg-black-200'
@@ -649,51 +646,79 @@ export default function CustomerDetail() {
                         </p>
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead>
-                                <tr className="border-b border-black-200 text-xs uppercase tracking-wider text-black-400">
-                                    <th className="px-6 py-3">Kode</th>
-                                    <th className="px-6 py-3">Kendaraan</th>
-                                    <th className="px-6 py-3">Periode</th>
-                                    <th className="px-6 py-3">Status</th>
-                                    <th className="px-6 py-3 text-right">Total</th>
-                                    <th className="px-6 py-3 text-right"></th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-black-200">
-                                {filteredOrders.map((order) => (
-                                    <tr
-                                        key={order.id}
-                                        className="cursor-pointer transition-colors hover:bg-primary-50"
-                                        onClick={() => setSelectedOrder(order)}
-                                    >
-                                        <td className="whitespace-nowrap px-6 py-3 font-medium text-black-900">{order.kode_order}</td>
-                                        <td className="px-6 py-3">
-                                            <span className="text-black-700">{order.kendaraan?.nama_kendaraan || '-'}</span>
-                                            {order.kendaraan?.plat_nomor && (
-                                                <span className="ml-1 text-xs text-black-400">({order.kendaraan.plat_nomor})</span>
-                                            )}
-                                        </td>
-                                        <td className="whitespace-nowrap px-6 py-3 text-black-600">
-                                            {order.tanggal_mulai} - {order.tanggal_selesai}
-                                        </td>
-                                        <td className="px-6 py-3">
-                                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusOrderColors[order.status_order] || 'bg-black-200 text-black-600'}`}>
-                                                {statusOrderLabels[order.status_order] || order.status_order}
-                                            </span>
-                                        </td>
-                                        <td className="whitespace-nowrap px-6 py-3 text-right font-medium text-black-900">
-                                            {formatRupiah(order.harga_total)}
-                                        </td>
-                                        <td className="px-6 py-3 text-right text-black-400">
-                                            &rsaquo;
-                                        </td>
+                    <>
+                        {/* Mobile: card list */}
+                        <div className="md:hidden space-y-3 p-4">
+                            {filteredOrders.map((order) => (
+                                <div
+                                    key={order.id}
+                                    className="rounded-xl border border-black-200 bg-canvas p-4 cursor-pointer active:bg-primary-50"
+                                    onClick={() => setSelectedOrder(order)}
+                                >
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="font-mono text-xs text-black-400">{order.kode_order}</span>
+                                        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusOrderColors[order.status_order] || 'bg-black-200 text-black-600'}`}>
+                                            {statusOrderLabels[order.status_order] || order.status_order}
+                                        </span>
+                                    </div>
+                                    <p className="font-medium text-black-900">{order.kendaraan?.nama_kendaraan || '-'}</p>
+                                    {order.kendaraan?.plat_nomor && (
+                                        <p className="text-xs text-black-400">{order.kendaraan.plat_nomor}</p>
+                                    )}
+                                    <div className="mt-2 flex items-center justify-between text-xs text-black-500">
+                                        <span>{order.tanggal_mulai} — {order.tanggal_selesai}</span>
+                                        <span className="font-semibold text-black-900">{formatRupiah(order.harga_total)}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        {/* Desktop: table */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead>
+                                    <tr className="border-b border-black-200 text-xs uppercase tracking-wider text-black-400">
+                                        <th className="px-6 py-3">Kode</th>
+                                        <th className="px-6 py-3">Kendaraan</th>
+                                        <th className="px-6 py-3">Periode</th>
+                                        <th className="px-6 py-3">Status</th>
+                                        <th className="px-6 py-3 text-right">Total</th>
+                                        <th className="px-6 py-3 text-right"></th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y divide-black-200">
+                                    {filteredOrders.map((order) => (
+                                        <tr
+                                            key={order.id}
+                                            className="cursor-pointer transition-colors hover:bg-primary-50"
+                                            onClick={() => setSelectedOrder(order)}
+                                        >
+                                            <td className="whitespace-nowrap px-6 py-3 font-medium text-black-900">{order.kode_order}</td>
+                                            <td className="px-6 py-3">
+                                                <span className="text-black-700">{order.kendaraan?.nama_kendaraan || '-'}</span>
+                                                {order.kendaraan?.plat_nomor && (
+                                                    <span className="ml-1 text-xs text-black-400">({order.kendaraan.plat_nomor})</span>
+                                                )}
+                                            </td>
+                                            <td className="whitespace-nowrap px-6 py-3 text-black-600">
+                                                {order.tanggal_mulai} - {order.tanggal_selesai}
+                                            </td>
+                                            <td className="px-6 py-3">
+                                                <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusOrderColors[order.status_order] || 'bg-black-200 text-black-600'}`}>
+                                                    {statusOrderLabels[order.status_order] || order.status_order}
+                                                </span>
+                                            </td>
+                                            <td className="whitespace-nowrap px-6 py-3 text-right font-medium text-black-900">
+                                                {formatRupiah(order.harga_total)}
+                                            </td>
+                                            <td className="px-6 py-3 text-right text-black-400">
+                                                &rsaquo;
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
                 )}
             </div>
 
