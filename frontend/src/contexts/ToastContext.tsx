@@ -17,10 +17,14 @@ type ToastType = "success" | "error" | "info";
 
 const MAX_TOASTS = 3;
 
+// Durasi animasi keluar toast sebelum benar-benar dihapus dari DOM.
+const EXIT_ANIM_MS = 250;
+
 interface Toast {
   id: number;
   message: string;
   type: ToastType;
+  leaving: boolean;
 }
 
 interface ToastContextType {
@@ -58,16 +62,34 @@ export function ToastProvider({ children }: ToastProviderProps) {
     };
   }, []);
 
+  const forceRemove = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  }, []);
+
+  // Tandai "leaving" dulu supaya animasi keluar sempat berjalan, lalu hapus
+  // dari DOM setelah animasi selesai.
+  const dismiss = useCallback(
+    (id: number) => {
+      setToasts((prev) =>
+        prev.map((toast) => (toast.id === id ? { ...toast, leaving: true } : toast))
+      );
+      const timer = setTimeout(() => forceRemove(id), EXIT_ANIM_MS);
+      timersRef.current.add(timer);
+    },
+    [forceRemove]
+  );
+
   const addToast = useCallback(
     (
       message: string,
       type: ToastType = "success",
       duration: number = 3000
     ) => {
-      // Dedup: pesan identik yang masih tampil tidak ditumpuk ulang.
+      // Dedup: pesan identik yang masih tampil tidak ditumpuk ulang
+      // (toast yang sedang dalam animasi keluar dianggap boleh masuk lagi).
       if (
         toasts.some(
-          (t) => t.message === message && t.type === type
+          (t) => t.message === message && t.type === type && !t.leaving
         )
       ) {
         return;
@@ -77,11 +99,12 @@ export function ToastProvider({ children }: ToastProviderProps) {
 
       setToasts((prev) => {
         const next = [
-          ...prev,
+          ...prev.map((t) => (t.leaving ? t : { ...t, leaving: false })),
           {
             id,
             message,
             type,
+            leaving: false,
           },
         ];
         return next.slice(-MAX_TOASTS);
@@ -89,16 +112,12 @@ export function ToastProvider({ children }: ToastProviderProps) {
 
       const timer = setTimeout(() => {
         timersRef.current.delete(timer);
-        setToasts((prev) => prev.filter((toast) => toast.id !== id));
+        dismiss(id);
       }, duration);
       timersRef.current.add(timer);
     },
-    [toasts]
+    [toasts, dismiss]
   );
-
-  const dismiss = useCallback((id: number) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  }, []);
 
   const toast: ToastContextType = useMemo(
     () => ({
@@ -160,7 +179,9 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: number)
 
   return (
     <div
-      className={`${bg} max-w-[min(24rem,calc(100vw-2rem))] text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium pointer-events-auto animate-slide-in`}
+      className={`${bg} max-w-[min(24rem,calc(100vw-2rem))] text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium pointer-events-auto ${
+        toast.leaving ? "animate-toast-leave" : "animate-slide-in"
+      }`}
     >
       <div className="flex items-start gap-2">
         <p className="min-w-0 flex-1 break-words">{toast.message}</p>

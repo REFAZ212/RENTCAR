@@ -43,7 +43,9 @@ function savePref(pref: SoundPref): void {
   }
 }
 
-type PresetPlayer = (ctx: AudioContext, masterGain: GainNode, t: number) => void;
+type TrackSource = (src: AudioScheduledSourceNode) => void;
+
+type PresetPlayer = (ctx: AudioContext, masterGain: GainNode, t: number, track: TrackSource) => void;
 
 const tone = (
   ctx: AudioContext,
@@ -53,7 +55,8 @@ const tone = (
   attack: number,
   decay: number,
   peak = 0.8,
-  type: OscillatorType = 'sine'
+  type: OscillatorType = 'sine',
+  track?: TrackSource
 ) => {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
@@ -61,28 +64,33 @@ const tone = (
   osc.frequency.value = frequency;
   gain.gain.setValueAtTime(0, startAt);
   gain.gain.linearRampToValueAtTime(peak, startAt + attack);
-  gain.gain.exponentialRampToValueAtTime(0.001, startAt + decay);
+  // `decay` dikirim sebagai waktu absolut (mis. t + 0.1). TIDAK ditambah
+  // startAt lagi — sebelumnya membuat suara bertahan ~durasi hidupnya
+  // AudioContext (semakin lama halaman terbuka, bunyi makin panjang
+  // dan "tidak berhenti-berhenti").
+  gain.gain.exponentialRampToValueAtTime(0.001, decay);
   osc.connect(gain).connect(dest);
+  track?.(osc);
   osc.start(startAt);
-  osc.stop(startAt + decay + 0.02);
+  osc.stop(decay + 0.02);
 };
 
 const presets: Record<SoundPreset, PresetPlayer> = {
-  classic: (ctx, master, t) => {
-    tone(ctx, master, 880, t, 0.008, t + 0.1, 0.8);
-    tone(ctx, master, 1175, t + 0.08, 0.008, t + 0.22, 0.8);
+  classic: (ctx, master, t, track) => {
+    tone(ctx, master, 880, t, 0.008, t + 0.1, 0.8, 'sine', track);
+    tone(ctx, master, 1175, t + 0.08, 0.008, t + 0.22, 0.8, 'sine', track);
   },
-  pop: (ctx, master, t) => {
-    tone(ctx, master, 659, t, 0.004, t + 0.14, 0.7, 'sine');
+  pop: (ctx, master, t, track) => {
+    tone(ctx, master, 659, t, 0.004, t + 0.14, 0.7, 'sine', track);
   },
-  bell: (ctx, master, t) => {
-    tone(ctx, master, 784, t, 0.005, t + 0.24, 0.7, 'sine');
-    tone(ctx, master, 1175, t, 0.005, t + 0.16, 0.25, 'sine');
+  bell: (ctx, master, t, track) => {
+    tone(ctx, master, 784, t, 0.005, t + 0.24, 0.7, 'sine', track);
+    tone(ctx, master, 1175, t, 0.005, t + 0.16, 0.25, 'sine', track);
   },
-  pulse: (ctx, master, t) => {
-    tone(ctx, master, 523, t, 0.003, t + 0.06, 0.6, 'square');
-    tone(ctx, master, 523, t + 0.08, 0.003, t + 0.06, 0.6, 'square');
-    tone(ctx, master, 523, t + 0.16, 0.003, t + 0.06, 0.6, 'square');
+  pulse: (ctx, master, t, track) => {
+    tone(ctx, master, 523, t, 0.003, t + 0.06, 0.6, 'square', track);
+    tone(ctx, master, 523, t + 0.08, 0.003, t + 0.06, 0.6, 'square', track);
+    tone(ctx, master, 523, t + 0.16, 0.003, t + 0.06, 0.6, 'square', track);
   },
 };
 
@@ -103,6 +111,9 @@ export default function useNotificationSound() {
   const lastPlayRef = useRef(0);
   const bufferCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
   const fallbackAudioRef = useRef<Set<HTMLAudioElement>>(new Set());
+  // Sumber Web Audio yang sedang aktif (oscillator/buffer source) — dipakai
+  // untuk menghentikannya saat ada suara baru supaya tidak bertumpuk.
+  const activeSourcesRef = useRef<Set<AudioScheduledSourceNode>>(new Set());
   const [isMuted, setIsMuted] = useState<boolean>(loadPref().muted);
   const [sound, setSound] = useState<SoundPreset>(loadPref().sound);
   const [source, setSource] = useState<'builtin' | 'custom' | 'none'>('none');
@@ -212,9 +223,33 @@ export default function useNotificationSound() {
     [isMuted]
   );
 
+  // Hentikan suara yang sedang berputar (tanpa menutup AudioContext dan tanpa
+  // membuang cache buffer). Dipanggil otomatis sebelum memainkan suara baru
+  // supaya beberapa notifikasi yang datang beruntun tidak berbunyi bertumpuk.
+  const stopCurrent = useCallback(() => {
+    activeSourcesRef.current.forEach((src) => {
+      try {
+        src.stop();
+      } catch {
+        // ignore — sumber sudah berhenti sebelumnya
+      }
+    });
+    activeSourcesRef.current.clear();
+    fallbackAudioRef.current.forEach((audio) => {
+      try {
+        audio.pause();
+        audio.currentTime = 0;
+      } catch {
+        // ignore
+      }
+    });
+    fallbackAudioRef.current.clear();
+  }, []);
+
   const playPreset = useCallback(
     (preset: SoundPreset, force = false, skipThrottle = false) => {
       if (!shouldPlay(force, skipThrottle)) return;
+      stopCurrent();
       unlock();
 
       try {
@@ -223,16 +258,21 @@ export default function useNotificationSound() {
         master.gain.value = 0.35;
         master.connect(ctx.destination);
 
+        const track = (src: AudioScheduledSourceNode) => {
+          activeSourcesRef.current.add(src);
+          src.onended = () => activeSourcesRef.current.delete(src);
+        };
+
         const t = ctx.currentTime;
         const player = presets[preset];
         if (player) {
-          player(ctx, master, t);
+          player(ctx, master, t, track);
         }
       } catch {
         // Web Audio tidak didukung — silent fail
       }
     },
-    [ensureCtx, shouldPlay, unlock]
+    [ensureCtx, shouldPlay, stopCurrent, unlock]
   );
 
   // Memutar file audio custom. File di-fetch lalu didecode jadi AudioBuffer
@@ -241,6 +281,7 @@ export default function useNotificationSound() {
   const playCustom = useCallback(
     (url: string, force = false, skipThrottle = false) => {
       if (!shouldPlay(force, skipThrottle)) return;
+      stopCurrent();
 
       const ctx = ensureCtx();
       unlock();
@@ -254,6 +295,8 @@ export default function useNotificationSound() {
         src.buffer = buffer;
         src.connect(master);
         src.start(ctx.currentTime);
+        activeSourcesRef.current.add(src);
+        src.onended = () => activeSourcesRef.current.delete(src);
       };
 
       const cached = bufferCacheRef.current.get(url);
@@ -277,16 +320,20 @@ export default function useNotificationSound() {
           // Fallback: mainkan lewat elemen audio native (andal saat user gesture)
           const audio = new Audio(url);
           fallbackAudioRef.current.add(audio);
+          audio.onended = () => {
+            fallbackAudioRef.current.delete(audio);
+          };
           audio.play().catch((e) => console.error('Gagal memutar suara kustom (fallback):', e));
         });
     },
-    [ensureCtx, shouldPlay, unlock]
+    [ensureCtx, shouldPlay, stopCurrent, unlock]
   );
 
   // Hentikan SEMUA pemutaran yang sedang berlangsung (preset Web Audio,
   // buffer custom, maupun fallback elemen audio native) dan tutup AudioContext
   // supaya bunyi tidak terus berbunyi (mis. saat tombol Batalkan diklik).
   const stopAll = useCallback(() => {
+    stopCurrent();
     const ctx = ctxRef.current;
     if (ctx) {
       try {
@@ -297,16 +344,7 @@ export default function useNotificationSound() {
       ctxRef.current = null;
     }
     bufferCacheRef.current.clear();
-    fallbackAudioRef.current.forEach((audio) => {
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-      } catch {
-        // ignore
-      }
-    });
-    fallbackAudioRef.current.clear();
-  }, []);
+  }, [stopCurrent]);
 
   const play = useCallback(() => {
     if (source === 'custom' && customUrl) {

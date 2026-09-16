@@ -86,6 +86,9 @@ function PesanSekarangModal({
 
   useEffect(() => {
     firstInputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };

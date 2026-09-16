@@ -18,17 +18,18 @@ class NotifyReturnTask extends Command
         $batasBawah = now()->subHours(24);
         $batasAtas = now()->addHours(24);
 
-        $candidates = Order::whereIn('status_order', ['active', 'perlu_verifikasi'])
-            ->with(['customer', 'kendaraan'])
-            ->get()
-            // Task return masih menunggu: belum ada inspeksi return & belum diklaim.
-            ->filter(function (Order $order) {
-                if ($order->operator_id) {
-                    return false;
-                }
+        // `lazyById` memproses order per-batch — tidak memuat semua ke memori.
+        // Pre-load boolean `has_return_inspeksi` lewat `withExists` supaya tidak
+        // N+1 (1 query per order untuk cek inspeksi return).
+        $service = app(OrderService::class);
+        $count = 0;
 
-                return ! $order->inspeksis()->where('jenis', 'return')->exists();
-            })
+        Order::whereIn('status_order', ['active', 'perlu_verifikasi'])
+            ->with(['customer', 'kendaraan'])
+            ->withExists(['inspeksis as has_return_inspeksi' => fn ($q) => $q->where('jenis', 'return')])
+            ->lazyById(200, 'id')
+            // Task return masih menunggu: belum ada inspeksi return & belum diklaim.
+            ->filter(fn (Order $order) => ! $order->operator_id && ! $order->has_return_inspeksi)
             // Batas pengembalian di jendela ±24 jam: sudah lewat (max 24 jam)
             // atau akan jatuh tempo dalam 24 jam ke depan.
             ->filter(function (Order $order) use ($batasBawah, $batasAtas) {
@@ -40,24 +41,15 @@ class NotifyReturnTask extends Command
             ->filter(function (Order $order) {
                 return ! WhatsappLog::where('type', 'task_inspeksi_return')
                     ->where('order_id', $order->id)
-                    ->whereDate('created_at', now()->toDateString())
+                    ->whereBetween('created_at', [now()->startOfDay(), now()->copy()->endOfDay()])
                     ->exists();
             })
-            ->values();
+            ->each(function (Order $order) use ($service, &$count): void {
+                $service->kirimNotifTaskOperator($order, 'return');
+                $count++;
+            });
 
-        if ($candidates->isEmpty()) {
-            $this->info('Tidak ada task pengembalian yang perlu diberitahukan.');
-
-            return self::SUCCESS;
-        }
-
-        $service = app(OrderService::class);
-
-        foreach ($candidates as $order) {
-            $service->kirimNotifTaskOperator($order, 'return');
-        }
-
-        $this->info("{$candidates->count()} task pengembalian di-broadcast ke petugas.");
+        $this->info("{$count} task pengembalian di-broadcast ke petugas.");
 
         return self::SUCCESS;
     }

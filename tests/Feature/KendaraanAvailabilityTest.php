@@ -620,6 +620,10 @@ class KendaraanAvailabilityTest extends TestCase
         $kendaraan = $this->buatKendaraan('B 35 II', 'tersedia');
         $this->buatOrder($kendaraan, 'ORD-SYNC-6', 'active');
 
+        // Simulasi perintah terjadwal `kendaraan:sync-status` (bukan self-heal
+        // saat request — sinkronisasi kini berjalan via scheduler per menit).
+        Kendaraan::sinkronkanStatusDariOrder();
+
         $response = $this->actingAs($this->admin)->getJson('/api/kendaraans');
 
         $response->assertStatus(200)
@@ -635,6 +639,9 @@ class KendaraanAvailabilityTest extends TestCase
         Storage::fake('public');
         $kendaraan = $this->buatKendaraan('B 36 JJ', 'tersedia');
         $this->buatOrder($kendaraan, 'ORD-SYNC-7', 'active');
+
+        // Sinkronisasi dijalankan scheduler — simulasikan agar status terkini.
+        Kendaraan::sinkronkanStatusDariOrder();
 
         $response = $this->actingAs($this->admin)->getJson("/api/kendaraans/{$kendaraan->id}");
 
@@ -665,6 +672,9 @@ class KendaraanAvailabilityTest extends TestCase
     {
         $kendaraan = $this->buatKendaraan('B 38 LL', 'tersedia');
         $this->buatOrder($kendaraan, 'ORD-SYNC-9', 'active');
+
+        // Sinkronisasi dijalankan scheduler — simulasikan agar status terkini.
+        Kendaraan::sinkronkanStatusDariOrder();
 
         $response = $this->getJson('/api/katalog');
 
@@ -759,6 +769,9 @@ class KendaraanAvailabilityTest extends TestCase
         Storage::fake('public');
         $kendaraan = $this->buatKendaraan('B 46 TT', 'tersedia');
         $this->buatOrder($kendaraan, 'ORD-COUNT-2', 'perlu_verifikasi');
+
+        // Sinkronisasi dijalankan scheduler — simulasikan agar status terkini.
+        Kendaraan::sinkronkanStatusDariOrder();
 
         $response = $this->actingAs($this->admin)->getJson('/api/kendaraans');
 

@@ -15,9 +15,6 @@ class KendaraanController extends Controller
     {
         $this->authorize('viewAny', Kendaraan::class);
 
-        // Perbaiki status kolom yang mungkin tidak sinkron dengan order berjalan.
-        Kendaraan::sinkronkanStatusDariOrder();
-
         $query = Kendaraan::with(['garasiPartner', 'kategori', 'tipe'])
             ->withCount([
                 'activeOrders',
@@ -136,9 +133,6 @@ class KendaraanController extends Controller
     public function show(Kendaraan $kendaraan): JsonResponse
     {
         $this->authorize('view', $kendaraan);
-
-        Kendaraan::sinkronkanStatusDariOrder();
-        $kendaraan->refresh();
 
         $kendaraan->load([
             'garasiPartner',

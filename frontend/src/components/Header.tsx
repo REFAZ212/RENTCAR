@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Menu, Bell, ChevronDown, Plus, LogOut, CheckCheck } from 'lucide-react';
+import { Menu, Bell, ChevronDown, Plus, LogOut, CheckCheck, Volume2, VolumeX } from 'lucide-react';
 import { notificationAPI, type AppNotification } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import useNotificationSound from '../hooks/useNotificationSound';
@@ -117,12 +117,17 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
   const [unreadCount, setUnreadCount] = useState(0);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
-  const prevCountRef = useRef<number | null>(null);
-  const announcedNotifIdRef = useRef<number | null>(null);
+  // ID notifikasi terbaru yang sudah diumumkan (sound/toast). Notifikasi lama
+  // yang pernah diumumkan tidak akan berbunyi ulang meski jadi "terbaru" lagi
+  // setelah notifikasi baru ditandai sudah dibaca.
+  const maxAnnouncedIdRef = useRef(0);
+  // Poll pertama hanya dijadikan baseline — notifikasi yang sudah ada saat
+  // halaman dibuka tidak perlu dibunyikan.
+  const didInitialRef = useRef(false);
   const lastToastAtRef = useRef(0);
   const fetchInFlightRef = useRef(false);
   const toast = useToast();
-  const { play: playNotifSound, unlock: unlockSound } = useNotificationSound();
+  const { play: playNotifSound, unlock: unlockSound, toggleMute, stopAll, isMuted } = useNotificationSound();
 
   const fetchNotifications = useCallback(async () => {
     setLoadingNotifications(true);
@@ -138,7 +143,7 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
   }, []);
 
   const handleNewNotifications = useCallback(
-    async (newCount: number) => {
+    async (announce: boolean) => {
       if (showNotifications) fetchNotifications();
 
       let items: AppNotification[] = [];
@@ -150,14 +155,12 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
       }
 
       const newest = items[0];
-      if (newest && !newest.read_at) {
-        const announcedRef = announcedNotifIdRef;
-        const lastAnnounced = announcedRef.current;
-        announcedRef.current = newest.id;
+      if (newest && newest.id > maxAnnouncedIdRef.current) {
+        maxAnnouncedIdRef.current = newest.id;
 
-        // Lewati kalau notifikasi ini sudah pernah diumumkan (sound/toast)
-        // sebelumnya — cegah re-fire akibat mark-as-read / polling dobel.
-        if (newest.id !== lastAnnounced) {
+        // Baseline (poll pertama) tidak dibunyikan; yang dibunyikan hanya
+        // notifikasi baru yang belum pernah diumumkan sebelumnya.
+        if (announce && !newest.read_at) {
           playNotifSound();
 
           if (TOASTABLE_TYPES.has(newest.type)) {
@@ -169,27 +172,23 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
           }
         }
       }
-
-      prevCountRef.current = newCount;
     },
     [showNotifications, fetchNotifications, toast, playNotifSound]
   );
 
   const fetchUnreadCount = useCallback(async () => {
     // Guard konkurensi: focus/visibility/interval bisa memicu bersamaan dan
-    // dua panggilan async sama-sama lolos cek `count > prev` → suara/toast dobel.
+    // dua panggilan async sama-sama lolos cek → suara/toast dobel.
     if (fetchInFlightRef.current) return;
     fetchInFlightRef.current = true;
     try {
       const res = await notificationAPI.unreadCount();
-      const count = res.data.count;
-      const prev = prevCountRef.current;
+      setUnreadCount(res.data.count);
 
-      if (prev !== null && count > prev) {
-        await handleNewNotifications(count);
-      }
-      prevCountRef.current = count;
-      setUnreadCount(count);
+      // Poll pertama = baseline (tanpa bunyi). Poll berikutnya mengumumkan
+      // notifikasi baru lewat `announce=true`.
+      await handleNewNotifications(didInitialRef.current);
+      didInitialRef.current = true;
     } catch {
       // silent
     } finally {
@@ -307,15 +306,33 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
             <div className="absolute right-0 top-full z-30 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-black-200 bg-white shadow-xl">
               <div className="flex items-center justify-between border-b border-black-200 px-4 py-3">
                 <h3 className="text-sm font-semibold text-black-800">Notifikasi</h3>
-                {unreadCount > 0 && (
+                <div className="flex items-center gap-3">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllAsRead}
+                      className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+                    >
+                      <CheckCheck size={14} />
+                      Tandai semua sudah dibaca
+                    </button>
+                  )}
                   <button
-                    onClick={handleMarkAllAsRead}
-                    className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+                    type="button"
+                    onClick={() => {
+                      // Saat mematikan, hentikan juga bunyi yang sedang berputar.
+                      if (!isMuted) stopAll();
+                      toggleMute();
+                    }}
+                    title={isMuted ? 'Nyalakan suara notifikasi' : 'Matikan suara notifikasi (hentikan bunyi sekarang)'}
+                    aria-pressed={isMuted}
+                    className={`flex items-center gap-1 rounded-md px-1.5 py-1 text-xs transition-colors hover:bg-canvas ${
+                      isMuted ? 'text-black-400' : 'text-black-500 hover:text-black-700'
+                    }`}
                   >
-                    <CheckCheck size={14} />
-                    Tandai semua sudah dibaca
+                    {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+                    <span className="hidden sm:inline">{isMuted ? 'Suara mati' : 'Suara aktif'}</span>
                   </button>
-                )}
+                </div>
               </div>
               <div className="max-h-96 overflow-y-auto">
                 {loadingNotifications ? (

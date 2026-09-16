@@ -60,11 +60,14 @@ export default function PesanSekarangModal({
   const today = todayJakarta();
 
   useEffect(() => {
+    firstInputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleEsc);
-    firstInputRef.current?.focus();
     return () => document.removeEventListener('keydown', handleEsc);
   }, [onClose]);
 

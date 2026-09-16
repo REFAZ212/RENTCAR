@@ -22,12 +22,10 @@ class OrderCancelNoPickup extends Command
         $hours = max(1, (int) Setting::get('confirmed_no_pickup_expire_hours', 24));
         $cutoff = now()->subHours($hours);
 
-        // Order "confirmed" yang sudah lewat jam mulai lebih dari $hours jam
-        // tanpa diambil/diserahkan — berarti kendaraan tidak pernah keluar.
-        // Hanya ID yang diambil di sini — semua validasi (status + inspeksi)
-        // dilakukan ulang di dalam transaksi terkunci.
-        $candidateIds = Order::where('status_order', 'confirmed')
-            ->get(['id', 'tanggal_mulai', 'jam_mulai'])
+        $candidateIds = collect();
+
+        Order::where('status_order', 'confirmed')
+            ->lazyById(500, 'id')
             ->filter(function (Order $order) use ($cutoff) {
                 $mulai = Carbon::parse($order->tanggal_mulai);
 
@@ -37,7 +35,7 @@ class OrderCancelNoPickup extends Command
 
                 return $mulai->lessThan($cutoff);
             })
-            ->pluck('id');
+            ->each(fn (Order $order) => $candidateIds->push($order->id));
 
         if ($candidateIds->isEmpty()) {
             $this->info('Tidak ada order confirmed yang tidak diambil.');

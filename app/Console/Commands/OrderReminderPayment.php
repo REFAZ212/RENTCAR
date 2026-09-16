@@ -23,59 +23,59 @@ class OrderReminderPayment extends Command
             return self::SUCCESS;
         }
 
-        $orders = Order::whereIn('status_order', ['confirmed', 'active'])
-            ->whereIn('status_pembayaran', ['unpaid', 'partial'])
-            ->with(['customer', 'kendaraan'])
-            ->get();
-
         $sentCount = 0;
         $wa = app(WhatsAppService::class);
 
-        foreach ($orders as $order) {
-            $customer = $order->customer;
+        // `lazyById` memproses order per-batch — tidak memuat semua ke memori.
+        Order::whereIn('status_order', ['confirmed', 'active'])
+            ->whereIn('status_pembayaran', ['unpaid', 'partial'])
+            ->with(['customer', 'kendaraan'])
+            ->lazyById(500, 'id')
+            ->each(function (Order $order) use (&$sentCount, $wa): void {
+                $customer = $order->customer;
 
-            if (! $customer || ! $customer->no_hp) {
-                $this->warn("Order {$order->kode_order}: customer tanpa no HP, skip.");
+                if (! $customer || ! $customer->no_hp) {
+                    $this->warn("Order {$order->kode_order}: customer tanpa no HP, skip.");
 
-                continue;
-            }
+                    return;
+                }
 
-            $alreadySentToday = WhatsappLog::where('order_id', $order->id)
-                ->where('type', 'reminder_pembayaran')
-                ->whereDate('created_at', now()->toDateString())
-                ->exists();
+                $alreadySentToday = WhatsappLog::where('order_id', $order->id)
+                    ->where('type', 'reminder_pembayaran')
+                    ->whereBetween('created_at', [now()->startOfDay(), now()->copy()->endOfDay()])
+                    ->exists();
 
-            if ($alreadySentToday) {
-                continue;
-            }
+                if ($alreadySentToday) {
+                    return;
+                }
 
-            $template = Setting::get(
-                'template_pengingat_bayar',
-                'Halo {nama_customer}, kami ingin mengingatkan pembayaran untuk order {kode_order} (kendaraan {nama_kendaraan}) senilai {total}. Terima kasih.'
-            );
-            $pesan = $wa->renderTemplate($template, [
-                'nama_customer' => $customer->nama_lengkap,
-                'kode_order' => $order->kode_order,
-                'nama_kendaraan' => $order->kendaraan?->nama_kendaraan ?? '-',
-                'total' => 'Rp '.number_format((float) $order->harga_total, 0, ',', '.'),
-            ]);
-            $wa->kirimPesanAsync($customer->no_hp, $pesan, 'reminder_pembayaran', $order->id);
-            $sentCount++;
-
-            Notification::create([
-                'type' => 'reminder_pembayaran',
-                'title' => 'Pengingat Pembayaran',
-                'message' => "Order {$order->kode_order} ({$customer->nama_lengkap}) masih {$order->status_pembayaran}. Total: Rp ".number_format((float) $order->harga_total, 0, ',', '.'),
-                'data' => [
-                    'order_id' => $order->id,
+                $template = Setting::get(
+                    'template_pengingat_bayar',
+                    'Halo {nama_customer}, kami ingin mengingatkan pembayaran untuk order {kode_order} (kendaraan {nama_kendaraan}) senilai {total}. Terima kasih.'
+                );
+                $pesan = $wa->renderTemplate($template, [
+                    'nama_customer' => $customer->nama_lengkap,
                     'kode_order' => $order->kode_order,
-                    'status_pembayaran' => $order->status_pembayaran,
-                    'link' => '/orders/'.$order->id,
-                ],
-            ]);
-        }
+                    'nama_kendaraan' => $order->kendaraan?->nama_kendaraan ?? '-',
+                    'total' => 'Rp '.number_format((float) $order->harga_total, 0, ',', '.'),
+                ]);
+                $wa->kirimPesanAsync($customer->no_hp, $pesan, 'reminder_pembayaran', $order->id);
+                $sentCount++;
 
-        $this->info("{$orders->count()} order dengan pembayaran belum lunas. {$sentCount} pesan WA terkirim.");
+                Notification::create([
+                    'type' => 'reminder_pembayaran',
+                    'title' => 'Pengingat Pembayaran',
+                    'message' => "Order {$order->kode_order} ({$customer->nama_lengkap}) masih {$order->status_pembayaran}. Total: Rp ".number_format((float) $order->harga_total, 0, ',', '.'),
+                    'data' => [
+                        'order_id' => $order->id,
+                        'kode_order' => $order->kode_order,
+                        'status_pembayaran' => $order->status_pembayaran,
+                        'link' => '/orders/'.$order->id,
+                    ],
+                ]);
+            });
+
+        $this->info("{$sentCount} pesan pengingat pembayaran terkirim.");
 
         return self::SUCCESS;
     }

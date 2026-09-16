@@ -22,13 +22,11 @@ class OrderExpirePending extends Command
         $hours = max(1, (int) Setting::get('pending_expire_hours', 24));
         $cutoff = now()->subHours($hours);
 
-        // Pending order "expired" kalau jadwal mulai-nya sudah lewat lebih dari
-        // $hours jam — artinya pemesan tidak pernah dikonfirmasi. Ambil hanya
-        // yang colom tanggal_mulai/jam_mulai-nya sudah lewat dari cutoff.
-        // Hanya ID yang diambil di sini — validasi ulang dilakukan di dalam
-        // transaksi terkunci supaya tidak memproses order yang berubah status.
-        $candidateIds = Order::where('status_order', 'pending')
-            ->get(['id', 'tanggal_mulai', 'jam_mulai'])
+        // `lazyById` memproses order per-batch — tidak memuat semua ke memori.
+        $candidateIds = collect();
+
+        Order::where('status_order', 'pending')
+            ->lazyById(500, 'id')
             ->filter(function (Order $order) use ($cutoff) {
                 $mulai = Carbon::parse($order->tanggal_mulai);
 
@@ -38,7 +36,7 @@ class OrderExpirePending extends Command
 
                 return $mulai->lessThan($cutoff);
             })
-            ->pluck('id');
+            ->each(fn (Order $order) => $candidateIds->push($order->id));
 
         if ($candidateIds->isEmpty()) {
             $this->info('Tidak ada order pending yang kedaluwarsa.');

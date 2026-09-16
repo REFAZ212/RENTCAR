@@ -3,6 +3,7 @@
 use App\Console\Commands\BackupDatabase;
 use App\Console\Commands\GarasiCheckTimeout;
 use App\Console\Commands\GpsCleanup;
+use App\Console\Commands\KendaraanSyncStatus;
 use App\Console\Commands\NotifyReturnTask;
 use App\Console\Commands\OrderCancelNoPickup;
 use App\Console\Commands\OrderExpirePending;
@@ -19,6 +20,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command(GarasiCheckTimeout::class)->everyMinute()->withoutOverlapping();
+Schedule::command(KendaraanSyncStatus::class)->everyMinute()->withoutOverlapping();
 Schedule::command(NotifyReturnTask::class)->everyThirtyMinutes()->withoutOverlapping();
 Schedule::command(OrderExpirePending::class)->everyMinute()->withoutOverlapping();
 Schedule::command(OrderCancelNoPickup::class)->everyMinute()->withoutOverlapping();

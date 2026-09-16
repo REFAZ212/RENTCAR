@@ -34,7 +34,8 @@ class ActivityLogController extends Controller
             });
         }
 
-        $activities = $query->paginate($request->input('per_page', 20));
+        $per_page = (int) $request->input('per_page', 20);
+        $activities = $query->paginate(in_array($per_page, [15, 30, 50], true) ? $per_page : 20);
 
         return response()->json($activities);
     }

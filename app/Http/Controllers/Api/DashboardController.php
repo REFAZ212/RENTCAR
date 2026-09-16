@@ -25,6 +25,9 @@ class DashboardController extends Controller
         $today = Carbon::today();
         $yesterday = Carbon::yesterday();
         $isPetugas = $request->user()->role === 'petugas';
+        $todayRange = [$today->copy()->startOfDay(), $today->copy()->endOfDay()];
+        $yesterdayRange = [$yesterday->copy()->startOfDay(), $yesterday->copy()->endOfDay()];
+        $monthRange = [$today->copy()->startOfMonth(), $today->copy()->endOfMonth()];
 
         $stats = [
             'total_kendaraan' => Kendaraan::count(),
@@ -36,16 +39,15 @@ class DashboardController extends Controller
             'total_customer' => Customer::count(),
             'total_garasi' => GarasiPartner::where('status_aktif', true)->count(),
 
-            'orders_hari_ini' => Order::whereDate('created_at', $today)->count(),
+            'orders_hari_ini' => Order::whereBetween('created_at', $todayRange)->count(),
             'orders_aktif' => Order::where('status_order', 'active')->count(),
             'orders_pending' => Order::where('status_order', 'pending')->count(),
 
-            'pendapatan_hari_ini' => $isPetugas ? null : Order::whereDate('created_at', $today)
+            'pendapatan_hari_ini' => $isPetugas ? null : Order::whereBetween('created_at', $todayRange)
                 ->where('status_pembayaran', 'paid')
                 ->sum('harga_total'),
 
-            'pendapatan_bulan_ini' => $isPetugas ? null : Order::whereMonth('created_at', $today->month)
-                ->whereYear('created_at', $today->year)
+            'pendapatan_bulan_ini' => $isPetugas ? null : Order::whereBetween('created_at', $monthRange)
                 ->where('status_pembayaran', 'paid')
                 ->sum('harga_total'),
 
@@ -54,8 +56,8 @@ class DashboardController extends Controller
             'garasi_tidak_terjawab' => GarasiRequest::where('status_permintaan', 'tidak_terjawab')->count(),
 
             // Trend data — untuk perbandingan hari ini vs kemarin
-            'orders_kemarin' => Order::whereDate('created_at', $yesterday)->count(),
-            'pendapatan_kemarin' => $isPetugas ? null : Order::whereDate('created_at', $yesterday)
+            'orders_kemarin' => Order::whereBetween('created_at', $yesterdayRange)->count(),
+            'pendapatan_kemarin' => $isPetugas ? null : Order::whereBetween('created_at', $yesterdayRange)
                 ->where('status_pembayaran', 'paid')
                 ->sum('harga_total'),
         ];

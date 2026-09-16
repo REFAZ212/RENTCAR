@@ -42,47 +42,45 @@ class OrderVerifyOverdue extends Command
         $afterHours = max(1, (int) Setting::get('auto_verify_after_hours', 24));
         $cutoff = now()->subHours($afterHours);
 
-        $candidates = Order::where('status_order', 'active')
-            ->with(['customer', 'kendaraan'])
-            ->get()
-            ->filter(fn (Order $order) => $order->batasWaktuKembali() !== null && $order->batasWaktuKembali()->lessThan($cutoff));
-
-        if ($candidates->isEmpty()) {
-            return 0;
-        }
-
         $count = 0;
-        foreach ($candidates as $kandidat) {
-            $s = Setting::getOvertimeSettings();
-            $hitung = OvertimeCalculator::hitung($kandidat->batasWaktuKembali(), now(), $s['rate'], $s['grace']);
 
-            // Lock + re-check status di dalam transaksi supaya order yang baru
-            // saja berubah (mis. diselesaikan manual di saat bersamaan) tidak
-            // ikut difreeze.
-            $diproses = DB::transaction(function () use ($kandidat, $hitung): bool {
-                $order = Order::whereKey($kandidat->id)->lockForUpdate()->first();
+        // `lazyById` memproses per-batch (keyset pagination) — tanpa memuat
+        // semua order ke memori sekaligus, aman walau data sudah banyak.
+        Order::where('status_order', 'active')
+            ->with(['customer', 'kendaraan'])
+            ->lazyById(200, 'id')
+            ->filter(fn (Order $order) => $order->batasWaktuKembali() !== null && $order->batasWaktuKembali()->lessThan($cutoff))
+            ->each(function (Order $kandidat) use (&$count): void {
+                $s = Setting::getOvertimeSettings();
+                $hitung = OvertimeCalculator::hitung($kandidat->batasWaktuKembali(), now(), $s['rate'], $s['grace']);
 
-                if ($order === null || $order->status_order !== 'active') {
-                    return false;
+                // Lock + re-check status di dalam transaksi supaya order yang baru
+                // saja berubah (mis. diselesaikan manual di saat bersamaan) tidak
+                // ikut difreeze.
+                $diproses = DB::transaction(function () use ($kandidat, $hitung): bool {
+                    $order = Order::whereKey($kandidat->id)->lockForUpdate()->first();
+
+                    if ($order === null || $order->status_order !== 'active') {
+                        return false;
+                    }
+
+                    $order->update([
+                        'status_order' => 'perlu_verifikasi',
+                        'waktu_perlu_verifikasi' => now(),
+                        'jam_overtime' => $hitung['jam_overtime'],
+                        'denda_overtime' => $hitung['denda_overtime'],
+                    ]);
+
+                    return true;
+                });
+
+                if (! $diproses) {
+                    return;
                 }
 
-                $order->update([
-                    'status_order' => 'perlu_verifikasi',
-                    'waktu_perlu_verifikasi' => now(),
-                    'jam_overtime' => $hitung['jam_overtime'],
-                    'denda_overtime' => $hitung['denda_overtime'],
-                ]);
-
-                return true;
+                $this->kirimNotifikasiVerifikasi($kandidat, $hitung);
+                $count++;
             });
-
-            if (! $diproses) {
-                continue;
-            }
-
-            $this->kirimNotifikasiVerifikasi($kandidat, $hitung);
-            $count++;
-        }
 
         return $count;
     }
@@ -101,85 +99,81 @@ class OrderVerifyOverdue extends Command
         $hours = max(1, (int) Setting::get('auto_complete_after_hours', 72));
         $cutoff = now()->subHours($hours);
 
-        $candidates = Order::where('status_order', 'perlu_verifikasi')
+        $count = 0;
+
+        Order::where('status_order', 'perlu_verifikasi')
             ->whereNotNull('waktu_perlu_verifikasi')
             ->with(['customer', 'kendaraan'])
-            ->get()
-            ->filter(fn (Order $order) => $order->waktu_perlu_verifikasi->lessThan($cutoff));
+            ->lazyById(200, 'id')
+            ->filter(fn (Order $order) => $order->waktu_perlu_verifikasi->lessThan($cutoff))
+            ->each(function (Order $candidate) use (&$count): void {
+                $hasil = DB::transaction(function () use ($candidate): ?string {
+                    $order = Order::whereKey($candidate->id)->lockForUpdate()->first();
 
-        if ($candidates->isEmpty()) {
-            return 0;
-        }
+                    if ($order === null || $order->status_order !== 'perlu_verifikasi') {
+                        return null;
+                    }
 
-        $count = 0;
-        foreach ($candidates as $candidate) {
-            $hasil = DB::transaction(function () use ($candidate): ?string {
-                $order = Order::whereKey($candidate->id)->lockForUpdate()->first();
+                    // Syarat sama dengan penutupan manual oleh admin (OrderService::updateOrder):
+                    // 1) harus ada inspeksi akhir (return) bertanda tangan lengkap;
+                    // 2) seluruh tagihan (termasuk denda frozen + kerusakan) harus lunas.
+                    $legacyTanpaInspeksi = ! Schema::hasTable('inspeksi_kendaraans');
+                    $inspeksiAkhir = $legacyTanpaInspeksi
+                        ? null
+                        : $order->inspeksis()
+                            ->where('jenis', 'return')
+                            ->whereNotNull('ttd_customer')
+                            ->whereNotNull('ttd_petugas')
+                            ->latest('id')
+                            ->first();
 
-                if ($order === null || $order->status_order !== 'perlu_verifikasi') {
-                    return null;
+                    if (! $legacyTanpaInspeksi && $inspeksiAkhir === null) {
+                        return 'blokir_inspeksi';
+                    }
+
+                    $totalFinal = (float) $order->proyeksiSelesai(now())['harga_total']
+                        + (float) ($inspeksiAkhir->biaya_kerusakan ?? 0);
+                    $totalBayar = (float) $order->pembayarans()
+                        ->whereNull('deleted_at')
+                        ->where('status', '!=', 'refund')
+                        ->sum('jumlah');
+
+                    if (($totalFinal - $totalBayar) > 0.01) {
+                        return 'blokir_bayar';
+                    }
+
+                    $order->status_order = 'completed';
+                    $order->status_pengiriman = 'selesai';
+                    $order->waktu_perlu_verifikasi = null;
+                    $order->selesaikanSewa(now());
+                    $order->save();
+
+                    $order->kendaraan?->update([
+                        'status' => $order->kendaraan->activeOrders()
+                            ->where('id', '!=', $order->id)
+                            ->exists()
+                            ? 'disewa'
+                            : ($order->kendaraan->status === 'tidak_tersedia' ? 'tidak_tersedia' : 'tersedia'),
+                    ]);
+
+                    return 'selesai';
+                });
+
+                switch ($hasil) {
+                    case 'selesai':
+                        $this->kirimNotifikasiAutoComplete(Order::find($candidate->id));
+                        $count++;
+                        break;
+
+                    case 'blokir_inspeksi':
+                        $this->kirimNotifikasiDiblokir($candidate, 'blokir_inspeksi');
+                        break;
+
+                    case 'blokir_bayar':
+                        $this->kirimNotifikasiDiblokir($candidate, 'blokir_bayar');
+                        break;
                 }
-
-                // Syarat sama dengan penutupan manual oleh admin (OrderService::updateOrder):
-                // 1) harus ada inspeksi akhir (return) bertanda tangan lengkap;
-                // 2) seluruh tagihan (termasuk denda frozen + kerusakan) harus lunas.
-                $legacyTanpaInspeksi = ! Schema::hasTable('inspeksi_kendaraans');
-                $inspeksiAkhir = $legacyTanpaInspeksi
-                    ? null
-                    : $order->inspeksis()
-                        ->where('jenis', 'return')
-                        ->whereNotNull('ttd_customer')
-                        ->whereNotNull('ttd_petugas')
-                        ->latest('id')
-                        ->first();
-
-                if (! $legacyTanpaInspeksi && $inspeksiAkhir === null) {
-                    return 'blokir_inspeksi';
-                }
-
-                $totalFinal = (float) $order->proyeksiSelesai(now())['harga_total']
-                    + (float) ($inspeksiAkhir->biaya_kerusakan ?? 0);
-                $totalBayar = (float) $order->pembayarans()
-                    ->whereNull('deleted_at')
-                    ->where('status', '!=', 'refund')
-                    ->sum('jumlah');
-
-                if (($totalFinal - $totalBayar) > 0.01) {
-                    return 'blokir_bayar';
-                }
-
-                $order->status_order = 'completed';
-                $order->status_pengiriman = 'selesai';
-                $order->waktu_perlu_verifikasi = null;
-                $order->selesaikanSewa(now());
-                $order->save();
-
-                $order->kendaraan?->update([
-                    'status' => $order->kendaraan->activeOrders()
-                        ->where('id', '!=', $order->id)
-                        ->exists()
-                        ? 'disewa'
-                        : ($order->kendaraan->status === 'tidak_tersedia' ? 'tidak_tersedia' : 'tersedia'),
-                ]);
-
-                return 'selesai';
             });
-
-            switch ($hasil) {
-                case 'selesai':
-                    $this->kirimNotifikasiAutoComplete(Order::find($candidate->id));
-                    $count++;
-                    break;
-
-                case 'blokir_inspeksi':
-                    $this->kirimNotifikasiDiblokir($candidate, 'blokir_inspeksi');
-                    break;
-
-                case 'blokir_bayar':
-                    $this->kirimNotifikasiDiblokir($candidate, 'blokir_bayar');
-                    break;
-            }
-        }
 
         return $count;
     }
@@ -192,7 +186,7 @@ class OrderVerifyOverdue extends Command
     {
         $tipe = $jenisBlokir === 'blokir_bayar' ? 'auto_complete_kurang_bayar' : 'auto_complete_diblokir';
         $sudahAda = Notification::where('type', $tipe)
-            ->whereDate('created_at', now()->toDateString())
+            ->whereBetween('created_at', [now()->startOfDay(), now()->copy()->endOfDay()])
             ->get()
             ->contains(fn (Notification $n) => ($n->data['order_id'] ?? null) === $order->id);
 
