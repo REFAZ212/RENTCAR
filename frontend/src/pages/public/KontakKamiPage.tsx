@@ -1,23 +1,23 @@
 import { useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, MessageCircle } from 'lucide-react';
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
-import { useAdminContact } from '../../contexts/AdminContactContext';
+import { ADMIN_WA, ADMIN_HP_DISPLAY } from '../../lib/format';
+
+const contactInfo = [
+  { icon: Phone, label: 'Telepon', value: ADMIN_HP_DISPLAY, href: `tel:+${ADMIN_WA}` },
+  { icon: Mail, label: 'Email', value: 'info@udinrentcar.com', href: 'mailto:info@udinrentcar.com' },
+  { icon: MapPin, label: 'Alamat', value: ' Perum Ranca bungur indah blok A03 Cilampunghilir, Kec. Padakembang, Kabupaten Tasikmalaya, Jawa Barat 46466', href: null },
+  { icon: Clock, label: 'Jam Kerja', value: 'Senin - Sabtu: 08.00 - 17.00', href: null },
+];
 
 export default function KontakKamiPage() {
-  const { wa: adminWa, hp, email, alamat } = useAdminContact();
-  const contactInfo = [
-    { icon: Phone, label: 'Telepon', value: hp, href: `tel:+${adminWa}` },
-    { icon: Mail, label: 'Email', value: email, href: `mailto:${email}` },
-    { icon: MapPin, label: 'Alamat', value: alamat, href: null },
-    { icon: Clock, label: 'Jam Kerja', value: 'Senin - Sabtu: 08.00 - 17.00', href: null },
-  ];
   const [form, setForm] = useState({ nama: '', email: '', telepon: '', subjek: '', pesan: '' });
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const waLink = `https://wa.me/${adminWa}?text=${encodeURIComponent(`Halo, saya ${form.nama}.\n\nSubjek: ${form.subjek}\n\n${form.pesan}\n\nEmail: ${form.email}\nTelepon: ${form.telepon}`)}`;
-    window.open(waLink, '_blank');
+    const wa = `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(`Halo, saya ${form.nama}.\n\nSubjek: ${form.subjek}\n\n${form.pesan}\n\nEmail: ${form.email}\nTelepon: ${form.telepon}`)}`;
+    window.open(wa, '_blank');
     setSubmitted(true);
   };
 
@@ -76,7 +76,7 @@ export default function KontakKamiPage() {
                 Untuk respon cepat, hubungi kami langsung melalui WhatsApp.
               </p>
               <a
-                href={`https://wa.me/${adminWa}?text=Halo%2C%20saya%20ingin%20bertanya%20tentang%20layanan%20UDIN RENCTCAR`}
+                href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20bertanya%20tentang%20layanan%20UDIN RENTCAR`}
                 target="_blank" rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-5 py-2.5 bg-success-500 text-white text-sm font-semibold rounded-lg hover:bg-success-600 transition-colors"
               >

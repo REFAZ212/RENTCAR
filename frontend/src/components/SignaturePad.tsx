@@ -68,10 +68,20 @@ export default function SignaturePad({ label, onChange, placeholder = 'Tanda tan
   const emitFile = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.toBlob((blob) => {
+
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = canvas.width;
+    exportCanvas.height = canvas.height;
+    const ctx = exportCanvas.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+    ctx.drawImage(canvas, 0, 0);
+
+    exportCanvas.toBlob((blob) => {
       if (!blob) return;
       const file = new File([blob], `ttd-${Date.now()}.png`, { type: 'image/png' });
-      onChange(file, canvas.toDataURL('image/png'));
+      onChange(file, exportCanvas.toDataURL('image/png'));
     }, 'image/png');
   }, [onChange]);
 

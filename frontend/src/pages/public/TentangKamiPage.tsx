@@ -1,9 +1,12 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Target, Eye, Heart, Users, Award, ShieldCheck, Clock, Globe } from 'lucide-react';
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
+import fotoCeo from '../../assets/ceo.png';
+import fotoCoo from '../../assets/coo.png';
+import fotoCfo from '../../assets/cfo.png';
 
 const timeline = [
-  { year: '2009', title: 'Pendirian Perusahaan', desc: 'PT UDIN RENCTCAR didirikan dengan fokus awal pada layanan rental kendaraan di satu kota.' },
+  { year: '2009', title: 'Pendirian Perusahaan', desc: 'UDIN RENTCAR didirikan dengan fokus awal pada layanan rental kendaraan di satu kota.' },
   { year: '2013', title: 'Ekspansi Regional', desc: 'Membuka cabang pertama di luar kota asal, memperluas cakupan layanan transportasi.' },
   { year: '2017', title: '100 Unit Armada', desc: 'Mencapai milestone 100 unit kendaraan dalam armada operasional.' },
   { year: '2020', title: 'Transformasi Digital', desc: 'Meluncurkan platform digital untuk pemesanan dan manajemen armada secara online.' },
@@ -20,9 +23,9 @@ const values = [
 ];
 
 const leadership = [
-  { name: 'Direktur Utama', role: 'Chief Executive Officer', desc: 'Memimpin visi strategis perusahaan dan ekspansi nasional.' },
-  { name: 'Direktur Operasional', role: 'Chief Operating Officer', desc: 'Mengawasi seluruh operasional armada dan layanan.' },
-  { name: 'Direktur Keuangan', role: 'Chief Financial Officer', desc: 'Mengelola strategi keuangan dan pertumbuhan bisnis.' },
+  { name: 'Muhammad Fakhrudin Hidayat, S.Sos', role: 'Chief Executive Officer', desc: 'Memimpin visi strategis perusahaan dan ekspansi nasional.', photo: fotoCeo },
+  { name: 'Enceng Yusril Hidayatullah', role: 'Chief Operating Officer', desc: 'Mengawasi seluruh operasional armada dan layanan.', photo: fotoCoo },
+  { name: 'Amaliah Mukaromah Hijriani', role: 'Chief Financial Officer', desc: 'Mengelola strategi keuangan dan pertumbuhan bisnis.', photo: fotoCfo },
 ];
 
 export default function TentangKamiPage() {
@@ -34,7 +37,7 @@ export default function TentangKamiPage() {
           <AnimatedSection>
             <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-400 mb-4 block">Tentang Kami</span>
             <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight max-w-2xl">
-              Mengenal PT UDIN RENCTCAR Lebih Dekat
+              Mengenal UDIN RENTCAR Lebih Dekat
             </h1>
             <p className="mt-5 text-black-400 text-[15px] leading-relaxed max-w-xl">
               Perusahaan transportasi nasional yang berkomitmen menyediakan solusi mobilitas terbaik bagi korporat, pemerintah, dan individu di seluruh Indonesia.
@@ -52,7 +55,7 @@ export default function TentangKamiPage() {
               Solusi transportasi terpercaya sejak 2009
             </h2>
             <p className="mt-5 text-black-400 text-[15px] leading-relaxed">
-              PT UDIN RENCTCAR didirikan pada tahun 2009 dengan visi menjadi penyedia layanan transportasi terpercaya di Indonesia. Bermula dari sebuah usaha kecil, kami terus berkembang hingga kini beroperasi di lebih dari 25 kota dengan armada lebih dari 150 kendaraan.
+               UDIN RENTCAR didirikan pada tahun 2009 dengan visi menjadi penyedia layanan transportasi terpercaya di Indonesia. Bermula dari sebuah usaha kecil, kami terus berkembang hingga kini beroperasi di lebih dari 25 kota dengan armada lebih dari 150 kendaraan.
             </p>
             <p className="mt-4 text-black-400 text-[15px] leading-relaxed">
               Kami melayani berbagai segmen pelanggan mulai dari perusahaan multinasional, instansi pemerintah, agen perjalanan, hingga individu yang membutuhkan solusi transportasi yang handal dan profesional.
@@ -173,8 +176,12 @@ export default function TentangKamiPage() {
           {leadership.map((l, i) => (
             <AnimatedSection key={l.name} delay={i * 0.08}>
               <div className="bg-white rounded-[20px] border border-primary-100 p-7 text-center hover:shadow-lg hover:shadow-black/5 transition-all duration-200">
-                <div className="w-20 h-20 bg-primary-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <Users size={28} className="text-black-200" />
+                <div className="w-20 h-20 rounded-full mx-auto mb-4 overflow-hidden bg-primary-100 flex items-center justify-center">
+                  {l.photo ? (
+                    <img src={l.photo} alt={l.name} className="h-full w-full object-cover" />
+                  ) : (
+                    <Users size={28} className="text-black-200" />
+                  )}
                 </div>
                 <h3 className="font-display font-semibold text-black text-[15px]">{l.name}</h3>
                 <p className="text-[11px] font-medium text-primary-500 mt-0.5">{l.role}</p>
@@ -189,7 +196,7 @@ export default function TentangKamiPage() {
       <section className="bg-black py-20 sm:py-28">
         <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-20 text-center">
           <AnimatedSection>
-            <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">Jadikan UDIN RENCTCAR Mitra Transportasi Anda</h2>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight">Jadikan UDIN RENTCAR Mitra Transportasi Anda</h2>
             <p className="mt-3 text-black-400 text-[15px] max-w-md mx-auto">Hubungi kami untuk konsultasi kebutuhan transportasi perusahaan Anda.</p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link to="/kontak" className="inline-flex items-center gap-2 px-6 py-3 bg-white text-black text-sm font-semibold rounded-lg hover:bg-primary-50 transition-colors duration-200">
