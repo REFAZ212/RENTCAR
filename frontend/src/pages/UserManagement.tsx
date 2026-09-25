@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, type ChangeEvent, type FormEvent } from 'react';
+import { useState, useEffect, useCallback, useRef, type ChangeEvent, type FormEvent } from 'react';
 import { isAxiosError } from 'axios';
 import { userAPI, type AppUser } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
-import { Plus, Search, Pencil, Trash2, X, Users } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, X, Users, ShieldCheck } from 'lucide-react';
 
 const inputClass =
   'w-full rounded-lg border border-black-200 px-3 py-2 text-sm text-black-900 outline-none transition-colors focus:border-primary-500 focus:ring-1 focus:ring-primary-500';
@@ -46,6 +46,8 @@ const emptyForm: UserForm = {
 
 export default function UserManagement() {
   const { error: toastError, success: toastSuccess } = useToast();
+  const toastErrorRef = useRef(toastError);
+  toastErrorRef.current = toastError;
   const [items, setItems] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -54,15 +56,16 @@ export default function UserManagement() {
   const [form, setForm] = useState<UserForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AppUser | null>(null);
+  const [verifyTarget, setVerifyTarget] = useState<AppUser | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
     userAPI
       .list({ search })
       .then(({ data }) => setItems(data.data))
-      .catch(() => toastError('Gagal memuat data user'))
+      .catch(() => toastErrorRef.current('Gagal memuat data user'))
       .finally(() => setLoading(false));
-  }, [search, toastError]);
+  }, [search]);
 
   useEffect(() => {
     load();
@@ -157,6 +160,19 @@ export default function UserManagement() {
     }
   };
 
+  const handleVerify = async () => {
+    if (!verifyTarget) return;
+    try {
+      await userAPI.verify(verifyTarget.id);
+      toastSuccess('User berhasil diverifikasi.');
+      setVerifyTarget(null);
+      load();
+    } catch (err) {
+      const msg = isAxiosError(err) ? err.response?.data?.message : 'Gagal memverifikasi user.';
+      toastError(msg);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -212,6 +228,9 @@ export default function UserManagement() {
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
+                    {!item.email_verified_at && (
+                      <button onClick={() => setVerifyTarget(item)} className="rounded-lg p-1.5 text-black-400 hover:bg-success-50 hover:text-success-600" title="Verifikasi"><ShieldCheck size={16} /></button>
+                    )}
                     <button onClick={() => openEdit(item)} className="rounded-lg p-1.5 text-black-400 hover:bg-primary-50 hover:text-primary-500" title="Edit"><Pencil size={16} /></button>
                     <button onClick={() => setDeleteTarget(item)} className="rounded-lg p-1.5 text-black-400 hover:bg-error-50 hover:text-error-500" title="Hapus"><Trash2 size={16} /></button>
                   </div>
@@ -297,6 +316,9 @@ export default function UserManagement() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
+                        {!item.email_verified_at && (
+                          <button onClick={() => setVerifyTarget(item)} className="text-black-400 hover:text-success-600" title="Verifikasi"><ShieldCheck size={16} /></button>
+                        )}
                         <button onClick={() => openEdit(item)} className="text-black-400 hover:text-primary-500" title="Edit"><Pencil size={16} /></button>
                         <button onClick={() => setDeleteTarget(item)} className="text-black-400 hover:text-error-500" title="Hapus"><Trash2 size={16} /></button>
                       </div>
@@ -326,9 +348,9 @@ export default function UserManagement() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Email <span className="text-error-500">*</span></label>
-                  <input type="email" name="email" value={form.email} onChange={handleFormChange} required placeholder="nama@gmail.com" className={inputClass} />
+                  <input type="email" name="email" value={form.email} onChange={handleFormChange} required placeholder="nama@gmail.com / nama@udinrentcar.com" className={inputClass} />
                   <p className="mt-1 text-xs text-black-400">
-                    Wajib akun @gmail.com. Kode OTP akan dikirim ke email ini untuk aktivasi akun.
+                    Wajib akun @gmail.com atau @udinrentcar.com. User akan langsung aktif setelah dibuat.
                   </p>
                 </div>
                 <div>
@@ -402,6 +424,19 @@ export default function UserManagement() {
           message={`Yakin ingin menghapus "${deleteTarget.name}"?`}
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {/* Verify Confirm */}
+      {verifyTarget && (
+        <ConfirmModal
+          open={!!verifyTarget}
+          title="Verifikasi User"
+          message={`Yakin ingin memverifikasi "${verifyTarget.name}"? User akan langsung aktif.`}
+          confirmLabel="Verifikasi"
+          danger={false}
+          onConfirm={handleVerify}
+          onCancel={() => setVerifyTarget(null)}
         />
       )}
     </div>

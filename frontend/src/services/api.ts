@@ -721,6 +721,7 @@ export const userAPI = {
   create: (data: Payload): Promise<AxiosResponse<SingleResponse<AppUser>>> => api.post('/users', data),
   update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<AppUser>>> => api.put(`/users/${id}`, data),
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/users/${id}`),
+  verify: (id: number): Promise<AxiosResponse<{ message: string; verified: boolean }>> => api.post(`/users/${id}/verify`),
 };
 
 /* ─────────────────────────────────────────────────────────────

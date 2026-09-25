@@ -1312,17 +1312,25 @@ const formatDate = (d: string) => {
                   {showDetail.ttd_customer && (
                     <div>
                       <p className="text-xs font-medium text-black-500">Tanda Tangan Customer</p>
-                      <img
-  src={`https://api.udinrentcar.com/storage/${showDetail.ttd_customer}`}
-  alt="TTD Customer"
-  className="mt-2 h-16 rounded-lg border border-black-200 bg-white object-contain"
-/>
+                      <div className="mt-2 h-16 w-full overflow-hidden rounded-lg border border-black-200 bg-white">
+                        <img
+                          src={`https://api.udinrentcar.com/storage/${showDetail.ttd_customer}`}
+                          alt="TTD Customer"
+                          className="h-full w-full object-contain"
+                        />
+                      </div>
                     </div>
                   )}
                   {showDetail.ttd_petugas && (
                     <div>
                       <p className="text-xs font-medium text-black-500">Tanda Tangan Petugas</p>
-                      <img src={`https://api.udinrentcar.com/storage/${showDetail.ttd_petugas}`} alt="TTD Petugas" className="mt-2 h-16 rounded-lg border border-black-200 bg-white object-contain" />
+                      <div className="mt-2 h-16 w-full overflow-hidden rounded-lg border border-black-200 bg-white">
+                        <img
+                          src={`https://api.udinrentcar.com/storage/${showDetail.ttd_petugas}`}
+                          alt="TTD Petugas"
+                          className="h-full w-full object-contain"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>

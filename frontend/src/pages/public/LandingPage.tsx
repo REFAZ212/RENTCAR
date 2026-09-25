@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { storageUrl } from '../../lib/storage';
 import {
   ArrowRight,
   Car,
@@ -21,51 +20,110 @@ import {
   Quote,
   AlertCircle,
 } from 'lucide-react';
-import { katalogAPI, bannerAPI, type KatalogItem, type Banner } from '../../services/api';
-import { useAdminContact } from '../../contexts/AdminContactContext';
+
+import {
+  katalogAPI,
+  bannerAPI,
+  type KatalogItem,
+  type Banner,
+} from '../../services/api';
+
+import { ADMIN_WA } from '../../lib/format';
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
 import VehicleCard from '../../components/public/VehicleCard';
 import PesanSekarangModal from '../../components/public/PesanSekarangModal';
 import heroVideo from '../../assets/hero.mp4';
 
 const layananItems = [
-  { icon: Car, title: 'Rental Harian', desc: 'Sewa mobil untuk kebutuhan harian Anda' },
-  { icon: Calendar, title: 'Rental Mingguan', desc: 'Sewa mobil untuk perjalanan mingguan' },
-  { icon: Calendar, title: 'Rental Bulanan', desc: 'Sewa mobil jangka panjang dengan harga spesial' },
-  { icon: Users, title: 'Dengan Driver', desc: 'Layanan rental dengan sopir profesional' },
-  { icon: Key, title: 'Lepas Kunci', desc: 'Sewa mobil tanpa supir, lepas kunci' },
-  { icon: Plane, title: 'Antar Jemput Bandara', desc: 'Layanan antar jemput bandara' },
-  { icon: Building2, title: 'Rental Perusahaan', desc: 'Solusi rental untuk kebutuhan perusahaan' },
-  { icon: Heart, title: 'Wedding Car', desc: 'Mobil pengantin dengan desain premium' },
+  {
+    icon: Car,
+    title: 'Rental Harian',
+    desc: 'Sewa mobil untuk kebutuhan harian Anda',
+  },
+  {
+    icon: Calendar,
+    title: 'Rental Mingguan',
+    desc: 'Sewa mobil untuk perjalanan mingguan',
+  },
+  {
+    icon: Calendar,
+    title: 'Rental Bulanan',
+    desc: 'Sewa mobil jangka panjang dengan harga spesial',
+  },
+  {
+    icon: Users,
+    title: 'Dengan Driver',
+    desc: 'Layanan rental dengan sopir profesional',
+  },
+  {
+    icon: Key,
+    title: 'Lepas Kunci',
+    desc: 'Sewa mobil tanpa supir, lepas kunci',
+  },
+  {
+    icon: Plane,
+    title: 'Antar Jemput Bandara',
+    desc: 'Layanan antar jemput bandara',
+  },
+  {
+    icon: Building2,
+    title: 'Rental Perusahaan',
+    desc: 'Solusi rental untuk kebutuhan perusahaan',
+  },
+  {
+    icon: Heart,
+    title: 'Wedding Car',
+    desc: 'Mobil pengantin dengan desain premium',
+  },
 ];
 
 const langkahPemesanan = [
-  { icon: Car, title: 'Pilih Mobil', desc: 'Jelajahi armada kami dan pilih kendaraan yang sesuai' },
-  { icon: Check, title: 'Isi Data', desc: 'Isi data diri dan konfirmasi tanggal sewa' },
-  { icon: Shield, title: 'Konfirmasi Booking', desc: 'Konfirmasi pembayaran dan booking Anda' },
-  { icon: Star, title: 'Nikmati Perjalanan', desc: 'Kendarai mobil impian Anda dengan aman' },
+  {
+    icon: Car,
+    title: 'Pilih Mobil',
+    desc: 'Jelajahi armada kami dan pilih kendaraan yang sesuai',
+  },
+  {
+    icon: Check,
+    title: 'Isi Data',
+    desc: 'Isi data diri dan konfirmasi tanggal sewa',
+  },
+  {
+    icon: Shield,
+    title: 'Konfirmasi Booking',
+    desc: 'Konfirmasi pembayaran dan booking Anda',
+  },
+  {
+    icon: Star,
+    title: 'Nikmati Perjalanan',
+    desc: 'Kendarai mobil impian Anda dengan aman',
+  },
 ];
 
 const testimoniData = [
   {
     nama: 'Budi Santoso',
     rating: 5,
-    komentar: 'Pelayanan sangat cepat dan mobilnya bersih. Sangat direkomendasikan!',
+    komentar:
+      'Pelayanan sangat cepat dan mobilnya bersih. Sangat direkomendasikan!',
   },
   {
     nama: 'Ani Wulandari',
     rating: 5,
-    komentar: 'Harga transparan dan sopirnya ramah. Tempat rental terbaik di kota ini.',
+    komentar:
+      'Harga transparan dan sopirnya ramah. Tempat rental terbaik di kota ini.',
   },
   {
     nama: 'Rudi Hermawan',
     rating: 4,
-    komentar: 'Mobil dalam kondisi prima dan proses bookingnya mudah. Terima kasih!',
+    komentar:
+      'Mobil dalam kondisi prima dan proses bookingnya mudah. Terima kasih!',
   },
   {
     nama: 'Siti Aminah',
     rating: 5,
-    komentar: 'Sangat puas dengan layanan rental ini. Mobil baru dan terawat.',
+    komentar:
+      'Sangat puas dengan layanan rental ini. Mobil baru dan terawat.',
   },
 ];
 
@@ -90,35 +148,52 @@ const faqData = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { wa } = useAdminContact();
+
   const [featured, setFeatured] = useState<KatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+
   const [faqOpen, setFaqOpen] = useState<number | null>(0);
   const [testimonialIdx, setTestimonialIdx] = useState(0);
-  const [modalPesanItem, setModalPesanItem] = useState<KatalogItem | null>(null);
+
+  const [modalPesanItem, setModalPesanItem] =
+    useState<KatalogItem | null>(null);
+
   const [banners, setBanners] = useState<Banner[]>([]);
   const [bannerIdx, setBannerIdx] = useState(0);
 
-  // Search state — cari berdasarkan nama mobil atau kapasitas
   const [searchQuery, setSearchQuery] = useState('');
 
+  // ==========================================
+  // LOAD ARMADA
+  // ==========================================
   useEffect(() => {
     let cancelled = false;
+
     setLoading(true);
     setLoadError(false);
 
     katalogAPI
-      .list({ page: 1, sort: 'terbaru' })
+      .list({
+        page: 1,
+        sort: 'terbaru',
+      })
       .then((res) => {
         if (cancelled) return;
-        setFeatured((res.data.data as KatalogItem[]).slice(0, 8));
+
+        setFeatured(
+          (res.data.data as KatalogItem[]).slice(0, 8)
+        );
       })
       .catch(() => {
-        if (!cancelled) setLoadError(true);
+        if (!cancelled) {
+          setLoadError(true);
+        }
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       });
 
     return () => {
@@ -126,48 +201,116 @@ export default function LandingPage() {
     };
   }, []);
 
+  // ==========================================
+  // LOAD BANNER
+  // ==========================================
   useEffect(() => {
     let cancelled = false;
-    bannerAPI.listPublic()
+
+    bannerAPI
+      .listPublic()
       .then((res) => {
-        if (!cancelled) {
-          setBanners(res.data as Banner[]);
-          setBannerIdx(0);
-        }
+        if (cancelled) return;
+
+        setBanners(res.data as Banner[]);
+        setBannerIdx(0);
       })
-      .catch(() => { /* fallback ke banner statis */ });
+      .catch(() => {
+        // Jika gagal, gunakan banner fallback statis.
+      });
+
     return () => {
       cancelled = true;
     };
   }, []);
 
+  // ==========================================
+  // AUTO SLIDE BANNER
+  // ==========================================
   useEffect(() => {
-    if (banners.length <= 1) return;
-    const t = window.setInterval(() => setBannerIdx((i) => (i + 1) % banners.length), 5000);
-    return () => window.clearInterval(t);
+    if (banners.length <= 1) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setBannerIdx(
+        (index) => (index + 1) % banners.length
+      );
+    }, 5000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
   }, [banners.length]);
 
+  // ==========================================
+  // TESTIMONIAL
+  // ==========================================
   const nextTestimonial = () => {
-    setTestimonialIdx((prev) => (prev + 1) % testimoniData.length);
+    setTestimonialIdx(
+      (prev) => (prev + 1) % testimoniData.length
+    );
   };
 
   const prevTestimonial = () => {
-    setTestimonialIdx((prev) => (prev - 1 + testimoniData.length) % testimoniData.length);
+    setTestimonialIdx(
+      (prev) =>
+        (prev - 1 + testimoniData.length) %
+        testimoniData.length
+    );
   };
 
+  // ==========================================
+  // FAQ
+  // ==========================================
   const toggleFaq = (idx: number) => {
-    setFaqOpen(faqOpen === idx ? null : idx);
+    setFaqOpen(
+      faqOpen === idx ? null : idx
+    );
   };
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
+  // ==========================================
+  // SEARCH
+  // ==========================================
+  const handleSearchSubmit = (
+    e: FormEvent<HTMLFormElement>
+  ) => {
     e.preventDefault();
+
     const query = searchQuery.trim();
-    navigate(`/katalog${query ? `?search=${encodeURIComponent(query)}` : ''}`);
+
+    navigate(
+      `/katalog${
+        query
+          ? `?search=${encodeURIComponent(query)}`
+          : ''
+      }`
+    );
+  };
+
+  // ==========================================
+  // BANNER IMAGE URL
+  // ==========================================
+  const getBannerImageUrl = (
+    gambar?: string | null
+  ): string => {
+    if (!gambar) {
+      return '';
+    }
+
+    if (/^https?:\/\//i.test(gambar)) {
+      return gambar;
+    }
+
+    return `https://api.udinrentcar.com/storage/${gambar}`;
   };
 
   return (
     <div className="min-h-screen">
-      {/* ========== HERO ========== */}
+
+      {/* ==========================================
+          HERO
+      ========================================== */}
       <section className="bg-black relative overflow-hidden">
         <video
           autoPlay
@@ -178,22 +321,34 @@ export default function LandingPage() {
           aria-hidden="true"
           className="absolute inset-0 w-full h-full object-cover motion-reduce:hidden"
         >
-          <source src={heroVideo} type="video/mp4" />
+          <source
+            src={heroVideo}
+            type="video/mp4"
+          />
         </video>
+
         <div className="absolute inset-0 bg-black/60" />
+
         <div className="max-w-[1600px] mx-auto px-8 sm:px-12 lg:px-24 py-20 sm:py-28 relative">
           <AnimatedSection>
             <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-400 mb-4 block">
               Rental Kendaraan Terpercaya
             </span>
+
             <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl font-bold text-white tracking-tight leading-tight max-w-3xl">
               Solusi Mobilitas
               <br />
-              <span className="text-primary-400">Untuk Kebutuhan Anda</span>
+              <span className="text-primary-400">
+                Untuk Kebutuhan Anda
+              </span>
             </h1>
+
             <p className="mt-5 text-black-400 text-[15px] leading-relaxed max-w-xl">
-              Armada lengkap, harga transparan, proses cepat. Tersedia mobil dan motor untuk kebutuhan harian, wisata, hingga bisnis di seluruh Indonesia.
+              Armada lengkap, harga transparan, proses cepat.
+              Tersedia mobil dan motor untuk kebutuhan harian,
+              wisata, hingga bisnis di seluruh Indonesia.
             </p>
+
             <div className="mt-8 flex flex-wrap gap-4">
               <Link
                 to="/katalog"
@@ -202,8 +357,9 @@ export default function LandingPage() {
                 Lihat Katalog
                 <ArrowRight className="w-4 h-4" />
               </Link>
+
               <a
-                href={`https://wa.me/${wa}?text=Halo%2C%20saya%20ingin%20konsultasi%20tentang%20rental%20kendaraan`}
+                href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20konsultasi%20tentang%20rental%20kendaraan`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-6 py-3 border-2 border-white/20 text-white font-semibold rounded-xl hover:bg-white/5 transition-colors"
@@ -215,7 +371,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ========== SECTION 1: SEARCH BOOKING CARD ========== */}
+      {/* ==========================================
+          SEARCH BOOKING CARD
+      ========================================== */}
       <section className="relative z-10 -mt-8 sm:-mt-10">
         <div className="max-w-[1600px] mx-auto px-5 sm:px-8 lg:px-20">
           <AnimatedSection>
@@ -223,21 +381,29 @@ export default function LandingPage() {
               onSubmit={handleSearchSubmit}
               className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl border border-black-200 p-4 sm:p-5"
             >
-              <label htmlFor="search-mobil" className="sr-only">
+              <label
+                htmlFor="search-mobil"
+                className="sr-only"
+              >
                 Cari nama mobil atau kapasitas
               </label>
+
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-black-400" />
+
                   <input
                     id="search-mobil"
                     type="text"
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) =>
+                      setSearchQuery(e.target.value)
+                    }
                     placeholder="Cari nama mobil (mis. Avanza) atau kapasitas (mis. 7 orang)"
                     className="w-full pl-11 pr-4 py-3.5 bg-canvas border border-black-200 rounded-xl text-sm text-black focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all"
                   />
                 </div>
+
                 <button
                   type="submit"
                   className="shrink-0 bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3.5 px-8 rounded-xl shadow-lg shadow-primary-600/25 transition-all inline-flex items-center justify-center gap-2"
@@ -251,7 +417,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ========== SECTION 2: KEUNGGULAN ========== */}
+      {/* ==========================================
+          KEUNGGULAN
+      ========================================== */}
       <section className="bg-white py-16">
         <div className="max-w-[1600px] mx-auto px-5 sm:px-6 lg:px-8">
           <AnimatedSection>
@@ -259,25 +427,52 @@ export default function LandingPage() {
               <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-500 mb-3 block">
                 Keunggulan Kami
               </span>
+
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-black tracking-tight">
                 Mengapa Memilih Kami
               </h2>
             </div>
           </AnimatedSection>
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { icon: Car, title: 'Armada Terlengkap', desc: 'Pilihan kendaraan sesuai kebutuhan.' },
-              { icon: Shield, title: 'Kendaraan Terawat', desc: 'Servis rutin dan kondisi prima.' },
-              { icon: Clock, title: 'Booking Mudah', desc: 'Pesan kapan saja secara online.' },
-              { icon: Star, title: 'Support 24 Jam', desc: 'Customer Service siap membantu.' },
+              {
+                icon: Car,
+                title: 'Armada Terlengkap',
+                desc: 'Pilihan kendaraan sesuai kebutuhan.',
+              },
+              {
+                icon: Shield,
+                title: 'Kendaraan Terawat',
+                desc: 'Servis rutin dan kondisi prima.',
+              },
+              {
+                icon: Clock,
+                title: 'Booking Mudah',
+                desc: 'Pesan kapan saja secara online.',
+              },
+              {
+                icon: Star,
+                title: 'Support 24 Jam',
+                desc: 'Customer Service siap membantu.',
+              },
             ].map((item, i) => (
-              <AnimatedSection key={item.title} delay={i * 0.1}>
+              <AnimatedSection
+                key={item.title}
+                delay={i * 0.1}
+              >
                 <div className="text-center p-6">
                   <div className="w-12 h-12 bg-primary-50 rounded-xl flex items-center justify-center mx-auto mb-3">
                     <item.icon className="w-5 h-5 text-primary-600" />
                   </div>
-                  <h3 className="font-semibold text-black text-sm mb-1">{item.title}</h3>
-                  <p className="text-xs text-black-400 leading-relaxed">{item.desc}</p>
+
+                  <h3 className="font-semibold text-black text-sm mb-1">
+                    {item.title}
+                  </h3>
+
+                  <p className="text-xs text-black-400 leading-relaxed">
+                    {item.desc}
+                  </p>
                 </div>
               </AnimatedSection>
             ))}
@@ -285,7 +480,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ========== SECTION 3: ARMADA POPULER ========== */}
+      {/* ==========================================
+          ARMADA POPULER
+      ========================================== */}
       <section className="bg-white py-16">
         <div className="max-w-[1600px] mx-auto px-5 sm:px-8 lg:px-20">
           <AnimatedSection>
@@ -294,10 +491,12 @@ export default function LandingPage() {
                 <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-500 mb-3 block">
                   Armada Populer
                 </span>
+
                 <h2 className="font-display text-2xl sm:text-3xl font-bold text-black tracking-tight">
                   Pilihan Terbaik Kami
                 </h2>
               </div>
+
               <Link
                 to="/katalog"
                 className="hidden sm:inline-flex items-center gap-1.5 text-sm font-semibold text-primary-600 hover:text-primary-700 transition-colors"
@@ -310,32 +509,50 @@ export default function LandingPage() {
 
           {loading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-xl border border-black-200 overflow-hidden animate-pulse">
-                  <div className="h-44 bg-black-200" />
-                  <div className="p-4 space-y-3">
-                    <div className="h-5 bg-black-200 rounded w-3/4" />
-                    <div className="h-4 bg-black-200 rounded w-1/2" />
-                    <div className="h-8 bg-black-200 rounded w-full mt-4" />
+              {Array.from({ length: 4 }).map(
+                (_, i) => (
+                  <div
+                    key={i}
+                    className="bg-white rounded-xl border border-black-200 overflow-hidden animate-pulse"
+                  >
+                    <div className="h-44 bg-black-200" />
+
+                    <div className="p-4 space-y-3">
+                      <div className="h-5 bg-black-200 rounded w-3/4" />
+                      <div className="h-4 bg-black-200 rounded w-1/2" />
+                      <div className="h-8 bg-black-200 rounded w-full mt-4" />
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              )}
             </div>
           ) : loadError ? (
             <div className="text-center py-16 border border-dashed border-black-200 rounded-xl">
               <AlertCircle className="w-8 h-8 text-black-300 mx-auto mb-3" />
-              <p className="text-sm text-black-500">Gagal memuat armada. Silakan muat ulang halaman.</p>
+
+              <p className="text-sm text-black-500">
+                Gagal memuat armada. Silakan muat ulang halaman.
+              </p>
             </div>
           ) : featured.length === 0 ? (
             <div className="text-center py-16 border border-dashed border-black-200 rounded-xl">
               <Car className="w-8 h-8 text-black-300 mx-auto mb-3" />
-              <p className="text-sm text-black-500">Belum ada kendaraan yang tersedia saat ini.</p>
+
+              <p className="text-sm text-black-500">
+                Belum ada kendaraan yang tersedia saat ini.
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               {featured.map((item) => (
-                <AnimatedSection key={item.id} delay={0}>
-                  <VehicleCard item={item} onPesan={setModalPesanItem} />
+                <AnimatedSection
+                  key={item.id}
+                  delay={0}
+                >
+                  <VehicleCard
+                    item={item}
+                    onPesan={setModalPesanItem}
+                  />
                 </AnimatedSection>
               ))}
             </div>
@@ -353,7 +570,9 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ========== SECTION 4: LAYANAN KAMI ========== */}
+      {/* ==========================================
+          LAYANAN KAMI
+      ========================================== */}
       <section className="bg-white py-16">
         <div className="max-w-[1600px] mx-auto px-5 sm:px-6 lg:px-8">
           <AnimatedSection>
@@ -361,17 +580,25 @@ export default function LandingPage() {
               <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-500 mb-3 block">
                 Layanan Kami
               </span>
+
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-black tracking-tight">
                 Pilihan Sewa Lengkap
               </h2>
             </div>
           </AnimatedSection>
+
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {layananItems.map((item, i) => (
-              <AnimatedSection key={item.title} delay={i * 0.05}>
+              <AnimatedSection
+                key={item.title}
+                delay={i * 0.05}
+              >
                 <div className="bg-canvas rounded-xl p-4 border border-black-200 text-center hover:bg-primary-600 hover:text-white transition-all duration-300 group cursor-default">
                   <item.icon className="w-6 h-6 text-primary-600 group-hover:text-white transition-colors mx-auto mb-2" />
-                  <h3 className="font-semibold text-black text-xs group-hover:text-white transition-colors">{item.title}</h3>
+
+                  <h3 className="font-semibold text-black text-xs group-hover:text-white transition-colors">
+                    {item.title}
+                  </h3>
                 </div>
               </AnimatedSection>
             ))}
@@ -379,54 +606,79 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ========== SECTION 5: PROMO BANNER + CTA (di-upload admin) ========== */}
+      {/* ==========================================
+          PROMO BANNER
+      ========================================== */}
       <section className="relative bg-primary-600 overflow-hidden">
         {banners.length > 0 ? (
           <div className="relative min-h-[300px] sm:min-h-[380px] lg:min-h-[420px]">
-            {banners.map((b, i) => {
+            {banners.map((banner, i) => {
               const isActive = i === bannerIdx;
-              const href = b.tautan || '/katalog';
+              const href = banner.tautan || '/katalog';
+
               const content = (
                 <>
                   <img
-                    src={storageUrl(b.gambar) || ''}
-                    alt={b.judul || 'Banner promosi'}
+                    src={getBannerImageUrl(
+                      banner.gambar
+                    )}
+                    alt={
+                      banner.judul ||
+                      'Banner promosi'
+                    }
                     className="absolute inset-0 w-full h-full object-cover"
                   />
+
                   <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />
+
                   <div className="relative h-full max-w-[1600px] mx-auto px-5 sm:px-8 lg:px-20 flex items-center">
                     <div className="max-w-xl py-16 sm:py-20">
-                      {b.judul && (
+                      {banner.judul && (
                         <h2 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold text-white tracking-tight leading-tight">
-                          {b.judul}
+                          {banner.judul}
                         </h2>
                       )}
-                      {b.subjudul && (
+
+                      {banner.subjudul && (
                         <p className="mt-4 text-white/85 text-sm sm:text-base leading-relaxed max-w-md">
-                          {b.subjudul}
+                          {banner.subjudul}
                         </p>
                       )}
+
                       <span className="mt-6 inline-flex items-center gap-2 px-6 py-2.5 bg-white text-primary-600 font-semibold rounded-xl hover:bg-primary-50 transition-colors shadow-lg shadow-black/20 text-sm">
-                        {b.tombol_label || 'Pesan Sekarang'}
+                        {banner.tombol_label ||
+                          'Pesan Sekarang'}
+
                         <ArrowRight className="w-4 h-4" />
                       </span>
                     </div>
                   </div>
                 </>
               );
+
               return (
                 <div
-                  key={b.id}
+                  key={banner.id}
                   className={`absolute inset-0 transition-opacity duration-700 ${
-                    isActive ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    isActive
+                      ? 'opacity-100'
+                      : 'opacity-0 pointer-events-none'
                   }`}
                 >
                   {href.startsWith('http') ? (
-                    <a href={href} target="_blank" rel="noopener noreferrer" className="block h-full">
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block h-full"
+                    >
                       {content}
                     </a>
                   ) : (
-                    <Link to={href} className="block h-full">
+                    <Link
+                      to={href}
+                      className="block h-full"
+                    >
                       {content}
                     </Link>
                   )}
@@ -437,27 +689,49 @@ export default function LandingPage() {
             {banners.length > 1 && (
               <>
                 <button
-                  onClick={() => setBannerIdx((i) => (i - 1 + banners.length) % banners.length)}
+                  type="button"
+                  onClick={() =>
+                    setBannerIdx(
+                      (i) =>
+                        (i - 1 + banners.length) %
+                        banners.length
+                    )
+                  }
                   aria-label="Banner sebelumnya"
                   className="absolute left-3 sm:left-5 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
+
                 <button
-                  onClick={() => setBannerIdx((i) => (i + 1) % banners.length)}
+                  type="button"
+                  onClick={() =>
+                    setBannerIdx(
+                      (i) =>
+                        (i + 1) % banners.length
+                    )
+                  }
                   aria-label="Banner berikutnya"
                   className="absolute right-3 sm:right-5 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
+
                 <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
-                  {banners.map((b, i) => (
+                  {banners.map((banner, i) => (
                     <button
-                      key={b.id}
-                      onClick={() => setBannerIdx(i)}
-                      aria-label={`Ke banner ${i + 1}`}
+                      key={banner.id}
+                      type="button"
+                      onClick={() =>
+                        setBannerIdx(i)
+                      }
+                      aria-label={`Ke banner ${
+                        i + 1
+                      }`}
                       className={`h-2 rounded-full transition-all ${
-                        i === bannerIdx ? 'w-6 bg-white' : 'w-2 bg-white/50 hover:bg-white/80'
+                        i === bannerIdx
+                          ? 'w-6 bg-white'
+                          : 'w-2 bg-white/50 hover:bg-white/80'
                       }`}
                     />
                   ))}
@@ -469,25 +743,41 @@ export default function LandingPage() {
           <div className="relative bg-primary-600 py-16 sm:py-20">
             <div className="absolute inset-0">
               <div className="absolute inset-0 bg-gradient-to-r from-primary-700 to-primary-500" />
-              <svg className="absolute right-0 top-0 h-full w-1/3 opacity-10" viewBox="0 0 400 400" fill="none" aria-hidden="true">
-                <path d="M400 0L0 400V200L400 0Z" fill="white" />
+
+              <svg
+                className="absolute right-0 top-0 h-full w-1/3 opacity-10"
+                viewBox="0 0 400 400"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M400 0L0 400V200L400 0Z"
+                  fill="white"
+                />
               </svg>
             </div>
+
             <div className="max-w-[1600px] mx-auto px-5 sm:px-8 lg:px-20 relative">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center">
                 <AnimatedSection>
                   <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-200 mb-3 block">
                     Promo Spesial
                   </span>
+
                   <h2 className="font-display text-2xl sm:text-3xl font-bold text-white tracking-tight leading-tight">
                     Diskon Hingga
                     <br />
-                    <span className="text-primary-200">20%</span>
+                    <span className="text-primary-200">
+                      20%
+                    </span>
                   </h2>
+
                   <p className="mt-4 text-primary-100 text-sm leading-relaxed max-w-md">
-                    Nikmati promo spesial untuk berbagai pilihan kendaraan.
-                    Pesan sekarang dan dapatkan harga terbaik.
+                    Nikmati promo spesial untuk berbagai
+                    pilihan kendaraan. Pesan sekarang dan
+                    dapatkan harga terbaik.
                   </p>
+
                   <Link
                     to="/katalog"
                     className="mt-6 inline-flex items-center gap-2 px-6 py-2.5 bg-white text-primary-600 font-semibold rounded-xl hover:bg-primary-50 transition-colors shadow-lg shadow-black/20 text-sm"
@@ -496,8 +786,13 @@ export default function LandingPage() {
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </AnimatedSection>
-                <AnimatedSection delay={0.2} className="relative hidden lg:flex items-center justify-center">
+
+                <AnimatedSection
+                  delay={0.2}
+                  className="relative hidden lg:flex items-center justify-center"
+                >
                   <div className="w-64 h-64 bg-white/10 rounded-full blur-3xl" />
+
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Car className="w-32 h-32 text-white/20" />
                   </div>
@@ -508,7 +803,9 @@ export default function LandingPage() {
         )}
       </section>
 
-      {/* ========== SECTION 6: CARA PEMESANAN ========== */}
+      {/* ==========================================
+          CARA PEMESANAN
+      ========================================== */}
       <section className="bg-canvas py-16">
         <div className="max-w-[1600px] mx-auto px-5 sm:px-6 lg:px-8">
           <AnimatedSection>
@@ -516,20 +813,31 @@ export default function LandingPage() {
               <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-500 mb-3 block">
                 Cara Pemesanan
               </span>
+
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-black tracking-tight">
                 Mudah dan Cepat
               </h2>
             </div>
           </AnimatedSection>
+
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
             {langkahPemesanan.map((item, i) => (
-              <AnimatedSection key={item.title} delay={i * 0.1}>
+              <AnimatedSection
+                key={item.title}
+                delay={i * 0.1}
+              >
                 <div className="text-center p-4">
                   <div className="w-14 h-14 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-3">
                     <item.icon className="w-6 h-6 text-primary-600" />
                   </div>
-                  <h3 className="font-semibold text-black text-sm mb-1">{item.title}</h3>
-                  <p className="text-xs text-black-400 leading-relaxed">{item.desc}</p>
+
+                  <h3 className="font-semibold text-black text-sm mb-1">
+                    {item.title}
+                  </h3>
+
+                  <p className="text-xs text-black-400 leading-relaxed">
+                    {item.desc}
+                  </p>
                 </div>
               </AnimatedSection>
             ))}
@@ -537,43 +845,87 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ========== SECTION 7: TESTIMONI & FAQ ========== */}
+      {/* ==========================================
+          TESTIMONI & FAQ
+      ========================================== */}
       <section className="bg-canvas py-20 sm:py-24">
         <div className="max-w-[1600px] mx-auto px-5 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-            {/* Testimoni */}
+
+            {/* TESTIMONI */}
             <AnimatedSection>
               <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-500 mb-3 block">
                 Testimoni
               </span>
+
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-black tracking-tight mb-8">
                 Testimoni Pelanggan
               </h2>
+
               <div className="bg-white rounded-2xl border border-black-200 shadow-sm p-6 sm:p-8">
                 <div className="flex items-center gap-1 mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <Star key={i} className="w-4 h-4 text-primary-500 fill-primary-500" />
-                  ))}
+                  {[...Array(5)].map(
+                    (_, i) => (
+                      <Star
+                        key={i}
+                        className="w-4 h-4 text-primary-500 fill-primary-500"
+                      />
+                    )
+                  )}
                 </div>
-                <Quote className="w-8 h-8 text-primary-200 mb-4" aria-hidden="true" />
+
+                <Quote
+                  className="w-8 h-8 text-primary-200 mb-4"
+                  aria-hidden="true"
+                />
+
                 <p className="text-black-700 leading-relaxed mb-6">
-                  &quot;{testimoniData[testimonialIdx].komentar}&quot;
+                  &quot;
+                  {
+                    testimoniData[
+                      testimonialIdx
+                    ].komentar
+                  }
+                  &quot;
                 </p>
+
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
                     <span className="text-sm font-bold text-primary-600">
-                      {testimoniData[testimonialIdx].nama.charAt(0)}
+                      {
+                        testimoniData[
+                          testimonialIdx
+                        ].nama.charAt(0)
+                      }
                     </span>
                   </div>
+
                   <div>
-                    <p className="font-semibold text-black text-sm">{testimoniData[testimonialIdx].nama}</p>
+                    <p className="font-semibold text-black text-sm">
+                      {
+                        testimoniData[
+                          testimonialIdx
+                        ].nama
+                      }
+                    </p>
+
                     <div className="flex items-center gap-1">
-                      {[...Array(testimoniData[testimonialIdx].rating)].map((_, i) => (
-                        <Star key={i} className="w-3 h-3 text-primary-500 fill-primary-500" />
+                      {[
+                        ...Array(
+                          testimoniData[
+                            testimonialIdx
+                          ].rating
+                        ),
+                      ].map((_, i) => (
+                        <Star
+                          key={i}
+                          className="w-3 h-3 text-primary-500 fill-primary-500"
+                        />
                       ))}
                     </div>
                   </div>
                 </div>
+
                 <div className="flex items-center justify-between mt-6 pt-4 border-t border-primary-100">
                   <button
                     type="button"
@@ -583,9 +935,12 @@ export default function LandingPage() {
                   >
                     <ChevronLeft className="w-4 h-4 text-black-400" />
                   </button>
+
                   <span className="text-xs text-black-400">
-                    {testimonialIdx + 1} / {testimoniData.length}
+                    {testimonialIdx + 1} /{' '}
+                    {testimoniData.length}
                   </span>
+
                   <button
                     type="button"
                     onClick={nextTestimonial}
@@ -603,44 +958,68 @@ export default function LandingPage() {
               <span className="text-[11px] font-semibold tracking-widest uppercase text-primary-500 mb-3 block">
                 Pertanyaan Umum
               </span>
+
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-black tracking-tight mb-8">
                 FAQ
               </h2>
+
               <div className="space-y-3">
                 {faqData.map((item, i) => (
                   <button
                     key={item.q}
                     type="button"
-                    onClick={() => toggleFaq(i)}
-                    aria-expanded={faqOpen === i}
+                    onClick={() =>
+                      toggleFaq(i)
+                    }
+                    aria-expanded={
+                      faqOpen === i
+                    }
                     className="w-full bg-white rounded-xl border border-black-200 p-4 sm:p-5 text-left hover:shadow-md transition-all"
                   >
                     <div className="flex items-center justify-between gap-4">
-                      <h3 className="font-semibold text-black text-sm pr-4">{item.q}</h3>
+                      <h3 className="font-semibold text-black text-sm pr-4">
+                        {item.q}
+                      </h3>
+
                       <ChevronDown
                         className={`w-4 h-4 text-black-400 shrink-0 transition-transform duration-300 ${
-                          faqOpen === i ? 'rotate-180' : ''
+                          faqOpen === i
+                            ? 'rotate-180'
+                            : ''
                         }`}
                       />
                     </div>
+
                     <div
                       className={`overflow-hidden transition-all duration-300 ${
-                        faqOpen === i ? 'max-h-96 mt-3' : 'max-h-0'
+                        faqOpen === i
+                          ? 'max-h-96 mt-3'
+                          : 'max-h-0'
                       }`}
                     >
-                      <p className="text-sm text-black-400 leading-relaxed">{item.a}</p>
+                      <p className="text-sm text-black-400 leading-relaxed">
+                        {item.a}
+                      </p>
                     </div>
                   </button>
                 ))}
               </div>
             </AnimatedSection>
+
           </div>
         </div>
       </section>
 
-      {/* ========== FOOTER (via PublicLayout) ========== */}
+      {/* ==========================================
+          MODAL PESAN
+      ========================================== */}
       {modalPesanItem && (
-        <PesanSekarangModal item={modalPesanItem} onClose={() => setModalPesanItem(null)} />
+        <PesanSekarangModal
+          item={modalPesanItem}
+          onClose={() =>
+            setModalPesanItem(null)
+          }
+        />
       )}
     </div>
   );

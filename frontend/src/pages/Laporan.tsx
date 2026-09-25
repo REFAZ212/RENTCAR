@@ -1865,7 +1865,12 @@ function InspeksiCard({ title, data }: { title: string; data: InspeksiDetail | n
             <p className="mb-2 text-xs text-black-400">Dokumentasi ({data.fotos.length} foto)</p>
             <div className="flex flex-wrap gap-2">
               {data.fotos.map((f, i) => (
-                <img key={i} src={`/storage/${f}`} alt={`foto ${i + 1}`} className="h-20 w-28 rounded-lg object-cover" />
+                <img
+  key={i}
+  src={`https://api.udinrentcar.com/storage/${f}`}
+  alt={`foto ${i + 1}`}
+  className="h-20 w-28 rounded-lg object-cover"
+/>
               ))}
             </div>
           </div>

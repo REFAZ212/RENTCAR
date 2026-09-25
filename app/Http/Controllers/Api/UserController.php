@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\SupirCalo;
 use App\Models\User;
-use App\Services\EmailOtpService;
 use App\Services\WatermarkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,7 +28,7 @@ class UserController extends Controller
     private static function gmailEmailMessages(): array
     {
         return [
-            'email.ends_with' => 'Email harus menggunakan akun @gmail.com.',
+            'email.ends_with' => 'Email harus menggunakan akun @gmail.com atau @udinrentcar.com.',
         ];
     }
 
@@ -110,7 +109,7 @@ class UserController extends Controller
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|email|ends_with:@gmail.com|unique:users,email',
+            'email' => 'required|email|ends_with:@gmail.com,@udinrentcar.com|unique:users,email',
             'phone' => ['nullable', 'string', 'max:20', Rule::requiredIf($request->input('role') === 'petugas')],
             'role' => 'required|in:admin_utama,admin_operasional,petugas',
             'password' => ['required', 'confirmed', Password::min(8)],
@@ -139,16 +138,15 @@ class UserController extends Controller
         }
 
         $user = User::create($validated);
+        $user->forceFill(['email_verified_at' => now()])->save();
 
         if ($nyambi) {
             $this->syncSupirCalo($user, true, $validated);
         }
 
-        app(EmailOtpService::class)->send($user);
-
         return response()->json([
             ...$user->toArray(),
-            'email_verified' => $user->email_verified_at !== null,
+            'email_verified' => true,
         ], 201);
     }
 
@@ -167,7 +165,7 @@ class UserController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|email|ends_with:@gmail.com|unique:users,email,'.$user->id,
+            'email' => 'sometimes|required|email|ends_with:@gmail.com,@udinrentcar.com|unique:users,email,'.$user->id,
             'phone' => ['sometimes', 'nullable', 'string', 'max:20', Rule::requiredIf(($request->input('role') ?? $user->role) === 'petugas')],
             'role' => 'sometimes|required|in:admin_utama,admin_operasional,petugas',
             'password' => ['nullable', 'confirmed', Password::min(8)],
@@ -222,5 +220,18 @@ class UserController extends Controller
         $user->delete();
 
         return response()->json(['message' => 'User berhasil dihapus']);
+    }
+
+    public function verify(User $user): JsonResponse
+    {
+        $this->authorize('verify', $user);
+
+        if ($user->email_verified_at !== null) {
+            return response()->json(['message' => 'Email sudah terverifikasi.', 'verified' => true]);
+        }
+
+        $user->forceFill(['email_verified_at' => now()])->save();
+
+        return response()->json(['message' => 'User berhasil diverifikasi.', 'verified' => true]);
     }
 }

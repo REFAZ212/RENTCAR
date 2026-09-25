@@ -113,7 +113,7 @@ class EmailVerificationTest extends TestCase
         ]);
     }
 
-    public function test_store_creates_user_sends_otp_and_returns_email_verified_false(): void
+    public function test_store_creates_user_with_email_verified(): void
     {
         $res = $this->actingAs($this->admin)->postJson('/api/users', [
             'name' => 'Petugas Gmail',
@@ -125,14 +125,8 @@ class EmailVerificationTest extends TestCase
         ]);
 
         $res->assertCreated();
-        $res->assertJsonPath('email_verified', false);
-        $res->assertJsonPath('email_verified_at', null);
-
-        Mail::assertQueued(EmailOtpMail::class, 1);
-        $this->assertDatabaseHas('email_otps', [
-            'email' => 'petugas-baru@gmail.com',
-            'used_at' => null,
-        ]);
+        $res->assertJsonPath('email_verified', true);
+        $this->assertNotNull($res->json('email_verified_at'));
     }
 
     public function test_store_rejects_non_gmail_email(): void
@@ -148,7 +142,7 @@ class EmailVerificationTest extends TestCase
 
         $res->assertUnprocessable();
         $res->assertJsonValidationErrors('email');
-        $this->assertStringContainsString('@gmail.com', $res->json('message'));
+        $this->assertStringContainsString('@gmail.com atau @udinrentcar.com', $res->json('message'));
         $this->assertDatabaseMissing('users', ['email' => 'petugas@outlook.com']);
         Mail::assertNothingQueued();
     }

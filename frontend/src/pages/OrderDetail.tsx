@@ -637,7 +637,7 @@ export default function OrderDetail() {
                         </div>
                         <div className="space-y-5 p-6" id="invoice-content">
                             <div className="border-b border-gray-200 pb-4 text-center">
-                                <h1 className="text-xl font-bold text-black-900">UDIN RENCTCAR</h1>
+                                <h1 className="text-xl font-bold text-black-900">UDIN RENTCAR</h1>
                                 <p className="mt-1 text-xs text-black-400">Sistem Manajemen Rental Kendaraan</p>
                                 <p className="mt-0.5 text-xs text-black-400">Jl. Contoh Alamat No. 123, Bandung</p>
                             </div>
