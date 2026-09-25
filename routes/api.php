@@ -59,6 +59,7 @@ Route::get('/katalog', [KatalogPublicController::class, 'index'])->middleware('t
 Route::get('/katalog/kategoris', [KatalogPublicController::class, 'kategoris'])->middleware('throttle:120,1');
 Route::get('/katalog/tipes', [KatalogPublicController::class, 'tipes'])->middleware('throttle:120,1');
 Route::get('/katalog/jam-operasional', [KatalogPublicController::class, 'jamOperasional'])->middleware('throttle:120,1');
+Route::get('/katalog/kontak', [KatalogPublicController::class, 'kontak'])->middleware('throttle:120,1');
 Route::post('/katalog/order-request', [KatalogOrderRequestController::class, 'store'])->middleware('throttle:5,1');
 Route::get('/katalog/{kendaraan}', [KatalogPublicController::class, 'show'])->middleware('throttle:120,1');
 
@@ -117,6 +118,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard/chart', [DashboardController::class, 'chart']);
 
     Route::get('/garasi-saya', [GarasiPartnerController::class, 'garasiSaya']);
+    Route::put('/garasi-saya', [GarasiPartnerController::class, 'garasiSayaRename']);
     Route::apiResource('garasi-partners', GarasiPartnerController::class);
     Route::apiResource('kendaraans', KendaraanController::class)->middleware('throttle:60,1');
     Route::apiResource('customers', CustomerController::class)->middleware('throttle:60,1');

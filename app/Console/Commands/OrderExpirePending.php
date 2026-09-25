@@ -14,7 +14,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 #[Signature('order:expire-pending')]
-#[Description('Cancel pending (katalog) orders that were never confirmed after their start date passes. Any money already paid is fully refunded and the customer is notified.')]
+#[Description('Cancel pending (katalog) orders not confirmed within pending_expire_hours of being placed (or once their start date has long passed). Any money already paid is fully refunded and the customer is notified.')]
 class OrderExpirePending extends Command
 {
     public function handle(): int
@@ -34,7 +34,9 @@ class OrderExpirePending extends Command
                     $mulai->setTimeFromTimeString($order->jam_mulai);
                 }
 
-                return $mulai->lessThan($cutoff);
+                // Batalkan bila (a) belum dikonfirmasi dalam X jam sejak pemesanan
+                // (hold 24 jam), atau (b) safety net lama: jam mulai sudah lewat.
+                return $order->created_at->lessThan($cutoff) || $mulai->lessThan($cutoff);
             })
             ->each(fn (Order $order) => $candidateIds->push($order->id));
 
@@ -47,7 +49,7 @@ class OrderExpirePending extends Command
         $processed = collect();
 
         foreach ($candidateIds as $orderId) {
-            $order = $this->batalkanOrder($orderId);
+            $order = $this->batalkanOrder($orderId, $hours);
 
             if ($order === null) {
                 continue;
@@ -69,7 +71,7 @@ class OrderExpirePending extends Command
         Notification::create([
             'type' => 'order_expired',
             'title' => 'Pesanan Otomatis Dibatalkan',
-            'message' => "{$processed->count()} pesanan katalog dibatalkan otomatis karena belum dikonfirmasi hingga lewat jadwal mulai",
+            'message' => "{$processed->count()} pesanan katalog dibatalkan otomatis karena tidak dikonfirmasi dalam {$hours} jam sejak pemesanan (atau melewati jadwal mulai)",
             'data' => [
                 'count' => $processed->count(),
                 'link' => '/orders',
@@ -86,9 +88,9 @@ class OrderExpirePending extends Command
      * yang sudah diperbarui (beserta relasi customer), atau null jika order
      * sudah diproses/dikonfirmasi pihak lain sebelum lock didapat.
      */
-    private function batalkanOrder(int $orderId): ?Order
+    private function batalkanOrder(int $orderId, int $hours): ?Order
     {
-        return DB::transaction(function () use ($orderId): ?Order {
+        return DB::transaction(function () use ($orderId, $hours): ?Order {
             $order = Order::whereKey($orderId)->lockForUpdate()->first();
 
             // Re-check di dalam lock: admin mungkin baru saja mengonfirmasi,
@@ -109,7 +111,7 @@ class OrderExpirePending extends Command
                 'status_order' => 'cancelled',
                 'status_pengiriman' => 'selesai',
                 'biaya_pembatalan' => 0,
-                'alasan_pembatalan' => 'Otomatis: pesanan tidak dikonfirmasi sebelum jadwal mulai — seluruh pembayaran dikembalikan (refund).',
+                'alasan_pembatalan' => 'Otomatis: pesanan tidak dikonfirmasi dalam '.$hours.' jam sejak pemesanan (atau melewati jadwal mulai) — seluruh pembayaran dikembalikan (refund).',
             ];
 
             if ($totalBayar > 0) {
@@ -138,9 +140,10 @@ class OrderExpirePending extends Command
         }
 
         $totalBayar = (float) ($order->total_refund ?? 0);
+        $tenggat = max(1, (int) Setting::get('pending_expire_hours', 24));
         $wa = app(WhatsAppService::class);
         $pesan = "Halo {$order->customer->nama_lengkap},\n\n"
-            ."Pesanan *{$order->kode_order}* telah *DIBATALKAN* otomatis karena belum dikonfirmasi hingga lewat jadwal mulai.\n";
+            ."Pesanan *{$order->kode_order}* telah *DIBATALKAN* otomatis karena tidak dikonfirmasi dalam {$tenggat} jam sejak pemesanan.\n";
         if ($totalBayar > 0) {
             $pesan .= 'Pembayaran Anda sebesar *Rp '.number_format($totalBayar, 0, ',', '.')."* dikembalikan penuh (refund). Tim kami akan menghubungi Anda untuk proses pengembalian dana.\n";
         }

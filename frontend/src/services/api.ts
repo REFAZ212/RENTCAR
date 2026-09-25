@@ -73,6 +73,7 @@ export interface Kendaraan {
   catatan?: string | null;
   order_pending_count?: number;
   order_confirmed_count?: number;
+  pending_overlap_count?: number;
   garasi_partner_id?: number;
   kategori?: KategoriKendaraan;
   tipe?: TipeKendaraan;
@@ -470,6 +471,7 @@ export const garasiPartnerAPI = {
   update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<GarasiPartner>>> => api.put(`/garasi-partners/${id}`, data),
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/garasi-partners/${id}`),
   garasiSaya: (): Promise<AxiosResponse<SingleResponse<GarasiPartner>>> => api.get('/garasi-saya'),
+  renameSaya: (nama_garasi: string): Promise<AxiosResponse<SingleResponse<GarasiPartner>>> => api.put('/garasi-saya', { nama_garasi }),
 };
 
 export const garasiRequestAPI = {

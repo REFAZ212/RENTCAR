@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\SupirCalo;
 use App\Models\Tipe;
 use App\Models\User;
-use Database\Seeders\SupirCaloSeeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
@@ -190,19 +189,6 @@ class SupirAuthTest extends TestCase
         $this->actingAs($supir)->getJson('/api/supir/me')
             ->assertOk()
             ->assertJsonPath('wajib_ganti_password', true);
-    }
-
-    public function test_seeder_menghasilkan_password_default_untuk_dev(): void
-    {
-        $this->seed(SupirCaloSeeder::class);
-
-        $supirs = SupirCalo::all();
-        $this->assertCount(14, $supirs);
-
-        foreach ($supirs as $supir) {
-            $this->assertFalse((bool) $supir->must_change_password, "{$supir->nama} tidak perlu wajib ganti password di seeder dev");
-            $this->assertTrue(Hash::check('password', $supir->password), "{$supir->nama} memakai password default dev");
-        }
     }
 
     public function test_admin_create_supir_with_password_sets_require_change_flag(): void

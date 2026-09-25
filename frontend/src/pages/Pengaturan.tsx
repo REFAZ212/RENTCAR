@@ -851,7 +851,7 @@ function HargaTab() {
         <div className="mt-6">
           <SectionCard title="Batas Waktu Otomatisasi Pesanan" description="Pembatalan otomatis dan pelepasan tugas supir yang tidak dikerjakan">
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <Field label="Batal Booking Tak Dikonfirmasi" hint="Order katalog 'pending' dibatalkan + refund penuh bila tidak dikonfirmasi">
+              <Field label="Batal Booking Tak Dikonfirmasi" hint="Order katalog 'pending' dibatalkan + refund penuh bila tidak dikonfirmasi dalam X jam sejak pemesanan (kendaraan kembali tersedia)">
                 <div className="relative">
                   <input
                     type="number"

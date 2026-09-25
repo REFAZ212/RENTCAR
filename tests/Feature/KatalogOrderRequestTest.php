@@ -172,6 +172,18 @@ class KatalogOrderRequestTest extends TestCase
             $t->text('response')->nullable();
             $t->timestamps();
         });
+        Schema::create('pembayarans', function ($t) {
+            $t->id();
+            $t->foreignId('order_id');
+            $t->foreignId('admin_id')->nullable();
+            $t->decimal('jumlah', 14, 2);
+            $t->string('metode_pembayaran');
+            $t->string('status');
+            $t->string('bukti_transfer')->nullable();
+            $t->text('catatan')->nullable();
+            $t->timestamps();
+            $t->softDeletes();
+        });
 
         $this->admin = User::create([
             'name' => 'Admin Utama',
@@ -378,6 +390,157 @@ class KatalogOrderRequestTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_order_request_ditolak_beririsan_dengan_order_pending(): void
+    {
+        // Order pertama dari pemesan lain — masih pending (hold kendaraan).
+        $this->postJson('/api/katalog/order-request', $this->payload())->assertStatus(201);
+
+        // Pemesanan kedua (no.HP berbeda) pada tanggal beririsan ditolak karena
+        // yang pertama masih pending — kendaraan di-hold sampai dikonfirmasi
+        // admin atau otomatis batal (pending_expire_hours).
+        $response = $this->postJson('/api/katalog/order-request', $this->payload([
+            'nama_lengkap' => 'Siti Aminah',
+            'no_hp' => '081398765432',
+            'tanggal_mulai' => '2026-12-02',
+            'tanggal_selesai' => '2026-12-04',
+        ]));
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('kendaraan_id');
+        $this->assertDatabaseCount('orders', 1);
+        $this->assertSame('pending', Order::find(1)->status_order);
+    }
+
+    public function test_order_request_ditolak_beririsan_dengan_order_confirmed(): void
+    {
+        Order::create([
+            'kode_order' => 'ORD-CONF-PUBLIC',
+            'source' => 'katalog',
+            'customer_id' => Customer::create([
+                'nama_lengkap' => 'Budi Santoso',
+                'no_hp' => '6281234567890',
+            ])->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-03',
+            'durasi_hari' => 3,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1500000,
+            'status_order' => 'confirmed',
+        ]);
+
+        $response = $this->postJson('/api/katalog/order-request', $this->payload());
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('kendaraan_id');
+        $this->assertDatabaseCount('orders', 1);
+    }
+
+    public function test_katalog_detail_mengirim_pending_overlap_count(): void
+    {
+        $customerLain = Customer::create([
+            'nama_lengkap' => 'Siti Aminah',
+            'no_hp' => '6281987654321',
+        ]);
+        Order::create([
+            'kode_order' => 'ORD-PEND-DET',
+            'source' => 'katalog',
+            'customer_id' => $customerLain->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-03',
+            'durasi_hari' => 3,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1500000,
+            'status_order' => 'pending',
+        ]);
+
+        $response = $this->getJson('/api/katalog/'.$this->kendaraan->id.'?tanggal_mulai=2026-12-02&durasi_hari=2')
+            ->assertOk();
+
+        $item = $response->json();
+        // Pending ikut membuat tanggal jadi tidak tersedia (hold)...
+        $this->assertFalse($item['available_for_dates']);
+        // ...dan jumlahnya tetap dilaporkan untuk peringatan.
+        $this->assertSame(1, $item['pending_overlap_count']);
+    }
+
+    public function test_katalog_list_mengirim_pending_overlap_count(): void
+    {
+        $customerLain = Customer::create([
+            'nama_lengkap' => 'Siti Aminah',
+            'no_hp' => '6281987654321',
+        ]);
+        Order::create([
+            'kode_order' => 'ORD-PEND-LIST',
+            'source' => 'katalog',
+            'customer_id' => $customerLain->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-03',
+            'durasi_hari' => 3,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1500000,
+            'status_order' => 'pending',
+        ]);
+
+        $response = $this->getJson('/api/katalog?tanggal_mulai=2026-12-01&durasi_hari=3')
+            ->assertOk();
+
+        $item = collect($response->json('data'))->firstWhere('id', $this->kendaraan->id);
+        $this->assertNotNull($item);
+        $this->assertFalse($item['available_for_dates']);
+        $this->assertSame(1, $item['pending_overlap_count']);
+    }
+
+    public function test_konfirmasi_order_membatalkan_pending_bentrok_dan_notif_admin(): void
+    {
+        $pemenang = Order::create([
+            'kode_order' => 'ORD-KALA-WIN',
+            'source' => 'katalog',
+            'customer_id' => Customer::create(['nama_lengkap' => 'Budi Santoso', 'no_hp' => '6281234567890'])->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-03',
+            'durasi_hari' => 3,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1500000,
+            'status_order' => 'pending',
+        ]);
+
+        $kalah = Customer::create(['nama_lengkap' => 'Siti Aminah', 'no_hp' => '6281987654321']);
+        $bentrok = Order::create([
+            'kode_order' => 'ORD-KALA-LOSE',
+            'source' => 'katalog',
+            'customer_id' => $kalah->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => '2026-12-01',
+            'tanggal_selesai' => '2026-12-05',
+            'durasi_hari' => 5,
+            'harga_per_hari' => 500000,
+            'harga_total' => 2500000,
+            'status_order' => 'pending',
+        ]);
+
+        $this->actingAs($this->admin)
+            ->patchJson("/api/orders/{$pemenang->id}", ['status_order' => 'confirmed'])
+            ->assertOk();
+
+        $this->assertDatabaseHas('orders', ['id' => $pemenang->id, 'status_order' => 'confirmed']);
+        $this->assertDatabaseHas('orders', ['id' => $bentrok->id, 'status_order' => 'cancelled']);
+        $this->assertDatabaseHas('whatsapp_logs', [
+            'type' => 'order_dibatalkan',
+            'order_id' => $bentrok->id,
+            'nomor_tujuan' => '6281987654321',
+        ]);
+        $this->assertDatabaseHas('notifications', ['type' => 'order_bentrok_dibatalkan']);
     }
 
     public function test_order_request_throttles_per_phone_number(): void

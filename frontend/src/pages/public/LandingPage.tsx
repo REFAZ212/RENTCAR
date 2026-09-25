@@ -22,7 +22,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { katalogAPI, bannerAPI, type KatalogItem, type Banner } from '../../services/api';
-import { ADMIN_WA } from '../../lib/format';
+import { useAdminContact } from '../../contexts/AdminContactContext';
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
 import VehicleCard from '../../components/public/VehicleCard';
 import PesanSekarangModal from '../../components/public/PesanSekarangModal';
@@ -90,6 +90,7 @@ const faqData = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { wa } = useAdminContact();
   const [featured, setFeatured] = useState<KatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -202,7 +203,7 @@ export default function LandingPage() {
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <a
-                href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20konsultasi%20tentang%20rental%20kendaraan`}
+                href={`https://wa.me/${wa}?text=Halo%2C%20saya%20ingin%20konsultasi%20tentang%20rental%20kendaraan`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-6 py-3 border-2 border-white/20 text-white font-semibold rounded-xl hover:bg-white/5 transition-colors"

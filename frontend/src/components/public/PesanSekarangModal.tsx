@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { katalogAPI, type KatalogItem, type OrderRequestPayload, type JamOperasional } from '../../services/api';
-import { todayJakarta, nowWIBTime, formatRupiah, ADMIN_WA, formatJamOperasional } from '../../lib/format';
+import { todayJakarta, nowWIBTime, formatRupiah, formatJamOperasional } from '../../lib/format';
 import { getFotoUrl } from '../../lib/katalogStatus';
+import { useAdminContact } from '../../contexts/AdminContactContext';
 
 interface OrderForm {
   nama_lengkap: string;
@@ -15,6 +16,37 @@ interface OrderForm {
 }
 
 const pad2 = (n: number): string => String(n).padStart(2, '0');
+
+/**
+ * Nama hari & jam "sekarang" dalam zona WIB — dipakai untuk pre-check
+ * jam operasional sebelum request dikirim (server tetap sumber kebenaran).
+ */
+function waktuWIB(): { hari: string; jam: string } {
+  const parts = new Intl.DateTimeFormat('id-ID', {
+    timeZone: 'Asia/Jakarta',
+    weekday: 'long',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date());
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return { hari: get('weekday'), jam: `${pad2(Number(get('hour')))}:${get('minute')}` };
+}
+
+/** Error pre-check jam operasional, atau null bila masih buka. */
+function cekJamOperasional(jam: JamOperasional[]): string | null {
+  const { hari, jam: sekarang } = waktuWIB();
+  const row = (jam ?? []).find((j) => j.hari === hari);
+  if (!row) return null;
+  if (row.libur) return `Hari ini (${hari}) merupakan hari libur. Silakan lakukan pemesanan pada jam operasional berikutnya.`;
+  const buka = row.buka;
+  const tutup = row.tutup;
+  if (!buka || !tutup) return null;
+  if (sekarang < buka || sekarang > tutup) {
+    return `Saat ini di luar jam operasional (${hari} ${buka}-${tutup}). Silakan lakukan pemesanan pada jam operasional.`;
+  }
+  return null;
+}
 
 /** Hitung tanggal_selesai = tanggal_mulai + durasi - 1 hari, format YYYY-MM-DD. */
 const computeTanggalSelesai = (tanggalMulai: string, durasi: number): string => {
@@ -35,6 +67,7 @@ export default function PesanSekarangModal({
   initialTanggalMulai?: string;
   initialDurasi?: number;
 }) {
+  const { wa } = useAdminContact();
   const [form, setForm] = useState<OrderForm>(() => {
     const today = todayJakarta();
     const tanggalMulai = initialTanggalMulai && initialTanggalMulai >= today ? initialTanggalMulai : '';
@@ -55,6 +88,7 @@ export default function PesanSekarangModal({
   const [success, setSuccess] = useState(false);
   const [waLink, setWaLink] = useState('');
   const [jamOperasional, setJamOperasional] = useState<JamOperasional[] | undefined>(undefined);
+  const [pendingOverlap, setPendingOverlap] = useState(0);
   const modalRef = useRef<HTMLDivElement>(null);
   const firstInputRef = useRef<HTMLInputElement>(null);
   const today = todayJakarta();
@@ -83,6 +117,26 @@ export default function PesanSekarangModal({
     if (durasiHari < 1) return 0;
     return item.harga_sewa_per_hari * durasiHari;
   }, [durasiHari, item.harga_sewa_per_hari]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!form.tanggal_mulai || !form.tanggal_selesai || durasiHari < 1) {
+      setPendingOverlap(0);
+      return;
+    }
+    katalogAPI
+      .get(item.id, { tanggal_mulai: form.tanggal_mulai, durasi_hari: durasiHari })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setPendingOverlap((data as unknown as KatalogItem).pending_overlap_count ?? 0);
+      })
+      .catch(() => {
+        if (!cancelled) setPendingOverlap(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.tanggal_mulai, form.tanggal_selesai, durasiHari, item.id]);
 
   const handleChange = (key: keyof OrderForm, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -131,9 +185,22 @@ export default function PesanSekarangModal({
       setError('Jam selesai hari ini sudah terlewat — pilih jam setelah sekarang');
       return;
     }
+    if (pendingOverlap > 0) {
+      setError('Kendaraan tidak tersedia untuk tanggal ini — tunggu konfirmasi pesanan sebelumnya.');
+      return;
+    }
     setSubmitting(true);
     setError('');
     try {
+      const jamTutup = await katalogAPI
+        .jamOperasional()
+        .then(({ data }) => cekJamOperasional(data))
+        .catch(() => null);
+      if (jamTutup) {
+        setError(jamTutup);
+        setSubmitting(false);
+        return;
+      }
       const payload: OrderRequestPayload = {
         nama_lengkap: form.nama_lengkap.trim(),
         no_hp: form.no_hp.trim(),
@@ -174,7 +241,7 @@ export default function PesanSekarangModal({
       ? `${form.tanggal_mulai}${form.tanggal_selesai ? ' s/d ' + form.tanggal_selesai : ''}${form.jam_mulai ? ' jam ' + form.jam_mulai : ''}`
       : 'belum ditentukan';
     const pesan = `Halo, saya tertarik dengan *${item.nama_kendaraan}* (${item.tahun}) seharga ${formatRupiah(item.harga_sewa_per_hari)}/hari.\n\nTanggal: ${tglInfo}\nOpsi: ${opsLabel}\n\nSaya ingin berkonsultasi lebih lanjut. Terima kasih.`;
-    window.open(`https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(pesan)}`, '_blank');
+    window.open(`https://wa.me/${wa}?text=${encodeURIComponent(pesan)}`, '_blank');
   };
 
   return (
@@ -216,8 +283,12 @@ export default function PesanSekarangModal({
                 </svg>
               </div>
               <h3 className="text-xl font-bold text-black mb-2">Pesanan Terkirim!</h3>
-              <p className="text-black-400 text-sm mb-6">
+              <p className="text-black-400 text-sm mb-2">
                 Admin akan segera mengkonfirmasi pesanan Anda via WhatsApp.
+              </p>
+              <p className="text-xs text-black-400 mb-6">
+                Pemesanan otomatis dibatalkan (dengan refund penuh) bila tidak dikonfirmasi admin dalam 24
+                jam.
               </p>
               {jamOperasional && jamOperasional.length > 0 && (
                 <div className="flex items-start gap-2.5 text-left p-3 bg-canvas rounded-xl mb-6 text-xs text-black-500">
@@ -274,6 +345,16 @@ export default function PesanSekarangModal({
               {error && (
                 <div className="mb-4 p-3 bg-error-50 border border-error-50 rounded-xl text-sm text-error-600">
                   {error}
+                </div>
+              )}
+              {pendingOverlap > 0 && (
+                <div className="mb-4 p-3 border border-amber-200 bg-amber-50 rounded-xl text-sm text-amber-800">
+                  <p className="font-semibold mb-1">Kendaraan tidak tersedia untuk tanggal ini</p>
+                  <p>
+                    Kendaraan ini sedang dipesan orang lain dan menunggu konfirmasi admin pada tanggal
+                    tersebut. Pesanan baru tidak dapat diajukan sampai pesanan itu dikonfirmasi atau
+                    otomatis batal dalam 24 jam. Silakan pilih tanggal atau kendaraan lain.
+                  </p>
                 </div>
               )}
               <div className="space-y-4">
@@ -452,7 +533,7 @@ export default function PesanSekarangModal({
               <div className="mt-6 space-y-3">
                 <button
                   onClick={handleSubmitPesanSekarang}
-                  disabled={submitting}
+                  disabled={submitting || pendingOverlap > 0}
                   className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary-600 text-white font-semibold rounded-xl hover:bg-primary-700 disabled:opacity-50 transition-colors shadow-lg"
                 >
                   {submitting ? (

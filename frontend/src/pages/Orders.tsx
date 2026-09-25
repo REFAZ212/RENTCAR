@@ -1657,7 +1657,12 @@ setShowEditForm(true);
                                   <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-black-200" style={{ backgroundColor: warnaKendaraanHex(k.warna) || '#E5E7EB' }} />
                                   <span className="truncate text-xs text-black-400">{k.warna}</span>
                                 </div>
-                                <p className={`text-xs font-bold ${!available ? 'text-black-400' : 'text-primary-600'}`}>{formatRupiah(k.harga_sewa_per_hari)}/hari</p>
+<p className={`text-xs font-bold ${!available ? 'text-black-400' : 'text-primary-600'}`}>{formatRupiah(k.harga_sewa_per_hari)}/hari</p>
+                                {tanggalTersedia && (k.pending_overlap_count ?? 0) > 0 && (
+                                  <p className="text-[11px] font-medium leading-tight text-amber-700">
+                                    Sudah ada order menunggu konfirmasi admin di tanggal ini
+                                  </p>
+                                )}
                               </div>
                             </div>
                           );
@@ -2618,7 +2623,6 @@ setShowEditForm(true);
                   </select>
                 </div>
                 )}
-                {!isKonfirmasi && (
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Metode Bayar</label>
                   <select
@@ -2633,7 +2637,6 @@ setShowEditForm(true);
                     ))}
                   </select>
                 </div>
-                )}
                 {!isKonfirmasi && (
                 <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Status Pengiriman</label>

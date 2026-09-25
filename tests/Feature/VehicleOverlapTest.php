@@ -271,4 +271,193 @@ class VehicleOverlapTest extends TestCase
 
         $response->assertStatus(201);
     }
+
+    public function test_kendaraan_tidak_dapat_dipesan_beririsan_dengan_order_pending(): void
+    {
+        Storage::fake('public');
+
+        Order::create([
+            'kode_order' => 'ORD-PEND-EXIST',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => now()->addDay()->toDateString(),
+            'tanggal_selesai' => now()->addDays(3)->toDateString(),
+            'durasi_hari' => 2,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1000000,
+            'status_order' => 'pending',
+        ]);
+
+        // Order baru (langsung confirmed) ditolak: pending meng-hold kendaraan
+        // sampai dikonfirmasi admin atau otomatis batal (pending_expire_hours).
+        $response = $this->actingAs($this->admin)->postJson('/api/orders', [
+            'customer_id' => $this->customer->id,
+            'customer_no_hp' => '6281234567890',
+            'customer_alamat' => 'Jakarta Selatan',
+            'customer_no_sim' => 'SIM123',
+            'kendaraan_id' => $this->kendaraan->id,
+            'tanggal_mulai' => now()->addDay()->toDateString(),
+            'tanggal_selesai' => now()->addDays(5)->toDateString(),
+            'tujuan' => 'Surabaya',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('kendaraan_id');
+    }
+
+    public function test_kendaraan_tidak_dapat_dipesan_beririsan_dengan_order_confirmed(): void
+    {
+        Storage::fake('public');
+
+        Order::create([
+            'kode_order' => 'ORD-CONF-EXIST',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => now()->subDay()->toDateString(),
+            'tanggal_selesai' => now()->addDays(3)->toDateString(),
+            'durasi_hari' => 4,
+            'harga_per_hari' => 500000,
+            'harga_total' => 2000000,
+            'status_order' => 'confirmed',
+        ]);
+
+        $response = $this->actingAs($this->admin)->postJson('/api/orders', [
+            'customer_id' => $this->customer->id,
+            'customer_no_hp' => '6281234567890',
+            'customer_alamat' => 'Jakarta Selatan',
+            'customer_no_sim' => 'SIM123',
+            'kendaraan_id' => $this->kendaraan->id,
+            'tanggal_mulai' => now()->addDay()->toDateString(),
+            'tanggal_selesai' => now()->addDays(5)->toDateString(),
+            'tujuan' => 'Surabaya',
+        ]);
+
+        $response->assertStatus(422);
+        $response->assertJsonValidationErrors('kendaraan_id');
+    }
+
+    public function test_konfirmasi_order_kedua_yang_beririsan_ditolak(): void
+    {
+        $confirmed = Order::create([
+            'kode_order' => 'ORD-C1',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => now()->subDay()->toDateString(),
+            'tanggal_selesai' => now()->addDays(3)->toDateString(),
+            'durasi_hari' => 4,
+            'harga_per_hari' => 500000,
+            'harga_total' => 2000000,
+            'status_order' => 'confirmed',
+        ]);
+
+        $kandidat = Order::create([
+            'kode_order' => 'ORD-C2',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => now()->addDay()->toDateString(),
+            'tanggal_selesai' => now()->addDays(5)->toDateString(),
+            'durasi_hari' => 4,
+            'harga_per_hari' => 500000,
+            'harga_total' => 2000000,
+            'status_order' => 'pending',
+        ]);
+
+        $aman = Order::create([
+            'kode_order' => 'ORD-C3',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => now()->addDays(6)->toDateString(),
+            'tanggal_selesai' => now()->addDays(8)->toDateString(),
+            'durasi_hari' => 3,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1500000,
+            'status_order' => 'pending',
+        ]);
+
+        // Konfirmasi order yang beririsan dengan order confirmed → ditolak.
+        $this->actingAs($this->admin)
+            ->patchJson("/api/orders/{$kandidat->id}", ['status_order' => 'confirmed'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('kendaraan_id');
+
+        // Gagal = rollback penuh: tidak ada order lain yang ikut dibatalkan.
+        $this->assertDatabaseHas('orders', ['id' => $confirmed->id, 'status_order' => 'confirmed']);
+        $this->assertDatabaseHas('orders', ['id' => $kandidat->id, 'status_order' => 'pending']);
+        $this->assertDatabaseHas('orders', ['id' => $aman->id, 'status_order' => 'pending']);
+    }
+
+    public function test_konfirmasi_membatalkan_order_pending_beririsan_dan_mengirim_wa(): void
+    {
+        $pemenang = Order::create([
+            'kode_order' => 'ORD-WIN',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => now()->addDay()->toDateString(),
+            'tanggal_selesai' => now()->addDays(3)->toDateString(),
+            'durasi_hari' => 2,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1000000,
+            'status_order' => 'pending',
+        ]);
+
+        $customerKalah = Customer::create([
+            'nama_lengkap' => 'Siti Aminah',
+            'no_hp' => '6281987654321',
+        ]);
+
+        $bentrok = Order::create([
+            'kode_order' => 'ORD-LOSE',
+            'customer_id' => $customerKalah->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => now()->addDay()->toDateString(),
+            'tanggal_selesai' => now()->addDays(5)->toDateString(),
+            'durasi_hari' => 4,
+            'harga_per_hari' => 500000,
+            'harga_total' => 2000000,
+            'status_order' => 'pending',
+        ]);
+
+        $aman = Order::create([
+            'kode_order' => 'ORD-FINE',
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => now()->addDays(6)->toDateString(),
+            'tanggal_selesai' => now()->addDays(8)->toDateString(),
+            'durasi_hari' => 3,
+            'harga_per_hari' => 500000,
+            'harga_total' => 1500000,
+            'status_order' => 'pending',
+        ]);
+
+        // Konfirmasi pemenang → yang beririsan otomatis dibatalkan, yang tidak
+        // beririsan tetap aman.
+        $this->actingAs($this->admin)
+            ->patchJson("/api/orders/{$pemenang->id}", ['status_order' => 'confirmed'])
+            ->assertOk();
+
+        $this->assertDatabaseHas('orders', ['id' => $pemenang->id, 'status_order' => 'confirmed']);
+        $this->assertDatabaseHas('orders', ['id' => $bentrok->id, 'status_order' => 'cancelled']);
+        $this->assertDatabaseHas('orders', ['id' => $aman->id, 'status_order' => 'pending']);
+
+        $batal = Order::find($bentrok->id);
+        $this->assertSame(0, (int) $batal->biaya_pembatalan);
+        $this->assertSame('selesai', $batal->status_pengiriman);
+        $this->assertStringContainsString($pemenang->kode_order, (string) $batal->alasan_pembatalan);
+
+        $this->assertDatabaseHas('whatsapp_logs', [
+            'type' => 'order_dibatalkan',
+            'order_id' => $bentrok->id,
+            'nomor_tujuan' => '6281987654321',
+        ]);
+
+        $this->assertSame('pending', Order::find($aman->id)->status_order);
+    }
 }

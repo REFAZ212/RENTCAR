@@ -1217,7 +1217,14 @@ export default function Kendaraan() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {items.map((item) => {
             const waitingOrderCount = Number(item.order_pending_count ?? 0) + Number(item.order_confirmed_count ?? 0);
-            const sittingOrderLabel = Number(item.order_confirmed_count ?? 0) > 0 ? 'Ada order Dikonfirmasi' : 'Ada order Menunggu Konfirmasi';
+            const pendingCount = Number(item.order_pending_count ?? 0);
+            const confirmedCount = Number(item.order_confirmed_count ?? 0);
+            const sittingOrderLabel =
+              confirmedCount > 0 && pendingCount > 0
+                ? `${confirmedCount} Dikonfirmasi · ${pendingCount} Menunggu`
+                : confirmedCount > 0
+                  ? `${confirmedCount} Dikonfirmasi`
+                  : `${pendingCount} Menunggu Konfirmasi`;
             return (
             <div
               key={item.id}

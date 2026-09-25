@@ -1,7 +1,8 @@
 ﻿import { Fragment, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { katalogAPI, type KategoriKendaraan, type TipeKendaraan, type KatalogItem, type JamOperasional } from '../../services/api';
-import { todayJakarta, ADMIN_WA, formatJamOperasional } from '../../lib/format';
+import { todayJakarta, formatJamOperasional } from '../../lib/format';
+import { useAdminContact } from '../../contexts/AdminContactContext';
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
 import VehicleCard from '../../components/public/VehicleCard';
 import PesanSekarangModal from '../../components/public/PesanSekarangModal';
@@ -58,6 +59,7 @@ function VehicleCardSkeleton() {
 /* --- PAGE --- KATALOG --- */
 export default function Katalog() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { wa } = useAdminContact();
   const catalogToday = useMemo(() => todayJakarta(), []);
   const [items, setItems] = useState<KatalogItem[]>([]);
   const [kategoris, setKategoris] = useState<KategoriWithCount[]>([]);
@@ -272,7 +274,7 @@ export default function Katalog() {
                 Lihat Katalog
               </a>
               <a
-                href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20konsultasi%20tentang%20rental%20kendaraan`}
+                href={`https://wa.me/${wa}?text=Halo%2C%20saya%20ingin%20konsultasi%20tentang%20rental%20kendaraan`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="px-6 py-3 border-2 border-white/20 text-white font-semibold rounded-xl hover:bg-white/5 transition-colors"
@@ -588,7 +590,7 @@ export default function Katalog() {
           <h2 className="text-2xl font-bold text-white">Butuh Kendaraan Sekarang?</h2>
           <p className="mt-2 text-primary-100">Hubungi kami via WhatsApp untuk konsultasi dan pemesanan cepat</p>
           <a
-            href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20butuh%20kendaraan%20untuk%20disewa`}
+            href={`https://wa.me/${wa}?text=Halo%2C%20saya%20butuh%20kendaraan%20untuk%20disewa`}
             target="_blank"
             rel="noopener noreferrer"
             className="mt-6 inline-flex items-center gap-2 px-8 py-3 bg-success-500 text-white font-semibold rounded-xl hover:bg-success-600 transition-colors shadow-lg"

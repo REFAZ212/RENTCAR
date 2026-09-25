@@ -2,6 +2,7 @@
 import { lazy, Suspense, type PropsWithChildren } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { AdminContactProvider } from './contexts/AdminContactContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -72,6 +73,7 @@ export default function App() {
   return (
     <ErrorBoundary>
     <AuthProvider>
+      <AdminContactProvider>
       <BrowserRouter>
         <Suspense fallback={<LoadingScreen />}>
         <Routes>
@@ -114,6 +116,7 @@ export default function App() {
         </Routes>
         </Suspense>
       </BrowserRouter>
+      </AdminContactProvider>
     </AuthProvider>
     </ErrorBoundary>
   );

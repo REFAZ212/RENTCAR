@@ -33,7 +33,6 @@ const emptyPartnerForm = {
   no_hp: '',
   email: '',
   status_aktif: true,
-  is_own: false,
   catatan: '',
 };
 
@@ -134,7 +133,6 @@ function GarasiPartnerTab() {
       no_hp: item.no_hp,
       email: item.email || '',
       status_aktif: item.status_aktif,
-      is_own: item.is_own || false,
       catatan: item.catatan || '',
     });
     setEditItem(item);
@@ -357,15 +355,7 @@ function GarasiPartnerTab() {
                 <textarea value={form.catatan} onChange={(e) => setField('catatan', e.target.value)} rows={2}
                   className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm resize-none" />
               </div>
-<div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" checked={form.is_own} onChange={(e) => setField('is_own', e.target.checked)} className="sr-only peer" />
-                  <div className="w-9 h-5 bg-black-200 peer-focus:ring-2 peer-focus:ring-primary-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black-200 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-500"></div>
-                </label>
-                <span className="text-sm text-black-700">Milik Sendiri</span>
-                <span className="text-xs text-black-400">— Centang jika ini garasi milik perusahaan Anda</span>
-              </div>
-              <div className="flex flex-col-reverse gap-3 pt-4 border-t border-black-200 sm:flex-row sm:justify-end">
+<div className="flex flex-col gap-3 pt-4 border-t border-black-200 sm:flex-row sm:justify-end">
                 <button type="button" onClick={() => { setShowForm(false); setEditItem(null); }} className="w-full px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors sm:w-auto">Batal</button>
                 <button type="submit" disabled={submitting}
                   className="w-full px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 sm:w-auto">
@@ -811,6 +801,17 @@ function makeEmptyKendaraanForm(garasiId: number | string | undefined) {
   };
 }
 
+function makeEmptyOwnGarasiForm() {
+  return {
+    nama_garasi: '',
+    nama_pemilik: '',
+    no_hp: '',
+    email: '',
+    alamat: '',
+    catatan: '',
+  };
+}
+
 function GarasiSayaTab() {
   const toast = useToast();
   const [garasi, setGarasi] = useState<GarasiWithKendaraan | null>(null);
@@ -833,6 +834,9 @@ function GarasiSayaTab() {
   const [lastAdded, setLastAdded] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState('');
+  const [showOwnForm, setShowOwnForm] = useState(false);
+  const [ownForm, setOwnForm] = useState(makeEmptyOwnGarasiForm());
+  const [submittingOwn, setSubmittingOwn] = useState(false);
 
   const loadGarasi = useCallback(() => {
     return garasiPartnerAPI.garasiSaya().then(({ data }) => {
@@ -866,11 +870,16 @@ function GarasiSayaTab() {
       return;
     }
     try {
-      await garasiPartnerAPI.update(garasi.id, { nama_garasi: nameDraft.trim() });
+      await garasiPartnerAPI.renameSaya(nameDraft.trim());
       setGarasi((prev) => prev ? { ...prev, nama_garasi: nameDraft.trim() } : prev);
       toast.success('Nama garasi berhasil diperbarui');
-    } catch {
-      toast.error('Gagal memperbarui nama garasi');
+    } catch (err: any) {
+      const message =
+        err?.response?.status === 404
+          ? 'Garasi milik sendiri tidak ditemukan. Buat dulu garasi milik sendiri di tab Garasi Saya.'
+          : (err?.response?.data?.message || 'Gagal memperbarui nama garasi');
+      toast.error(message);
+      load();
     }
     setEditingName(false);
   };
@@ -995,6 +1004,29 @@ function GarasiSayaTab() {
   const setField = (key: string, value: any) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+const setOwnField = (key: string, value: any) =>
+    setOwnForm((prev) => ({ ...prev, [key]: value }));
+
+const handleOwnSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingOwn(true);
+    try {
+      await garasiPartnerAPI.create({ ...ownForm, status_aktif: true, is_own: true });
+      toast.success('Garasi milik sendiri berhasil dibuat');
+      setShowOwnForm(false);
+      setOwnForm(makeEmptyOwnGarasiForm());
+      load();
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        Object.values((err?.response?.data?.errors || {}) as Record<string, string[]>)?.[0]?.[0] ||
+        'Gagal menyimpan data';
+      toast.error(msg);
+    } finally {
+      setSubmittingOwn(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-4">
@@ -1013,8 +1045,67 @@ function GarasiSayaTab() {
     return (
       <div className="text-center py-16">
         <Building2 size={64} className="text-black-200 mx-auto mb-4" strokeWidth={1.5} />
-        <p className="text-black-400 font-medium">Belum ada garasi yang ditandai sebagai milik sendiri</p>
-        <p className="text-sm text-black-400 mt-1">Tandai garasi di tab &quot;Garasi Partner&quot; dengan centang &quot;Milik Sendiri&quot;</p>
+        <p className="text-black-400 font-medium">Belum ada garasi milik sendiri</p>
+        <p className="text-sm text-black-400 mt-1">Buat garasi milik perusahaan Anda agar bisa dikelola melalui tab ini</p>
+        <button onClick={() => { setOwnForm(makeEmptyOwnGarasiForm()); setShowOwnForm(true); }}
+          className="mx-auto mt-4 flex items-center gap-2 px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors">
+          <Plus size={16} />
+          Buat Garasi Milik Sendiri
+        </button>
+        {showOwnForm && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowOwnForm(false)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="p-4 sm:p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
+                <h2 className="font-display text-lg font-semibold text-black-900">Buat Garasi Milik Sendiri</h2>
+                <button onClick={() => setShowOwnForm(false)} className="p-1 hover:bg-canvas rounded-lg transition-colors shrink-0">
+                  <X size={20} className="text-black-400" />
+                </button>
+              </div>
+              <form onSubmit={handleOwnSubmit} className="p-4 sm:p-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-black-700 mb-1">Nama Garasi *</label>
+                    <input type="text" value={ownForm.nama_garasi} onChange={(e) => setOwnField('nama_garasi', e.target.value)} required
+                      className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-black-700 mb-1">Nama Pemilik *</label>
+                    <input type="text" value={ownForm.nama_pemilik} onChange={(e) => setOwnField('nama_pemilik', e.target.value)} required
+                      className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-black-700 mb-1">No. HP *</label>
+                    <input type="text" value={ownForm.no_hp} onChange={(e) => setOwnField('no_hp', e.target.value)} required
+                      className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-black-700 mb-1">Email</label>
+                    <input type="email" value={ownForm.email} onChange={(e) => setOwnField('email', e.target.value)}
+                      className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-black-700 mb-1">Alamat *</label>
+                  <textarea value={ownForm.alamat} onChange={(e) => setOwnField('alamat', e.target.value)} rows={2} required
+                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm resize-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-black-700 mb-1">Catatan</label>
+                  <textarea value={ownForm.catatan} onChange={(e) => setOwnField('catatan', e.target.value)} rows={2}
+                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm resize-none" />
+                </div>
+                <div className="flex flex-col-reverse gap-3 pt-4 border-t border-black-200 sm:flex-row sm:justify-end">
+                  <button type="button" onClick={() => setShowOwnForm(false)} className="w-full px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors sm:w-auto">Batal</button>
+                  <button type="submit" disabled={submittingOwn}
+                    className="w-full px-4 py-2 text-sm font-medium bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 sm:w-auto">
+                    {submittingOwn && <Loader2 size={16} className="animate-spin" />}
+                    Simpan
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -1041,18 +1132,20 @@ function GarasiSayaTab() {
                 <X size={16} />
               </button>
             </div>
-          ) : (
-            <div className="flex min-w-0 items-center gap-1.5">
-              <span className="min-w-0 truncate font-medium text-black-700">{garasi.nama_garasi}</span>
-              <button
-                onClick={() => { setNameDraft(garasi.nama_garasi); setEditingName(true); }}
-                className="shrink-0 p-1 text-black-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                title="Edit nama garasi"
-              >
-                <Pencil size={14} />
-              </button>
-            </div>
-          )}
+) : (
+              <div className="flex min-w-0 items-center gap-1.5">
+                <span className="min-w-0 truncate font-medium text-black-700">{garasi.nama_garasi}</span>
+                <button
+                  type="button"
+                  onClick={() => { setNameDraft(garasi.nama_garasi); setEditingName(true); }}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-black-200 px-2 py-1 text-xs font-medium text-black-700 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
+                  title="Edit nama garasi"
+                >
+                  <Pencil size={12} />
+                  Edit
+                </button>
+              </div>
+            )}
         </div>
         <button onClick={openCreate}
           className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors sm:w-auto sm:shrink-0">

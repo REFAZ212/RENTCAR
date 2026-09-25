@@ -7,6 +7,8 @@ use App\Models\GarasiPartner;
 use App\Models\SupirCalo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class GarasiPartnerController extends Controller
 {
@@ -42,7 +44,7 @@ class GarasiPartnerController extends Controller
         return response()->json($garasi);
     }
 
-    public function garasiSaya(Request $request): JsonResponse
+    public function garasiSaya(Request $request): SymfonyResponse
     {
         abort_if($request->user() instanceof SupirCalo, 403, 'Akses ditolak. Anda tidak memiliki izin yang cukup.');
 
@@ -50,6 +52,27 @@ class GarasiPartnerController extends Controller
             ->with(['kendaraans.garasiPartner', 'kendaraans.kategori', 'kendaraans.tipe'])
             ->withCount('kendaraans')
             ->first();
+
+        if (! $garasi) {
+            return response('null')->header('Content-Type', 'application/json');
+        }
+
+        return response()->json($garasi);
+    }
+
+    public function garasiSayaRename(Request $request): JsonResponse
+    {
+        abort_if($request->user() instanceof SupirCalo, 403, 'Akses ditolak. Anda tidak memiliki izin yang cukup.');
+
+        $validated = $request->validate([
+            'nama_garasi' => 'required|string|max:255',
+        ]);
+
+        $garasi = GarasiPartner::where('is_own', true)->firstOrFail();
+
+        $garasi->update([
+            'nama_garasi' => $validated['nama_garasi'],
+        ]);
 
         return response()->json($garasi);
     }
@@ -70,7 +93,17 @@ class GarasiPartnerController extends Controller
             'catatan' => 'nullable|string',
         ]);
 
-        $garasi = GarasiPartner::create($validated);
+        $garasi = DB::transaction(function () use ($validated) {
+            $garasi = GarasiPartner::create($validated);
+
+            if (filter_var($validated['is_own'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                GarasiPartner::where('is_own', true)
+                    ->where('id', '!=', $garasi->id)
+                    ->update(['is_own' => false]);
+            }
+
+            return $garasi;
+        });
 
         return response()->json($garasi, 201);
     }
@@ -101,7 +134,17 @@ class GarasiPartnerController extends Controller
             'catatan' => 'nullable|string',
         ]);
 
-        $garasiPartner->update($validated);
+        $garasiPartner = DB::transaction(function () use ($garasiPartner, $validated) {
+            $garasiPartner->update($validated);
+
+            if (filter_var($validated['is_own'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+                GarasiPartner::where('is_own', true)
+                    ->where('id', '!=', $garasiPartner->id)
+                    ->update(['is_own' => false]);
+            }
+
+            return $garasiPartner;
+        });
 
         return response()->json($garasiPartner);
     }

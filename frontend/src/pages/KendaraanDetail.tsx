@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useSearchParams, useLocation } from 'react-router-dom';
 import { katalogAPI, type KatalogItem } from '../services/api';
-import { formatRupiah, ADMIN_WA } from '../lib/format';
+import { formatRupiah } from '../lib/format';
+import { useAdminContact } from '../contexts/AdminContactContext';
 import PesanSekarangModal from '../components/public/PesanSekarangModal';
 import VehicleCard from '../components/public/VehicleCard';
 import { getFotoUrl, getStatusInfo, statusPhotoClass } from '../lib/katalogStatus';
@@ -21,11 +22,11 @@ const formatTanggalId = (tanggal: string): string => {
   });
 };
 
-const buildWALink = (item: KatalogItem, tanggalMulai = '', durasiHari = ''): string => {
+const buildWALink = (wa: string, item: KatalogItem, tanggalMulai = '', durasiHari = ''): string => {
   const tanggalTeks = tanggalMulai ? formatTanggalId(tanggalMulai) : '-';
   const durasiTeks = durasiHari && Number(durasiHari) > 0 ? `${durasiHari} hari` : '-';
   const pesan = `Halo, saya tertarik untuk menyewa:\n\n${item.nama_kendaraan} (${item.tahun})\nPlat: ${item.plat_nomor}\nHarga: ${formatRupiah(item.harga_sewa_per_hari)}/hari\n\nTanggal: ${tanggalTeks}\nDurasi: ${durasiTeks}\n\nMohon info ketersediaan dan cara pemesanannya. Terima kasih.`;
-  return `https://wa.me/${ADMIN_WA}?text=${encodeURIComponent(pesan)}`;
+  return `https://wa.me/${wa}?text=${encodeURIComponent(pesan)}`;
 };
 
 function DetailSkeleton() {
@@ -116,6 +117,7 @@ function LoadErrorView({ onRetry }: { onRetry: () => void }) {
 
 export default function KendaraanDetail() {
   const { id } = useParams<{ id: string }>();
+  const { wa } = useAdminContact();
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const [item, setItem] = useState<KatalogItem | null>(null);
@@ -239,7 +241,7 @@ export default function KendaraanDetail() {
   ];
 
   const fotoUrl = getFotoUrl(item.foto);
-  const waLink = buildWALink(item, tanggalMulai, durasiHari);
+  const waLink = buildWALink(wa, item, tanggalMulai, durasiHari);
   const statusInfo = getStatusInfo(item, item.available_for_dates);
 
   const handleShare = async () => {
@@ -396,7 +398,9 @@ export default function KendaraanDetail() {
             <div>
               <p className="text-sm font-semibold text-accent-700">Kendaraan tidak tersedia untuk tanggal ini</p>
               <p className="text-xs text-accent-600 mt-1">
-                Kendaraan ini sudah memiliki order pada tanggal yang Anda pilih. Silakan pilih tanggal lain atau lihat
+                Kendaraan ini sedang dipesan untuk tanggal yang Anda pilih — sudah dikonfirmasi admin
+                maupun masih menunggu konfirmasi. Pesanan yang belum dikonfirmasi akan otomatis batal
+                dalam 24 jam dan kendaraan kembali tersedia. Silakan pilih tanggal lain atau lihat
                 kendaraan serupa.
               </p>
               <Link
@@ -505,9 +509,10 @@ export default function KendaraanDetail() {
           <div className="mt-4 flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => setModalItem(item)}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-primary-600 font-semibold rounded-xl hover:bg-primary-50 transition-colors shadow-lg"
+              disabled={tanggalMulai && item.available_for_dates === false}
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-primary-600 font-semibold rounded-xl hover:bg-primary-50 transition-colors shadow-lg disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Pesan Sekarang
+              {tanggalMulai && item.available_for_dates === false ? 'Tidak Tersedia' : 'Pesan Sekarang'}
             </button>
             <a
               href={waLink}

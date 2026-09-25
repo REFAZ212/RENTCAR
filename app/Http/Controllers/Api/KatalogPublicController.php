@@ -8,6 +8,7 @@ use App\Models\Kendaraan;
 use App\Models\Order;
 use App\Models\Setting;
 use App\Models\Tipe;
+use App\Services\AdminContactService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -110,6 +111,9 @@ class KatalogPublicController extends Controller
             $kendaraanIds = array_map(fn ($k) => $k->id, $items);
 
             if ($kendaraanIds) {
+                // Pending (belum dikonfirmasi) ikut membuat tanggal TIDAK tersedia
+                // — kendaraan di-hold oleh pemesan pertama selama batas waktu
+                // konfirmasi (pending_expire_hours, default 24 jam).
                 $overlappingIds = Order::whereIn('kendaraan_id', $kendaraanIds)
                     ->whereIn('status_order', ['pending', 'confirmed', 'active'])
                     ->whereDate('tanggal_mulai', '<=', $tanggalSelesai->toDateString())
@@ -118,10 +122,20 @@ class KatalogPublicController extends Controller
                     ->unique()
                     ->toArray();
 
+                $pendingCounts = Order::whereIn('kendaraan_id', $kendaraanIds)
+                    ->where('status_order', 'pending')
+                    ->whereNull('deleted_at')
+                    ->whereDate('tanggal_mulai', '<=', $tanggalSelesai->toDateString())
+                    ->whereDate('tanggal_selesai', '>=', $tanggalMulai->toDateString())
+                    ->selectRaw('kendaraan_id, COUNT(*) as total')
+                    ->groupBy('kendaraan_id')
+                    ->pluck('total', 'kendaraan_id');
+
                 $overlappingSet = array_flip($overlappingIds);
 
                 foreach ($items as $k) {
                     $k->available_for_dates = ! isset($overlappingSet[$k->id]);
+                    $k->pending_overlap_count = (int) ($pendingCounts[$k->id] ?? 0);
                 }
             }
         }
@@ -141,6 +155,11 @@ class KatalogPublicController extends Controller
     public function jamOperasional(): JsonResponse
     {
         return response()->json($this->jamOperasionalData());
+    }
+
+    public function kontak(): JsonResponse
+    {
+        return response()->json(AdminContactService::kontak());
     }
 
     public function kategoris(): JsonResponse
@@ -208,6 +227,13 @@ class KatalogPublicController extends Controller
                 ->whereDate('tanggal_mulai', '<=', $tanggalSelesai->toDateString())
                 ->whereDate('tanggal_selesai', '>=', $tanggalMulai->toDateString())
                 ->exists();
+
+            $kendaraan->pending_overlap_count = Order::where('kendaraan_id', $kendaraan->id)
+                ->where('status_order', 'pending')
+                ->whereNull('deleted_at')
+                ->whereDate('tanggal_mulai', '<=', $tanggalSelesai->toDateString())
+                ->whereDate('tanggal_selesai', '>=', $tanggalMulai->toDateString())
+                ->count();
         }
 
         // Data internal (margin, catatan servis, harga modal) tidak boleh bocor ke publik.

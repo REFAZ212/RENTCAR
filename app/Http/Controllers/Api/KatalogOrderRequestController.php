@@ -10,6 +10,8 @@ use App\Models\Order;
 use App\Models\Setting;
 use App\Models\User;
 use App\Rules\JamBelumTerlewat;
+use App\Services\AdminContactService;
+use App\Services\JamOperasionalService;
 use App\Services\WhatsAppService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -22,6 +24,13 @@ class KatalogOrderRequestController extends Controller
 {
     public function store(Request $request): JsonResponse
     {
+        // Booking baru hanya diproses pada jam operasional (bila dikonfigurasi).
+        if (JamOperasionalService::sedangTutup()) {
+            throw ValidationException::withMessages([
+                'jam_operasional' => [JamOperasionalService::pesanTutup()],
+            ]);
+        }
+
         $validated = $request->validate([
             'nama_lengkap' => 'required|string|max:255',
             'no_hp' => 'required|string|max:20',
@@ -277,7 +286,7 @@ class KatalogOrderRequestController extends Controller
 
         $pesan .= "\nMohon konfirmasi ketersediaan. Terima kasih.";
 
-        $adminPhone = Setting::get('nomor_wa_owner', '62895361054272');
+        $adminPhone = AdminContactService::kontak()['wa'];
 
         return 'https://wa.me/'.$adminPhone.'?text='.urlencode($pesan);
     }

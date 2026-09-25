@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, Menu, X } from 'lucide-react';
-import { ADMIN_WA } from '../../../lib/format';
+import { useAdminContact } from '../../../contexts/AdminContactContext';
 import logo from '../../../assets/logorentcar.png';
 
 /* Navigation Data */
@@ -67,6 +67,7 @@ function MegaDropdown({ item, onClose }: { item: NavItem; onClose: () => void })
 
 function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const { wa } = useAdminContact();
 
   useEffect(() => {
     if (open) {
@@ -125,7 +126,7 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
         ))}
         <div className="pt-3 border-t border-primary-100 mt-3">
           <a
-            href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20reservasi`}
+            href={`https://wa.me/${wa}?text=Halo%2C%20saya%20ingin%20reservasi`}
             target="_blank"
             rel="noopener noreferrer"
             className="block px-3 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-lg text-center"
@@ -142,6 +143,7 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
 
 export default function MegaMenu({ solid = false }: { solid?: boolean }) {
   const [scrolled, setScrolled] = useState(solid);
+  const { wa } = useAdminContact();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -215,7 +217,7 @@ export default function MegaMenu({ solid = false }: { solid?: boolean }) {
 
         <div className="flex items-center gap-2">
           <a
-            href={`https://wa.me/${ADMIN_WA}?text=Halo%2C%20saya%20ingin%20reservasi`}
+            href={`https://wa.me/${wa}?text=Halo%2C%20saya%20ingin%20reservasi`}
             target="_blank"
             rel="noopener noreferrer"
             className="hidden sm:inline-flex items-center px-5 py-2 text-[13px] font-semibold rounded-lg transition-all duration-200 bg-white text-primary-600 hover:bg-primary-50"

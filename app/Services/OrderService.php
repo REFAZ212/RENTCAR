@@ -265,6 +265,7 @@ class OrderService
 
         if ($order->status_order === 'confirmed') {
             $this->kirimNotifKonfirmasi($order);
+            $this->batalkanOrderPendingBentrok($order);
         }
 
         return $order->load(['customer', 'kendaraan.garasiPartner', 'admin', 'supir', 'calo', 'pembayarans']);
@@ -287,6 +288,112 @@ class OrderService
         $wa->kirimPesanAsync($nomorCustomer, $pesan, 'order_dikonfirmasi', $order->id);
 
         $this->kirimNotifTaskOperator($order);
+    }
+
+    /**
+     * Saat satu order dikonfirmasi, pesanan lain yang masih 'pending' dan
+     * beririsan di kendaraan yang sama otomatis dibatalkan — kendaraan sudah
+     * kebagian pelanggan lain pada tanggal tersebut. Kebijakan refund sama
+     * dengan OrderExpirePending: pesanan yang belum pernah dikonfirmasi bukan
+     * salah customer — seluruh uang dikembalikan penuh tanpa biaya pembatalan.
+     */
+    private function batalkanOrderPendingBentrok(Order $order): void
+    {
+        $effectiveStart = $order->tanggal_mulai->format('Y-m-d').' '.($order->jam_mulai ?? '00:00');
+        $effectiveEnd = $order->tanggal_selesai->format('Y-m-d').' '.($order->jam_selesai ?? '23:59:59');
+
+        $candidates = Order::where('kendaraan_id', $order->kendaraan_id)
+            ->whereNull('deleted_at')
+            ->where('id', '!=', $order->id)
+            ->where('status_order', 'pending')
+            ->whereDate('tanggal_mulai', '<=', $order->tanggal_selesai->format('Y-m-d'))
+            ->whereDate('tanggal_selesai', '>=', $order->tanggal_mulai->format('Y-m-d'))
+            ->lockForUpdate()
+            ->get();
+
+        $dibatalkan = 0;
+
+        foreach ($candidates as $calon) {
+            $calonStart = $calon->tanggal_mulai->format('Y-m-d').' '.($calon->jam_mulai ?? '00:00');
+            $calonEnd = $calon->tanggal_selesai->format('Y-m-d').' '.($calon->jam_selesai ?? '23:59:59');
+
+            if ($calonStart > $effectiveEnd || $calonEnd < $effectiveStart) {
+                continue;
+            }
+
+            // Re-check di dalam lock: admin/scheduler mungkin sudah memproses
+            // order ini sebelum lock didapat.
+            $locked = Order::whereKey($calon->id)->lockForUpdate()->first();
+            if ($locked === null || $locked->status_order !== 'pending') {
+                continue;
+            }
+
+            $totalBayar = 0;
+            if (Schema::hasTable('pembayarans')) {
+                $totalBayar = (float) $locked->pembayarans()
+                    ->whereNull('deleted_at')
+                    ->where('status', '!=', 'refund')
+                    ->sum('jumlah');
+            }
+
+            $update = [
+                'status_order' => 'cancelled',
+                'status_pengiriman' => 'selesai',
+                'biaya_pembatalan' => 0,
+                'alasan_pembatalan' => 'Otomatis: kendaraan '.$order->kendaraan->nama_kendaraan
+                    .' sudah dipesan pelanggan lain (order '.$order->kode_order.') pada tanggal yang sama — seluruh pembayaran dikembalikan (refund).',
+            ];
+
+            if ($totalBayar > 0 && Schema::hasTable('pembayarans')) {
+                $update['total_refund'] = $totalBayar;
+
+                Pembayaran::create([
+                    'order_id' => $locked->id,
+                    'admin_id' => null,
+                    'jumlah' => $totalBayar,
+                    'metode_pembayaran' => $locked->metode_pembayaran ?? 'cash',
+                    'status' => 'refund',
+                    'catatan' => 'Refund pembatalan (bentrok jadwal): Rp '.number_format($totalBayar, 0, ',', '.').' dikembalikan penuh.',
+                ]);
+            }
+
+            $locked->update($update);
+
+            $this->kirimNotifikasiBatalBentrok($locked, $order, $totalBayar);
+            $dibatalkan++;
+        }
+
+        if ($dibatalkan > 0 && Schema::hasTable('notifications')) {
+            Notification::create([
+                'type' => 'order_bentrok_dibatalkan',
+                'title' => 'Pesanan Dibatalkan (Bentrok Jadwal)',
+                'message' => "{$dibatalkan} pesanan otomatis dibatalkan karena kendaraan {$order->kendaraan->nama_kendaraan} sudah dipesan pelanggan lain (order {$order->kode_order}).",
+                'data' => [
+                    'count' => $dibatalkan,
+                    'order_id' => $order->id,
+                    'link' => '/orders',
+                ],
+            ]);
+        }
+    }
+
+    private function kirimNotifikasiBatalBentrok(Order $order, Order $pemenang, float $totalRefund): void
+    {
+        if (Setting::get('notif_booking_baru', '1') !== '1' || ! $order->customer?->no_hp) {
+            return;
+        }
+
+        $wa = app(WhatsAppService::class);
+        $range = $pemenang->tanggal_mulai->format('d/m/Y').' - '.$pemenang->tanggal_selesai->format('d/m/Y');
+        $pesan = "Halo {$order->customer->nama_lengkap},\n\n"
+            ."Pesanan *{$order->kode_order}* telah *DIBATALKAN* karena kendaraan *{$pemenang->kendaraan->nama_kendaraan}* sudah dipesan pelanggan lain pada tanggal *{$range}*.\n"
+            ."Silakan pilih tanggal atau kendaraan lain melalui halaman katalog kami.\n";
+        if ($totalRefund > 0) {
+            $pesan .= 'Pembayaran Anda sebesar *Rp '.number_format($totalRefund, 0, ',', '.')."* dikembalikan penuh (refund).\n";
+        }
+        $pesan .= "\nTerima kasih telah menghubungi kami.";
+
+        $wa->kirimPesanAsync($order->customer->no_hp, $pesan, 'order_dibatalkan', $order->id);
     }
 
     /**
@@ -650,13 +757,25 @@ class OrderService
 
             $existingJamMulai = $validated['jam_mulai'] ?? $order->jam_mulai;
             $existingJamSelesai = $validated['jam_selesai'] ?? $order->jam_selesai;
+
+            // Pending (katalog) ikut memblokir HANYA saat jadwal/kendaraan sebenarnya
+            // diubah. Untuk transisi status saja (mis. konfirmasi pending→confirmed),
+            // pending bentrok legacy tetap dibersihkan oleh batalkanOrderPendingBentrok
+            // tanpa memblokir konfirmasi itu sendiri.
+            $scheduleChanged = array_key_exists('kendaraan_id', $validated)
+                || array_key_exists('tanggal_mulai', $validated)
+                || array_key_exists('tanggal_selesai', $validated)
+                || array_key_exists('jam_mulai', $validated)
+                || array_key_exists('jam_selesai', $validated);
+
             $this->checkVehicleOverlap(
                 $newKendaraanId,
                 $effectiveTanggalMulai,
                 $effectiveTanggalSelesai,
                 $existingJamMulai,
                 $existingJamSelesai,
-                $order->id
+                $order->id,
+                $scheduleChanged
             );
 
             $mulai = $validated['tanggal_mulai'] ?? $order->tanggal_mulai;
@@ -1005,14 +1124,19 @@ class OrderService
         return $normalized;
     }
 
-    private function checkVehicleOverlap(int $kendaraanId, string $tanggalMulai, string $tanggalSelesai, ?string $jamMulai, ?string $jamSelesai, ?int $excludeOrderId = null): void
+    private function checkVehicleOverlap(int $kendaraanId, string $tanggalMulai, string $tanggalSelesai, ?string $jamMulai, ?string $jamSelesai, ?int $excludeOrderId = null, bool $includePending = true): void
     {
         $newEffectiveStart = $tanggalMulai.' '.($jamMulai ?? '00:00');
         $newEffectiveEnd = $tanggalSelesai.' '.($jamSelesai ?? '23:59:59');
 
+        $statuses = ['confirmed', 'active'];
+        if ($includePending) {
+            $statuses[] = 'pending';
+        }
+
         $query = Order::where('kendaraan_id', $kendaraanId)
             ->whereNull('deleted_at')
-            ->whereIn('status_order', ['pending', 'confirmed', 'active'])
+            ->whereIn('status_order', $statuses)
             ->whereDate('tanggal_mulai', '<=', $tanggalSelesai)
             ->whereDate('tanggal_selesai', '>=', $tanggalMulai);
 
@@ -1095,6 +1219,7 @@ class OrderService
 
         if ($newStatus === 'confirmed') {
             $this->kirimNotifKonfirmasi($order);
+            $this->batalkanOrderPendingBentrok($order);
         }
 
         if ($newStatus === 'active' && $statusSebelumUpdate === 'perlu_verifikasi') {

@@ -321,6 +321,37 @@ class OrderSchedulerCommandTest extends TestCase
         $this->assertSame('pending', $order->fresh()->status_order);
     }
 
+    public function test_pending_tak_dikonfirmasi_25_jam_sejak_pemesanan_dibatalkan(): void
+    {
+        Queue::fake();
+
+        $order = $this->makeOrder([
+            'tanggal_mulai' => now()->addDays(5)->toDateString(),
+            'jam_mulai' => '08:00',
+        ]);
+        $order->forceFill(['created_at' => now()->subHours(25)])->save();
+
+        $this->artisan(OrderExpirePending::class)->assertSuccessful();
+
+        $fresh = $order->fresh();
+        $this->assertSame('cancelled', $fresh->status_order);
+        $this->assertSame('selesai', $fresh->status_pengiriman);
+        $this->assertStringContainsString('jam sejak pemesanan', $fresh->alasan_pembatalan);
+        $this->assertSame(1, Notification::where('type', 'order_expired')->count());
+    }
+
+    public function test_pending_dibuat_baru_dengan_mulai_sudah_lewat_12_jam_dipertahankan(): void
+    {
+        $order = $this->makeOrder([
+            'tanggal_mulai' => now()->subHours(12)->toDateString(),
+            'jam_mulai' => now()->subHours(12)->format('H:i'),
+        ]);
+
+        $this->artisan(OrderExpirePending::class)->assertSuccessful();
+
+        $this->assertSame('pending', $order->fresh()->status_order);
+    }
+
     public function test_non_pending_orders_are_untouched(): void
     {
         $confirmed = $this->makeOrder([

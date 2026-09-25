@@ -79,6 +79,7 @@ function PesanSekarangModal({
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [pendingOverlap, setPendingOverlap] = useState(0);
   const [success, setSuccess] = useState(false);
   const [waLink, setWaLink] = useState('');
   const modalRef = useRef<HTMLDivElement>(null);
@@ -115,6 +116,26 @@ function PesanSekarangModal({
   const totalPreview = useMemo(() => {
     return item.harga_sewa_per_hari * durasiHari;
   }, [item.harga_sewa_per_hari, durasiHari]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!form.tanggal_mulai || !form.tanggal_selesai || durasiHari < 1) {
+      setPendingOverlap(0);
+      return;
+    }
+    katalogAPI
+      .get(item.id, { tanggal_mulai: form.tanggal_mulai, durasi_hari: durasiHari })
+      .then(({ data }) => {
+        if (cancelled) return;
+        setPendingOverlap((data as unknown as KatalogItem).pending_overlap_count ?? 0);
+      })
+      .catch(() => {
+        if (!cancelled) setPendingOverlap(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [form.tanggal_mulai, form.tanggal_selesai, durasiHari, item.id]);
 
   const handleChange = (field: keyof OrderForm, value: string | number) => {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -294,6 +315,17 @@ function PesanSekarangModal({
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
                   {error}
+                </div>
+              )}
+
+              {pendingOverlap > 0 && (
+                <div className="mb-4 p-3 border border-amber-200 bg-amber-50 rounded-xl text-sm text-amber-800">
+                  <p className="font-semibold mb-1">Kendaraan ini sudah dipesan orang lain</p>
+                  <p>
+                    Kendaraan ini sedang menunggu konfirmasi admin pada tanggal tersebut. Kamu tetap bisa
+                    memesan, tapi jika admin mengonfirmasi pesanan itu lebih dulu, pesananmu akan dibatalkan
+                    otomatis.
+                  </p>
                 </div>
               )}
 

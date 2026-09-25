@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Kendaraan;
+use App\Services\WatermarkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -53,17 +54,31 @@ class KendaraanController extends Controller
         }
 
         // Filter ketersediaan berdasarkan rentang tanggal: mobil yang sudah
-        // punya order (pending/confirmed/active) yang tanggalnya beririsan
-        // tidak ikut ditampilkan — sama dengan aturan checkVehicleOverlap.
+        // punya order (confirmed/active) yang tanggalnya beririsan tidak ikut
+        // ditampilkan — sama dengan aturan checkVehicleOverlap. Order pending
+        // tidak memblokir agar beberapa calon penyewa bisa tetap memesan.
+        $pendingOverlapCounts = collect();
         if ($request->filled('available_from') && $request->filled('available_to')) {
             $availableFrom = $request->available_from;
             $availableTo = $request->available_to;
             $query->whereDoesntHave('orders', function ($q) use ($availableFrom, $availableTo) {
                 $q->whereNull('deleted_at')
-                    ->whereIn('status_order', ['pending', 'confirmed', 'active'])
+                    ->whereIn('status_order', ['confirmed', 'active'])
                     ->whereDate('tanggal_mulai', '<=', $availableTo)
                     ->whereDate('tanggal_selesai', '>=', $availableFrom);
             });
+
+            // Jumlah pesanan yang masih menunggu konfirmasi admin dan tanggalnya
+            // beririsan — dipakai form order admin untuk peringatan.
+            $pendingOverlapCounts = Kendaraan::query()
+                ->withCount(['orders as total' => function ($q) use ($availableFrom, $availableTo) {
+                    $q->whereNull('deleted_at')
+                        ->where('status_order', 'pending')
+                        ->whereDate('tanggal_mulai', '<=', $availableTo)
+                        ->whereDate('tanggal_selesai', '>=', $availableFrom);
+                }])
+                ->get(['id', 'total'])
+                ->pluck('total', 'id');
         }
 
         // select() menimpa daftar kolom bawaan (termasuk `kendaraans.*` dan
@@ -80,6 +95,10 @@ class KendaraanController extends Controller
             $perPage = 15;
         }
         $kendaraan = $query->orderBy('created_at', 'desc')->paginate($perPage);
+
+        foreach ($kendaraan->items() as $item) {
+            $item->pending_overlap_count = (int) ($pendingOverlapCounts[$item->id] ?? 0);
+        }
 
         $response = $kendaraan->toArray();
         $response['counts'] = [
@@ -123,6 +142,7 @@ class KendaraanController extends Controller
 
         if ($request->hasFile('foto')) {
             $validated['foto'] = $request->file('foto')->store('kendaraan', 'public');
+            app(WatermarkService::class)->applyToStoragePath($validated['foto']);
         }
 
         $kendaraan = Kendaraan::create($validated);
@@ -220,6 +240,7 @@ class KendaraanController extends Controller
                 Storage::disk('public')->delete($kendaraan->foto);
             }
             $validated['foto'] = $request->file('foto')->store('kendaraan', 'public');
+            app(WatermarkService::class)->applyToStoragePath($validated['foto']);
         } elseif (! empty($validated['hapus_foto']) && $kendaraan->foto) {
             Storage::disk('public')->delete($kendaraan->foto);
             $validated['foto'] = null;
