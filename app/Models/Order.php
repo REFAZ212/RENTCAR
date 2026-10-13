@@ -124,7 +124,13 @@ class Order extends Model
     {
         static::creating(function (Order $order) {
             if (empty($order->kode_order)) {
-                $order->kode_order = 'ORD-'.strtoupper(Str::random(8));
+                try {
+                    $prefix = Setting::get('prefix_kode_order', 'ORD');
+                } catch (\Throwable) {
+                    $prefix = 'ORD';
+                }
+
+                $order->kode_order = $prefix.'-'.strtoupper(Str::random(8));
             }
         });
 
@@ -155,6 +161,14 @@ class Order extends Model
     public function operator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'operator_id');
+    }
+
+    /**
+     * Apakah user tertentu adalah pemegang klaim (operator) order ini.
+     */
+    public function isClaimant(int $userId): bool
+    {
+        return $this->operator_id === $userId;
     }
 
     public function supir(): BelongsTo

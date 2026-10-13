@@ -147,11 +147,12 @@ class InspeksiKendaraanController extends Controller
         $inspeksi = DB::transaction(function () use ($validated) {
             $order = Order::whereKey($validated['order_id'])->lockForUpdate()->first();
 
-            $statusWajib = $validated['jenis'] === 'pickup' ? 'confirmed' : 'active';
-            if ($order === null || $order->status_order !== $statusWajib) {
+            $statusWajib = $validated['jenis'] === 'pickup' ? ['confirmed'] : ['active', 'perlu_verifikasi'];
+            if ($order === null || ! in_array($order->status_order, $statusWajib, true)) {
                 $statusSaatIni = $order?->status_order ?? 'tidak ditemukan';
+                $statusDiizinkan = implode('" atau "', $statusWajib);
                 throw ValidationException::withMessages([
-                    'order_id' => ["Inspeksi {$validated['jenis']} hanya bisa dibuat untuk order berstatus \"{$statusWajib}\" (status saat ini: {$statusSaatIni})."],
+                    'order_id' => ["Inspeksi {$validated['jenis']} hanya bisa dibuat untuk order berstatus \"{$statusDiizinkan}\" (status saat ini: {$statusSaatIni})."],
                 ]);
             }
 
@@ -318,14 +319,14 @@ class InspeksiKendaraanController extends Controller
         $isAdmin = in_array($request->user()->role, ['admin_utama', 'admin_operasional']);
 
         $pickupFase1 = $ambilOrders()
-            ->filter(function (Order $o) use ($request) {
+            ->filter(function (Order $o) use ($request, $isAdmin) {
                 if ($o->status_order !== 'confirmed') {
                     return false;
                 }
                 if ($o->inspeksis->where('jenis', 'pickup')->isNotEmpty()) {
                     return false;
                 }
-                if ($o->operator_id && $o->operator_id !== $request->user()->id) {
+                if (! $isAdmin && $o->operator_id && $o->operator_id !== $request->user()->id) {
                     return false;
                 }
 
@@ -349,7 +350,7 @@ class InspeksiKendaraanController extends Controller
                     return false;
                 }
 
-                if ($o->operator_id && $o->operator_id !== $request->user()->id) {
+                if (! $isAdmin && $o->operator_id && $o->operator_id !== $request->user()->id) {
                     return false;
                 }
 
@@ -358,14 +359,14 @@ class InspeksiKendaraanController extends Controller
             ->map(fn (Order $o) => $o->setAttribute('task_jenis', 'kirim_kendaraan'));
 
         $returns = $ambilOrders()
-            ->filter(function (Order $o) use ($request) {
+            ->filter(function (Order $o) use ($request, $isAdmin) {
                 if (! in_array($o->status_order, ['active', 'perlu_verifikasi'])) {
                     return false;
                 }
                 if ($o->inspeksis->where('jenis', 'return')->isNotEmpty()) {
                     return false;
                 }
-                if ($o->operator_id && $o->operator_id !== $request->user()->id) {
+                if (! $isAdmin && $o->operator_id && $o->operator_id !== $request->user()->id) {
                     return false;
                 }
 
@@ -434,7 +435,7 @@ class InspeksiKendaraanController extends Controller
                 ]);
             }
 
-            if ($order->operator_id && $order->operator_id !== $request->user()->id) {
+            if (! $isAdmin && $order->operator_id && $order->operator_id !== $request->user()->id) {
                 $pengeklaim = $order->operator?->name ?? 'petugas lain';
                 throw ValidationException::withMessages([
                     'order_id' => ["Task ini sedang dikerjakan oleh {$pengeklaim}."],
@@ -484,9 +485,6 @@ class InspeksiKendaraanController extends Controller
         // Beri tahu supir yang ditugaskan bahwa tugasnya sudah mulai.
         app(OrderService::class)->kirimNotifSupirOrderMulai($order->fresh());
 
-        // Beri tahu supir yang ditugaskan bahwa tugasnya sudah mulai.
-        app(OrderService::class)->kirimNotifSupirOrderMulai($order->fresh());
-
         return response()->json($inspeksi->load(['order', 'admin']), 200);
     }
 
@@ -527,7 +525,9 @@ class InspeksiKendaraanController extends Controller
                 ]);
             }
 
-            if ($order->operator_id && $order->operator_id !== $request->user()->id) {
+            $isAdmin = in_array($request->user()->role, ['admin_utama', 'admin_operasional']);
+
+            if (! $isAdmin && $order->operator_id && $order->operator_id !== $request->user()->id) {
                 $pengeklaim = $order->operator?->name ?? 'petugas lain';
                 throw ValidationException::withMessages([
                     'order_id' => ["Task ini sedang dikerjakan oleh {$pengeklaim}."],
