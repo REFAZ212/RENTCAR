@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\GarasiPartner;
 use App\Models\Kendaraan;
 use App\Models\Order;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -459,5 +460,41 @@ class VehicleOverlapTest extends TestCase
         ]);
 
         $this->assertSame('pending', Order::find($aman->id)->status_order);
+    }
+
+    public function test_kode_order_default_menggunakan_prefix_dari_setting(): void
+    {
+        Setting::set('prefix_kode_order', 'RNT');
+
+        $order = Order::create([
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => now()->subDay()->toDateString(),
+            'tanggal_selesai' => now()->addDays(3)->toDateString(),
+            'durasi_hari' => 4,
+            'harga_per_hari' => 500000,
+            'harga_total' => 2000000,
+            'status_order' => 'active',
+        ]);
+
+        $this->assertStringStartsWith('RNT-', $order->kode_order);
+        $this->assertSame(8, strlen(substr($order->kode_order, 4)));
+
+        Setting::set('prefix_kode_order', 'ORD');
+
+        $orderBawaan = Order::create([
+            'customer_id' => $this->customer->id,
+            'kendaraan_id' => $this->kendaraan->id,
+            'admin_id' => $this->admin->id,
+            'tanggal_mulai' => now()->subDay()->toDateString(),
+            'tanggal_selesai' => now()->addDays(3)->toDateString(),
+            'durasi_hari' => 4,
+            'harga_per_hari' => 500000,
+            'harga_total' => 2000000,
+            'status_order' => 'active',
+        ]);
+
+        $this->assertStringStartsWith('ORD-', $orderBawaan->kode_order);
     }
 }

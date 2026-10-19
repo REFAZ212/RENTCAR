@@ -31,6 +31,7 @@ class Kendaraan extends Model
         'tahun',
         'warna',
         'kapasitas_penumpang',
+        'transmisi',
         'harga_sewa_per_hari',
         'harga_partner_per_hari',
         'status',

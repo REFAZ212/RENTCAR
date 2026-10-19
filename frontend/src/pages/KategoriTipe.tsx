@@ -1,21 +1,18 @@
-import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment } from 'react';
 import { kategoriAPI, tipeAPI, kendaraanAPI, type Kendaraan } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { formatRupiah } from '../lib/format';
+import { storageUrl } from '../lib/storage';
 import { vehicleStatusStyles, vehicleStatusLabels, type StatusKendaraan } from '../lib/vehicleStatus';
 import ConfirmModal from '../components/ConfirmModal';
+import { getTipeSuggestions, placeholderTipe } from '../lib/tipeSuggestions';
 
 const emptyKategori = { nama_kategori: '', deskripsi: '', aktif: true };
 const emptyTipe = { kategori_id: '', nama_tipe: '', deskripsi: '', aktif: true };
 
-const TipeSuggestions = {
-  Mobil: ['MPV', 'SUV', 'Sedan', 'Hatchback', 'Pickup', 'Minibus', 'Van', 'Truk'],
-  Motor: ['Sport', 'Matic', 'Bebek', 'Trail'],
-};
-
 export default function KategoriTipe() {
   const toast = useToast();
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState(null);
@@ -26,12 +23,10 @@ export default function KategoriTipe() {
   const [submittingKategori, setSubmittingKategori] = useState(false);
   const [tipeNames, setTipeNames] = useState(['']);
 
-  const matchedSuggestions = useMemo(() => {
-    const key = Object.keys(TipeSuggestions).find(
-      (k) => k.toLowerCase() === kategoriForm.nama_kategori.trim().toLowerCase()
-    );
-    return key ? TipeSuggestions[key] : null;
-  }, [kategoriForm.nama_kategori]);
+  const matchedSuggestions = useMemo(
+    () => getTipeSuggestions(kategoriForm.nama_kategori),
+    [kategoriForm.nama_kategori]
+  );
 
   const applySuggestions = () => {
     if (matchedSuggestions) setTipeNames([...matchedSuggestions]);
@@ -41,16 +36,28 @@ export default function KategoriTipe() {
   const [editTipe, setEditTipe] = useState(null);
   const [tipeForm, setTipeForm] = useState(emptyTipe);
   const [submittingTipe, setSubmittingTipe] = useState(false);
+  const [kategoriSearch, setKategoriSearch] = useState('');
+  const [showKategoriDropdown, setShowKategoriDropdown] = useState(false);
+  const kategoriBoxRef = useRef<HTMLDivElement>(null);
 
   const matchedTipeSuggestions = useMemo(() => {
     if (editTipe) return null;
     const kategori = items.find((k) => k.id === Number(tipeForm.kategori_id));
-    if (!kategori) return null;
-    const key = Object.keys(TipeSuggestions).find(
-      (k) => k.toLowerCase() === kategori.nama_kategori.trim().toLowerCase()
-    );
-    return key ? TipeSuggestions[key] : null;
+    return getTipeSuggestions(kategori?.nama_kategori);
   }, [tipeForm.kategori_id, items, editTipe]);
+
+  const kategoriOptions = useMemo(() => {
+    const q = kategoriSearch.trim().toLowerCase();
+    const selectedName = items
+      .find((k) => String(k.id) === String(tipeForm.kategori_id))
+      ?.nama_kategori?.toLowerCase();
+    // Saat kotak berisi nama kategori terpilih, tampilkan semua opsi; begitu
+    // pengguna mengetik kata lain, daftar ikut tersaring.
+    const effectiveQuery = q && q !== selectedName ? q : '';
+    return items
+      .filter((k) => k.aktif || String(k.id) === String(tipeForm.kategori_id))
+      .filter((k) => !effectiveQuery || String(k.nama_kategori ?? '').toLowerCase().includes(effectiveQuery));
+  }, [items, kategoriSearch, tipeForm.kategori_id]);
 
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [deleteType, setDeleteType] = useState(null);
@@ -68,6 +75,52 @@ export default function KategoriTipe() {
   }, [toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!showKategoriForm) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowKategoriForm(false);
+        setEditKategori(null);
+        setTipeNames(['']);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showKategoriForm]);
+
+  useEffect(() => {
+    if (!showTipeForm) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowTipeForm(false);
+        setEditTipe(null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showTipeForm]);
+
+  // Isi kotak pencarian kategori sesuai kategori terpilih saat modal Tipe dibuka.
+  useEffect(() => {
+    if (!showTipeForm) return;
+    const selected = items.find((k) => String(k.id) === String(tipeForm.kategori_id));
+    setKategoriSearch(selected?.nama_kategori ?? '');
+    setShowKategoriDropdown(false);
+    // Sinkron hanya saat modal dibuka; pemanggil yang men-set kategori_id.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showTipeForm]);
+
+  useEffect(() => {
+    if (!showKategoriDropdown) return;
+    const onDown = (e: MouseEvent) => {
+      if (kategoriBoxRef.current && !kategoriBoxRef.current.contains(e.target as Node)) {
+        setShowKategoriDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [showKategoriDropdown]);
 
   const filtered = items.filter((k) => {
     const q = search.toLowerCase();
@@ -105,6 +158,12 @@ export default function KategoriTipe() {
   const setKategoriField = (key, value) => setKategoriForm((prev) => ({ ...prev, [key]: value }));
   const setTipeField = (key, value) => setTipeForm((prev) => ({ ...prev, [key]: value }));
 
+  const pilihKategori = (k: any) => {
+    setTipeForm((prev) => ({ ...prev, kategori_id: String(k.id) }));
+    setKategoriSearch(k.nama_kategori);
+    setShowKategoriDropdown(false);
+  };
+
   const handleKategoriSubmit = async (e) => {
     e.preventDefault();
     setSubmittingKategori(true);
@@ -136,6 +195,10 @@ export default function KategoriTipe() {
 
   const handleTipeSubmit = async (e) => {
     e.preventDefault();
+    if (!tipeForm.kategori_id) {
+      toast.error('Pilih kategori dari daftar');
+      return;
+    }
     setSubmittingTipe(true);
     try {
       if (editTipe) {
@@ -197,19 +260,19 @@ export default function KategoriTipe() {
       </div>
 
       {showKategoriForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowKategoriForm(false); setEditKategori(null); setTipeNames(['']); }}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-black-200 flex items-center justify-between">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-black-200 flex items-center justify-between shrink-0">
               <h2 className="text-lg font-semibold text-black-900">{editKategori ? 'Edit Kategori' : 'Tambah Kategori'}</h2>
               <button onClick={() => { setShowKategoriForm(false); setEditKategori(null); setTipeNames(['']); }} className="p-1 hover:bg-canvas rounded-lg transition-colors">
                 <svg className="w-5 h-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            <form onSubmit={handleKategoriSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleKategoriSubmit} className="p-6 space-y-4 overflow-y-auto">
               <div>
                 <label className="block text-sm font-medium text-black-700 mb-1">Nama Kategori *</label>
                 <input type="text" value={kategoriForm.nama_kategori} onChange={(e) => setKategoriField('nama_kategori', e.target.value)} required
-                  placeholder="Contoh: SUV, MPV, Sedan, Hatchback"
+                  placeholder="Contoh: Mobil, Motor"
                   className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm" />
               </div>
               <div>
@@ -275,29 +338,58 @@ export default function KategoriTipe() {
       )}
 
       {showTipeForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { setShowTipeForm(false); setEditTipe(null); }}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <div className="p-6 border-b border-black-200 flex items-center justify-between">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-6 border-b border-black-200 flex items-center justify-between shrink-0">
               <h2 className="text-lg font-semibold text-black-900">{editTipe ? 'Edit Tipe' : 'Tambah Tipe'}</h2>
               <button onClick={() => { setShowTipeForm(false); setEditTipe(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors">
                 <svg className="w-5 h-5 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            <form onSubmit={handleTipeSubmit} className="p-6 space-y-4">
-              <div>
+            <form onSubmit={handleTipeSubmit} className="p-6 space-y-4 overflow-y-auto">
+              <div ref={kategoriBoxRef} className="relative">
                 <label className="block text-sm font-medium text-black-700 mb-1">Kategori *</label>
-                <select value={tipeForm.kategori_id} onChange={(e) => setTipeField('kategori_id', e.target.value)} required
-                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm">
-                  <option value="">Pilih Kategori</option>
-                  {items
-                    .filter((k) => k.aktif || k.id === Number(tipeForm.kategori_id))
-                    .map((k) => <option key={k.id} value={k.id}>{k.nama_kategori}{k.aktif ? '' : ' (nonaktif)'}</option>)}
-                </select>
+                <input
+                  type="text"
+                  value={kategoriSearch}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setKategoriSearch(value);
+                    setShowKategoriDropdown(true);
+                    const selected = items.find((k) => String(k.id) === String(tipeForm.kategori_id));
+                    if (!selected || selected.nama_kategori.toLowerCase() !== value.trim().toLowerCase()) {
+                      setTipeField('kategori_id', '');
+                    }
+                  }}
+                  onFocus={() => setShowKategoriDropdown(true)}
+                  placeholder="Ketik untuk mencari kategori..."
+                  autoComplete="off"
+                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                />
+                {showKategoriDropdown && (
+                  <div className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-black-200 bg-white shadow-lg">
+                    {kategoriOptions.length === 0 ? (
+                      <p className="px-3 py-2 text-sm text-black-400">Kategori tidak ditemukan</p>
+                    ) : (
+                      kategoriOptions.map((k) => (
+                        <button
+                          key={k.id}
+                          type="button"
+                          onClick={() => pilihKategori(k)}
+                          className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-canvas ${String(k.id) === String(tipeForm.kategori_id) ? 'bg-primary-50 text-primary-600' : 'text-black-700'}`}
+                        >
+                          <span>{k.nama_kategori}</span>
+                          {!k.aktif && <span className="text-xs text-black-400">(nonaktif)</span>}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-black-700 mb-1">Nama Tipe *</label>
                 <input type="text" value={tipeForm.nama_tipe} onChange={(e) => setTipeField('nama_tipe', e.target.value)} required
-                  placeholder="Contoh: Compact SUV, Low MPV"
+                  placeholder={placeholderTipe(items.find((k) => k.id === Number(tipeForm.kategori_id))?.nama_kategori)}
                   className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm" />
                 {matchedTipeSuggestions && !tipeForm.nama_tipe.trim() && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
@@ -482,7 +574,7 @@ export default function KategoriTipe() {
                                                     <td className="px-4 py-2.5">
                                                       {k.foto ? (
                                                         <img
-  src={k.foto.startsWith('http') ? k.foto : `https://api.udinrentcar.com/storage/${k.foto}`}
+  src={storageUrl(k.foto) || ''}
   alt={k.nama_kendaraan}
   className="w-12 h-12 object-cover rounded-lg border border-black-200"
 />

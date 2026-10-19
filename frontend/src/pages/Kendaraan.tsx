@@ -3,6 +3,7 @@ import { isAxiosError } from 'axios';
 import { formatRupiah, warnaKendaraanHex } from '../lib/format';
 import { fotoFileError } from '../lib/file';
 import { statusPhotoClass } from '../lib/katalogStatus';
+import { storageUrl } from '../lib/storage';
 import { vehicleStatusStyles, vehicleStatusLabels, VEHICLE_STATUSES, type StatusKendaraan } from '../lib/vehicleStatus';
 import {
   kendaraanAPI,
@@ -21,7 +22,6 @@ import KategoriTipeQuickCreate from '../components/KategoriTipeQuickCreate';
 import { RotateCcw, Pencil, Trash2, Eye, Clock } from 'lucide-react';
 
 type Kendaraan = ApiKendaraan & {
-  garasiPartner?: { nama_partner: string };
   garasi_partner_id?: number;
   kategori?: KategoriKendaraan;
   tipe?: TipeKendaraan;
@@ -46,6 +46,7 @@ interface KendaraanFormState {
   tahun: number;
   warna: string;
   kapasitas_penumpang: number;
+  transmisi: string;
   harga_sewa_per_hari: string | number;
   harga_partner_per_hari: string | number;
   status: StatusKendaraan;
@@ -93,18 +94,14 @@ const emptyForm: KendaraanFormState = {
   tahun: new Date().getFullYear(),
   warna: '',
   kapasitas_penumpang: 7,
+  transmisi: '',
   harga_sewa_per_hari: '',
   harga_partner_per_hari: '',
   status: 'tersedia',
   catatan: '',
 };
 
-const fotoUrl = (foto?: string | null) =>
-  foto
-    ? foto.startsWith('http')
-      ? foto
-      : `https://api.udinrentcar.com/storage/${foto}`
-    : null;
+const fotoUrl = (foto?: string | null) => storageUrl(foto);
 
 const formatTgl = (v?: string | null) => {
   if (!v) return '-';
@@ -222,6 +219,18 @@ export default function Kendaraan() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (!showForm) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowForm(false);
+        setEditItem(null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showForm]);
+
   const handleQuickCreateCreated = (newId: number | string) => {
     if (quickCreate === 'kategori') {
       setField('kategori_id', String(newId));
@@ -253,16 +262,24 @@ export default function Kendaraan() {
     [counts, items, meta?.total]
   );
 
+  // Garasi "Milik Sendiri" tidak punya harga beli ke partner, jadi field
+  // Harga Beli/Hari disembunyikan saat garasi ini yang dipilih.
+  const isOwnGarasi = useMemo(() => {
+    const g = garasi.find((x) => String(x.id) === String(form.garasi_partner_id));
+    return g?.is_own === true;
+  }, [garasi, form.garasi_partner_id]);
+
   /* ------------------------------ handlers ------------------------------ */
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      const formData = isOwnGarasi ? { ...form, harga_partner_per_hari: '' } : form;
       const hasFile = fotoFile instanceof File;
       if (hasFile) {
         const fd = new FormData();
-        Object.entries(form).forEach(([k, v]) => {
+        Object.entries(formData).forEach(([k, v]) => {
           if (v !== '' && v !== null && v !== undefined) fd.append(k, String(v));
         });
         fd.append('foto', fotoFile as File);
@@ -273,11 +290,11 @@ export default function Kendaraan() {
         }
       } else {
         if (editItem) {
-          const payload = { ...(form as unknown as Record<string, unknown>) };
+          const payload = { ...(formData as unknown as Record<string, unknown>) };
           if (hapusFoto) payload.hapus_foto = true;
           await kendaraanAPI.update(Number(editItem.id), payload);
         } else {
-          await kendaraanAPI.create(form as unknown as Record<string, unknown>);
+          await kendaraanAPI.create(formData as unknown as Record<string, unknown>);
         }
       }
       toast.success(editItem ? 'Kendaraan berhasil diperbarui' : 'Kendaraan berhasil ditambahkan');
@@ -333,13 +350,13 @@ export default function Kendaraan() {
       tahun: item.tahun || new Date().getFullYear(),
       warna: item.warna,
       kapasitas_penumpang: item.kapasitas_penumpang || 1,
+      transmisi: item.transmisi || '',
       harga_sewa_per_hari: item.harga_sewa_per_hari,
       harga_partner_per_hari: item.harga_partner_per_hari ?? '',
       status: item.status as StatusKendaraan,
       catatan: item.catatan || '',
     });
     setFotoFile(null);
-    setFotoPreview(fotoUrl(item.foto));
     setHapusFoto(false);
     setEditItem(item);
     setShowForm(true);
@@ -629,12 +646,8 @@ export default function Kendaraan() {
       {showForm && (
         <div
           className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4"
-          onClick={() => {
-            setShowForm(false);
-            setEditItem(null);
-          }}
         >
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white shadow-xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-black-200 bg-white p-6">
               <h2 className="text-lg font-semibold text-black-900">{editItem ? 'Edit Kendaraan' : 'Tambah Kendaraan'}</h2>
               <button
@@ -669,7 +682,12 @@ export default function Kendaraan() {
                   <label className="mb-1 block text-sm font-medium text-black-700">Garasi *</label>
                   <select
                     value={form.garasi_partner_id}
-                    onChange={(e: ChangeEvent<HTMLSelectElement>) => setField('garasi_partner_id', e.target.value)}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) => {
+                      const value = e.target.value;
+                      setField('garasi_partner_id', value);
+                      const g = garasi.find((x) => String(x.id) === value);
+                      if (g?.is_own) setField('harga_partner_per_hari', '');
+                    }}
                     required
                     className={inputClass}
                   >
@@ -815,6 +833,31 @@ export default function Kendaraan() {
                   />
                 </div>
                 <div>
+                  <label className="mb-1 block text-sm font-medium text-black-700">Transmisi</label>
+                  <div className="flex gap-2">
+                    {[{ value: 'manual', label: 'Manual' }, { value: 'matic', label: 'Matic' }].map((o) => (
+                      <label
+                        key={o.value}
+                        className={`flex-1 cursor-pointer rounded-lg border px-3 py-2 text-center text-sm font-medium transition-colors ${
+                          form.transmisi === o.value
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-black-200 text-black-600 hover:bg-canvas'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="transmisi"
+                          value={o.value}
+                          checked={form.transmisi === o.value}
+                          onChange={() => setField('transmisi', o.value)}
+                          className="sr-only"
+                        />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
                   <label className="mb-1 block text-sm font-medium text-black-700">Harga/Hari (Rp) *</label>
                   <input
                     type="number"
@@ -825,7 +868,7 @@ export default function Kendaraan() {
                     className={inputClass}
                   />
                 </div>
-                {form.garasi_partner_id && (
+                {form.garasi_partner_id && !isOwnGarasi && (
                   <div>
                     <label className="mb-1 block text-sm font-medium text-black-700">
                       Harga Beli/Hari (Rp) <span className="text-error-500">*</span>
@@ -897,8 +940,6 @@ export default function Kendaraan() {
                           d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
                         />
                       </svg>
-                      <p className="text-xs text-black-400">{fotoFile ? fotoFile.name : 'Klik atau seret foto ke sini'}</p>
-                      <p className="mt-0.5 text-xs text-black-400">JPG, PNG, maks 2MB</p>
                     </div>
                     <input
                       type="file"
@@ -921,7 +962,7 @@ export default function Kendaraan() {
                     />
                   </label>
                   {editItem?.foto && !fotoFile && !hapusFoto && (
-                    <div className="flex shrink-0 flex-col items-center gap-1">
+                    <div className="relative shrink-0">
                       <img src={fotoUrl(editItem.foto)} alt="Foto lama" className="h-24 w-24 rounded-lg border border-black-200 object-cover" />
                       <button
                         type="button"
@@ -929,9 +970,12 @@ export default function Kendaraan() {
                           setFotoPreview(null);
                           setHapusFoto(true);
                         }}
-                        className="text-xs font-medium text-error-600 underline-offset-2 hover:underline"
+                        className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-error-500 text-white transition-colors hover:bg-error-600"
+                        aria-label="Hapus foto"
                       >
-                        Hapus Foto
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
                       </button>
                     </div>
                   )}
@@ -994,7 +1038,7 @@ export default function Kendaraan() {
                   <button
                     type="button"
                     onClick={() => setLastAdded(false)}
-                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-success-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success-600 sm:w-auto"
+                    className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-500 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-600 sm:w-auto"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1094,7 +1138,7 @@ export default function Kendaraan() {
                   <DetailField label="Tipe" value={detailItem.tipe?.nama_tipe || '-'} />
                   <DetailField label="Kapasitas" value={`${detailItem.kapasitas_penumpang} orang`} />
                   <DetailField label="Tarif/Hari" value={formatRupiah(detailItem.harga_sewa_per_hari)} />
-                  <DetailField label="Lokasi / Garasi" value={detailItem.garasiPartner?.nama_partner || '-'} full />
+                  <DetailField label="Lokasi / Garasi" value={detailItem.garasi_partner?.nama_garasi || '-'} full />
                   {detailItem.catatan && <DetailField label="Catatan" value={detailItem.catatan} full />}
                 </div>
 
@@ -1215,7 +1259,7 @@ export default function Kendaraan() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {items.map((item) => {
+          {items.map((item, idx) => {
             const waitingOrderCount = Number(item.order_pending_count ?? 0) + Number(item.order_confirmed_count ?? 0);
             const pendingCount = Number(item.order_pending_count ?? 0);
             const confirmedCount = Number(item.order_confirmed_count ?? 0);
@@ -1226,7 +1270,16 @@ export default function Kendaraan() {
                   ? `${confirmedCount} Dikonfirmasi`
                   : `${pendingCount} Menunggu Konfirmasi`;
             return (
-            <div
+              <>
+                {idx === 0 || item.garasi_partner?.id !== items[idx - 1]?.garasi_partner?.id ? (
+                  <div className="col-span-full flex items-center gap-2 border-b border-black-200 pb-2 pt-4 text-sm font-semibold text-black-900">
+                    <svg className="h-4 w-4 shrink-0 text-black-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7l9-4 9 4v10l-9 4-9-4V7zm9 0v9" />
+                    </svg>
+                    {item.garasi_partner?.nama_garasi || 'Tanpa Garasi'}
+                  </div>
+                ) : null}
+              <div
               key={item.id}
               onClick={() => openDetail(item)}
               className="cursor-pointer overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black-200 transition-all hover:shadow-md"
@@ -1287,9 +1340,9 @@ export default function Kendaraan() {
                 <div className="mb-3 flex flex-wrap gap-1.5 text-xs text-black-400">
                   {item.kategori?.nama_kategori && <span className="rounded-full bg-canvas px-2 py-0.5">{item.kategori.nama_kategori}</span>}
                   {item.tipe?.nama_tipe && <span className="rounded-full bg-canvas px-2 py-0.5">{item.tipe.nama_tipe}</span>}
-                  {item.garasiPartner?.nama_partner && (
+                  {item.garasi_partner?.nama_garasi && (
                     <>
-                      <span className="rounded-full bg-canvas px-2 py-0.5">{item.garasiPartner.nama_partner}</span>
+                      <span className="rounded-full bg-canvas px-2 py-0.5">{item.garasi_partner.nama_garasi}</span>
                       {canManageMaster && item.harga_partner_per_hari && item.margin_per_hari !== null && item.margin_per_hari !== undefined && (
                         <span className="rounded-full bg-primary-50 text-primary-700 px-2 py-0.5 font-medium flex items-center gap-1">
                           <span className="text-[10px]">💰</span>
@@ -1354,6 +1407,7 @@ export default function Kendaraan() {
                 </button>
               </div>
             </div>
+              </>
             );
           })}
         </div>

@@ -37,10 +37,6 @@ class KendaraanController extends Controller
             });
         }
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
         if ($request->filled('tipe_id')) {
             $query->where('tipe_id', $request->tipe_id);
         }
@@ -81,10 +77,19 @@ class KendaraanController extends Controller
                 ->pluck('total', 'id');
         }
 
+        // Kartu ringkasan dihitung SEBELUM filter status diterapkan, supaya angka
+        // total/status lain tetap menggambarkan keseluruhan (filter pencarian,
+        // kategori, tipe, dan garasi tetap ikut memengaruhi). Filter status hanya
+        // menyaring daftar kendaraan di bawahnya.
+        $countsQuery = clone $query;
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
         // select() menimpa daftar kolom bawaan (termasuk `kendaraans.*` dan
         // subquery active_orders_count dari withCount) agar query GROUP BY tetap
         // valid di MySQL dengan sql_mode=ONLY_FULL_GROUP_BY.
-        $statusCounts = (clone $query)
+        $statusCounts = $countsQuery
             ->select('status')
             ->selectRaw('COUNT(*) as total')
             ->groupBy('status')
@@ -94,7 +99,11 @@ class KendaraanController extends Controller
         if (! in_array($perPage, [15, 30, 50, 100], true)) {
             $perPage = 15;
         }
-        $kendaraan = $query->orderBy('created_at', 'desc')->paginate($perPage);
+        $kendaraan = $query
+            ->orderByRaw('(SELECT is_own FROM garasi_partners WHERE id = kendaraans.garasi_partner_id) DESC')
+            ->orderByRaw('(SELECT nama_garasi FROM garasi_partners WHERE id = kendaraans.garasi_partner_id) ASC')
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage);
 
         foreach ($kendaraan->items() as $item) {
             $item->pending_overlap_count = (int) ($pendingOverlapCounts[$item->id] ?? 0);
@@ -131,6 +140,7 @@ class KendaraanController extends Controller
             'tahun' => 'required|integer|min:1990|max:'.(date('Y') + 1),
             'warna' => 'required|string|max:255',
             'kapasitas_penumpang' => 'required|integer|min:1|max:50',
+            'transmisi' => 'nullable|in:manual,matic',
             'harga_sewa_per_hari' => 'required|numeric|min:1',
             'harga_partner_per_hari' => 'required_if:garasi_partner_id,!=,null|nullable|numeric|min:0',
             'status' => 'nullable|in:tersedia,maintenance,tidak_tersedia',
@@ -190,6 +200,7 @@ class KendaraanController extends Controller
             'tahun' => 'sometimes|required|integer|min:1990|max:'.(date('Y') + 1),
             'warna' => 'sometimes|required|string|max:255',
             'kapasitas_penumpang' => 'sometimes|required|integer|min:1|max:50',
+            'transmisi' => 'nullable|in:manual,matic',
             'harga_sewa_per_hari' => 'sometimes|required|numeric|min:1',
             'harga_partner_per_hari' => 'sometimes|required_if:garasi_partner_id,!=,null|nullable|numeric|min:0',
             'status' => 'sometimes|required|in:tersedia,disewa,maintenance,tidak_tersedia',

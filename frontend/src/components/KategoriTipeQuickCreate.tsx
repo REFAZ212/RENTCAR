@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { kategoriAPI, tipeAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { placeholderTipe } from '../lib/tipeSuggestions';
 
 interface Props {
   mode: 'kategori' | 'tipe';
@@ -15,6 +16,14 @@ export default function KategoriTipeQuickCreate({ mode, kategoriId, kategoriName
   const [nama, setNama] = useState('');
   const [deskripsi, setDeskripsi] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
 
   const isKategori = mode === 'kategori';
 
@@ -42,8 +51,8 @@ export default function KategoriTipeQuickCreate({ mode, kategoriId, kategoriName
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
         <div className="p-6 border-b border-accent-100 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-black-900">
             {isKategori ? 'Kategori Baru' : `Tipe Baru${kategoriName ? ` — ${kategoriName}` : ''}`}
@@ -62,7 +71,7 @@ export default function KategoriTipeQuickCreate({ mode, kategoriId, kategoriName
               value={nama}
               onChange={(e) => setNama(e.target.value)}
               required
-              placeholder={isKategori ? 'Contoh: SUV, MPV, Sedan' : 'Contoh: Compact SUV, Low MPV'}
+              placeholder={isKategori ? 'Contoh: Mobil, Motor' : placeholderTipe(kategoriName)}
               className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
             />
           </div>

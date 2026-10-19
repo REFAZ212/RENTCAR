@@ -66,9 +66,10 @@ export interface Kendaraan {
   model?: string;
   tahun?: number;
   kapasitas_penumpang?: number;
+  transmisi?: 'manual' | 'matic' | null;
   kategori_id?: number;
   tipe_id?: number;
-  garasiPartner?: GarasiPartner;
+  garasi_partner?: GarasiPartner;
   active_orders_count?: number;
   catatan?: string | null;
   order_pending_count?: number;
@@ -163,12 +164,12 @@ export interface OrderCancelPreview {
 
 export interface GarasiPartner {
   id: number;
-  nama_partner: string;
   nama_garasi: string;
   no_hp?: string;
   alamat?: string;
   status?: string;
   status_aktif?: boolean;
+  is_own?: boolean;
 }
 
 export interface GarasiRequest {
@@ -204,6 +205,7 @@ export interface KatalogItem extends Kendaraan {
   rented_until?: string | null;
   rented_from_time?: string | null;
   rented_until_time?: string | null;
+  biaya_dengan_driver_per_hari?: number;
 }
 
 export interface JamOperasional {
@@ -471,7 +473,6 @@ export const garasiPartnerAPI = {
   update: (id: number, data: Payload): Promise<AxiosResponse<SingleResponse<GarasiPartner>>> => api.put(`/garasi-partners/${id}`, data),
   delete: (id: number): Promise<AxiosResponse<void>> => api.delete(`/garasi-partners/${id}`),
   garasiSaya: (): Promise<AxiosResponse<SingleResponse<GarasiPartner>>> => api.get('/garasi-saya'),
-  renameSaya: (nama_garasi: string): Promise<AxiosResponse<SingleResponse<GarasiPartner>>> => api.put('/garasi-saya', { nama_garasi }),
 };
 
 export const garasiRequestAPI = {

@@ -256,8 +256,8 @@ class KendaraanAvailabilityTest extends TestCase
             'customer_alamat' => 'Jakarta Selatan',
             'customer_no_sim' => 'SIM123',
             'kendaraan_id' => $kendaraan->id,
-            'tanggal_mulai' => '2026-10-01',
-            'tanggal_selesai' => '2026-10-05',
+            'tanggal_mulai' => now()->addDays(1)->toDateString(),
+            'tanggal_selesai' => now()->addDays(5)->toDateString(),
             'tujuan' => 'Surabaya',
         ];
     }
