@@ -50,6 +50,7 @@ class GarasiPartnerIncludeOwnTest extends TestCase
             $t->string('email')->nullable()->unique();
             $t->boolean('status_aktif')->default(true);
             $t->boolean('is_own')->default(false);
+            $t->boolean('is_utama')->default(false);
             $t->enum('metode_bagi_hasil', ['persentase'])->default('persentase');
             $t->decimal('persentase_bagi_hasil', 5, 2)->nullable();
             $t->text('catatan')->nullable();

@@ -4,7 +4,7 @@ import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
 import { formatHpDisplay } from '../lib/format';
 
-const emptyForm = { nama_garasi: '', nama_pemilik: '', alamat: '', no_hp: '', email: '', status_aktif: true, is_own: false, catatan: '' };
+const emptyForm = { nama_garasi: '', nama_pemilik: '', alamat: '', no_hp: '', email: '', status_aktif: true, is_own: false, catatan: '', kota: '', deskripsi_singkat: '', latitude: '', longitude: '', is_utama: false };
 
 export default function GarasiPartner() {
   const toast = useToast();
@@ -35,15 +35,39 @@ export default function GarasiPartner() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    if (!showForm) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowForm(false);
+        setEditItem(null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showForm]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
     try {
+      const payload = {
+        ...form,
+        email: form.email || null,
+        catatan: form.catatan || null,
+        kota: form.kota || null,
+        deskripsi_singkat: form.deskripsi_singkat || null,
+        latitude: form.latitude ? Number(form.latitude) : null,
+        longitude: form.longitude ? Number(form.longitude) : null,
+        is_utama: Boolean(form.is_utama),
+        status_aktif: Boolean(form.status_aktif),
+        is_own: Boolean(form.is_own),
+      };
       if (editItem) {
-        await garasiPartnerAPI.update(editItem.id, form);
+        await garasiPartnerAPI.update(editItem.id, payload);
         toast.success('Garasi partner berhasil diperbarui');
       } else {
-        await garasiPartnerAPI.create(form);
+        await garasiPartnerAPI.create(payload);
         toast.success('Garasi partner berhasil ditambahkan');
       }
       setShowForm(false);
@@ -59,7 +83,21 @@ export default function GarasiPartner() {
   };
 
   const handleEdit = (item) => {
-    setForm({ nama_garasi: item.nama_garasi, nama_pemilik: item.nama_pemilik, alamat: item.alamat || '', no_hp: item.no_hp, email: item.email || '', status_aktif: item.status_aktif, is_own: item.is_own || false, catatan: item.catatan || '' });
+    setForm({
+      nama_garasi: item.nama_garasi || '',
+      nama_pemilik: item.nama_pemilik || '',
+      alamat: item.alamat || '',
+      no_hp: item.no_hp || '',
+      email: item.email || '',
+      status_aktif: item.status_aktif ?? true,
+      is_own: item.is_own || false,
+      catatan: item.catatan || '',
+      kota: item.kota || '',
+      deskripsi_singkat: item.deskripsi_singkat || '',
+      latitude: item.latitude != null ? String(item.latitude) : '',
+      longitude: item.longitude != null ? String(item.longitude) : '',
+      is_utama: Boolean(item.is_utama),
+    });
     setEditItem(item);
     setShowForm(true);
   };
@@ -97,8 +135,8 @@ export default function GarasiPartner() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => { setShowForm(false); setEditItem(null); }}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-accent-100 flex items-center justify-between sticky top-0 bg-white z-10">
               <h2 className="text-lg font-semibold text-black-900">{editItem ? 'Edit Garasi Partner' : 'Tambah Garasi Partner'}</h2>
               <button onClick={() => { setShowForm(false); setEditItem(null); }} className="p-1 hover:bg-accent-100 rounded-lg transition-colors">
@@ -125,7 +163,7 @@ export default function GarasiPartner() {
                 <div>
                   <label className="block text-sm font-medium text-black-700 mb-1">Email</label>
                   <input type="email" value={form.email} onChange={(e) => setField('email', e.target.value)}
-                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
+                    className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" placeholder="(opsional)" />
                 </div>
               </div>
               <div>
@@ -138,14 +176,44 @@ export default function GarasiPartner() {
                 <textarea value={form.catatan} onChange={(e) => setField('catatan', e.target.value)} rows={2}
                   className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none" />
               </div>
-              <div className="flex items-center gap-3">
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" checked={form.is_own} onChange={(e) => setField('is_own', e.target.checked)} className="sr-only peer" />
-                  <div className="w-9 h-5 bg-black-200 peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black-200 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary-600"></div>
+              <div className="border rounded-lg p-4 bg-blue-50/30">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" checked={form.is_utama} onChange={(e) => setField('is_utama', e.target.checked)} className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                  <div>
+                    <p className="font-medium text-sm text-black-800">Jadikan sebagai Garasi Utama</p>
+                    <p className="text-xs text-gray-500 mt-1">Sinkronkan data ini ke Pengaturan → Informasi Bisnis. Hanya boleh ada 1 garasi utama.</p>
+                  </div>
                 </label>
-                <span className="text-sm text-black-700">Milik Sendiri</span>
-                <span className="text-xs text-black-400">— Centang jika ini garasi milik perusahaan Anda</span>
               </div>
+              <details className="border rounded-lg">
+                <summary className="px-4 py-2 cursor-pointer font-medium text-sm text-black-800">Opsional (untuk halaman Katalog/Customer)</summary>
+                <div className="p-4 space-y-4 border-t">
+                  <div>
+                    <label className="block text-sm font-medium text-black-700 mb-1">Kota/Kabupaten</label>
+                    <input type="text" value={form.kota} onChange={(e) => setField('kota', e.target.value)}
+                      className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" placeholder="Contoh: Yogyakarta" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-black-700 mb-1">Deskripsi singkat</label>
+                    <textarea value={form.deskripsi_singkat} onChange={(e) => setField('deskripsi_singkat', e.target.value)} rows={2} maxLength={255}
+                      className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm resize-none" placeholder="Deskripsi singkat untuk katalog (opsional)" />
+                    <p className="text-xs text-gray-400 mt-1">Maks. 255 karakter</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-black-700 mb-1">Latitude</label>
+                      <input type="text" value={form.latitude} onChange={(e) => setField('latitude', e.target.value)}
+                        className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" placeholder="-7.7829" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-black-700 mb-1">Longitude</label>
+                      <input type="text" value={form.longitude} onChange={(e) => setField('longitude', e.target.value)}
+                        className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" placeholder="110.3671" />
+                    </div>
+                  </div>
+                </div>
+              </details>
+
               <div className="flex justify-end gap-3 pt-4 border-t border-accent-100">
                 <button type="button" onClick={() => { setShowForm(false); setEditItem(null); }} className="px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors">Batal</button>
                 <button type="submit" disabled={submitting}
@@ -202,7 +270,10 @@ export default function GarasiPartner() {
                   <td className="px-4 py-3 text-black-700">{item.nama_pemilik}</td>
                   <td className="px-4 py-3 text-black-700">{formatHpDisplay(item.no_hp)}</td>
                   <td className="px-4 py-3 text-black-700">{item.kendaraans_count} unit</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 flex flex-wrap gap-1">
+                    {item.is_utama && (
+                      <span className="px-2 py-1 text-xs font-medium rounded-full bg-primary-100 text-primary-700">Utama</span>
+                    )}
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${item.status_aktif ? 'bg-accent-100 text-accent-700' : 'bg-error-100 text-error-700'}`}>
                       {item.status_aktif ? 'Aktif' : 'Nonaktif'}
                     </span>

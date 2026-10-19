@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\GarasiPartner;
 use App\Models\Setting;
 use App\Services\BackupService;
 use App\Services\WhatsAppService;
@@ -71,6 +72,12 @@ class PengaturanController extends Controller
             ]);
         }
 
+        if (Hash::check($validated['password_baru'], $user->password)) {
+            throw ValidationException::withMessages([
+                'password_baru' => ['Password baru tidak boleh sama dengan password lama.'],
+            ]);
+        }
+
         $user->update(['password' => $validated['password_baru']]);
         $user->tokens()->delete();
 
@@ -80,6 +87,7 @@ class PengaturanController extends Controller
     public function getBisnis(): JsonResponse
     {
         $jamOperasional = json_decode(Setting::get('jam_operasional', '[]'), true);
+        $garasi = GarasiPartner::where('is_own', true)->first();
 
         return response()->json([
             'nama_usaha' => Setting::get('nama_usaha', ''),
@@ -88,6 +96,12 @@ class PengaturanController extends Controller
             'email_usaha' => Setting::get('email_usaha', ''),
             'logo_url' => Setting::get('logo_usaha', '') ? '/storage/'.ltrim(Setting::get('logo_usaha'), '/') : null,
             'jam_operasional' => $jamOperasional,
+            'nama_pemilik' => $garasi?->nama_pemilik ?? '',
+            'kota' => $garasi?->kota ?? '',
+            'deskripsi_singkat' => $garasi?->deskripsi_singkat ?? '',
+            'latitude' => $garasi?->latitude,
+            'longitude' => $garasi?->longitude,
+            'catatan' => $garasi?->catatan ?? '',
         ]);
     }
 
@@ -100,6 +114,12 @@ class PengaturanController extends Controller
             'email_usaha' => 'nullable|email',
             'jam_operasional' => 'nullable|json',
             'logo' => 'nullable|image|max:2048',
+            'nama_pemilik' => 'nullable|string|max:255',
+            'kota' => 'nullable|string|max:100',
+            'deskripsi_singkat' => 'nullable|string|max:255',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'catatan' => 'nullable|string',
         ]);
 
         Setting::set('nama_usaha', $validated['nama_usaha']);
@@ -119,7 +139,58 @@ class PengaturanController extends Controller
             Setting::set('logo_usaha', $request->file('logo')->store('logos', 'public'));
         }
 
+        $this->syncGarasiSaya($validated);
+
         return response()->json(['message' => 'Informasi bisnis berhasil disimpan.']);
+    }
+
+    /**
+     * Cerminkan identitas bisnis ke record garasi milik sendiri (is_own).
+     * Garasi "milik sendiri" adalah sumber data Katalog/Customer, sedangkan
+     * settings dipakai untuk invoice, watermark, & halaman publik.
+     */
+    private function syncGarasiSaya(array $validated): void
+    {
+        $garasi = GarasiPartner::where('is_own', true)->first();
+
+        $namaPemilik = $validated['nama_pemilik'] ?? null;
+        if ($namaPemilik === null || $namaPemilik === '') {
+            $namaPemilik = $garasi?->nama_pemilik ?: $validated['nama_usaha'];
+        }
+
+        $noHp = $validated['no_telp'] ?? null;
+        if ($noHp === null || $noHp === '') {
+            $noHp = $garasi?->no_hp ?: '';
+        }
+
+        $attributes = [
+            'nama_garasi' => $validated['nama_usaha'],
+            'nama_pemilik' => $namaPemilik,
+            'alamat' => $validated['alamat'],
+            'no_hp' => $noHp,
+            'email' => $validated['email_usaha'] ?? null,
+        ];
+
+        // Field opsional garasi hanya ditimpa bila benar-benar dikirim,
+        // agar menyimpan Info Bisnis tidak menghapus data garasi yang ada.
+        foreach (['kota', 'deskripsi_singkat', 'latitude', 'longitude', 'catatan'] as $key) {
+            if (array_key_exists($key, $validated)) {
+                $attributes[$key] = $validated[$key];
+            }
+        }
+
+        if ($garasi) {
+            $garasi->update($attributes);
+
+            return;
+        }
+
+        GarasiPartner::create([
+            ...$attributes,
+            'is_own' => true,
+            'is_utama' => true,
+            'status_aktif' => true,
+        ]);
     }
 
     public function getHarga(): JsonResponse
@@ -239,6 +310,7 @@ class PengaturanController extends Controller
             'notif_order_selesai' => 'boolean',
             'notif_pengingat_kembali' => 'boolean',
             'kirim_hasil_inspeksi_ke_customer' => 'boolean',
+            'notif_admin_kendaraan_dikirim' => 'boolean',
             'template_penugasan_driver' => 'nullable|string',
             'template_task_petugas' => 'nullable|string',
             'template_supir_order_mulai' => 'nullable|string',
@@ -407,9 +479,6 @@ class PengaturanController extends Controller
     public function getSistem(): JsonResponse
     {
         return response()->json([
-            'mata_uang' => Setting::get('mata_uang', 'IDR'),
-            'zona_waktu' => Setting::get('zona_waktu', 'Asia/Jakarta'),
-            'format_tanggal' => Setting::get('format_tanggal', 'DD/MM/YYYY'),
             'prefix_kode_order' => Setting::get('prefix_kode_order', 'ORD'),
         ]);
     }
@@ -417,15 +486,10 @@ class PengaturanController extends Controller
     public function updateSistem(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'mata_uang' => 'required|in:IDR,USD',
-            'zona_waktu' => 'required|in:Asia/Jakarta,Asia/Makassar,Asia/Jayapura',
-            'format_tanggal' => 'required|in:DD/MM/YYYY,DD-MM-YYYY,YYYY-MM-DD',
             'prefix_kode_order' => 'required|string|max:5',
         ]);
 
-        foreach ($validated as $key => $value) {
-            Setting::set($key, $value);
-        }
+        Setting::set('prefix_kode_order', $validated['prefix_kode_order']);
 
         return response()->json(['message' => 'Preferensi sistem berhasil disimpan.']);
     }

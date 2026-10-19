@@ -3,6 +3,7 @@ import { isAxiosError } from 'axios';
 import { userAPI, type AppUser } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import ConfirmModal from '../components/ConfirmModal';
+import { storageUrl } from '../lib/storage';
 import { Plus, Search, Pencil, Trash2, X, Users } from 'lucide-react';
 
 const inputClass =
@@ -196,7 +197,7 @@ export default function UserManagement() {
                   <div className="flex min-w-0 items-center gap-3">
                     {item.avatar ? (
                       <img
-                        src={`https://api.udinrentcar.com/storage/${item.avatar}`}
+                        src={storageUrl(item.avatar) ?? ''}
                         alt=""
                         className="h-9 w-9 shrink-0 rounded-full object-cover"
                       />
@@ -262,10 +263,10 @@ export default function UserManagement() {
                       <div className="flex items-center gap-3">
                         {item.avatar ? (
                           <img
-  src={`https://api.udinrentcar.com/storage/${item.avatar}`}
-  alt=""
-  className="h-8 w-8 rounded-full object-cover"
-/>
+                            src={storageUrl(item.avatar) ?? ''}
+                            alt=""
+                            className="h-8 w-8 rounded-full object-cover"
+                          />
                         ) : (
                           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black-200">
                             <Users size={14} className="text-black-400" />

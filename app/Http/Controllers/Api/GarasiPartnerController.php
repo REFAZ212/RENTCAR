@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\GarasiPartner;
 use App\Models\SupirCalo;
+use App\Traits\HandlesGarasiUtama;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,9 +13,15 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 class GarasiPartnerController extends Controller
 {
+    use HandlesGarasiUtama;
+
     public function index(Request $request): JsonResponse
     {
         $this->authorize('viewAny', GarasiPartner::class);
+
+        if (method_exists($this, 'enforceSingleUtama')) {
+            $this->enforceSingleUtama();
+        }
 
         $query = GarasiPartner::query();
 
@@ -39,7 +46,10 @@ class GarasiPartnerController extends Controller
             $query->where('status_aktif', $request->boolean('status_aktif'));
         }
 
-        $garasi = $query->withCount('kendaraans')->orderBy('created_at', 'desc')->paginate(15);
+        $garasi = $query->withCount('kendaraans')
+            ->orderBy('is_utama', 'desc')
+            ->orderBy('nama_garasi', 'asc')
+            ->paginate(15);
 
         return response()->json($garasi);
     }
@@ -91,9 +101,14 @@ class GarasiPartnerController extends Controller
             'metode_bagi_hasil' => 'nullable|in:persentase',
             'persentase_bagi_hasil' => 'nullable|numeric|min:0|max:100',
             'catatan' => 'nullable|string',
+            'kota' => 'nullable|string|max:100',
+            'deskripsi_singkat' => 'nullable|string|max:255',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'is_utama' => 'nullable|boolean',
         ]);
 
-        $garasi = DB::transaction(function () use ($validated) {
+        $garasi = DB::transaction(function () use ($validated, $request) {
             $garasi = GarasiPartner::create($validated);
 
             if (filter_var($validated['is_own'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
@@ -102,10 +117,18 @@ class GarasiPartnerController extends Controller
                     ->update(['is_own' => false]);
             }
 
+            if ($request->boolean('is_utama')) {
+                if (method_exists($this, 'handleGarasiUtama')) {
+                    $this->handleGarasiUtama($garasi, true);
+                }
+            } elseif (method_exists($this, 'enforceSingleUtama')) {
+                $this->enforceSingleUtama();
+            }
+
             return $garasi;
         });
 
-        return response()->json($garasi, 201);
+        return response()->json($garasi->fresh(), 201);
     }
 
     public function show(GarasiPartner $garasiPartner): JsonResponse
@@ -132,9 +155,14 @@ class GarasiPartnerController extends Controller
             'metode_bagi_hasil' => 'nullable|in:persentase',
             'persentase_bagi_hasil' => 'nullable|numeric|min:0|max:100',
             'catatan' => 'nullable|string',
+            'kota' => 'nullable|string|max:100',
+            'deskripsi_singkat' => 'nullable|string|max:255',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+            'is_utama' => 'nullable|boolean',
         ]);
 
-        $garasiPartner = DB::transaction(function () use ($garasiPartner, $validated) {
+        $garasiPartner = DB::transaction(function () use ($garasiPartner, $validated, $request) {
             $garasiPartner->update($validated);
 
             if (filter_var($validated['is_own'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
@@ -143,10 +171,18 @@ class GarasiPartnerController extends Controller
                     ->update(['is_own' => false]);
             }
 
+            if ($request->boolean('is_utama')) {
+                if (method_exists($this, 'handleGarasiUtama')) {
+                    $this->handleGarasiUtama($garasiPartner, true);
+                }
+            } elseif (method_exists($this, 'enforceSingleUtama')) {
+                $this->enforceSingleUtama();
+            }
+
             return $garasiPartner;
         });
 
-        return response()->json($garasiPartner);
+        return response()->json($garasiPartner->fresh());
     }
 
     public function destroy(GarasiPartner $garasiPartner): JsonResponse

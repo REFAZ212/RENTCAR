@@ -24,6 +24,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import { formatHpDisplay, formatRupiah } from '../lib/format';
 import { fotoFileError } from '../lib/file';
 import { statusPhotoClass } from '../lib/katalogStatus';
+import { storageUrl } from '../lib/storage';
 import { vehicleStatusStyles, vehicleStatusLabels, VEHICLE_STATUSES, type StatusKendaraan } from '../lib/vehicleStatus';
 
 const emptyPartnerForm = {
@@ -62,6 +63,24 @@ function GarasiPartnerTab() {
   useEffect(() => {
     return () => { if (kendaraanFotoPreview) URL.revokeObjectURL(kendaraanFotoPreview); };
   }, [kendaraanFotoPreview]);
+  useEffect(() => {
+    if (!showForm && !showKendaraanForm) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (showKendaraanForm) {
+        setShowKendaraanForm(false);
+        setKendaraanGarasi(null);
+        setEditKendaraanItem(null);
+        setKendaraanFotoFile(null);
+        setKendaraanFotoPreview(null);
+      } else if (showForm) {
+        setShowForm(false);
+        setEditItem(null);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showForm, showKendaraanForm]);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [expandedKendaraans, setExpandedKendaraans] = useState<Record<number, Kendaraan[]>>({});
   const [loadingKendaraans, setLoadingKendaraans] = useState<Set<number>>(new Set());
@@ -192,18 +211,13 @@ function GarasiPartnerTab() {
       tahun: k.tahun,
       warna: k.warna,
       kapasitas_penumpang: k.kapasitas_penumpang,
+      transmisi: k.transmisi || '',
       harga_sewa_per_hari: k.harga_sewa_per_hari,
       status: k.status,
       catatan: k.catatan || '',
     });
     setKendaraanFotoFile(null);
-    setKendaraanFotoPreview(
-  k.foto
-    ? k.foto.startsWith('http')
-      ? k.foto
-      : `https://api.udinrentcar.com/storage/${k.foto}`
-    : null,
-);
+    setKendaraanFotoPreview(storageUrl(k.foto));
     setEditKendaraanItem(k);
     setShowKendaraanForm(true);
   };
@@ -242,6 +256,7 @@ function GarasiPartnerTab() {
       tahun: new Date().getFullYear(),
       warna: '',
       kapasitas_penumpang: 7,
+      transmisi: '',
       harga_sewa_per_hari: '',
       status: 'tersedia',
       catatan: '',
@@ -314,8 +329,8 @@ function GarasiPartnerTab() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => { setShowForm(false); setEditItem(null); }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <h2 className="font-display text-lg font-semibold text-black-900">{editItem ? 'Edit Garasi Partner' : 'Tambah Garasi Partner'}</h2>
               <button onClick={() => { setShowForm(false); setEditItem(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors shrink-0">
@@ -369,8 +384,8 @@ function GarasiPartnerTab() {
       )}
 
       {showKendaraanForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => { setShowKendaraanForm(false); setKendaraanGarasi(null); setEditKendaraanItem(null); setKendaraanFotoFile(null); setKendaraanFotoPreview(null); }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <div className="min-w-0">
                 <h2 className="font-display text-lg font-semibold text-black-900">{editKendaraanItem ? 'Edit Kendaraan' : 'Tambah Kendaraan'}</h2>
@@ -435,6 +450,31 @@ function GarasiPartnerTab() {
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-black-700 mb-1">Transmisi</label>
+                  <div className="flex gap-2">
+                    {[{ value: 'manual', label: 'Manual' }, { value: 'matic', label: 'Matic' }].map((o) => (
+                      <label
+                        key={o.value}
+                        className={`flex-1 cursor-pointer px-3 py-2 border rounded-lg text-center text-sm font-medium transition-colors ${
+                          kendaraanForm.transmisi === o.value
+                            ? 'border-primary-400 bg-primary-50 text-primary-700'
+                            : 'border-black-200 text-black-600 hover:bg-canvas'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="transmisi-partner"
+                          value={o.value}
+                          checked={kendaraanForm.transmisi === o.value}
+                          onChange={() => setKendaraanField('transmisi', o.value)}
+                          className="sr-only"
+                        />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-black-700 mb-1">Harga/Hari (Rp) *</label>
                   <input type="number" value={kendaraanForm.harga_sewa_per_hari || ''} onChange={(e) => setKendaraanField('harga_sewa_per_hari', e.target.value)} required min={0}
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
@@ -451,8 +491,6 @@ function GarasiPartnerTab() {
                   <label className="flex-1 flex items-center justify-center px-4 py-6 border-2 border-dashed border-black-200 rounded-xl cursor-pointer hover:border-primary-400 hover:bg-primary-50/50 transition-colors">
                     <div className="text-center">
                       <ImagePlus size={28} className="text-black-400 mx-auto mb-1" />
-                      <p className="text-xs text-black-400">{kendaraanFotoFile ? kendaraanFotoFile.name : 'Klik atau seret foto ke sini'}</p>
-                      <p className="text-xs text-black-400 mt-0.5">JPG, PNG, maks 2MB</p>
                     </div>
                     <input type="file" accept="image/*" className="hidden"
                       onChange={(e) => {
@@ -579,7 +617,7 @@ function GarasiPartnerTab() {
                       <div key={k.id} className="flex gap-3 rounded-xl border border-black-200 bg-canvas/50 p-3">
                         {k.foto ? (
                           <img
-                            src={k.foto.startsWith('http') ? k.foto : `https://api.udinrentcar.com/storage/${k.foto}`}
+                                            src={storageUrl(k.foto) || ''}
                             alt={k.nama_kendaraan}
                             className={`h-14 w-14 shrink-0 rounded-lg border border-black-200 object-cover ${statusPhotoClass(k.status)}`}
                           />
@@ -721,7 +759,7 @@ function GarasiPartnerTab() {
                                       <td className="px-4 py-2.5">
                                         {k.foto ? (
                                           <img
-                                            src={k.foto.startsWith('http') ? k.foto : `https://api.udinrentcar.com/storage/${k.foto}`}
+                            src={storageUrl(k.foto) || ''}
                                             alt={k.nama_kendaraan}
                                             className={`w-12 h-12 object-cover rounded-lg border border-black-200 ${statusPhotoClass(k.status)}`}
                                           />
@@ -781,6 +819,16 @@ function GarasiPartnerTab() {
 interface GarasiWithKendaraan extends GarasiPartner {
   kendaraans: Kendaraan[];
   nama_garasi: string;
+  nama_pemilik?: string;
+  email?: string | null;
+  catatan?: string | null;
+  kota?: string | null;
+  deskripsi_singkat?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  is_utama?: boolean;
+  is_own?: boolean;
+  status_aktif?: boolean;
 }
 
 function makeEmptyKendaraanForm(garasiId: number | string | undefined) {
@@ -794,6 +842,7 @@ function makeEmptyKendaraanForm(garasiId: number | string | undefined) {
     tahun: new Date().getFullYear(),
     warna: '',
     kapasitas_penumpang: 7,
+    transmisi: '',
     harga_sewa_per_hari: '',
     harga_partner_per_hari: '',
     status: 'tersedia',
@@ -809,6 +858,13 @@ function makeEmptyOwnGarasiForm() {
     email: '',
     alamat: '',
     catatan: '',
+    kota: '',
+    deskripsi_singkat: '',
+    latitude: '',
+    longitude: '',
+    is_utama: false,
+    status_aktif: true,
+    is_own: true,
   };
 }
 
@@ -832,11 +888,27 @@ function GarasiSayaTab() {
   }, [fotoPreview]);
   const [confirmDelete, setConfirmDelete] = useState<Kendaraan | null>(null);
   const [lastAdded, setLastAdded] = useState(false);
-  const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState('');
   const [showOwnForm, setShowOwnForm] = useState(false);
   const [ownForm, setOwnForm] = useState(makeEmptyOwnGarasiForm());
   const [submittingOwn, setSubmittingOwn] = useState(false);
+
+  useEffect(() => {
+    if (!showForm && !showOwnForm) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (showForm) {
+        setShowForm(false);
+        setEditItem(null);
+        setLastAdded(false);
+        setFotoFile(null);
+        setFotoPreview(null);
+      } else if (showOwnForm) {
+        setShowOwnForm(false);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showForm, showOwnForm]);
 
   const loadGarasi = useCallback(() => {
     return garasiPartnerAPI.garasiSaya().then(({ data }) => {
@@ -863,26 +935,6 @@ function GarasiSayaTab() {
       .then(({ data }) => setKategoris(data as unknown as any[]))
       .catch(() => {});
   }, []);
-
-  const saveName = async () => {
-    if (!garasi || !nameDraft.trim() || nameDraft === garasi.nama_garasi) {
-      setEditingName(false);
-      return;
-    }
-    try {
-      await garasiPartnerAPI.renameSaya(nameDraft.trim());
-      setGarasi((prev) => prev ? { ...prev, nama_garasi: nameDraft.trim() } : prev);
-      toast.success('Nama garasi berhasil diperbarui');
-    } catch (err: any) {
-      const message =
-        err?.response?.status === 404
-          ? 'Garasi milik sendiri tidak ditemukan. Buat dulu garasi milik sendiri di tab Garasi Saya.'
-          : (err?.response?.data?.message || 'Gagal memperbarui nama garasi');
-      toast.error(message);
-      load();
-    }
-    setEditingName(false);
-  };
 
   useEffect(() => {
     if (!form.kategori_id) {
@@ -973,19 +1025,15 @@ function GarasiSayaTab() {
       tahun: item.tahun,
       warna: item.warna,
       kapasitas_penumpang: item.kapasitas_penumpang,
+      transmisi: item.transmisi || '',
       harga_sewa_per_hari: item.harga_sewa_per_hari,
-      harga_partner_per_hari: item.harga_partner_per_hari ?? '',
+      // Garasi Saya tidak punya harga beli ke partner — jangan ikut terkirim.
+      harga_partner_per_hari: '',
       status: item.status,
       catatan: item.catatan || '',
     });
     setFotoFile(null);
-    setFotoPreview(
-  item.foto
-    ? item.foto.startsWith('http')
-      ? item.foto
-      : `https://api.udinrentcar.com/storage/${item.foto}`
-    : null,
-);
+    setFotoPreview(storageUrl(item.foto));
     setEditItem(item);
     setShowForm(true);
   };
@@ -1004,7 +1052,7 @@ function GarasiSayaTab() {
   const setField = (key: string, value: any) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-const setOwnField = (key: string, value: any) =>
+  const setOwnField = (key: string, value: any) =>
     setOwnForm((prev) => ({ ...prev, [key]: value }));
 
 const handleOwnSubmit = async (e: React.FormEvent) => {
@@ -1053,8 +1101,8 @@ const handleOwnSubmit = async (e: React.FormEvent) => {
           Buat Garasi Milik Sendiri
         </button>
         {showOwnForm && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowOwnForm(false)}>
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
               <div className="p-4 sm:p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
                 <h2 className="font-display text-lg font-semibold text-black-900">Buat Garasi Milik Sendiri</h2>
                 <button onClick={() => setShowOwnForm(false)} className="p-1 hover:bg-canvas rounded-lg transition-colors shrink-0">
@@ -1113,39 +1161,14 @@ const handleOwnSubmit = async (e: React.FormEvent) => {
   return (
     <div className="space-y-4">
       <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <p className="shrink-0 text-sm text-black-400">Garasi:</p>
-          {editingName ? (
-            <div className="flex min-w-0 items-center gap-1.5">
-              <input
-                type="text"
-                value={nameDraft}
-                onChange={(e) => setNameDraft(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false); }}
-                autoFocus
-                className="w-full min-w-0 px-2 py-1 border border-primary-400 rounded-lg text-sm font-medium text-black-900 focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none"
-              />
-              <button onClick={saveName} className="shrink-0 p-1 text-primary-500 hover:bg-primary-50 rounded-lg transition-colors" title="Simpan">
-                <Check size={16} />
-              </button>
-              <button onClick={() => setEditingName(false)} className="shrink-0 p-1 text-black-400 hover:bg-canvas rounded-lg transition-colors" title="Batal">
-                <X size={16} />
-              </button>
-            </div>
-) : (
-              <div className="flex min-w-0 items-center gap-1.5">
-                <span className="min-w-0 truncate font-medium text-black-700">{garasi.nama_garasi}</span>
-                <button
-                  type="button"
-                  onClick={() => { setNameDraft(garasi.nama_garasi); setEditingName(true); }}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-black-200 px-2 py-1 text-xs font-medium text-black-700 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-                  title="Edit nama garasi"
-                >
-                  <Pencil size={12} />
-                  Edit
-                </button>
-              </div>
-            )}
+          <span className="min-w-0 truncate font-medium text-black-700">{garasi.nama_garasi}</span>
+          {garasi.is_utama && (
+            <span className="inline-flex shrink-0 items-center rounded-full border border-primary-200 bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700">
+              Utama
+            </span>
+          )}
         </div>
         <button onClick={openCreate}
           className="flex w-full items-center justify-center gap-2 px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors sm:w-auto sm:shrink-0">
@@ -1189,8 +1212,8 @@ const handleOwnSubmit = async (e: React.FormEvent) => {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => { setShowForm(false); setEditItem(null); }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <h2 className="font-display text-lg font-semibold text-black-900">{editItem ? 'Edit Kendaraan' : 'Tambah Kendaraan'}</h2>
               <button onClick={() => { setShowForm(false); setEditItem(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors shrink-0">
@@ -1256,11 +1279,36 @@ const handleOwnSubmit = async (e: React.FormEvent) => {
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-black-700 mb-1">Transmisi</label>
+                  <div className="flex gap-2">
+                    {[{ value: 'manual', label: 'Manual' }, { value: 'matic', label: 'Matic' }].map((o) => (
+                      <label
+                        key={o.value}
+                        className={`flex-1 cursor-pointer px-3 py-2 border rounded-lg text-center text-sm font-medium transition-colors ${
+                          form.transmisi === o.value
+                            ? 'border-primary-400 bg-primary-50 text-primary-700'
+                            : 'border-black-200 text-black-600 hover:bg-canvas'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="transmisi-own"
+                          value={o.value}
+                          checked={form.transmisi === o.value}
+                          onChange={() => setField('transmisi', o.value)}
+                          className="sr-only"
+                        />
+                        {o.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-black-700 mb-1">Harga/Hari (Rp) *</label>
                   <input type="number" value={form.harga_sewa_per_hari} onChange={(e) => setField('harga_sewa_per_hari', e.target.value)} required min={0}
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-400 focus:border-primary-400 outline-none text-sm" />
                 </div>
-                {form.garasi_partner_id && (
+                {form.garasi_partner_id && !garasi?.is_own && (
                   <div>
                     <label className="block text-sm font-medium text-black-700 mb-1">
                       Harga Beli/Hari (Rp) <span className="text-error-500">*</span>
@@ -1292,8 +1340,6 @@ const handleOwnSubmit = async (e: React.FormEvent) => {
                   <label className="flex-1 flex items-center justify-center px-4 py-6 border-2 border-dashed border-black-200 rounded-xl cursor-pointer hover:border-primary-400 hover:bg-primary-50/50 transition-colors">
                     <div className="text-center">
                       <ImagePlus size={28} className="text-black-400 mx-auto mb-1" />
-                      <p className="text-xs text-black-400">{fotoFile ? fotoFile.name : 'Klik atau seret foto ke sini'}</p>
-                      <p className="text-xs text-black-400 mt-0.5">JPG, PNG, maks 2MB</p>
                     </div>
                     <input type="file" accept="image/*" className="hidden"
                       onChange={(e) => {

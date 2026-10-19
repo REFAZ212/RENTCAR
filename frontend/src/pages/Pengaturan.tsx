@@ -4,6 +4,20 @@ import api from '../services/api';
 import { settingsAPI, notifSoundAPI, type NotifSoundInfo } from '../services/api';
 import useNotificationSound, { SOUND_LABELS, SOUND_PRESETS, type SoundPreset } from '../hooks/useNotificationSound';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
+
+function getServerErrorMessage(err: unknown): string | null {
+  if (!isAxiosError(err)) return null;
+  const responseData = err.response?.data as
+    | { message?: string; errors?: Record<string, string[]> }
+    | undefined;
+  if (responseData?.errors) {
+    const first = Object.values(responseData.errors).flat()[0];
+    if (first) return first;
+  }
+  if (typeof responseData?.message === 'string' && responseData.message) return responseData.message;
+  return null;
+}
 
 const tabs = [
   { key: 'profil', label: 'Profil & Keamanan', icon: 'M12 12a4 4 0 100-8 4 4 0 000 8zm0 0c-4 0-7 2-7 4.5V19h14v-2.5C19 14 16 12 12 12z' },
@@ -120,9 +134,6 @@ interface NotifikasiForm {
 }
 
 interface SistemForm {
-  mata_uang: string;
-  zona_waktu: string;
-  format_tanggal: string;
   prefix_kode_order: string;
 }
 
@@ -279,6 +290,7 @@ function AvatarUpload({
  * ───────────────────────────────────────────────────────────── */
 function ProfilTab() {
   const toast = useToast();
+  const { updateUser } = useAuth();
   const [form, setForm] = useState<ProfilForm>({ nama: '', email: '', no_hp: '', avatar_url: null });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -318,9 +330,28 @@ function ProfilTab() {
 
       await api.post('/pengaturan/profil', payload);
       toast.success('Profil berhasil diperbarui');
+
+      /*
+       * Sinkronkan identitas (nama/WA/email/foto) ke AuthContext &
+       * localStorage agar badge header langsung berubah tanpa login ulang.
+       * Gagal di sini tidak fatal — tersinkron saat login berikutnya.
+       */
+      try {
+        const { data } = await api.get('/pengaturan/profil');
+        const avatar = data.avatar_url ? String(data.avatar_url).replace(/^\/storage\//, '') : null;
+        updateUser({
+          name: data.nama,
+          email: data.email,
+          phone: data.no_hp || undefined,
+          avatar,
+        });
+      } catch (syncErr) {
+        console.error(syncErr);
+      }
     } catch (err) {
       console.error(err);
-      toast.error('Gagal menyimpan profil');
+      const msg = getServerErrorMessage(err);
+      toast.error(msg || 'Gagal menyimpan profil');
     } finally {
       setSaving(false);
     }
@@ -342,11 +373,20 @@ function ProfilTab() {
     setPwSaving(true);
     try {
       await api.put('/pengaturan/password', pwForm);
-      toast.success('Password berhasil diubah');
-      setPwForm({ password_lama: '', password_baru: '', konfirmasi_password: '' });
+
+      /*
+       * Backend menghapus semua token aktif setelah password berubah,
+       * jadi sesi login ini otomatis berakhir. Logout & arahkan ke halaman
+       * login dengan pesan sukses.
+       */
+      toast.success('Password berhasil diubah. Silakan masuk dengan password baru.');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/admin/login?password_changed=1';
     } catch (err) {
-      if (isAxiosError(err) && err.response?.status === 422) {
-        setPwError('Password lama tidak sesuai');
+      const msg = getServerErrorMessage(err);
+      if (msg) {
+        setPwError(msg);
       } else {
         toast.error('Gagal mengubah password');
       }
@@ -501,10 +541,23 @@ function BisnisTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const applyServerData = (data: Record<string, unknown>) => {
+    setForm({
+      nama_usaha: (data.nama_usaha as string) ?? '',
+      alamat: (data.alamat as string) ?? '',
+      no_telp: (data.no_telp as string) ?? '',
+      email_usaha: (data.email_usaha as string) ?? '',
+      logo_url: (data.logo_url as string | null) ?? null,
+      jam_operasional: (data.jam_operasional as JamOperasional[])?.length
+        ? (data.jam_operasional as JamOperasional[])
+        : HARI_DEFAULT,
+    });
+  };
+
   useEffect(() => {
     api
       .get('/pengaturan/bisnis')
-      .then(({ data }) => setForm({ ...data, jam_operasional: data.jam_operasional?.length ? data.jam_operasional : HARI_DEFAULT }))
+      .then(({ data }) => applyServerData(data))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -529,9 +582,23 @@ function BisnisTab() {
 
       await api.post('/pengaturan/bisnis', payload);
       toast.success('Informasi bisnis berhasil disimpan');
+
+      /*
+       * Segarkan logo_url dari server agar preview logo terbaru langsung
+       * tampil tanpa reload halaman (konsisten dengan tab Profil).
+       **/
+      try {
+        const { data } = await api.get('/pengaturan/bisnis');
+        applyServerData(data);
+      } catch (syncErr) {
+        console.error(syncErr);
+      }
+      setLogoFile(null);
+      setLogoPreview(null);
     } catch (err) {
       console.error(err);
-      toast.error('Gagal menyimpan informasi bisnis');
+      const msg = getServerErrorMessage(err);
+      toast.error(msg || 'Gagal menyimpan informasi bisnis');
     } finally {
       setSaving(false);
     }
@@ -541,7 +608,7 @@ function BisnisTab() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <SectionCard title="Identitas Usaha" description="Logo, nama, alamat, telepon & email tampil pada invoice. Nama usaha juga dipakai sebagai watermark pada foto kendaraan.">
+      <SectionCard title="Identitas Usaha" description="Logo, nama, alamat, telepon & email tampil pada invoice. Nomor WhatsApp di sini juga digunakan di halaman publik (Kontak Kami & tombol WA). Nama usaha dipakai sebagai watermark pada foto kendaraan dan sebagai nama Garasi 'Milik Sendiri' — jadi halaman Garasi Saya otomatis mengikuti data di sini.">
         <div className="space-y-5">
           <Field label="Logo Usaha">
             <AvatarUpload imageUrl={logoPreview ?? form.logo_url} onFileSelected={(f) => { setLogoFile(f); setLogoPreview(URL.createObjectURL(f)); }} shape="square" />
@@ -569,7 +636,7 @@ function BisnisTab() {
           </Field>
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <Field label="Nomor Telepon Usaha">
+            <Field label="Nomor WhatsApp / Telepon" hint="Tampil di Kontak Kami & tautan WA situs publik, dipakai juga di invoice. Jika dikosongkan, nomor garasi 'Milik Sendiri' yang dipakai.">
               <input
                 type="tel"
                 value={form.no_telp}
@@ -1275,7 +1342,7 @@ function NotifikasiTab() {
             </div>
           </Field>
 
-          <Field label="Nomor WhatsApp Owner" hint="Nomor yang menerima ringkasan notifikasi setiap ada booking baru">
+          <Field label="Nomor WhatsApp Owner" hint="Hanya penerima ringkasan notifikasi owner (internal) — tidak tampil ke customer. Nomor yang tampil di situs publik diatur di tab Identitas Usaha.">
             <div className="flex gap-2">
               <input
                 type="tel"
@@ -1446,10 +1513,7 @@ function NotifikasiTab() {
 function SistemTab() {
   const toast = useToast();
   const [form, setForm] = useState<SistemForm>({
-    mata_uang: 'IDR',
-    zona_waktu: 'Asia/Jakarta',
-    format_tanggal: 'DD/MM/YYYY',
-    prefix_kode_order: 'RNT',
+    prefix_kode_order: 'ORD',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1481,11 +1545,11 @@ function SistemTab() {
     setExporting(true);
     try {
       const resp = await api.get('/pengaturan/backup', { responseType: 'blob' });
-      const blob = new Blob([resp.data], { type: 'application/zip' });
+      const blob = new Blob([resp.data], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `backup-data-${new Date().toISOString().slice(0, 10)}.zip`;
+      a.download = `backup-data-${new Date().toISOString().slice(0, 10)}.sql`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1506,42 +1570,7 @@ function SistemTab() {
       <form onSubmit={handleSubmit}>
         <SectionCard title="Preferensi Umum">
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <Field label="Mata Uang">
-              <select
-                value={form.mata_uang}
-                onChange={(e) => setForm({ ...form, mata_uang: e.target.value })}
-                className={inputClass()}
-              >
-                <option value="IDR">Rupiah (IDR)</option>
-                <option value="USD">US Dollar (USD)</option>
-              </select>
-            </Field>
-
-            <Field label="Zona Waktu">
-              <select
-                value={form.zona_waktu}
-                onChange={(e) => setForm({ ...form, zona_waktu: e.target.value })}
-                className={inputClass()}
-              >
-                <option value="Asia/Jakarta">WIB — Jakarta</option>
-                <option value="Asia/Makassar">WITA — Makassar</option>
-                <option value="Asia/Jayapura">WIT — Jayapura</option>
-              </select>
-            </Field>
-
-            <Field label="Format Tanggal">
-              <select
-                value={form.format_tanggal}
-                onChange={(e) => setForm({ ...form, format_tanggal: e.target.value })}
-                className={inputClass()}
-              >
-                <option value="DD/MM/YYYY">31/12/2026</option>
-                <option value="DD-MM-YYYY">31-12-2026</option>
-                <option value="YYYY-MM-DD">2026-12-31</option>
-              </select>
-            </Field>
-
-            <Field label="Prefix Kode Order" hint="Awalan kode unik setiap booking, contoh: RNT-0001">
+            <Field label="Prefix Kode Order" hint="Awalan kode order, contoh: ORD-K3X9AF12">
               <input
                 type="text"
                 value={form.prefix_kode_order}
@@ -1562,7 +1591,7 @@ function SistemTab() {
         <div className="flex items-center justify-between rounded-xl bg-canvas p-4">
           <div>
             <p className="text-sm font-medium text-black-900">Backup Manual</p>
-            <p className="mt-0.5 text-xs text-black-400">File akan diunduh dalam format .zip berisi data terbaru</p>
+            <p className="mt-0.5 text-xs text-black-400">File akan diunduh dalam format .sql berisi data terbaru</p>
           </div>
           <button
             type="button"

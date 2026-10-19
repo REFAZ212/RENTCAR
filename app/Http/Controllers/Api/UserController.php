@@ -64,6 +64,7 @@ class UserController extends Controller
             'jenis' => 'supir',
             'nama' => $user->name,
             'no_hp' => $user->phone ?? '',
+            'email' => $user->email,
             'status' => 'active',
         ];
 

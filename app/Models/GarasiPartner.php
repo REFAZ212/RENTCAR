@@ -21,12 +21,20 @@ class GarasiPartner extends Model
         'metode_bagi_hasil',
         'persentase_bagi_hasil',
         'catatan',
+        'kota',
+        'deskripsi_singkat',
+        'latitude',
+        'longitude',
+        'is_utama',
     ];
 
     protected $casts = [
         'status_aktif' => 'boolean',
         'is_own' => 'boolean',
         'persentase_bagi_hasil' => 'decimal:2',
+        'is_utama' => 'boolean',
+        'latitude' => 'decimal:7',
+        'longitude' => 'decimal:7',
     ];
 
     public function kendaraans(): HasMany

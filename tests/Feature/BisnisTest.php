@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\GarasiPartner;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -21,6 +22,7 @@ class BisnisTest extends TestCase
 
         Schema::dropIfExists('users');
         Schema::dropIfExists('settings');
+        Schema::dropIfExists('garasi_partners');
 
         Schema::create('users', function ($t) {
             $t->id();
@@ -38,6 +40,25 @@ class BisnisTest extends TestCase
             $t->id();
             $t->string('key')->unique();
             $t->text('value')->nullable();
+            $t->timestamps();
+        });
+        Schema::create('garasi_partners', function ($t) {
+            $t->id();
+            $t->string('nama_garasi');
+            $t->string('nama_pemilik');
+            $t->text('alamat');
+            $t->string('no_hp');
+            $t->string('email')->nullable()->unique();
+            $t->boolean('status_aktif')->default(true);
+            $t->boolean('is_own')->default(false);
+            $t->string('metode_bagi_hasil')->nullable();
+            $t->decimal('persentase_bagi_hasil', 5, 2)->nullable();
+            $t->text('catatan')->nullable();
+            $t->string('kota')->nullable();
+            $t->text('deskripsi_singkat')->nullable();
+            $t->decimal('latitude', 10, 7)->nullable();
+            $t->decimal('longitude', 10, 7)->nullable();
+            $t->boolean('is_utama')->default(false);
             $t->timestamps();
         });
 
@@ -141,5 +162,93 @@ class BisnisTest extends TestCase
         ]);
 
         $response->assertForbidden();
+    }
+
+    public function test_simpan_informasi_bisnis_menyimpan_ke_garasi_sendiri(): void
+    {
+        $this->actingAs($this->admin)->post('/api/pengaturan/bisnis', [
+            'nama_usaha' => 'UDIN RENTCAR',
+            'alamat' => 'Jl. Maju No. 5',
+            'no_telp' => '0812345678',
+            'email_usaha' => 'biz@udin.com',
+            'nama_pemilik' => 'Pak Udin',
+            'kota' => 'Yogyakarta',
+            'deskripsi_singkat' => 'Rental terpercaya',
+            'latitude' => -7.7829,
+            'longitude' => 110.3671,
+            'catatan' => 'Catatan garasi',
+            'jam_operasional' => json_encode([['hari' => 'Senin', 'buka' => '08:00', 'tutup' => '17:00', 'libur' => false]]),
+        ])->assertOk();
+
+        $garasi = GarasiPartner::where('is_own', true)->first();
+        $this->assertNotNull($garasi);
+        $this->assertSame('UDIN RENTCAR', $garasi->nama_garasi);
+        $this->assertSame('Pak Udin', $garasi->nama_pemilik);
+        $this->assertSame('Jl. Maju No. 5', $garasi->alamat);
+        $this->assertSame('0812345678', $garasi->no_hp);
+        $this->assertSame('biz@udin.com', $garasi->email);
+        $this->assertSame('Yogyakarta', $garasi->kota);
+        $this->assertSame('Rental terpercaya', $garasi->deskripsi_singkat);
+        $this->assertSame('Catatan garasi', $garasi->catatan);
+        $this->assertNotNull($garasi->latitude);
+        $this->assertNotNull($garasi->longitude);
+        $this->assertTrue($garasi->is_own);
+    }
+
+    public function test_simpan_informasi_bisnis_minimal_membuat_garasi_dengan_fallback(): void
+    {
+        $this->actingAs($this->admin)->post('/api/pengaturan/bisnis', [
+            'nama_usaha' => 'UDIN RENTCAR',
+            'alamat' => 'Jl. Contoh',
+        ])->assertOk();
+
+        $garasi = GarasiPartner::where('is_own', true)->first();
+        $this->assertNotNull($garasi);
+        $this->assertSame('UDIN RENTCAR', $garasi->nama_garasi);
+        $this->assertSame('UDIN RENTCAR', $garasi->nama_pemilik);
+        $this->assertSame('', $garasi->no_hp);
+    }
+
+    public function test_simpan_informasi_bisnis_dua_kali_tidak_membuat_garasi_ganda(): void
+    {
+        $payload = [
+            'nama_usaha' => 'UDIN RENTCAR',
+            'alamat' => 'Jl. Contoh',
+        ];
+
+        $this->actingAs($this->admin)->post('/api/pengaturan/bisnis', $payload)->assertOk();
+        $this->actingAs($this->admin)->post('/api/pengaturan/bisnis', [
+            ...$payload,
+            'nama_usaha' => 'UDIN RENTCAR BARU',
+        ])->assertOk();
+
+        $this->assertSame(1, GarasiPartner::where('is_own', true)->count());
+        $this->assertSame('UDIN RENTCAR BARU', GarasiPartner::where('is_own', true)->first()->nama_garasi);
+    }
+
+    public function test_get_informasi_bisnis_mengembalikan_field_garasi(): void
+    {
+        GarasiPartner::create([
+            'nama_garasi' => 'Garasi Sendiri',
+            'nama_pemilik' => 'Pemilik X',
+            'alamat' => 'Alamat X',
+            'no_hp' => '0800',
+            'is_own' => true,
+            'kota' => 'Bandung',
+            'deskripsi_singkat' => 'Deskripsi X',
+            'latitude' => -6.9,
+            'longitude' => 107.6,
+            'catatan' => 'Catatan X',
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson('/api/pengaturan/bisnis');
+
+        $response->assertOk();
+        $response->assertJsonPath('nama_pemilik', 'Pemilik X');
+        $response->assertJsonPath('kota', 'Bandung');
+        $response->assertJsonPath('deskripsi_singkat', 'Deskripsi X');
+        $response->assertJsonPath('catatan', 'Catatan X');
+        $this->assertNotNull($response->json('latitude'));
+        $this->assertNotNull($response->json('longitude'));
     }
 }
