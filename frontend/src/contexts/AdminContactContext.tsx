@@ -12,7 +12,7 @@ export interface AdminContact {
 const DEFAULT_CONTACT: AdminContact = {
   wa: ADMIN_WA,
   hp: ADMIN_HP_DISPLAY,
-  email: 'info@udin-renctcar.com',
+  email: 'info@udinrentcar.com',
   alamat: 'Jl. Contoh No. 123, Kota',
 };
 
