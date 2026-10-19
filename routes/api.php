@@ -170,6 +170,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('role:admin_utama')->group(function () {
         Route::apiResource('users', UserController::class);
+        Route::post('/users/{user}/verify', [UserController::class, 'verify']);
         Route::get('/activity-log', [ActivityLogController::class, 'index']);
 
         Route::get('/settings', [SettingController::class, 'show']);

@@ -1,0 +1,20 @@
+[33m99f2a42[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m refs/heads/main@{Fri Sep 25 16:27:53 2026}: pull origin main: Fast-forward
+[33m99f2a42[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m refs/remotes/origin/main@{Fri Sep 25 16:27:53 2026}: pull origin main: fast-forward
+[33m99f2a42[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{Fri Sep 25 16:27:53 2026}: pull origin main: Fast-forward
+[33m81db52a[m HEAD@{Fri Sep 25 16:24:56 2026}: checkout: moving from deployment to main
+[33md719050[m[33m ([m[1;32mdeployment[m[33m)[m refs/heads/deployment@{Fri Sep 25 11:00:22 2026}: commit: Add new asset images for the frontend
+[33md719050[m[33m ([m[1;32mdeployment[m[33m)[m HEAD@{Fri Sep 25 11:00:22 2026}: commit: Add new asset images for the frontend
+[33m640c4e5[m[33m ([m[1;31morigin/deployment[m[33m)[m HEAD@{Thu Sep 24 14:53:38 2026}: checkout: moving from main to deployment
+[33m81db52a[m HEAD@{Thu Sep 24 14:53:36 2026}: reset: moving to HEAD
+[33m2922d99[m[33m ([m[1;35mrefs/stash[m[33m)[m refs/stash@{Thu Sep 24 14:53:35 2026}: On main: backup sebelum pindah branch
+[33m81db52a[m HEAD@{Thu Sep 17 00:16:48 2026}: checkout: moving from deployment to main
+[33m640c4e5[m[33m ([m[1;31morigin/deployment[m[33m)[m HEAD@{Thu Sep 17 00:12:53 2026}: checkout: moving from main to deployment
+[33m81db52a[m HEAD@{Thu Sep 17 00:12:52 2026}: reset: moving to HEAD
+[33me851cec[m refs/stash@{Thu Sep 17 00:12:51 2026}: WIP on main: 81db52a feat: optimasi scheduler (lazyById), notifikasi frontend (suara/toast/dedup), index DB
+[33m81db52a[m refs/heads/main@{Wed Sep 16 23:16:05 2026}: pull origin main: Fast-forward
+[33m81db52a[m HEAD@{Wed Sep 16 23:16:05 2026}: pull origin main: Fast-forward
+[33m81db52a[m refs/remotes/origin/main@{Wed Sep 16 23:16:04 2026}: pull origin main: fast-forward
+[33m1e4377a[m refs/heads/main@{Wed Sep 16 21:22:12 2026}: pull origin main: Fast-forward
+[33m1e4377a[m refs/remotes/origin/main@{Wed Sep 16 21:22:12 2026}: pull origin main: fast-forward
+[33m1e4377a[m HEAD@{Wed Sep 16 21:22:12 2026}: pull origin main: Fast-forward
+[33m68fd66e[m HEAD@{Wed Sep 16 21:21:38 2026}: checkout: moving from deployment to main
