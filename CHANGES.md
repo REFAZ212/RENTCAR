@@ -367,3 +367,128 @@ kirim kendaraan).
 | `pending` / `confirmed` | Editable | Read-only (tombol aksi) |
 | `active` | Read-only (sebagian) | Read-only (tombol aksi) |
 | `completed` / `cancelled` | Read-only (semua) | Read-only (tombol aksi) |
+
+---
+
+## 25. CRITICAL: Piutang menghitung denda dua kali
+
+**File:** `app/Services/ReportService.php`, `app/Models/Order.php`
+
+Laporan piutang menghitung `harga_total + denda_overtime - total dibayar`.
+Padahal untuk order yang sudah `completed`, denda sudah dibundel ke dalam
+`harga_total` oleh `selesaikanSewa()` — akibatnya denda terhitung **dua kali**
+dan sisa pembayaran tampak lebih besar dari kenyataan.
+
+**Fix:** Diperkenalkan satu sumber rumus `Order::totalTagihan()`:
+
+- Order `completed` / `cancelled`: `harga_total + biaya_kerusakan`
+  (denda sudah termasuk di `harga_total`).
+- Order berjalan: `harga_total (tersimpan) + denda berjalan (proyeksi) + biaya_kerusakan`.
+
+`ReportService::piutang()` sekarang memakai
+`$order->totalTagihan() - $totalPaid`. Field `denda` tetap dikirim sebagai
+informasi saja.
+
+---
+
+## 26. HIGH: `status_pengiriman` bisa diisi sembarang / mundur
+
+**File:** `app/Models/Order.php`, `app/Services/OrderService.php`
+
+Perubahan `status_pengiriman` lewat update umum tidak divalidasi, sehingga
+bisa mundur (mis. dari `sudah_dikembalikan` kembali ke `belum_diambil`).
+
+**Fix:**
+
+- Konstanta `Order::ALLOWED_PENGIRIMAN_TRANSITIONS` + metode
+  `canTransitionPengirimanTo()` menetapkan perpindahan **maju-saja**:
+  - `belum_diambil` → `sudah_diantarkan` | `dalam_penyewaan` | `selesai`
+  - `sudah_diantarkan` → `dalam_penyewaan` | `selesai`
+  - `dalam_penyewaan` → `sudah_dikembalikan` | `selesai`
+  - `sudah_dikembalikan` → `selesai`
+  - `selesai` → (tidak ada)
+  - Nilai yang sama selalu dianggap valid.
+- `OrderService::updateOrder()` menolak transisi di luar peta dengan galat 422.
+
+---
+
+## 27. HIGH: Alur sopir aplikasi HP tidak memajukan order
+
+**File:** `app/Services/DriverTaskService.php`,
+`app/Http/Controllers/Api/InspeksiKendaraanController.php`
+
+Saat sopir menyimpan inspeksi lewat aplikasi mobile, order tidak berubah
+status — admin harus memajukan manual dan alur di kantor bisa macet.
+
+**Fix (backend-only, aplikasi HP tidak perlu diubah):**
+
+- `DriverTaskService::storeInspectionBefore()` → `majukanOrderSaatPickup()`:
+  order `confirmed` menjadi `active`, `status_pengiriman=dalam_penyewaan`,
+  kendaraan menjadi `disewa`.
+- `DriverTaskService::storeInspectionAfter()` → `tandaiOrderDikembalikan()`:
+  order `active`/`perlu_verifikasi` ditandai `status_pengiriman=sudah_dikembalikan`
+  (status order tetap berjalan sampai admin menutup).
+- `InspeksiKendaraanController::store()`: inspeksi `jenis=return` juga
+  menandai `sudah_dikembalikan`.
+- Tanda tangan tetap boleh dilengkapi belakangan lewat fitur
+  "Perbaiki Tanda Tangan" (`perbaikiTtd`).
+
+---
+
+## 28. MEDIUM: Status pembayaran tidak ikut disinkronkan saat order selesai
+
+**File:** `app/Services/OrderService.php`
+
+Saat order diselesaikan, `status_pembayaran` bisa tertinggal `partial`/`unpaid`
+meski penerimaan sudah menutup tagihan.
+
+**Fix:** Ditambah `sinkronkanStatusPembayaran(Order)` yang dipanggil pada
+bagian penutupan order (`status_order → completed`), menghitung ulang status
+dari `totalTagihan()` versus total penerimaan.
+
+---
+
+## 29. MEDIUM: Field kunci bisa diubah setelah order final
+
+**File:** `app/Services/OrderService.php`
+
+Order `completed`/`cancelled` masih menerima `tanggal_pengembalian_aktual`
+dan `biaya_kerusakan`, sehingga denda final bisa jadi tidak konsisten dengan
+waktu pengembaliannya.
+
+**Fix:** Kedua field ditambahkan ke `$lockedFields` saat order final, kecuali
+pada permintaan yang memang sedang menutup order (`$isCompletingRequest`).
+
+---
+
+## 30. UX: Tombol "Selesaikan" dikunci sampai kendaraan kembali
+
+**File:** `frontend/src/pages/Orders.tsx`
+
+Tombol "Selesai/Selesaikan" bisa diklik walau kendaraan belum ditandai
+dikembalikan.
+
+**Fix:** Tombol dinonaktifkan + ikon gembok + tooltip selama
+`status_pengiriman !== 'sudah_dikembalikan'`. Pemeriksaan modal di server
+tetap yang menentukan.
+
+---
+
+## 31. UX: Label status terpusat + tampilan "Sisa Bayar"
+
+**File:** `frontend/src/constants/status.ts` (BARU),
+`frontend/src/pages/*`
+
+- Dibuat `frontend/src/constants/status.ts` sebagai sumber tunggal tipe,
+  label, dan warna untuk status order/pembayaran/pengiriman & metode bayar.
+  `Orders.tsx`, `OrderDetail.tsx`, `Laporan.tsx`, `CustomerDetail.tsx`, dan
+  `Dashboard.tsx` diubah memakai konstanta ini (Dashboard kini menampilkan
+  label status yang benar, bukan kode mentah).
+- Ditambahkan informasi **"Sudah Dibayar"** dan **"Sisa Bayar"** pada kartu
+  ringkas & modal detail order.
+
+**Tes:** ditambah 3 tes regresi (piutang anti-denda-ganda, alur pickup &
+return sopir). Total suite menjadi **392 tes**.
+
+**Verifikasi:** `php artisan test` (392 lolos), `npx tsc --noEmit`, `npm run lint`,
+dan `./vendor/bin/pint --test` semuanya bersih.

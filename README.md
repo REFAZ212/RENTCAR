@@ -1,58 +1,50 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# UDIN RENCTCAR
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Sistem manajemen garasi & rental kendaraan. Backend Laravel sebagai API,
+dengan dua antarmuka: SPA React (UI utama) dan aplikasi mobile Flutter untuk
+supir.
 
-## About Laravel
+## Komponen
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+| Komponen | Teknologi | Lokasi |
+|---|---|---|
+| API backend | Laravel 13.8 (PHP 8.3+), Sanctum token auth | root |
+| UI web (SPA) | React 19 + Vite + React Router v7 | `frontend/` |
+| Aplikasi supir | Flutter | `mobile/` |
+| Database | MySQL 8.x (default) atau SQLite | `database/` |
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Menjalankan
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Ringkasan singkat:
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer setup   # install dependency, siapkan .env, migrasi, build frontend
+composer dev      # jalankan server, queue, scheduler, dan Vite sekaligus
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Panduan lengkap (persyaratan, setup manual, konfigurasi database, testing,
+dan troubleshooting) ada di **[`CARA_MENJALANKAN.md`](./CARA_MENJALANKAN.md)**.
 
-## Contributing
+- UI web (dev): `http://localhost:5173`
+- API (dev): `http://localhost:8000`
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Dokumentasi
 
-## Code of Conduct
+| Dokumen | Isi |
+|---|---|
+| [`CARA_MENJALANKAN.md`](./CARA_MENJALANKAN.md) | Cara menjalankan & setup sistem. |
+| [`AGENTS.md`](./AGENTS.md) | Arsitektur, konvensi, dan catatan penting untuk kontributor/AI agent. |
+| [`LAPORAN_IMPLEMENTASI_BACKEND.md`](./LAPORAN_IMPLEMENTASI_BACKEND.md) | Rincian implementasi backend per modul. |
+| [`CHANGES.md`](./CHANGES.md) | Riwayat bug fix, perbaikan UX, dan pengamanan data. |
+| [`docs/SRS.md`](./docs/SRS.md) | Software Requirements Specification (FR/BR formal). |
+| [`docs/flowchart-order.md`](./docs/flowchart-order.md) | Diagram alur order. |
+| [`docs/use-case-order.md`](./docs/use-case-order.md) | Use case & otomasi scheduler alur order. |
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Testing & Kualitas Kode
 
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```bash
+composer test                          # PHPUnit (in-memory SQLite)
+./vendor/bin/pint                      # format PHP
+cd frontend && npm run lint            # oxlint
+cd frontend && npx tsc --noEmit        # type-check TypeScript
+```

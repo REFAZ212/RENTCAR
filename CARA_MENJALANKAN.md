@@ -57,6 +57,9 @@ type nul > database\database.sqlite
 # Jalankan migrasi database
 php artisan migrate
 
+# Buat symlink storage (agar file upload bisa diakses)
+php artisan storage:link
+
 # Install dependency Node.js (frontend)
 cd frontend
 npm install
@@ -115,9 +118,10 @@ Jalankan backend, queue worker, dan frontend secara bersamaan:
 composer dev
 ```
 
-Ini akan menjalankan 3 proses sekaligus:
+Ini akan menjalankan 4 proses sekaligus:
 - **Server Laravel** → `http://localhost:8000`
 - **Queue Worker** → memproses background jobs
+- **Scheduler** (`schedule:work`) → menjalankan perintah terjadwal (kadaluarsa order, pengingat WA, auto-verifikasi)
 - **Vite Dev Server** → `http://localhost:5173` (frontend React)
 
 ### Menjalankan Terpisah
@@ -255,6 +259,19 @@ npm run lint
 | `http://localhost:5173` | Frontend React (development) |
 | `http://localhost:8000` | Backend API (development) |
 | `http://localhost:8000/api` | API endpoint |
+
+---
+
+## Dokumentasi Tambahan
+
+| Dokumen | Isi |
+|---------|-----|
+| `AGENTS.md` | Panduan arsitektur & konvensi untuk kontributor/AI agent. |
+| `LAPORAN_IMPLEMENTASI_BACKEND.md` | Rincian implementasi backend per modul. |
+| `CHANGES.md` | Riwayat bug fix, perbaikan UX, dan pengamanan data. |
+| `docs/SRS.md` | Software Requirements Specification (kebutuhan formal, FR/BR). |
+| `docs/flowchart-order.md` | Diagram alur order dari pemesanan hingga selesai. |
+| `docs/use-case-order.md` | Use case & otomasi scheduler pada alur order. |
 
 ---
 

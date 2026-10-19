@@ -1,17 +1,18 @@
-# mobile
+# UDIN RENCTCAR — Aplikasi Supir (Flutter)
 
-A new Flutter project.
+Aplikasi mobile untuk supir: menerima tugas, inspeksi sebelum/sesudah
+pengiriman, unggah media, dan notifikasi. Berkomunikasi dengan API backend
+Laravel UDIN RENCTCAR (endpoint `/api/mobile/*`, autentikasi Sanctum).
 
-## Getting Started
+Logika backend pada alur inspeksi pickup/return sudah memajukan status order
+secara otomatis (lihat `DriverTaskService`), sehingga aplikasi ini tidak perlu
+diubah saat alur order di backend disesuaikan.
 
-This project is a starting point for a Flutter application.
+## Menjalankan
 
-A few resources to get you started if this is your first Flutter project:
+```bash
+flutter pub get
+flutter run
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Dokumentasi proyek lengkap ada di [`../CARA_MENJALANKAN.md`](../CARA_MENJALANKAN.md).
