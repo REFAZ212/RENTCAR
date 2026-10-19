@@ -364,6 +364,9 @@ class ReportService
 
     public function komisiCalo(): array
     {
+        $start = $this->start;
+        $end = $this->end;
+
         $calos = SupirCalo::where('jenis', 'calo')->get();
         $results = [];
         $grandTotalRevenue = 0;
@@ -372,6 +375,7 @@ class ReportService
         foreach ($calos as $calo) {
             $orders = Order::where('calo_id', $calo->id)
                 ->where('status_order', 'completed')
+                ->whereBetween('created_at', [$start, $end])
                 ->get();
 
             $revenue = $orders->sum('harga_total');
@@ -550,7 +554,13 @@ class ReportService
                 ->where('status', '!=', 'refund')
                 ->sum('jumlah');
 
-            $outstanding = $order->harga_total - $totalPaid;
+            // Denda hanya ditampilkan sebagai info. Untuk order yang SUDAH
+            // ditutup, denda sudah termasuk di dalam harga_total — menambahkannya
+            // lagi akan menghitung dobel. Order::totalTagihan() memakai definisi
+            // "yang harus dibayar" yang sama dengan validasi pelunasan penutupan.
+            $denda = (float) $order->denda_overtime_saat_ini;
+
+            $outstanding = $order->totalTagihan() - $totalPaid;
             $returnDate = $order->tanggal_pengembalian_aktual?->copy()->startOfDay();
             $daysOverdue = $returnDate
                 ? (int) $returnDate->diffInDays(now()->startOfDay())
@@ -572,6 +582,7 @@ class ReportService
                 'tanggal_mulai' => $order->tanggal_mulai?->format('Y-m-d'),
                 'tanggal_pengembalian' => $returnDate?->format('Y-m-d'),
                 'harga_total' => (float) $order->harga_total,
+                'denda' => $denda,
                 'total_bayar' => (float) $totalPaid,
                 'sisa_pembayaran' => (float) $outstanding,
                 'hari_tertunggak' => $daysOverdue,
@@ -1245,10 +1256,10 @@ class ReportService
     /**
      * Mengambil nama tipe dari relasi Kendaraan -> Tipe.
      *
-     * Kolom string legacy `tipe` pada tabel `kendaraans` bentrok dengan relasi
-     * `tipe()`, sehingga `$kendaraan?->tipe` mengembalikan string (bukan model
-     * Tipe) dan `?->nama_tipe` melempar "Attempt to read property on string".
-     * Fungsi ini selalu membaca lewat relasi dan menormalkan nilainya.
+     * Selalu membaca lewat relasi `tipe()` dan menormalkan nilainya (hanya
+     * mengembalikan string bila memang model Tipe yang ditemukan). Ini tahan
+     * terhadap kolom/atribut bernama `tipe` yang mungkin masih ada di
+     * lingkungan lama.
      */
     private function kendaraanTipeNama(Kendaraan $kendaraan): ?string
     {

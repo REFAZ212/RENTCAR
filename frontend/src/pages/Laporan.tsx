@@ -39,6 +39,20 @@ import { laporanAPI, garasiPartnerAPI, type GarasiPartner, type LaporanParams } 
 import { useToast } from '../contexts/ToastContext';
 import { formatRupiah, formatRupiahShort, formatTanggal, addDaysYmd, todayJakarta, monthRangeYmd, diffDaysYmd } from '../lib/format';
 import { vehicleStatusLabels, type StatusKendaraan } from '../lib/vehicleStatus';
+import { storageUrl } from '../lib/storage';
+import {
+  statusOrderLabels,
+  statusPembayaranLabels,
+  statusPengirimanLabels,
+  statusOrderColors,
+  statusPembayaranColors,
+  statusPengirimanColors,
+  metodePembayaranLabels as metodeBayarLabels,
+  type StatusOrder,
+  type StatusPembayaran,
+  type StatusPengiriman,
+  type MetodePembayaran as MetodeBayar,
+} from '../constants/status';
 
 /**
  * ─────────────────────────────────────────────────────────────
@@ -55,65 +69,6 @@ import { vehicleStatusLabels, type StatusKendaraan } from '../lib/vehicleStatus'
  * (var(--color-primary-500), dst) — supaya tetap 1 sumber kebenaran
  * dengan app.css, tidak ada duplikasi hex code.
  */
-
-type StatusOrder = 'pending' | 'confirmed' | 'active' | 'perlu_verifikasi' | 'completed' | 'cancelled';
-type StatusPembayaran = 'unpaid' | 'partial' | 'paid';
-type StatusPengiriman = 'belum_diambil' | 'sudah_diantarkan' | 'dalam_penyewaan' | 'selesai' | 'sudah_dikembalikan';
-type MetodeBayar = 'cash' | 'transfer' | 'qris' | 'lainnya';
-
-const statusOrderLabels: Record<StatusOrder, string> = {
-  pending: 'Menunggu',
-  confirmed: 'Dikonfirmasi',
-  active: 'Sedang Disewa',
-  perlu_verifikasi: 'Perlu Verifikasi',
-  completed: 'Selesai',
-  cancelled: 'Dibatalkan',
-};
-
-const statusPembayaranLabels: Record<StatusPembayaran, string> = {
-  unpaid: 'Belum Bayar',
-  partial: 'DP / Sebagian',
-  paid: 'Lunas',
-};
-
-const statusPengirimanLabels: Record<StatusPengiriman, string> = {
-  belum_diambil: 'Belum Diambil',
-  sudah_diantarkan: 'Sudah Diantarkan',
-  dalam_penyewaan: 'Dalam Penyewaan',
-  selesai: 'Selesai',
-  sudah_dikembalikan: 'Sudah Dikembalikan',
-};
-
-const metodeBayarLabels: Record<MetodeBayar, string> = {
-  cash: 'Tunai',
-  transfer: 'Transfer',
-  qris: 'QRIS',
-  lainnya: 'Lainnya',
-};
-
-// Badge warna per domain status — token tema: primary (biru), accent (amber), success (hijau), error (merah)
-const statusOrderColors: Record<string, string> = {
-  pending: 'bg-accent-100 text-accent-700',
-  confirmed: 'bg-primary-50 text-primary-500',
-  active: 'bg-primary-100 text-primary-600',
-  perlu_verifikasi: 'bg-accent-50 text-accent-700',
-  completed: 'bg-success-50 text-success-600',
-  cancelled: 'bg-error-50 text-error-600',
-};
-
-const statusPembayaranColors: Record<string, string> = {
-  unpaid: 'bg-error-50 text-error-600',
-  partial: 'bg-accent-100 text-accent-700',
-  paid: 'bg-success-50 text-success-600',
-};
-
-const statusPengirimanColors: Record<string, string> = {
-  belum_diambil: 'bg-accent-100 text-accent-700',
-  sudah_diantarkan: 'bg-primary-50 text-primary-500',
-  dalam_penyewaan: 'bg-primary-100 text-primary-600',
-  selesai: 'bg-success-50 text-success-600',
-  sudah_dikembalikan: 'bg-success-50 text-success-600',
-};
 
 // Warna ikon StatCard — konsisten biru tema (primary), bukan macam-macam
 const ICON_BG = {
@@ -557,6 +512,7 @@ interface PiutangRow {
   tanggal_mulai: string | null;
   tanggal_pengembalian: string | null;
   harga_total: number;
+  denda: number;
   total_bayar: number;
   sisa_pembayaran: number;
   hari_tertunggak: number;
@@ -1692,11 +1648,12 @@ function PiutangTab({ title }: { title: string }) {
   const totalPiutang = rows.reduce(
     (acc, r) => {
       acc.total += r.harga_total;
+      acc.denda += r.denda;
       acc.total_bayar += r.total_bayar;
       acc.sisa += r.sisa_pembayaran;
       return acc;
     },
-    { total: 0, total_bayar: 0, sisa: 0 },
+    { total: 0, denda: 0, total_bayar: 0, sisa: 0 },
   );
 
   return (
@@ -1735,6 +1692,7 @@ function PiutangTab({ title }: { title: string }) {
             { label: 'Mulai' },
             { label: 'Tgl Kembali' },
             { label: 'Total', align: 'right' },
+            { label: 'Denda', align: 'right' },
             { label: 'Dibayar', align: 'right' },
             { label: 'Sisa', align: 'right' },
             { label: 'Hari Tertunggak', align: 'right' },
@@ -1745,6 +1703,7 @@ function PiutangTab({ title }: { title: string }) {
               colSpan={6}
               totals={[
                 formatRupiah(totalPiutang.total),
+                formatRupiah(totalPiutang.denda),
                 formatRupiah(totalPiutang.total_bayar),
                 formatRupiah(totalPiutang.sisa),
                 '',
@@ -1762,6 +1721,7 @@ function PiutangTab({ title }: { title: string }) {
               <td className="px-5 py-3 text-black-700">{r.tanggal_mulai ?? '-'}</td>
               <td className="px-5 py-3 text-black-700">{r.tanggal_pengembalian ?? '-'}</td>
               <td className="px-5 py-3 text-right font-mono text-black-900">{formatRupiah(r.harga_total)}</td>
+              <td className="px-5 py-3 text-right font-mono text-black-700">{r.denda > 0 ? formatRupiah(r.denda) : '-'}</td>
               <td className="px-5 py-3 text-right font-mono text-black-700">{formatRupiah(r.total_bayar)}</td>
               <td className="px-5 py-3 text-right font-mono font-semibold text-error-600">{formatRupiah(r.sisa_pembayaran)}</td>
               <td className="px-5 py-3 text-right text-black-900">{r.hari_tertunggak > 0 ? `${r.hari_tertunggak} hari` : '-'}</td>
@@ -1865,7 +1825,7 @@ function InspeksiCard({ title, data }: { title: string; data: InspeksiDetail | n
             <p className="mb-2 text-xs text-black-400">Dokumentasi ({data.fotos.length} foto)</p>
             <div className="flex flex-wrap gap-2">
               {data.fotos.map((f, i) => (
-                <img key={i} src={`/storage/${f}`} alt={`foto ${i + 1}`} className="h-20 w-28 rounded-lg object-cover" />
+                <img key={i} src={storageUrl(f) || ''} alt={`foto ${i + 1}`} className="h-20 w-28 rounded-lg object-cover" />
               ))}
             </div>
           </div>

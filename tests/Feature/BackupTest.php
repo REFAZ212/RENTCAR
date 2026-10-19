@@ -95,6 +95,18 @@ class BackupTest extends TestCase
         $this->assertStringNotContainsString('rahasia-gateway-123', $content);
         $this->assertStringNotContainsString($this->hashSupir, $content);
         $this->assertStringNotContainsString($this->hashAdmin, $content);
+
+        // Unduhan harus jujur bertipe .sql teks — bukan .zip (bukan arsip).
+        $this->assertStringContainsString('text/plain', (string) $response->headers->get('content-type'));
+        $this->assertStringContainsString('.sql', (string) $response->headers->get('content-disposition'));
+        $this->assertStringNotContainsString('.zip', (string) $response->headers->get('content-disposition'));
+
+        // Tabel transien tidak boleh ikut — cache menyimpan nilai setting
+        // (termasuk token gateway) dalam bentuk serialisasi plaintext.
+        $this->assertStringNotContainsString('DROP TABLE IF EXISTS `cache`', $content);
+        $this->assertStringNotContainsString('INSERT INTO `cache`', $content);
+        $this->assertStringNotContainsString('INSERT INTO `cache_locks`', $content);
+        $this->assertStringNotContainsString('INSERT INTO `sessions`', $content);
     }
 
     public function test_backup_download_denied_for_non_admin(): void

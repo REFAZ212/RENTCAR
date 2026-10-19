@@ -20,6 +20,13 @@ class BackupService
     ];
 
     /**
+     * Tabel transien (cache, session) yang TIDAK pernah dibackup: isinya bisa
+     * dibangun ulang dan justru menyimpan nilai setting (termasuk token
+     * gateway) dalam bentuk serialisasi plaintext — berisiko bocor di dump.
+     */
+    private const TRANSIENT_TABLES = ['cache', 'cache_locks', 'jobs', 'failed_jobs', 'sessions'];
+
+    /**
      * Buat backup database lengkap ke storage/app/backup/.
      * MySQL/MariaDB: pakai mysqldump (fallback ke dump manual bila binary
      * tidak tersedia). SQLite: dump manual.
@@ -47,10 +54,11 @@ class BackupService
     }
 
     /**
-     * Versi SANITASI untuk diunduh admin lewat browser: semua tabel tetap
-     * ikut, tapi hash password & token gateway dikosongkan supaya tidak
-     * bocor ke luar server. Disimpan di storage/app (bukan /backup) karena
-     * sifatnya sekali pakai (deleteFileAfterSend).
+     * Versi SANITASI untuk diunduh admin lewat browser: tabel data (kecuali
+     * tabel transien cache/session) tetap ikut, tapi hash password & token
+     * gateway dikosongkan supaya tidak bocor ke luar server. Disimpan di
+     * storage/app (bukan /backup) karena sifatnya sekali pakai
+     * (deleteFileAfterSend).
      *
      * @return string Path absolut file backup.
      */
@@ -94,19 +102,24 @@ class BackupService
     {
         $config = config('database.connections.mysql');
 
+        $args = [
+            'mysqldump',
+            '--no-tablespaces',
+            '--single-transaction',
+            '--quick',
+            '--skip-lock-tables',
+            '-h', (string) $config['host'],
+            '-P', (string) $config['port'],
+            '-u', (string) $config['username'],
+        ];
+        foreach (self::TRANSIENT_TABLES as $tabel) {
+            $args[] = "--ignore-table={$config['database']}.{$tabel}";
+        }
+        $args[] = (string) $config['database'];
+
         $process = Process::timeout(600)
             ->env(['MYSQL_PWD' => (string) $config['password']])
-            ->run([
-                'mysqldump',
-                '--no-tablespaces',
-                '--single-transaction',
-                '--quick',
-                '--skip-lock-tables',
-                '-h', (string) $config['host'],
-                '-P', (string) $config['port'],
-                '-u', (string) $config['username'],
-                (string) $config['database'],
-            ]);
+            ->run($args);
 
         if (! $process->isSuccessful()) {
             throw new RuntimeException('mysqldump gagal: '.$process->getErrorOutput());
@@ -122,7 +135,10 @@ class BackupService
     private function manualDump(): string
     {
         $driver = DB::getDriverName();
-        $tables = $this->semuaTabel();
+        $tables = array_values(array_filter(
+            $this->semuaTabel(),
+            fn (string $tabel) => ! in_array($tabel, self::TRANSIENT_TABLES, true)
+        ));
 
         $dump = '-- Backup UDIN RENCTCAR '.now()->format('Y-m-d H:i:s')."\n"
             ."-- Driver: {$driver}\n"

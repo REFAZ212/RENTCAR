@@ -4,12 +4,13 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\Setting;
-use Barryvdh\DomPDF\PDF;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Barryvdh\DomPDF\PDF as DomPdf;
 use Illuminate\Support\Facades\Storage;
 
 class InvoiceService
 {
-    public function generatePdf(Order $order): PDF
+    public function generatePdf(Order $order): DomPdf
     {
         $order->load([
             'customer',
@@ -38,7 +39,7 @@ class InvoiceService
             ],
         ];
 
-        $pdf = PDF::loadView('invoices.order', $data);
+        $pdf = Pdf::loadView('invoices.order', $data);
         $pdf->setPaper('a4');
 
         return $pdf;
