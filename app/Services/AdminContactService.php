@@ -16,14 +16,37 @@ class AdminContactService
     /**
      * Kontak usaha yang tampil di seluruh situs publik (katalog, landing, dll).
      *
-     * Nomor WhatsApp prioritas: No. HP garasi "Milik Sendiri" (is_own=true) →
-     * pengaturan nomor_wa_owner → default. Email & alamat mengikuti Identitas
-     * Usaha (settings email_usaha / alamat_usaha).
+     * Nomor WhatsApp prioritas: Identitas Usaha (setting no_telp_usaha) →
+     * No. HP garasi "Milik Sendiri" (is_own=true) → default. Email & alamat
+     * mengikuti Identitas Usaha (settings email_usaha / alamat_usaha).
+     *
+     * Pengaturan nomor_wa_owner (tab Notifikasi) khusus untuk nomor penerima
+     * notifikasi WhatsApp di internal, tidak memengaruhi kontak publik.
      *
      * @return array{wa: string, hp: string, email: string, alamat: string}
      */
     public static function kontak(): array
     {
+        return [
+            'wa' => self::resolveWa(),
+            'hp' => '0'.substr(self::resolveWa(), 2),
+            'email' => (string) Setting::get('email_usaha', self::DEFAULT_EMAIL),
+            'alamat' => (string) Setting::get('alamat_usaha', self::DEFAULT_ALAMAT),
+        ];
+    }
+
+    private static function resolveWa(): string
+    {
+        $identitas = (string) Setting::get('no_telp_usaha', '');
+
+        if ($identitas !== '') {
+            $wa = self::normalizeToWa($identitas);
+
+            if ($wa !== '') {
+                return $wa;
+            }
+        }
+
         $own = GarasiPartner::query()
             ->where('is_own', true)
             ->whereNotNull('no_hp')
@@ -32,27 +55,14 @@ class AdminContactService
             ->first();
 
         if ($own) {
-            $wa = self::normalizeToWa($own->no_hp);
+            $garasi = self::normalizeToWa($own->no_hp);
 
-            if ($wa) {
-                return [
-                    'wa' => $wa,
-                    'hp' => '0'.substr($wa, 2),
-                    'email' => (string) Setting::get('email_usaha', self::DEFAULT_EMAIL),
-                    'alamat' => (string) Setting::get('alamat_usaha', self::DEFAULT_ALAMAT),
-                ];
+            if ($garasi !== '') {
+                return $garasi;
             }
         }
 
-        $raw = (string) Setting::get('nomor_wa_owner', self::DEFAULT_WA);
-        $wa = self::normalizeToWa($raw) ?: self::DEFAULT_WA;
-
-        return [
-            'wa' => $wa,
-            'hp' => '0'.substr($wa, 2),
-            'email' => (string) Setting::get('email_usaha', self::DEFAULT_EMAIL),
-            'alamat' => (string) Setting::get('alamat_usaha', self::DEFAULT_ALAMAT),
-        ];
+        return self::DEFAULT_WA;
     }
 
     private static function normalizeToWa(string $phone): string

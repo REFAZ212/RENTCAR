@@ -1,7 +1,7 @@
 ﻿import { Fragment, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { katalogAPI, type KategoriKendaraan, type TipeKendaraan, type KatalogItem, type JamOperasional } from '../../services/api';
-import { todayJakarta, formatJamOperasional } from '../../lib/format';
+import { katalogAPI, type KategoriKendaraan, type TipeKendaraan, type KatalogItem } from '../../services/api';
+import { todayJakarta } from '../../lib/format';
 import { useAdminContact } from '../../contexts/AdminContactContext';
 import AnimatedSection from '../../components/public/landing/AnimatedSection';
 import VehicleCard from '../../components/public/VehicleCard';
@@ -22,7 +22,6 @@ interface KatalogMeta {
   last_page: number;
   per_page: number;
   total: number;
-  jam_operasional?: JamOperasional[];
 }
 
 const SORT_OPTIONS = [
@@ -282,14 +281,6 @@ export default function Katalog() {
                 Konsultasi Gratis
               </a>
             </div>
-            {meta?.jam_operasional && meta.jam_operasional.length > 0 && (
-              <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full text-sm text-black-400">
-                <svg className="w-4 h-4 text-primary-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>Jam operasional: <span className="text-white/90">{formatJamOperasional(meta.jam_operasional)}</span></span>
-              </div>
-            )}
           </AnimatedSection>
         </div>
       </section>

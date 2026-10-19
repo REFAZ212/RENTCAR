@@ -18,6 +18,7 @@ export interface User {
   email: string;
   phone?: string;
   role?: string;
+  avatar?: string | null;
 }
 
 interface LoginResponse {
@@ -33,6 +34,7 @@ interface AuthContextType {
     password: string
   ) => Promise<LoginResponse>;
   setSession: (token: string, user: User) => void;
+  updateUser: (patch: Partial<User>) => void;
   logout: () => Promise<void>;
 }
 
@@ -163,6 +165,16 @@ const setSession = (token: string, user: User): void => {
   setUser(user);
 };
 
+const updateUser = (patch: Partial<User>): void => {
+  setUser((prev) => {
+    const next = prev
+      ? { ...prev, ...patch }
+      : ({ ...patch } as User);
+    localStorage.setItem("user", JSON.stringify(next));
+    return next;
+  });
+};
+
   return (
     <AuthContext.Provider
   value={{
@@ -170,6 +182,7 @@ const setSession = (token: string, user: User): void => {
     loading,
     login,
     setSession,
+    updateUser,
     logout,
   }}
 >

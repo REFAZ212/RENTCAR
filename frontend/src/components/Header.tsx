@@ -5,6 +5,7 @@ import { Menu, Bell, ChevronDown, Plus, LogOut, CheckCheck, Volume2, VolumeX } f
 import { notificationAPI, type AppNotification } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import useNotificationSound from '../hooks/useNotificationSound';
+import { storageUrl } from '../lib/storage';
 
 /** Interval polling badge notifikasi (ms). */
 const POLL_INTERVAL_MS = 15000;
@@ -44,6 +45,7 @@ function truncateTitle(title: string, maxLen = TOAST_TITLE_MAX_LEN): string {
 interface HeaderUser {
   name?: string;
   role?: string;
+  avatar?: string | null;
 }
 
 interface HeaderProps {
@@ -53,13 +55,23 @@ interface HeaderProps {
   onNewBooking?: () => void; // opsional — kalau tidak dikirim, tombol "Booking Baru" tidak ditampilkan
 }
 
-function UserAvatar({ name }: { name?: string }) {
+function UserAvatar({ name, avatar }: { name?: string; avatar?: string | null }) {
+  const src = storageUrl(avatar);
   const initials = (name || 'A')
     .split(' ')
     .map((w) => w[0])
     .join('')
     .toUpperCase()
     .slice(0, 2);
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name ?? 'Avatar'}
+        className="h-8 w-8 shrink-0 rounded-full object-cover"
+      />
+    );
+  }
   return (
     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-black-700 to-black-900 text-xs font-bold text-white">
       {initials}
@@ -199,7 +211,7 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
   useEffect(() => {
     fetchUnreadCount();
     const interval = setInterval(() => {
-      if (!document.hidden) fetchUnreadCount();
+      fetchUnreadCount();
     }, POLL_INTERVAL_MS);
 
     const onFocus = () => fetchUnreadCount();
@@ -380,7 +392,7 @@ export default function Header({ user, onMenuClick, onLogout, onNewBooking }: He
             onClick={() => setShowUserMenu((v) => !v)}
             className="flex items-center gap-2 rounded-full py-1 pl-1 pr-2 hover:bg-canvas"
           >
-            <UserAvatar name={user?.name} />
+            <UserAvatar name={user?.name} avatar={user?.avatar} />
             <div className="hidden min-w-0 text-left sm:block">
               <p className="truncate text-sm font-medium leading-tight text-black-700" title={user?.name}>{user?.name}</p>
               <p className="truncate text-xs text-black-400">{ROLE_LABELS[user?.role ?? ''] ?? user?.role}</p>

@@ -143,4 +143,60 @@ class PengaturanNotifikasiTest extends TestCase
 
         $response->assertForbidden();
     }
+
+    public function test_update_menyimpan_semua_toggle_termasuk_notif_admin_kendaraan_dikirim(): void
+    {
+        Setting::set('notif_booking_baru', '1');
+        Setting::set('notif_pembayaran_masuk', '1');
+        Setting::set('notif_admin_kendaraan_dikirim', '1');
+
+        $response = $this->actingAs($this->admin)->putJson('/api/pengaturan/notifikasi', [
+            'notif_booking_baru' => false,
+            'notif_penugasan_driver' => false,
+            'notif_task_petugas' => false,
+            'notif_supir_order_mulai' => false,
+            'notif_supir_order_selesai' => false,
+            'notif_pengingat_kembali_supir' => false,
+            'notif_pembayaran_masuk' => false,
+            'notif_pengingat_bayar' => false,
+            'notif_perlu_verifikasi' => false,
+            'notif_order_selesai' => false,
+            'notif_pengingat_kembali' => false,
+            'kirim_hasil_inspeksi_ke_customer' => false,
+            'notif_admin_kendaraan_dikirim' => false,
+            'template_pengingat_kembali' => 'Halo {nama_customer}, kembalikan mobil ya.',
+            'template_notifikasi_owner' => '[BOOKING] {kendaraan} — {customer}',
+        ]);
+
+        $response->assertOk();
+        $this->assertSame('0', Setting::get('notif_booking_baru'));
+        $this->assertSame('0', Setting::get('notif_pembayaran_masuk'));
+        $this->assertSame('0', Setting::get('notif_admin_kendaraan_dikirim'));
+        $this->assertSame('Halo {nama_customer}, kembalikan mobil ya.', Setting::get('template_pengingat_kembali'));
+        $this->assertSame('[BOOKING] {kendaraan} — {customer}', Setting::get('template_notifikasi_owner'));
+    }
+
+    public function test_update_token_termask_tidak_menimpa_token_asli(): void
+    {
+        Setting::set('fonnte_token', 'rahasia-asli-1234');
+
+        $response = $this->actingAs($this->admin)->putJson('/api/pengaturan/notifikasi', [
+            'fonnte_token' => '****1234',
+            'nomor_wa_owner' => '6281111111111',
+        ]);
+
+        $response->assertOk();
+        $this->assertSame('rahasia-asli-1234', Setting::get('fonnte_token'));
+        $this->assertSame('6281111111111', Setting::get('nomor_wa_owner'));
+    }
+
+    public function test_update_toggle_ditolak_untuk_petugas(): void
+    {
+        $response = $this->actingAs($this->petugas)->putJson('/api/pengaturan/notifikasi', [
+            'notif_admin_kendaraan_dikirim' => false,
+        ]);
+
+        $response->assertForbidden();
+        $this->assertSame('', Setting::get('notif_admin_kendaraan_dikirim', ''));
+    }
 }

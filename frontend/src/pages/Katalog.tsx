@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { katalogAPI, type KategoriKendaraan, type TipeKendaraan, type KatalogItem, type OrderRequestPayload } from '../services/api';
 import { todayJakarta, formatRupiah, ADMIN_WA } from '../lib/format';
+import { storageUrl } from '../lib/storage';
 
 interface KategoriWithCount extends KategoriKendaraan {
   slug: string;
@@ -26,15 +27,6 @@ const SORT_OPTIONS = [
   { value: 'harga_desc', label: 'Harga Tertinggi' },
   { value: 'nama', label: 'Nama A-Z' },
 ] as const;
-
-// Base URL API — sesuaikan lewat file .env (VITE_API_BASE_URL), fallback ke domain production
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.udinrentcar.com';
-
-const getFotoUrl = (foto: string | null | undefined): string | null => {
-  if (!foto) return null;
-  if (foto.startsWith('http')) return foto;
-  return `${API_BASE_URL}/storage/${foto}`;
-};
 
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState(value);
@@ -114,8 +106,9 @@ function PesanSekarangModal({
   }, [form.tanggal_mulai, form.tanggal_selesai, form.jam_mulai, form.jam_selesai]);
 
   const totalPreview = useMemo(() => {
-    return item.harga_sewa_per_hari * durasiHari;
-  }, [item.harga_sewa_per_hari, durasiHari]);
+    const supirFee = form.opsi_supir === 'dengan_supir' ? item.biaya_dengan_driver_per_hari ?? 0 : 0;
+    return item.harga_sewa_per_hari * durasiHari + supirFee * durasiHari;
+  }, [item.harga_sewa_per_hari, item.biaya_dengan_driver_per_hari, durasiHari, form.opsi_supir]);
 
   useEffect(() => {
     let cancelled = false;
@@ -292,7 +285,7 @@ function PesanSekarangModal({
                 <div className="w-14 h-14 rounded-lg bg-gray-200 overflow-hidden shrink-0">
                   {item.foto ? (
                     <img
-                      src={getFotoUrl(item.foto) ?? ''}
+                      src={storageUrl(item.foto) ?? ''}
                       alt={item.nama_kendaraan}
                       className="w-full h-full object-cover"
                     />
@@ -499,7 +492,7 @@ function PesanSekarangModal({
                   {form.opsi_supir === 'dengan_supir' && (
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm text-gray-600">Supir</span>
-                      <span className="text-xs text-orange-600 font-medium">Biaya diinfo admin</span>
+                      <span className="text-sm font-medium text-gray-900">+ {formatRupiah(item.biaya_dengan_driver_per_hari)} / hari</span>
                     </div>
                   )}
                   <div className="border-t border-blue-200 pt-2 flex justify-between items-center">
@@ -582,7 +575,7 @@ function VehicleCard({
   onPesan: (item: KatalogItem) => void;
   availableForDates?: boolean;
 }) {
-  const fotoUrl = getFotoUrl(item.foto);
+  const fotoUrl = storageUrl(item.foto);
   const isUnavailable = availableForDates === false;
   const isRented = !isUnavailable && item.status === 'disewa' && (item.active_orders_count ?? 0) > 0;
 
@@ -663,13 +656,13 @@ function VehicleCard({
               {item.kapasitas_penumpang} kursi
             </span>
           )}
-          {item.garasiPartner && (
+          {item.garasi_partner && (
             <span className="flex items-center gap-1">
               <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              {item.garasiPartner.nama_partner}
+              {item.garasi_partner.nama_garasi}
             </span>
           )}
         </div>

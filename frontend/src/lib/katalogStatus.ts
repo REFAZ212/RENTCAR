@@ -1,11 +1,10 @@
 import type { KatalogItem } from '../services/api';
+import { storageUrl } from './storage';
 
 export const getFotoUrl = (foto: string | null | undefined): string | null => {
   if (!foto) return null;
 
-  if (foto.startsWith('http')) return foto;
-
-  return `https://api.udinrentcar.com/storage/${foto}`;
+  return storageUrl(foto);
 };
 
 // Tanda visual foto untuk kendaraan yang sedang tidak bisa dipesan.

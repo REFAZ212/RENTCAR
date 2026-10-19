@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Phone, Mail, MapPin } from 'lucide-react';
-import { formatJamOperasional } from '../../../lib/format';
 import { useAdminContact } from '../../../contexts/AdminContactContext';
 import { katalogAPI, type JamOperasional } from '../../../services/api';
+import JamOperasionalChips from '../JamOperasionalChips';
 import logo from '../../../assets/logofooter.png';
 
 const footerLinks = {
@@ -110,9 +110,9 @@ export default function LandingFooter() {
         <div className="py-6 border-t border-black-900 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-black-400">
           <p>&copy; {new Date().getFullYear()} UDIN RENCTCAR. Hak cipta dilindungi.</p>
           {jamOperasional && jamOperasional.length > 0 && (
-            <div className="flex items-center gap-2 text-center sm:text-right">
-              <span className="w-1 h-1 bg-black-700 rounded-full hidden sm:block" />
-              <span>Jam operasional: {formatJamOperasional(jamOperasional)}</span>
+            <div className="flex flex-col items-center gap-1.5 text-center sm:items-end sm:text-right">
+              <span className="text-black-500">Jam operasional</span>
+              <JamOperasionalChips jam={jamOperasional} variant="dark" />
             </div>
           )}
         </div>

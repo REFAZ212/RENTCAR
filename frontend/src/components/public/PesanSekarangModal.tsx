@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { katalogAPI, type KatalogItem, type OrderRequestPayload, type JamOperasional } from '../../services/api';
-import { todayJakarta, nowWIBTime, formatRupiah, formatJamOperasional } from '../../lib/format';
+import JamOperasionalChips from './JamOperasionalChips';
+import { todayJakarta, nowWIBTime, formatRupiah } from '../../lib/format';
 import { getFotoUrl } from '../../lib/katalogStatus';
 import { useAdminContact } from '../../contexts/AdminContactContext';
 
@@ -115,8 +116,9 @@ export default function PesanSekarangModal({
 
   const totalPreview = useMemo(() => {
     if (durasiHari < 1) return 0;
-    return item.harga_sewa_per_hari * durasiHari;
-  }, [durasiHari, item.harga_sewa_per_hari]);
+    const supirFee = form.opsi_supir === 'dengan_supir' ? item.biaya_dengan_driver_per_hari ?? 0 : 0;
+    return item.harga_sewa_per_hari * durasiHari + supirFee * durasiHari;
+  }, [durasiHari, item.harga_sewa_per_hari, item.biaya_dengan_driver_per_hari, form.opsi_supir]);
 
   useEffect(() => {
     let cancelled = false;
@@ -291,13 +293,14 @@ export default function PesanSekarangModal({
                 jam.
               </p>
               {jamOperasional && jamOperasional.length > 0 && (
-                <div className="flex items-start gap-2.5 text-left p-3 bg-canvas rounded-xl mb-6 text-xs text-black-500">
-                  <svg className="w-4 h-4 text-primary-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>
-                    <span className="font-semibold text-black-700">Jam operasional:</span> {formatJamOperasional(jamOperasional)}
+                <div className="p-3 bg-canvas rounded-xl mb-6">
+                  <span className="flex items-center gap-2 text-xs font-semibold text-black-700 mb-2">
+                    <svg className="w-4 h-4 text-primary-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Jam operasional
                   </span>
+                  <JamOperasionalChips jam={jamOperasional} variant="light" />
                 </div>
               )}
               <a
@@ -519,7 +522,7 @@ export default function PesanSekarangModal({
                   {form.opsi_supir === 'dengan_supir' && (
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm text-black-500">Supir</span>
-                      <span className="text-xs text-accent-600 font-medium">Biaya diinfo admin</span>
+                      <span className="text-sm font-medium text-black-600">+ {formatRupiah(item.biaya_dengan_driver_per_hari)} / hari</span>
                     </div>
                   )}
                   <div className="border-t border-primary-200 pt-2 flex justify-between items-center">

@@ -148,28 +148,25 @@ export function nowWIBTime(): string {
   return new Date().toLocaleTimeString('sv-SE', { timeZone: 'Asia/Jakarta' }).slice(0, 5);
 }
 
+/**
+ * Konversi timestamp ISO dari API (UTC) menjadi nilai input datetime-local
+ * dalam timezone Asia/Jakarta (YYYY-MM-DDTHH:MM). Mengembalikan null bila
+ * timestamp kosong/tidak valid.
+ */
+export function toWIBInput(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const parts = d.toLocaleString('sv-SE', { timeZone: 'Asia/Jakarta' }).split(' ');
+  return `${parts[0]}T${parts[1].slice(0, 5)}`;
+}
+
 /** Satu baris jam operasional (struktur sama dengan respons API pengaturan). */
 export interface JamOperasionalRow {
   hari: string;
   buka?: string;
   tutup?: string;
   libur?: boolean;
-}
-
-/**
- * Ringkas daftar jam operasional 7 hari menjadi satu string pendek,
- * contoh: "Senin 08:00–20:00 · Selasa 08:00–20:00 · ... · Minggu libur".
- */
-export function formatJamOperasional(jam: JamOperasionalRow[]): string {
-  const rows = (jam ?? []).filter((r) => r && typeof r.hari === 'string' && r.hari.trim());
-  if (!rows.length) return 'Jam operasional belum diatur';
-  return rows
-    .map((r) => {
-      const day = r.hari.trim();
-      if (r.libur || !r.buka || !r.tutup) return `${day} libur`;
-      return `${day} ${r.buka}–${r.tutup}`;
-    })
-    .join(' · ');
 }
 
 /**

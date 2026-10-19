@@ -50,23 +50,23 @@ class KatalogKontakTest extends TestCase
             ]);
     }
 
-    public function test_kontak_uses_setting_when_no_own_garasi(): void
+    public function test_kontak_uses_identitas_usaha_no_telp_as_wa(): void
     {
-        Setting::create(['key' => 'nomor_wa_owner', 'value' => '0811-111-2222']);
+        Setting::create(['key' => 'no_telp_usaha', 'value' => '081234567890']);
 
         $this->getJson('/api/katalog/kontak')
             ->assertOk()
             ->assertExactJson([
-                'wa' => '628111112222',
-                'hp' => '08111112222',
+                'wa' => '6281234567890',
+                'hp' => '081234567890',
                 'email' => 'info@udin-renctcar.com',
                 'alamat' => 'Jl. Contoh No. 123, Kota',
             ]);
     }
 
-    public function test_kontak_prefers_own_garasi_over_setting(): void
+    public function test_kontak_identitas_usaha_outranks_own_garasi(): void
     {
-        Setting::create(['key' => 'nomor_wa_owner', 'value' => '08111112222']);
+        Setting::create(['key' => 'no_telp_usaha', 'value' => '0857-1234-5678']);
         GarasiPartner::create([
             'nama_garasi' => 'Garasi Udin',
             'nama_pemilik' => 'Udin',
@@ -78,29 +78,29 @@ class KatalogKontakTest extends TestCase
         $this->getJson('/api/katalog/kontak')
             ->assertOk()
             ->assertExactJson([
-                'wa' => '6281234500000',
-                'hp' => '081234500000',
+                'wa' => '6285712345678',
+                'hp' => '085712345678',
                 'email' => 'info@udin-renctcar.com',
                 'alamat' => 'Jl. Contoh No. 123, Kota',
             ]);
     }
 
-    public function test_kontak_ignores_empty_own_garasi_and_falls_back_to_setting(): void
+    public function test_kontak_uses_own_garasi_when_no_telp_usaha_kosong(): void
     {
-        Setting::create(['key' => 'nomor_wa_owner', 'value' => '0857-1234-5678']);
+        Setting::create(['key' => 'no_telp_usaha', 'value' => '']);
         GarasiPartner::create([
-            'nama_garasi' => 'Garasi Kosong',
+            'nama_garasi' => 'Garasi Udin',
             'nama_pemilik' => 'Udin',
             'alamat' => 'Jl. Test 2',
-            'no_hp' => '',
+            'no_hp' => '081234500000',
             'is_own' => true,
         ]);
 
         $this->getJson('/api/katalog/kontak')
             ->assertOk()
             ->assertExactJson([
-                'wa' => '6285712345678',
-                'hp' => '085712345678',
+                'wa' => '6281234500000',
+                'hp' => '081234500000',
                 'email' => 'info@udin-renctcar.com',
                 'alamat' => 'Jl. Contoh No. 123, Kota',
             ]);
@@ -135,8 +135,23 @@ class KatalogKontakTest extends TestCase
             ]);
     }
 
+    public function test_kontak_normalizes_identitas_usaha_no_telp_variations(): void
+    {
+        Setting::create(['key' => 'no_telp_usaha', 'value' => '0812-3456-7890']);
+
+        $this->getJson('/api/katalog/kontak')
+            ->assertOk()
+            ->assertExactJson([
+                'wa' => '6281234567890',
+                'hp' => '081234567890',
+                'email' => 'info@udin-renctcar.com',
+                'alamat' => 'Jl. Contoh No. 123, Kota',
+            ]);
+    }
+
     public function test_kontak_normalizes_own_no_hp_variations(): void
     {
+        Setting::create(['key' => 'no_telp_usaha', 'value' => '']);
         GarasiPartner::create([
             'nama_garasi' => 'Garasi Udin',
             'nama_pemilik' => 'Udin',
@@ -155,16 +170,52 @@ class KatalogKontakTest extends TestCase
             ]);
     }
 
-    public function test_kontak_returns_identitas_usaha_email_dan_alamat(): void
+    public function test_kontak_ignores_empty_own_garasi_and_falls_back_to_default(): void
     {
-        Setting::create(['key' => 'email_usaha', 'value' => 'halo@udinrenctcar.com']);
-        Setting::create(['key' => 'alamat_usaha', 'value' => 'Jl. Raya Sudirman No. 1, Jakarta']);
+        Setting::create(['key' => 'no_telp_usaha', 'value' => '']);
+        GarasiPartner::create([
+            'nama_garasi' => 'Garasi Kosong',
+            'nama_pemilik' => 'Udin',
+            'alamat' => 'Jl. Test 4',
+            'no_hp' => '',
+            'is_own' => true,
+        ]);
 
         $this->getJson('/api/katalog/kontak')
             ->assertOk()
             ->assertExactJson([
                 'wa' => '62895361054272',
                 'hp' => '0895361054272',
+                'email' => 'info@udin-renctcar.com',
+                'alamat' => 'Jl. Contoh No. 123, Kota',
+            ]);
+    }
+
+    public function test_kontak_ignores_nomor_wa_owner_for_public_number(): void
+    {
+        Setting::create(['key' => 'nomor_wa_owner', 'value' => '08111112222']);
+
+        $this->getJson('/api/katalog/kontak')
+            ->assertOk()
+            ->assertExactJson([
+                'wa' => '62895361054272',
+                'hp' => '0895361054272',
+                'email' => 'info@udin-renctcar.com',
+                'alamat' => 'Jl. Contoh No. 123, Kota',
+            ]);
+    }
+
+    public function test_kontak_returns_identitas_usaha_email_dan_alamat(): void
+    {
+        Setting::create(['key' => 'no_telp_usaha', 'value' => '082145678901']);
+        Setting::create(['key' => 'email_usaha', 'value' => 'halo@udinrenctcar.com']);
+        Setting::create(['key' => 'alamat_usaha', 'value' => 'Jl. Raya Sudirman No. 1, Jakarta']);
+
+        $this->getJson('/api/katalog/kontak')
+            ->assertOk()
+            ->assertExactJson([
+                'wa' => '6282145678901',
+                'hp' => '082145678901',
                 'email' => 'halo@udinrenctcar.com',
                 'alamat' => 'Jl. Raya Sudirman No. 1, Jakarta',
             ]);

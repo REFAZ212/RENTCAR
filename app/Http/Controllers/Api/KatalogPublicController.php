@@ -82,6 +82,10 @@ class KatalogPublicController extends Controller
 
         $items = $kendaraan->items();
 
+        // Tarif global opsi "dengan supir" (diatur admin, per hari) — dikirim
+        // supaya form pemesanan konsumen bisa menampilkan & menghitung total.
+        $tarifSupir = (int) Setting::getTarifDenganDriverPerHari();
+
         // Add estimated return date for rented vehicles
         foreach ($items as $k) {
             if ($k->status === 'disewa') {
@@ -101,6 +105,7 @@ class KatalogPublicController extends Controller
             // Catatan servis/inspeksi internal & harga modal tidak boleh bocor ke publik.
             $k->makeHidden(['catatan', 'margin_per_hari', 'margin_persen', 'harga_partner_per_hari']);
             $k->garasiPartner?->makeHidden(self::PARTNER_PUBLIC_HIDDEN);
+            $k->biaya_dengan_driver_per_hari = $tarifSupir;
         }
 
         if ($request->filled('tanggal_mulai') && $request->filled('durasi_hari')) {
@@ -239,6 +244,7 @@ class KatalogPublicController extends Controller
         // Data internal (margin, catatan servis, harga modal) tidak boleh bocor ke publik.
         $kendaraan->makeHidden(['catatan', 'margin_per_hari', 'margin_persen', 'harga_partner_per_hari']);
         $kendaraan->garasiPartner?->makeHidden(self::PARTNER_PUBLIC_HIDDEN);
+        $kendaraan->biaya_dengan_driver_per_hari = (int) Setting::getTarifDenganDriverPerHari();
 
         return response()->json($kendaraan);
     }

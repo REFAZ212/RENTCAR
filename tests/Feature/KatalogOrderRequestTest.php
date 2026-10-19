@@ -8,6 +8,7 @@ use App\Models\Kategori;
 use App\Models\Kendaraan;
 use App\Models\Notification;
 use App\Models\Order;
+use App\Models\Setting;
 use App\Models\Tipe;
 use App\Models\User;
 use Illuminate\Support\Carbon;
@@ -308,6 +309,59 @@ class KatalogOrderRequestTest extends TestCase
         } finally {
             Carbon::setTestNow();
         }
+    }
+
+    public function test_order_request_dengan_supir_menambahkan_biaya_supir_ke_total(): void
+    {
+        Carbon::setTestNow('2026-12-01 10:00:00');
+        Setting::set('biaya_dengan_driver_per_hari', 150000);
+        try {
+            $response = $this->postJson('/api/katalog/order-request', $this->payload([
+                'opsi_supir' => 'dengan_supir',
+            ]));
+
+            $response->assertStatus(201);
+            $order = Order::findOrFail($response->json('order.id'));
+
+            // Payload default: 2026-12-01 s/d 2026-12-03 = 3 hari (tanpa jam).
+            $durasi = (int) $order->durasi_hari;
+            $this->assertSame(3, $durasi);
+            $this->assertSame('dengan_supir', $order->opsi_supir);
+            // Total harus sudah termasuk biaya supir 150000/hari.
+            $this->assertEquals($durasi * 500000 + $durasi * 150000, (float) $order->harga_total);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_order_request_lepas_kunci_tanpa_biaya_supir(): void
+    {
+        $this->postJson('/api/katalog/order-request', $this->payload())->assertStatus(201);
+
+        $order = Order::first();
+        $durasi = (int) $order->durasi_hari;
+        $this->assertSame(3, $durasi);
+        $this->assertEquals($durasi * 500000, (float) $order->harga_total);
+    }
+
+    public function test_katalog_index_menyertakan_biaya_dengan_driver_per_hari(): void
+    {
+        Setting::set('biaya_dengan_driver_per_hari', 150000);
+
+        $response = $this->getJson('/api/katalog');
+
+        $response->assertOk();
+        $this->assertSame(150000, $response->json('data.0.biaya_dengan_driver_per_hari'));
+    }
+
+    public function test_katalog_show_menyertakan_biaya_dengan_driver_per_hari(): void
+    {
+        Setting::set('biaya_dengan_driver_per_hari', 150000);
+
+        $response = $this->getJson('/api/katalog/'.$this->kendaraan->id);
+
+        $response->assertOk();
+        $this->assertSame(150000, $response->json('biaya_dengan_driver_per_hari'));
     }
 
     public function test_order_request_rejects_jam_selesai_before_jam_mulai_same_date(): void

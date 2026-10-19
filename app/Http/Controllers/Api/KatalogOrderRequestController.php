@@ -78,6 +78,12 @@ class KatalogOrderRequestController extends Controller
 
         $hargaTotal = $durasi * $hargaPerHari;
 
+        // Opsi "dengan supir" menambah biaya supir per hari (diatur admin),
+        // supaya total yang tersimpan konsisten dengan yang dilihat konsumen.
+        if ($opsiSupir === 'dengan_supir') {
+            $hargaTotal += $durasi * Setting::getTarifDenganDriverPerHari();
+        }
+
         $normalizedHp = preg_replace('/[^0-9]/', '', $validated['no_hp']);
         if (str_starts_with($normalizedHp, '0')) {
             $normalizedHp = '62'.substr($normalizedHp, 1);
@@ -155,7 +161,7 @@ class KatalogOrderRequestController extends Controller
                 ?? 1;
 
             $order = Order::create([
-                'kode_order' => 'ORD-'.strtoupper(Str::random(8)),
+                'kode_order' => Setting::get('prefix_kode_order', 'ORD').'-'.strtoupper(Str::random(8)),
                 'source' => 'katalog',
                 'customer_id' => $customer->id,
                 'kendaraan_id' => $kendaraan->id,
@@ -275,7 +281,7 @@ class KatalogOrderRequestController extends Controller
             ."Selesai: {$tanggalSelesai->format('d/m/Y')}".($jamSelesai ? " jam {$jamSelesai}" : '')."\n"
             ."Durasi: {$durasi} hari\n\n"
             ."*Opsi*: {$opsiLabel}\n\n"
-            .'*Total Harga*: Rp '.number_format($hargaTotal, 0, ',', '.')." (belum termasuk biaya supir)\n\n"
+            .'*Total Harga*: Rp '.number_format($hargaTotal, 0, ',', '.').($opsiSupir === 'dengan_supir' ? ' (sudah termasuk biaya supir)' : ' (belum termasuk biaya supir)')."\n\n"
             ."*Data Diri*\n"
             ."Nama: {$namaLengkap}\n"
             ."WA: {$noHp}\n";
