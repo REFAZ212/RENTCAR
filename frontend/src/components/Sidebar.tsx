@@ -46,7 +46,7 @@ const navGroups: NavGroup[] = [
   {
     title: 'Kendaraan',
     items: [
-      { path: '/kendaraan', label: 'Kendaraan', icon: Car, roles: ROLES_ADMIN },
+      { path: '/kendaraan', label: 'Kendaraan & Tipe', icon: Car, roles: ROLES_ADMIN },
       { path: '/inspeksi', label: 'Inspeksi', icon: ClipboardCheck, roles: ROLES_ALL },
     ],
   },

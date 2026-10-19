@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { dashboardAPI, inspeksiAPI, type Order } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { statusOrderColors, labelStatusOrder } from '../constants/status';
 import StatCard, { decorativeSparkline } from '../components/dashboard/StatCard';
 import RevenueChart, { type ChartPendapatanPoint } from '../components/dashboard/RevenueChart';
 
@@ -75,15 +76,6 @@ interface DashboardData {
 }
 
 type TaskOrder = Order & { task_jenis: 'inspeksi_pickup' | 'kirim_kendaraan' | 'return' };
-
-// Badge warna — token tema: primary (biru), accent (amber), success (hijau), error (merah)
-const statusOrderColors: Record<string, string> = {
-  pending: 'bg-accent-50 text-accent-600',
-  confirmed: 'bg-primary-50 text-primary-500',
-  active: 'bg-primary-100 text-primary-600',
-  completed: 'bg-success-50 text-success-600',
-  cancelled: 'bg-error-50 text-error-500',
-};
 
 // Aktivitas timeline color by type
 const activityColors: Record<string, string> = {
@@ -622,7 +614,7 @@ export default function Dashboard() {
                           statusOrderColors[order.status_order] || 'bg-primary-100 text-black-400'
                         }`}
                       >
-                        {order.status_order}
+                        {labelStatusOrder(order.status_order)}
                       </span>
                     </div>
                   </Link>
@@ -685,7 +677,7 @@ export default function Dashboard() {
                             statusOrderColors[order.status_order] || 'bg-primary-100 text-black-400'
                           }`}
                         >
-                          {order.status_order}
+                          {labelStatusOrder(order.status_order)}
                         </span>
                       </div>
                     </Link>

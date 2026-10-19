@@ -56,9 +56,12 @@ class OrderService
             $query->where('status_pengiriman', $filters['status_pengiriman']);
         }
 
-        if (! empty($filters['tanggal_mulai']) && ! empty($filters['tanggal_selesai'])) {
-            $query->where('tanggal_mulai', '<=', $filters['tanggal_selesai'])
-                ->where('tanggal_selesai', '>=', $filters['tanggal_mulai']);
+        if (! empty($filters['tanggal_mulai'])) {
+            $query->where('tanggal_selesai', '>=', $filters['tanggal_mulai']);
+        }
+
+        if (! empty($filters['tanggal_selesai'])) {
+            $query->where('tanggal_mulai', '<=', $filters['tanggal_selesai']);
         }
 
         // "Overdue" bukan status di database — dihitung dari batas waktu
@@ -558,9 +561,24 @@ class OrderService
             }
         }
 
+        // Penutupan order (status_order → completed) adalah SATU-SATUNYA momen
+        // yang boleh mengirim tanggal_pengembalian_aktual & biaya_kerusakan pada
+        // order yang sudah berjalan. Setelah order benar-benar selesai, kedua
+        // field itu dikunci supaya denda yang tersimpan tidak jadi tidak
+        // konsisten dengan waktu pengembaliannya.
+        $isCompletingRequest = ($validated['status_order'] ?? null) === 'completed'
+            && $order->status_order !== 'completed';
+
         if (in_array($order->status_order, ['active', 'perlu_verifikasi', 'completed', 'cancelled'])) {
             $lockedFields = ['customer_id', 'customer_name', 'customer_no_hp', 'customer_email', 'customer_alamat', 'customer_no_sim', 'customer_no_ktp', 'customer_foto_ktp', 'customer_foto_sim', 'kendaraan_id', 'tanggal_mulai', 'tanggal_selesai', 'jam_mulai', 'jam_selesai', 'alamat_jemput', 'tujuan', 'metode_penyerahan', 'supir_id', 'opsi_supir', 'calo_id'];
+            if ($order->status_order === 'completed' || $order->status_order === 'cancelled') {
+                $lockedFields[] = 'tanggal_pengembalian_aktual';
+                $lockedFields[] = 'biaya_kerusakan';
+            }
             $attemptedLocked = array_intersect_key($validated, array_flip($lockedFields));
+            if ($isCompletingRequest) {
+                unset($attemptedLocked['tanggal_pengembalian_aktual'], $attemptedLocked['biaya_kerusakan']);
+            }
             if (! empty($attemptedLocked) || ! empty($validated['customer_foto_ktp_path']) || ! empty($validated['customer_foto_sim_path'])) {
                 throw ValidationException::withMessages([
                     'status_order' => ['Order ini sudah final (aktif/perlu verifikasi/selesai/dibatalkan). Hanya status, status pembayaran, metode bayar, bukti pembayaran, dan catatan yang bisa diperbarui.'],
@@ -605,6 +623,18 @@ class OrderService
         if (isset($validated['calo_id']) && ! isset($validated['komisi_calo'])) {
             $caloForKomisi = $validated['calo_id'] ? SupirCalo::find($validated['calo_id']) : null;
             $validated['komisi_calo'] = $caloForKomisi?->komisi;
+        }
+
+        // status_pengiriman hanya boleh MAJU (lihat Order::ALLOWED_PENGIRIMAN_TRANSITIONS).
+        // Mencegah status diisi sembarang/mundur (mis. kembali ke "Belum Diambil"
+        // padahal sudah dikembalikan). Jalur khusus (kirim/kembali/selesai)
+        // menulis langsung, tidak lewat validasi ini.
+        if (isset($validated['status_pengiriman'])
+            && $validated['status_pengiriman'] !== $order->status_pengiriman
+            && ! $order->canTransitionPengirimanTo($validated['status_pengiriman'])) {
+            throw ValidationException::withMessages([
+                'status_pengiriman' => ["Status pengiriman tidak boleh berubah dari '{$order->status_pengiriman}' ke '{$validated['status_pengiriman']}'."],
+            ]);
         }
 
         $newStatusPengiriman = $validated['status_pengiriman'] ?? $order->status_pengiriman;
@@ -664,14 +694,13 @@ class OrderService
         if ($newStatusOrder === 'completed') {
             $waktuAktual = isset($validated['tanggal_pengembalian_aktual'])
                 ? Carbon::parse($validated['tanggal_pengembalian_aktual'])
-                : now();
+                : $order->waktuPengembalianAktualDefault();
 
-            // Proyeksi total FINAL (sudah termasuk denda keterlambatan) — satu
-            // sumber kebenaran sama dengan selesaikanSewa(). Tagihan memakai
-            // durasi penuh sesuai kesepakatan: pengembalian lebih awal tidak
-            // mengurangi tagihan dan tidak menghasilkan refund.
-            $totalFinal = (float) $order->proyeksiSelesai($waktuAktual)['harga_total']
-                + $biayaKerusakanFinal;
+            // Total tagihan FINAL (termasuk denda keterlambatan + kerusakan) —
+            // satu rumus sama dengan selesaikanSewa() via Order::totalTagihan().
+            // Tagihan memakai durasi penuh sesuai kesepakatan: pengembalian
+            // lebih awal tidak mengurangi tagihan dan tidak menghasilkan refund.
+            $totalFinal = $order->totalTagihan($waktuAktual, $biayaKerusakanFinal);
 
             $totalBayar = (float) $order->pembayarans()
                 ->whereNull('deleted_at')
@@ -1259,7 +1288,7 @@ class OrderService
         if ($newStatus === 'completed' && $statusSebelumUpdate !== 'completed') {
             $waktuAktual = isset($validated['tanggal_pengembalian_aktual'])
                 ? Carbon::parse($validated['tanggal_pengembalian_aktual'])
-                : now();
+                : $order->waktuPengembalianAktualDefault();
 
             // Kebijakan: pengembalian lebih awal TIDAK menghasilkan refund —
             // tagihan tetap sesuai kesepakatan. Cukup dicatat di catatan order
@@ -1329,6 +1358,37 @@ class OrderService
 
         if ($newStatus === 'completed') {
             $order->update(['status_pengiriman' => 'selesai']);
+            // Pastikan status pembayaran sinkron dengan total tagihan FINAL.
+            // Penting untuk klien API yang menyelesaikan order TANPA mengirim
+            // field pembayaran — tanpa ini status bisa "nyangkut" partial/unpaid
+            // walau order sudah lunas.
+            $this->sinkronkanStatusPembayaran($order);
+        }
+    }
+
+    /**
+     * Hitung ulang status_pembayaran dari nominal yang benar-benar masuk
+     * dibandingkan total tagihan order saat ini. Tidak pernah menandai "paid"
+     * bila pembayaran belum menutup total.
+     */
+    private function sinkronkanStatusPembayaran(Order $order): void
+    {
+        $totalPaid = (float) $order->pembayarans()
+            ->whereNull('deleted_at')
+            ->where('status', '!=', 'refund')
+            ->sum('jumlah');
+        $totalTagihan = $order->totalTagihan();
+
+        if ($totalPaid >= $totalTagihan - 0.01) {
+            $statusFinal = 'paid';
+        } elseif ($totalPaid > 0) {
+            $statusFinal = 'partial';
+        } else {
+            $statusFinal = 'unpaid';
+        }
+
+        if ($order->status_pembayaran !== $statusFinal) {
+            $order->update(['status_pembayaran' => $statusFinal]);
         }
     }
 
@@ -1339,16 +1399,16 @@ class OrderService
             return;
         }
 
-        $hargaTotal = (float) $order->harga_total;
         $jumlahBayar = (float) ($validated['jumlah_bayar'] ?? 0);
         $effectiveStatus = $validated['status_pembayaran'] ?? $order->status_pembayaran;
         $totalPaid = (float) $order->pembayarans()->whereNull('deleted_at')->where('status', '!=', 'refund')->sum('jumlah');
         $totalSetelahBayar = $totalPaid + $jumlahBayar;
 
-        // Denda keterlambatan yang sedang berjalan ikut jadi batas pembayaran
-        // maksimal & syarat "lunas" untuk order yang masih aktif.
-        $dendaLive = $order->status_order === 'active' ? (float) $order->denda_overtime_saat_ini : 0;
-        $batasMaksimal = $hargaTotal + $dendaLive;
+        // Batas pembayaran maksimal & syarat "lunas" memakai TOTAL TAGIHAN yang
+        // sama dengan validasi penutupan order (termasuk denda keterlambatan
+        // berjalan/beku + biaya kerusakan) — supaya tidak ada dua definisi
+        // "yang harus dibayar" yang saling bertentangan.
+        $batasMaksimal = $order->totalTagihan();
 
         // "Lunas" harus benar-benar menutup total (tidak boleh kurang).
         if ($effectiveStatus === 'paid' && $totalSetelahBayar < $batasMaksimal - 0.01) {

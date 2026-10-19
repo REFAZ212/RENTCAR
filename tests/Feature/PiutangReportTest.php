@@ -239,6 +239,7 @@ class PiutangReportTest extends TestCase
             'kode_order' => 'ORD-AKTIF',
             'harga_total' => 800000,
             'status_order' => 'active',
+            'tanggal_selesai' => Carbon::now()->addDays(5)->toDateString(),
         ]);
 
         $this->buatOrder([
@@ -272,6 +273,44 @@ class PiutangReportTest extends TestCase
         $this->assertEquals(1400000, $ringkasan['aging_buckets']['belum_tertunggak']['total']);
     }
 
+    public function test_piutang_memasukkan_denda_keterlambatan_berjalan(): void
+    {
+        // Order aktif yang sudah lewat batas pengembalian: denda berjalan belum
+        // masuk harga_total, jadi harus ditambahkan agar piutang tidak
+        // under-report. Field `denda` juga diekspos untuk transparansi.
+        $order = $this->buatOrder([
+            'kode_order' => 'ORD-TELAT',
+            'harga_total' => 1000000,
+            'status_order' => 'active',
+            'status_pembayaran' => 'partial',
+            'tanggal_mulai' => Carbon::now()->subDays(3)->toDateString(),
+            'tanggal_selesai' => Carbon::now()->subDays(1)->toDateString(),
+            'jam_selesai' => '17:00',
+        ]);
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 300000,
+            'metode_pembayaran' => 'transfer',
+            'status' => 'dp',
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson('/api/laporan/piutang');
+
+        $response->assertOk();
+
+        $row = collect(data_get($response->json(), 'data.data'))->firstWhere('kode_order', 'ORD-TELAT');
+
+        $this->assertNotNull($row);
+        $this->assertGreaterThan(0, $row['denda']);
+        $this->assertEquals(
+            1000000 + $row['denda'] - 300000,
+            $row['sisa_pembayaran'],
+        );
+        // Tanpa denda, sisa hanya 700.000 — pastikan lebih besar dari itu.
+        $this->assertGreaterThan(700000, $row['sisa_pembayaran']);
+    }
+
     public function test_sections_piutang_tidak_memakai_jatuh_tempo(): void
     {
         $this->buatOrder(['kode_order' => 'ORD-SEC', 'harga_total' => 900000]);
@@ -285,6 +324,38 @@ class PiutangReportTest extends TestCase
 
         $aging = collect($sections)->firstWhere('title', 'Aging Buckets');
         $this->assertContains('Belum Lewat Jatuh Tempo', array_column($aging['rows'], 0));
+    }
+
+    public function test_piutang_order_completed_tidak_menghitung_denda_dua_kali(): void
+    {
+        // Order yang SUDAH selesai: denda sudah termasuk di dalam harga_total.
+        // Piutang harus = harga_total - dibayar, bukan harga_total + denda - dibayar
+        // (kalau salah, denda terhitung dua kali).
+        $order = $this->buatOrder([
+            'kode_order' => 'ORD-COMP-DENDA',
+            'harga_total' => 1200000,
+            'denda_overtime' => 200000,
+            'jam_overtime' => 8,
+            'status_pembayaran' => 'partial',
+        ]);
+
+        Pembayaran::create([
+            'order_id' => $order->id,
+            'admin_id' => $this->admin->id,
+            'jumlah' => 200000,
+            'metode_pembayaran' => 'transfer',
+            'status' => 'dp',
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson('/api/laporan/piutang');
+        $response->assertOk();
+
+        $row = collect(data_get($response->json(), 'data.data'))->firstWhere('kode_order', 'ORD-COMP-DENDA');
+
+        $this->assertNotNull($row);
+        $this->assertEquals(1200000, $row['harga_total']);
+        $this->assertEquals(200000, $row['denda']);
+        $this->assertEquals(1000000, $row['sisa_pembayaran']);
     }
 
     public function test_api_order_create_mengabaikan_tanggal_jatuh_tempo(): void

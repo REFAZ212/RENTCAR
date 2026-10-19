@@ -95,6 +95,67 @@ const presets: Record<SoundPreset, PresetPlayer> = {
 };
 
 /**
+ * "Silent Audio Keeper"
+ *
+ * Saat tab/window diminimize, browser (terutama Chrome) men-trouble interval
+ * background dan membekukan AudioContext — akibatnya poll notifikasi melambat
+ * dan suara tidak berbunyi. Trik yang dipakai: putar loop audio nyaris senyap
+ * (amplitudo ~ -50 dB) via <audio> element selama tab tersembunyi. Tab yang
+ * "memutar media" dianggap audible → interval tidak ditrouble & AudioContext
+ * tidak dibekukan, sehingga suara notifikasi custom tetap bisa berbunyi.
+ *
+ * Amplitude dibuat sangat kecil (bukan volume 0) supaya browser benar-benar
+ * menganggap tab sedang memutar audio (volume 0 bisa dianggap "senyap").
+ */
+const KEEPER_SAMPLE_RATE = 8000;
+const KEEPER_DURATION_SECONDS = 0.5;
+const KEEPER_FREQUENCY = 440;
+const KEEPER_AMPLITUDE = 100;
+
+function buildKeeperWavUrl(): string {
+  const sampleCount = Math.floor(KEEPER_SAMPLE_RATE * KEEPER_DURATION_SECONDS);
+  const dataSize = sampleCount * 2;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+
+  const writeStr = (offset: number, text: string) => {
+    for (let i = 0; i < text.length; i++) {
+      view.setUint8(offset + i, text.charCodeAt(i));
+    }
+  };
+
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, KEEPER_SAMPLE_RATE, true);
+  view.setUint32(28, KEEPER_SAMPLE_RATE * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  for (let i = 0; i < sampleCount; i++) {
+    const sample = Math.round(Math.sin((2 * Math.PI * KEEPER_FREQUENCY * i) / KEEPER_SAMPLE_RATE) * KEEPER_AMPLITUDE);
+    view.setInt16(44 + i * 2, sample, true);
+  }
+
+  return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
+}
+
+let keeperUrl: string | null = null;
+
+function getKeeperUrl(): string {
+  if (!keeperUrl) {
+    keeperUrl = buildKeeperWavUrl();
+  }
+  return keeperUrl;
+}
+
+/**
  * Custom hook untuk suara notifikasi.
  *
  * Sumber suara global (dari backend, dipilih admin di Pengaturan):
@@ -110,6 +171,8 @@ export default function useNotificationSound() {
   const ctxRef = useRef<AudioContext | null>(null);
   const lastPlayRef = useRef(0);
   const bufferCacheRef = useRef<Map<string, AudioBuffer>>(new Map());
+  // Elemen audio "silent keeper" yang diputar selama tab tersembunyi.
+  const keeperAudioRef = useRef<HTMLAudioElement | null>(null);
   const fallbackAudioRef = useRef<Set<HTMLAudioElement>>(new Set());
   // Sumber Web Audio yang sedang aktif (oscillator/buffer source) — dipakai
   // untuk menghentikannya saat ada suara baru supaya tidak bertumpuk.
@@ -205,13 +268,15 @@ export default function useNotificationSound() {
     };
   }, [unlock]);
 
-  // Guard bersama: tidak muted (kecuali force preview), tab terlihat, jeda ≥ 1 detik.
+  // Guard bersama: tidak muted (kecuali force preview) dan jeda ≥ 1 detik.
+  // Tab/minimize TIDAK lagi memblokir bunyi — dengan "silent keeper" aktif,
+  // suara tetap berbunyi walau web sedang di-minimize/tab background.
   // skipThrottle (untuk preview/aksi user eksplisit) melewati jeda 1 detik supaya
   // tiap klik Pilih/Putar selalu berbunyi meski berurutan cepat.
   const shouldPlay = useCallback(
     (force: boolean, skipThrottle = false) => {
       const now = performance.now();
-      if ((!force && isMuted) || document.hidden) {
+      if (!force && isMuted) {
         return false;
       }
       if (!skipThrottle && now - lastPlayRef.current < 1000) {
@@ -345,6 +410,53 @@ export default function useNotificationSound() {
     }
     bufferCacheRef.current.clear();
   }, [stopCurrent]);
+
+  // Nyalakan "silent keeper": loop audio nyaris-senyap berjalan terus supaya
+  // browser tidak men-trouble interval / membekukan AudioContext selama
+  // tab tersembunyi (di-minimize / background).
+  const startSilentKeeper = useCallback(() => {
+    const existing = keeperAudioRef.current;
+    if (existing) {
+      void existing.play().catch(() => {});
+      return;
+    }
+
+    const audio = new Audio(getKeeperUrl());
+    audio.loop = true;
+    audio.volume = 1;
+    keeperAudioRef.current = audio;
+    void audio.play().catch(() => {});
+  }, []);
+
+  const stopSilentKeeper = useCallback(() => {
+    const audio = keeperAudioRef.current;
+    if (!audio) return;
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // Aktifkan "silent keeper" saat tab pergi ke background/minimize, dan
+  // hentikan saat kembali terlihat. Cleanup saat unmount.
+  useEffect(() => {
+    const syncKeeper = () => {
+      if (document.hidden) {
+        startSilentKeeper();
+      } else {
+        stopSilentKeeper();
+      }
+    };
+
+    syncKeeper();
+    document.addEventListener('visibilitychange', syncKeeper);
+    return () => {
+      document.removeEventListener('visibilitychange', syncKeeper);
+      stopSilentKeeper();
+    };
+  }, [startSilentKeeper, stopSilentKeeper]);
 
   const play = useCallback(() => {
     if (source === 'custom' && customUrl) {

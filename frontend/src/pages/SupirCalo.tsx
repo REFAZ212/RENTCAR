@@ -1,12 +1,15 @@
 import { useState, useEffect, useCallback, type ReactNode } from 'react';
 import { supirCaloAPI } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
+import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from '../components/ConfirmModal';
 import { formatHpDisplay, formatHpWa, formatRupiah } from '../lib/format';
+import { storageUrl } from '../lib/storage';
 
 const emptyForm = {
   nama: '',
   no_hp: '',
+  email: '',
   alamat: '',
   status: 'active',
   no_sim: '',
@@ -20,7 +23,7 @@ function ImagePreview({ src, alt, className = '' }) {
   return <img src={src} alt={alt} className={`object-cover rounded-lg border border-black-200 ${className}`} />;
 }
 
-function FileUpload({ label, accept, file, preview, onChange, existing }) {
+function FileUpload({ label, accept, file, preview, onChange, existing, hapusFoto, onClearNew, onMarkHapus, onUndoHapus }) {
   return (
     <div>
       <label className="block text-sm font-medium text-black-700 mb-1">{label}</label>
@@ -30,12 +33,45 @@ function FileUpload({ label, accept, file, preview, onChange, existing }) {
           <span className="text-sm text-black-400">{file ? file.name : 'Pilih gambar'}</span>
           <input type="file" accept={accept} onChange={onChange} className="hidden" />
         </label>
-        {(preview || existing) && (
+        {preview ? (
           <div className="relative shrink-0">
-            <ImagePreview src={preview || existing} alt={label} className="w-20 h-20" />
-            {existing && !preview && <span className="absolute -top-1 -right-1 w-4 h-4 bg-success-500 rounded-full flex items-center justify-center"><svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg></span>}
+            <ImagePreview src={preview} alt={label} className="w-20 h-20" />
+            <button
+              type="button"
+              onClick={onClearNew}
+              title="Batalkan foto baru"
+              aria-label="Batalkan foto baru"
+              className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-error-500 text-white transition-colors hover:bg-error-600"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
           </div>
-        )}
+        ) : existing && !hapusFoto ? (
+          <div className="relative shrink-0">
+            <ImagePreview src={existing} alt={label} className="w-20 h-20" />
+            <span className="absolute -top-1 -left-1 w-4 h-4 bg-success-500 rounded-full flex items-center justify-center"><svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg></span>
+            <button
+              type="button"
+              onClick={onMarkHapus}
+              title="Hapus foto"
+              aria-label="Hapus foto"
+              className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-error-500 text-white transition-colors hover:bg-error-600"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        ) : existing && hapusFoto ? (
+          <div className="flex w-20 shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-error-300 bg-error-50 px-1 py-2 text-center">
+            <span className="text-[10px] leading-tight text-error-600">Foto akan dihapus</span>
+            <button
+              type="button"
+              onClick={onUndoHapus}
+              className="text-[10px] font-medium text-black-700 underline underline-offset-2 hover:text-black-900"
+            >
+              Urungkan
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -125,9 +161,14 @@ function CopyableField({ label, value, icon }) {
 
 export default function SupirCalo() {
   const toast = useToast();
+  const { user } = useAuth();
+  const canManage = ['admin_utama', 'admin_operasional'].includes(user?.role ?? '');
+  const canDelete = user?.role === 'admin_utama';
   const [activeTab, setActiveTab] = useState<'supir' | 'calo'>('supir');
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -136,20 +177,26 @@ export default function SupirCalo() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [fotoFile, setFotoFile] = useState(null);
   const [fotoPreview, setFotoPreview] = useState(null);
+  const [hapusFoto, setHapusFoto] = useState(false);
   useEffect(() => {
     return () => { if (fotoPreview) URL.revokeObjectURL(fotoPreview); };
   }, [fotoPreview]);
   const [detailItem, setDetailItem] = useState(null);
 
-  const load = useCallback(() => {
+  const load = useCallback((targetPage = 1) => {
     setLoading(true);
-    supirCaloAPI.list({ search, jenis: activeTab })
-      .then(({ data }) => setItems(data.data))
+    supirCaloAPI.list({ search, jenis: activeTab, page: targetPage })
+      .then(({ data }) => {
+        const res = data as unknown as { data: any[]; current_page: number; last_page: number };
+        setItems((prev) => (targetPage === 1 ? res.data : [...prev, ...res.data]));
+        setHasMore(res.current_page < res.last_page);
+        setPage(targetPage);
+      })
       .catch(() => toast.error('Gagal memuat data'))
       .finally(() => setLoading(false));
   }, [search, activeTab, toast]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(1); }, [load]);
 
   const buildPayload = () => {
     const fd = new FormData();
@@ -169,7 +216,7 @@ export default function SupirCalo() {
         if (fotoFile) {
           await supirCaloAPI.updateWithFile(editItem.id, buildPayload());
         } else {
-          await supirCaloAPI.update(editItem.id, { ...form, jenis: activeTab });
+          await supirCaloAPI.update(editItem.id, { ...form, jenis: activeTab, ...(hapusFoto ? { hapus_foto: true } : {}) });
         }
         toast.success('Data berhasil diperbarui');
       } else {
@@ -181,6 +228,7 @@ export default function SupirCalo() {
       setForm(emptyForm);
       setFotoFile(null);
       setFotoPreview(null);
+      setHapusFoto(false);
       load();
     } catch (err) {
       const msg = err.response?.data?.message || Object.values(err.response?.data?.errors || {})[0]?.[0] || 'Gagal menyimpan data';
@@ -190,24 +238,28 @@ export default function SupirCalo() {
     }
   };
 
+  const formFromItem = (item) => ({
+    nama: item.nama,
+    no_hp: item.no_hp,
+    email: item.email || '',
+    alamat: item.alamat || '',
+    status: item.status,
+    no_sim: item.no_sim || '',
+    komisi: item.komisi || '',
+    tarif_per_hari: item.tarif_per_hari || '',
+    catatan: item.catatan || '',
+  });
+
   const handleEdit = (item) => {
     if (item.user_id) {
       toast.error('Data supir dari user petugas dikelola di halaman Manajemen User.');
       return;
     }
-    setForm({
-      nama: item.nama,
-      no_hp: item.no_hp,
-      alamat: item.alamat || '',
-      status: item.status,
-      no_sim: item.no_sim || '',
-      komisi: item.komisi || '',
-      tarif_per_hari: item.tarif_per_hari || '',
-      catatan: item.catatan || '',
-    });
+    setForm(formFromItem(item));
     setEditItem(item);
     setFotoFile(null);
     setFotoPreview(null);
+    setHapusFoto(false);
     setShowForm(true);
   };
 
@@ -229,14 +281,19 @@ export default function SupirCalo() {
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const getFileUrl = (path) =>
-  path ? `https://api.udinrentcar.com/storage/${path}` : null;
+  const getFileUrl = (path) => storageUrl(path);
+
+  const clearNewFoto = () => {
+    setFotoFile(null);
+    setFotoPreview(null);
+  };
 
   const openCreate = () => {
     setForm(emptyForm);
     setEditItem(null);
     setFotoFile(null);
     setFotoPreview(null);
+    setHapusFoto(false);
     setShowForm(true);
   };
 
@@ -250,11 +307,13 @@ export default function SupirCalo() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-black-900">Supir & Calo</h1>
-        <button onClick={openCreate}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-          Tambah {isSupir ? 'Supir' : 'Calo'}
-        </button>
+        {canManage && (
+          <button onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white text-sm font-medium rounded-lg hover:bg-primary-600 transition-colors">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            Tambah {isSupir ? 'Supir' : 'Calo'}
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-1 bg-canvas p-1 rounded-lg w-fit">
@@ -280,8 +339,8 @@ export default function SupirCalo() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => { setShowForm(false); setEditItem(null); }}>
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-black-200 flex items-center justify-between sticky top-0 bg-white z-10">
               <h2 className="text-lg font-semibold text-black-900">{editItem ? `Edit ${isSupir ? 'Supir' : 'Calo'}` : `Tambah ${isSupir ? 'Supir' : 'Calo'}`}</h2>
               <button onClick={() => { setShowForm(false); setEditItem(null); }} className="p-1 hover:bg-canvas rounded-lg transition-colors">
@@ -300,6 +359,12 @@ export default function SupirCalo() {
                   <input type="text" value={form.no_hp} onChange={(e) => setField('no_hp', e.target.value)} required
                     className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-black-700 mb-1">Email {isSupir && <span className="text-black-400">(untuk login aplikasi supir)</span>}</label>
+                <input type="email" value={form.email} onChange={(e) => setField('email', e.target.value)}
+                  placeholder="nama@email.com"
+                  className="w-full px-3 py-2 border border-black-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-black-700 mb-1">Alamat</label>
@@ -336,7 +401,11 @@ export default function SupirCalo() {
                       file={fotoFile}
                       preview={fotoPreview}
                       existing={editItem?.foto ? getFileUrl(editItem.foto) : null}
-                      onChange={(e) => { const f = e.target.files[0]; setFotoFile(f); setFotoPreview(f ? URL.createObjectURL(f) : null); }}
+                      hapusFoto={hapusFoto}
+                      onClearNew={clearNewFoto}
+                      onMarkHapus={() => setHapusFoto(true)}
+                      onUndoHapus={() => setHapusFoto(false)}
+                      onChange={(e) => { const f = e.target.files[0]; setFotoFile(f); setFotoPreview(f ? URL.createObjectURL(f) : null); if (f) setHapusFoto(false); e.target.value = ''; }}
                     />
                   </div>
                 </>
@@ -355,7 +424,11 @@ export default function SupirCalo() {
                       file={fotoFile}
                       preview={fotoPreview}
                       existing={editItem?.foto ? getFileUrl(editItem.foto) : null}
-                      onChange={(e) => { const f = e.target.files[0]; setFotoFile(f); setFotoPreview(f ? URL.createObjectURL(f) : null); }}
+                      hapusFoto={hapusFoto}
+                      onClearNew={clearNewFoto}
+                      onMarkHapus={() => setHapusFoto(true)}
+                      onUndoHapus={() => setHapusFoto(false)}
+                      onChange={(e) => { const f = e.target.files[0]; setFotoFile(f); setFotoPreview(f ? URL.createObjectURL(f) : null); if (f) setHapusFoto(false); e.target.value = ''; }}
                     />
                   </div>
                 </>
@@ -414,6 +487,13 @@ export default function SupirCalo() {
                   value={formatHpDisplay(detailItem.no_hp)}
                   icon={<svg className="w-4 h-4 text-black-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>}
                 />
+                {detailItem.email && (
+                  <CopyableField
+                    label="Email"
+                    value={detailItem.email}
+                    icon={<svg className="w-4 h-4 text-black-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
+                  />
+                )}
                 {isSupir && (
                   <CopyableField
                     label="No. SIM"
@@ -454,12 +534,14 @@ export default function SupirCalo() {
                   <WhatsAppIcon />
                   Hubungi via WhatsApp
                 </a>
-                <button
-                  onClick={() => { setDetailItem(null); handleEdit(detailItem); }}
-                  className="px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors"
-                >
-                  Edit
-                </button>
+                {canManage && (
+                  <button
+                    onClick={() => { setDetailItem(null); handleEdit(detailItem); }}
+                    className="px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas transition-colors"
+                  >
+                    Edit
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -475,7 +557,7 @@ export default function SupirCalo() {
       />
 
       {/* Grid Card */}
-      {loading ? (
+      {loading && items.length === 0 ? (
         <div className="bg-white rounded-xl shadow-sm border border-black-200 p-12 text-center">
           <div className="w-6 h-6 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
           <p className="text-sm text-black-400">Memuat data...</p>
@@ -530,6 +612,7 @@ export default function SupirCalo() {
                     icon={<svg className="w-3.5 h-3.5 text-black-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>}
                   />
                 )}
+                {item.email && <p className="text-sm text-black-400 truncate">{item.email}</p>}
                 <p className="text-sm text-black-400 truncate">{item.alamat || 'Alamat tidak diisi'}</p>
                 <p className="text-sm text-black-700 font-medium">
                   {isSupir
@@ -556,29 +639,46 @@ export default function SupirCalo() {
                 >
                   Detail
                 </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleEdit(item); }}
-                  title={item.user_id ? 'Dikelola dari Manajemen User' : 'Edit'}
-                  disabled={!!item.user_id}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    item.user_id ? 'text-black-200 cursor-not-allowed' : 'text-black-400 hover:text-primary-600 hover:bg-primary-50'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setConfirmDelete(item); }}
-                  title={item.user_id ? 'Dikelola dari Manajemen User' : 'Hapus'}
-                  disabled={!!item.user_id}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    item.user_id ? 'text-black-200 cursor-not-allowed' : 'text-black-400 hover:text-error-600 hover:bg-error-50'
-                  }`}
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
+                {canManage && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleEdit(item); }}
+                    title={item.user_id ? 'Dikelola dari Manajemen User' : 'Edit'}
+                    disabled={!!item.user_id}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      item.user_id ? 'text-black-200 cursor-not-allowed' : 'text-black-400 hover:text-primary-600 hover:bg-primary-50'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                  </button>
+                )}
+                {canDelete && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setConfirmDelete(item); }}
+                    title={item.user_id ? 'Dikelola dari Manajemen User' : 'Hapus'}
+                    disabled={!!item.user_id}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      item.user_id ? 'text-black-200 cursor-not-allowed' : 'text-black-400 hover:text-error-600 hover:bg-error-50'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {hasMore && (
+        <div className="flex justify-center pt-4">
+          <button
+            onClick={() => load(page + 1)}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-black-700 border border-black-200 rounded-lg hover:bg-canvas disabled:opacity-50 transition-colors"
+          >
+            {loading && <div className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />}
+            Muat lebih banyak
+          </button>
         </div>
       )}
     </div>

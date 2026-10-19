@@ -170,7 +170,16 @@ class InspeksiKendaraanController extends Controller
                 $validated['status'] = 'draft';
             }
 
-            return InspeksiKendaraan::create($validated);
+            $inspeksi = InspeksiKendaraan::create($validated);
+
+            // Inspeksi return = kendaraan sudah kembali. Tandai order supaya
+            // tombol "Selesaikan" di kantor terbuka (satu alur dengan
+            // kembalikanKendaraan & alur sopir).
+            if ($validated['jenis'] === 'return' && $order->status_pengiriman !== 'sudah_dikembalikan') {
+                $order->update(['status_pengiriman' => 'sudah_dikembalikan']);
+            }
+
+            return $inspeksi;
         });
 
         $inspeksi->load(['order', 'admin']);

@@ -5,65 +5,20 @@ import { orderAPI, settingsAPI, type Order } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatHpDisplay, formatRupiah } from '../lib/format';
+import { storageUrl } from '../lib/storage';
 import { ArrowLeft } from 'lucide-react';
+import {
+    statusOrderLabels,
+    statusPembayaranLabels,
+    statusPengirimanLabels,
+    metodePembayaranLabels,
+    statusOrderColors,
+    statusPembayaranColors,
+    statusPengirimanColors,
+    type MetodePembayaran,
+} from '../constants/status';
 
 const DEFAULT_OVERTIME_RATE = 25000;
-
-type StatusOrder = 'pending' | 'confirmed' | 'active' | 'perlu_verifikasi' | 'completed' | 'cancelled';
-
-const statusOrderLabels: Record<StatusOrder, string> = {
-    pending: 'Menunggu',
-    confirmed: 'Dikonfirmasi',
-    active: 'Sedang Disewa',
-    perlu_verifikasi: 'Perlu Verifikasi',
-    completed: 'Selesai',
-    cancelled: 'Dibatalkan',
-};
-
-const statusPembayaranLabels: Record<string, string> = {
-    unpaid: 'Belum Bayar',
-    partial: 'DP / Sebagian',
-    paid: 'Lunas',
-};
-
-const statusPengirimanLabels: Record<string, string> = {
-    belum_diambil: 'Belum Diambil',
-    sudah_diantarkan: 'Sudah Diantarkan',
-    dalam_penyewaan: 'Dalam Penyewaan',
-    selesai: 'Selesai',
-    sudah_dikembalikan: 'Sudah Dikembalikan',
-};
-
-const metodePembayaranLabels: Record<string, string> = {
-    cash: 'Tunai',
-    transfer: 'Transfer',
-    qris: 'QRIS',
-    lainnya: 'Lainnya',
-};
-
-// Badge warna per domain status — token tema: primary (biru), accent (amber), success (hijau), error (merah)
-const statusOrderColors: Record<string, string> = {
-    pending: 'bg-accent-50 text-accent-700',
-    confirmed: 'bg-primary-50 text-primary-500',
-    active: 'bg-primary-100 text-primary-600',
-    perlu_verifikasi: 'bg-accent-50 text-accent-700',
-    completed: 'bg-success-50 text-success-600',
-    cancelled: 'bg-error-50 text-error-600',
-};
-
-const statusPembayaranColors: Record<string, string> = {
-    unpaid: 'bg-error-50 text-error-600',
-    partial: 'bg-accent-50 text-accent-600',
-    paid: 'bg-success-50 text-success-600',
-};
-
-const statusPengirimanColors: Record<string, string> = {
-    belum_diambil: 'bg-accent-100 text-accent-700',
-    sudah_diantarkan: 'bg-primary-50 text-primary-500',
-    dalam_penyewaan: 'bg-primary-100 text-primary-600',
-    selesai: 'bg-success-50 text-success-600',
-    sudah_dikembalikan: 'bg-success-50 text-success-600',
-};
 
 const formatJam = (jam: number): string => {
     const hari = Math.floor(jam / 24);
@@ -87,9 +42,7 @@ const fmtTime = (t: string | null | undefined) => {
 const getStorageUrl = (path: string | null | undefined): string | null => {
     if (!path) return null;
 
-    if (path.startsWith('http')) return path;
-
-    return `https://api.udinrentcar.com/storage/${path}`;
+    return storageUrl(path);
 };
 
 const SectionHeading = ({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) => (
@@ -247,6 +200,10 @@ export default function OrderDetail() {
       (order.status_order === 'active' || order.status_order === 'perlu_verifikasi') && order.jam_overtime_saat_ini > 0
         ? Number(order.denda_overtime_saat_ini || 0)
         : 0;
+    // Mirror Order::totalTagihan() backend agar "Sisa Bayar" konsisten.
+    const totalTagihan = Number(order.harga_total) + dendaTambahan + Number(order.biaya_kerusakan || 0);
+    const totalDibayar = order.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
+    const sisaBayar = Math.max(0, totalTagihan - totalDibayar);
 
     return (
         <div>
@@ -364,10 +321,10 @@ export default function OrderDetail() {
                                 <span className="inline-block rounded-full bg-canvas px-2.5 py-1 text-xs font-medium text-black-700">{order.kendaraan.tipe.nama_tipe}</span>
                             </div>
                         )}
-                        {order.kendaraan?.garasiPartner && (
+                        {order.kendaraan?.garasi_partner && (
                             <div>
                                 <p className="mb-1 text-xs text-black-400">Garasi</p>
-                                <span className="inline-block rounded-full bg-canvas px-2.5 py-1 text-xs font-medium text-black-700">{order.kendaraan.garasiPartner.nama_partner}</span>
+                                <span className="inline-block rounded-full bg-canvas px-2.5 py-1 text-xs font-medium text-black-700">{order.kendaraan.garasi_partner.nama_garasi}</span>
                             </div>
                         )}
                     </div>
@@ -468,9 +425,23 @@ export default function OrderDetail() {
                     <div className="flex items-center justify-between border-t border-primary-200 pt-3">
                         <span className="text-sm font-semibold text-black-900">Total</span>
                         <span className="text-lg font-bold text-primary-600">
-                            {formatRupiah(Number(order.harga_total) + dendaTambahan)}
+                            {formatRupiah(totalTagihan)}
                         </span>
                     </div>
+                    {totalDibayar > 0 && (
+                        <div className="flex items-center justify-between border-t border-primary-100/70 pt-3">
+                            <span className="text-sm font-medium text-black-700">Sudah Dibayar</span>
+                            <span className="text-sm font-semibold text-success-600">{formatRupiah(totalDibayar)}</span>
+                        </div>
+                    )}
+                    {order.status_order !== 'cancelled' && (
+                        <div className="flex items-center justify-between border-t border-primary-200 pt-3">
+                            <span className="text-sm font-semibold text-black-900">Sisa Bayar</span>
+                            <span className={`text-lg font-bold ${sisaBayar > 0 ? 'text-error-600' : 'text-success-600'}`}>
+                                {formatRupiah(sisaBayar)}
+                            </span>
+                        </div>
+                    )}
                 </div>
 
                 {/* ── Alamat Jemput / Tujuan / Tanggal & Waktu ── */}
@@ -742,7 +713,7 @@ export default function OrderDetail() {
                                         Status: <span className="font-semibold text-black-700">{statusPembayaranLabels[order.status_pembayaran]}</span>
                                     </span>
                                     <span>
-                                        Bayar: <span className="font-semibold text-black-700">{(order.metode_pembayaran && metodePembayaranLabels[order.metode_pembayaran]) || '-'}</span>
+                                        Bayar: <span className="font-semibold text-black-700">{(order.metode_pembayaran && metodePembayaranLabels[order.metode_pembayaran as MetodePembayaran]) || '-'}</span>
                                     </span>
                                 </div>
                                 <span>{order.admin?.name ? `Dikelola oleh ${order.admin.name}` : ''}</span>

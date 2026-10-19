@@ -44,6 +44,7 @@ class SupirCaloController extends Controller
             'jenis' => 'required|in:supir,calo',
             'nama' => 'required|string|max:255',
             'no_hp' => 'required|string|max:255',
+            'email' => 'nullable|email|max:255|unique:supir_calos,email',
             'alamat' => 'nullable|string',
             'status' => 'nullable|in:active,inactive',
             'no_sim' => 'nullable|string',
@@ -104,10 +105,12 @@ class SupirCaloController extends Controller
             'jenis' => 'sometimes|required|in:supir,calo',
             'nama' => 'sometimes|required|string|max:255',
             'no_hp' => 'sometimes|required|string|max:255',
+            'email' => 'nullable|email|max:255|unique:supir_calos,email,'.$supirCalo->id,
             'alamat' => 'nullable|string',
             'status' => 'nullable|in:active,inactive',
             'no_sim' => 'nullable|string',
             'foto' => 'nullable|image|max:2048',
+            'hapus_foto' => 'nullable|boolean',
             'tarif_per_hari' => 'nullable|numeric|min:0',
             'komisi' => 'nullable|numeric|min:0',
             'password' => 'nullable|string|min:8',
@@ -127,7 +130,12 @@ class SupirCaloController extends Controller
                 Storage::disk('public')->delete($supirCalo->foto);
             }
             $validated['foto'] = $request->file('foto')->store('supir-calos', 'public');
+        } elseif (! empty($validated['hapus_foto']) && $supirCalo->foto) {
+            Storage::disk('public')->delete($supirCalo->foto);
+            $validated['foto'] = null;
         }
+
+        unset($validated['hapus_foto']);
 
         if (! empty($validated['password'] ?? null)) {
             $supirCalo->password = $validated['password'];
@@ -155,7 +163,7 @@ class SupirCaloController extends Controller
         $hasActiveOrder = Order::where(function ($q) use ($supirCalo) {
             $q->where('supir_id', $supirCalo->id)
                 ->orWhere('calo_id', $supirCalo->id);
-        })->whereIn('status_order', ['pending', 'confirmed', 'active'])->exists();
+        })->whereIn('status_order', ['pending', 'confirmed', 'active', 'perlu_verifikasi'])->exists();
 
         if ($hasActiveOrder) {
             return response()->json([

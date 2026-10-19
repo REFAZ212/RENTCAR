@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Spatie\Activitylog\LogOptions;
@@ -215,7 +216,7 @@ class Order extends Model
     }
 
     /**
-     * Peta transisi status_order yang diizinkan.
+     * Peta transisi status_order yang diizinkan (lihat SRS FR-8.18).
      * Kunci = status asal, nilai = array status tujuan yang valid.
      * Order yang sudah "terminal" (completed/cancelled) tidak boleh berubah.
      */
@@ -239,6 +240,42 @@ class Order extends Model
     }
 
     /**
+     * Peta transisi status_pengiriman yang diizinkan di update UMUM.
+     * Status pengiriman hanya boleh MAJU (tidak bisa mundur/melompat bebas):
+     *   belum_diambil → sudah_diantarkan / dalam_penyewaan
+     *   sudah_diantarkan → dalam_penyewaan
+     *   dalam_penyewaan → sudah_dikembalikan
+     *   sudah_dikembalikan → selesai
+     * "selesai" adalah status penutup. Jalur khusus (kirimKendaraan,
+     * kembalikanKendaraan, alur sopir, penyelesaian order, pembatalan
+     * otomatis) menulis status ini langsung tanpa lewat peta.
+     */
+    private const ALLOWED_PENGIRIMAN_TRANSITIONS = [
+        'belum_diambil' => ['sudah_diantarkan', 'dalam_penyewaan', 'selesai'],
+        'sudah_diantarkan' => ['dalam_penyewaan', 'selesai'],
+        'dalam_penyewaan' => ['sudah_dikembalikan', 'selesai'],
+        'sudah_dikembalikan' => ['selesai'],
+        'selesai' => [],
+    ];
+
+    /**
+     * Cek apakah perpindahan status_pengiriman dari nilai saat ini ke
+     * $newStatus diperbolehkan. Nilai yang sama selalu dianggap valid.
+     */
+    public function canTransitionPengirimanTo(string $newStatus): bool
+    {
+        if ($newStatus === $this->status_pengiriman) {
+            return true;
+        }
+
+        if (! isset(self::ALLOWED_PENGIRIMAN_TRANSITIONS[$this->status_pengiriman])) {
+            return false;
+        }
+
+        return in_array($newStatus, self::ALLOWED_PENGIRIMAN_TRANSITIONS[$this->status_pengiriman]);
+    }
+
+    /**
      * Batas waktu order ini seharusnya sudah dikembalikan.
      * Dihitung langsung dari tanggal_selesai (kesepakatan) + jam_selesai.
      * durasi_hari tidak dipakai di sini karena sifatnya tagihan (pembulatan
@@ -259,6 +296,32 @@ class Order extends Model
         }
 
         return $batas;
+    }
+
+    /**
+     * Waktu pengembalian aktual DEFAULT saat order ditutup tanpa mengirim
+     * `tanggal_pengembalian_aktual`: ambil waktu inspeksi return bertanda
+     * tangan terakhir (waktu kendaraan benar-benar kembali), BUKAN waktu
+     * admin menekan "Selesaikan". Mencegah denda kelebihan hanya karena
+     * penutupan order tertunda. Fallback now() bila belum ada inspeksi
+     * (mis. skema lama tanpa tabel inspeksi).
+     */
+    public function waktuPengembalianAktualDefault(): Carbon
+    {
+        if (Schema::hasTable('inspeksi_kendaraans')) {
+            $inspeksi = $this->inspeksis()
+                ->where('jenis', 'return')
+                ->whereNotNull('ttd_customer')
+                ->whereNotNull('ttd_petugas')
+                ->latest('id')
+                ->first();
+
+            if ($inspeksi?->created_at) {
+                return $inspeksi->created_at->copy();
+            }
+        }
+
+        return now();
     }
 
     /**
@@ -366,6 +429,39 @@ class Order extends Model
             'harga_total' => $hargaDasar + ($supirTarif * $durasiAktual) + $hasil['denda_overtime'],
             'durasi_hari' => $durasiAktual,
         ];
+    }
+
+    /**
+     * Total tagihan order saat ini — SATU-SATUNYA rumus "yang harus dibayar"
+     * dipakai konsisten oleh validasi pelunasan & penutupan order.
+     *
+     * Order yang sudah `completed`/`cancelled`: harga_total kolom sudah FINAL
+     * (denda sudah termasuk di dalamnya), jadi cukup ditambah biaya kerusakan
+     * yang disimpan terpisah.
+     *
+     * Order yang masih berjalan: harga_total kolom belum termasuk denda — yang
+     * ditagihkan adalah HARGA TOTAL yang disepakati saat order dibuat, ditambah
+     * denda berjalan / denda beku (perlu_verifikasi) + biaya kerusakan.
+     * Denda diambil dari proyeksiSelesai() supaya aturan freeze & grace period
+     * tetap satu sumber; harga dasar TIDAK dihitung ulang supaya tidak
+     * bertentangan dengan nominal kesepakatan (mis. harga hasil nego/admin).
+     *
+     * @param  Carbon|null  $waktuAktual  Waktu kendaraan dikembalikan (proyeksi).
+     * @param  float|null  $biayaKerusakanOverride  Angka kerusakan yang akan
+     *                                              dipakai (mis. saat admin menyelesaikan order sebelum tersimpan).
+     */
+    public function totalTagihan(?Carbon $waktuAktual = null, ?float $biayaKerusakanOverride = null): float
+    {
+        $kerusakan = $biayaKerusakanOverride ?? (float) ($this->biaya_kerusakan ?? 0);
+        $hargaDasar = (float) $this->harga_total;
+
+        if (in_array($this->status_order, ['completed', 'cancelled'], true)) {
+            return $hargaDasar + $kerusakan;
+        }
+
+        $denda = (float) $this->proyeksiSelesai($waktuAktual)['denda_overtime'];
+
+        return $hargaDasar + $denda + $kerusakan;
     }
 
     /**

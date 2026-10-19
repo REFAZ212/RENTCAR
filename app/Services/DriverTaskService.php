@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\DriverTask;
 use App\Models\InspeksiKendaraan;
+use App\Models\Kendaraan;
+use App\Models\Order;
 use App\Models\SupirCalo;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -119,8 +121,38 @@ class DriverTaskService
                 'status' => DriverTask::STATUS_ON_DELIVERY,
             ]);
 
+            // Inspeksi pickup dari sopir = kendaraan resmi diserahkan: majukan
+            // order ke "Sedang Disewa" walau tanpa aksi admin (backend-only,
+            // aplikasi HP tidak perlu diubah). Tanda tangan dilengkapi
+            // belakangan oleh petugas lewat fitur "Perbaiki Tanda Tangan".
+            $this->majukanOrderSaatPickup($task);
+
             return $inspeksi->fresh();
         });
+    }
+
+    /**
+     * Transisi order confirmed → active + kendaraan "disewa" saat sopir
+     * menyimpan inspeksi pickup. Aman dipanggil ulang (hanya bila masih
+     * confirmed) dan dilewati bila order sudah tidak ditemukan.
+     */
+    private function majukanOrderSaatPickup(DriverTask $task): void
+    {
+        $order = Order::whereKey($task->order_id)->lockForUpdate()->first();
+
+        if ($order === null || $order->status_order !== 'confirmed') {
+            return;
+        }
+
+        $order->update([
+            'status_order' => 'active',
+            'status_pengiriman' => 'dalam_penyewaan',
+            'waktu_klaim' => null,
+        ]);
+
+        if ($order->kendaraan_id) {
+            Kendaraan::whereKey($order->kendaraan_id)->update(['status' => 'disewa']);
+        }
     }
 
     /**
@@ -225,8 +257,32 @@ class DriverTaskService
                 'status' => DriverTask::STATUS_INSPECTION_AFTER,
             ]);
 
+            // Inspeksi return dari sopir = kendaraan sudah kembali: tandai order
+            // "Sudah Dikembalikan" supaya alur di kantor tidak macet (dulu admin
+            // harus menutup task return yang tidak pernah muncul). Status order
+            // tetap active/perlu_verifikasi sampai admin menutup setelah cek
+            // pembayaran. Tanda tangan dilengkapi belakangan lewat perbaikiTtd.
+            $this->tandaiOrderDikembalikan($task);
+
             return $inspeksi->fresh();
         });
+    }
+
+    /**
+     * Set status_pengiriman order menjadi "sudah_dikembalikan" bila order masih
+     * berjalan (active/perlu_verifikasi). Idempoten & aman bila sudah kembali.
+     */
+    private function tandaiOrderDikembalikan(DriverTask $task): void
+    {
+        $order = Order::whereKey($task->order_id)->lockForUpdate()->first();
+
+        if ($order === null || ! in_array($order->status_order, ['active', 'perlu_verifikasi'], true)) {
+            return;
+        }
+
+        if ($order->status_pengiriman !== 'sudah_dikembalikan') {
+            $order->update(['status_pengiriman' => 'sudah_dikembalikan']);
+        }
     }
 
     /**

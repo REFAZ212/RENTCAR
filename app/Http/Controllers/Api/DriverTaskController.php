@@ -111,6 +111,43 @@ class DriverTaskController extends Controller
         return response()->json(['message' => 'Tugas dibatalkan.', 'task' => $task->fresh()]);
     }
 
+    /**
+     * Lepas supir dari tugas (admin) — tugas kembali ke pool available.
+     */
+    public function release(Request $request, DriverTask $task): JsonResponse
+    {
+        $this->authorizeTask($request);
+
+        $canRelease = [
+            DriverTask::STATUS_ACCEPTED,
+            DriverTask::STATUS_INSPECTION_BEFORE,
+            DriverTask::STATUS_ON_DELIVERY,
+            DriverTask::STATUS_ARRIVED,
+            DriverTask::STATUS_INSPECTION_AFTER,
+        ];
+
+        if (! in_array($task->status, $canRelease)) {
+            throw ValidationException::withMessages([
+                'status' => ['Tugas tidak sedang dipegang supir — tidak bisa di-release.'],
+            ]);
+        }
+
+        $task->update([
+            'status' => DriverTask::STATUS_AVAILABLE,
+            'assigned_driver_id' => null,
+            'accepted_at' => null,
+        ]);
+
+        $task->load(['kendaraan', 'order.customer']);
+
+        $this->notifications->broadcastNewTask($task);
+
+        return response()->json([
+            'message' => 'Supir dilepas dari tugas — tugas kembali ke pool available.',
+            'task' => $task->fresh(),
+        ]);
+    }
+
     private function authorizeTask(Request $request): void
     {
         if (! in_array($request->user()->role, ['admin_utama', 'admin_operasional'])) {

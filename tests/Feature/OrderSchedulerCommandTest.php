@@ -20,6 +20,7 @@ use App\Models\Setting;
 use App\Models\User;
 use App\Models\WhatsappLog;
 use App\Services\WhatsAppService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Schema;
@@ -1050,7 +1051,9 @@ class OrderSchedulerCommandTest extends TestCase
     {
         Setting::set('fonnte_token', 'test-token');
         Http::fake([
-            'api.fonnte.com/*' => Http::throw(),
+            'api.fonnte.com/*' => function () {
+                throw new ConnectionException('Simulasi kegagalan gateway');
+            },
         ]);
 
         $order = $this->makeOrder(['status_order' => 'confirmed']);

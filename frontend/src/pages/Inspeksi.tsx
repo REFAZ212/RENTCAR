@@ -9,6 +9,7 @@ import CameraModal from '../components/CameraModal';
 import { ClipboardCheck, Search, Eye, Trash2, X, Upload, AlertTriangle, PlayCircle, RotateCcw, Keyboard, Camera, Video, PenLine } from 'lucide-react';
 import FuelIndicatorBar from '../components/FuelIndicatorBar';
 import { compressImage } from '../lib/file';
+import { storageUrl } from '../lib/storage';
 
 /* ─────────────────────────────────────────────────────────────
  * LABELS & OPTIONS
@@ -457,10 +458,10 @@ const handleSubmit = async (e: FormEvent, action: 'simpan' | 'kirim' | 'kembali'
       fetchTasks();
     } catch (err) {
       const msg = isAxiosError(err)
-        ? err.response?.data?.message
-        : err.response?.data?.errors
-          ? Object.values(err.response?.data?.errors ?? {}).flat().join(', ')
-          : 'Gagal menyimpan inspeksi.';
+        ? Object.values(err.response?.data?.errors ?? {}).flat().join(', ') ||
+          err.response?.data?.message ||
+          'Gagal menyimpan inspeksi.'
+        : 'Gagal menyimpan inspeksi.';
       toastError(msg);
     } finally {
       setSubmitting(false);
@@ -518,7 +519,7 @@ const formatDate = (d: string) => {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-black-900">Inspeksi Kendaraan</h1>
-          <p className="text-sm text-black-500">Pencatan kondisi kendaraan saat serah terima pickup & return</p>
+          <p className="text-sm text-black-500">Pencatatan kondisi kendaraan saat serah terima pickup & return</p>
 </div>
       </div>
 
@@ -1282,13 +1283,13 @@ const formatDate = (d: string) => {
                     {(showDetail.fotos ?? []).map((foto, i) => (
                       <img
   key={`foto-${i}`}
-  src={`https://api.udinrentcar.com/storage/${foto}`}
+  src={storageUrl(foto) || ''}
   alt={`Foto ${i + 1}`}
   className="max-h-40 w-full rounded-lg object-cover"
 />
                     ))}
                     {(showDetail.videos ?? []).map((video, i) => (
-                      <video key={`video-${i}`} src={`https://api.udinrentcar.com/storage/${video}`} controls className="max-h-40 w-full rounded-lg bg-black" />
+                      <video key={`video-${i}`}   src={storageUrl(video) || ''} controls className="max-h-40 w-full rounded-lg bg-black" />
                     ))}
                   </div>
                 </div>
@@ -1299,7 +1300,7 @@ const formatDate = (d: string) => {
                 <div>
                   <p className="text-xs font-medium text-black-500">Foto Kendaraan</p>
                   <img
-  src={`https://api.udinrentcar.com/storage/${showDetail.foto}`}
+  src={storageUrl(showDetail.foto) || ''}
   alt={`Inspeksi #${showDetail.id}`}
   className="mt-2 max-h-64 rounded-lg object-cover"
 />
@@ -1313,7 +1314,7 @@ const formatDate = (d: string) => {
                     <div>
                       <p className="text-xs font-medium text-black-500">Tanda Tangan Customer</p>
                       <img
-  src={`https://api.udinrentcar.com/storage/${showDetail.ttd_customer}`}
+  src={storageUrl(showDetail.ttd_customer) || ''}
   alt="TTD Customer"
   className="mt-2 h-16 rounded-lg border border-black-200 bg-white object-contain"
 />
@@ -1322,7 +1323,7 @@ const formatDate = (d: string) => {
                   {showDetail.ttd_petugas && (
                     <div>
                       <p className="text-xs font-medium text-black-500">Tanda Tangan Petugas</p>
-                      <img src={`https://api.udinrentcar.com/storage/${showDetail.ttd_petugas}`} alt="TTD Petugas" className="mt-2 h-16 rounded-lg border border-black-200 bg-white object-contain" />
+                      <img src={storageUrl(showDetail.ttd_petugas) || ''} alt="TTD Petugas" className="mt-2 h-16 rounded-lg border border-black-200 bg-white object-contain" />
                     </div>
                   )}
                 </div>

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\DriverTask;
 use App\Models\Kendaraan;
 use App\Models\Notification;
+use App\Models\Order;
 use App\Models\SupirCalo;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -22,6 +23,7 @@ class DriverTaskLifecycleTest extends TestCase
         Schema::dropIfExists('notifications');
         Schema::dropIfExists('driver_tasks');
         Schema::dropIfExists('inspeksi_kendaraans');
+        Schema::dropIfExists('orders');
         Schema::dropIfExists('kendaraans');
         Schema::dropIfExists('supir_calos');
         Schema::dropIfExists('users');
@@ -67,6 +69,17 @@ class DriverTaskLifecycleTest extends TestCase
             $t->string('foto')->nullable();
             $t->text('catatan')->nullable();
             $t->timestamps();
+        });
+        Schema::create('orders', function ($t) {
+            $t->id();
+            $t->string('kode_order')->nullable();
+            $t->foreignId('customer_id')->nullable();
+            $t->foreignId('kendaraan_id')->nullable();
+            $t->string('status_order')->default('confirmed');
+            $t->string('status_pengiriman')->default('belum_diambil');
+            $t->timestamp('waktu_klaim')->nullable();
+            $t->timestamps();
+            $t->softDeletes();
         });
         Schema::create('inspeksi_kendaraans', function ($t) {
             $t->id();
@@ -370,6 +383,71 @@ class DriverTaskLifecycleTest extends TestCase
             'id' => $this->supirA->id,
             'driver_status' => 'available',
         ]);
+    }
+
+    public function test_inspeksi_pickup_sopir_memajukan_order_ke_sedang_disewa(): void
+    {
+        Storage::fake('public');
+
+        $order = Order::create([
+            'kode_order' => 'ORD-DRV-PICKUP',
+            'kendaraan_id' => $this->kendaraan->id,
+            'status_order' => 'confirmed',
+            'status_pengiriman' => 'belum_diambil',
+        ]);
+
+        $task = $this->createTask(['order_id' => $order->id]);
+
+        $this->authAs($this->supirA)->postJson("/api/mobile/tasks/{$task->id}/accept")->assertOk();
+        $this->authAs($this->supirA)->postJson("/api/mobile/tasks/{$task->id}/start")->assertOk();
+        $this->authAs($this->supirA)->post("/api/mobile/tasks/{$task->id}/inspection/before", array_merge(
+            $this->payloadInspeksi(),
+            ['fotos' => [UploadedFile::fake()->image('foto-depan.jpg')]]
+        ))->assertStatus(201);
+
+        $fresh = $order->fresh();
+        $this->assertSame('active', $fresh->status_order);
+        $this->assertSame('dalam_penyewaan', $fresh->status_pengiriman);
+        $this->assertSame('disewa', $this->kendaraan->fresh()->status);
+    }
+
+    public function test_inspeksi_return_sopir_menandai_order_sudah_dikembalikan(): void
+    {
+        Storage::fake('public');
+
+        $order = Order::create([
+            'kode_order' => 'ORD-DRV-RETURN',
+            'kendaraan_id' => $this->kendaraan->id,
+            'status_order' => 'confirmed',
+            'status_pengiriman' => 'belum_diambil',
+        ]);
+
+        $task = $this->createTask(['order_id' => $order->id]);
+
+        $this->authAs($this->supirA)->postJson("/api/mobile/tasks/{$task->id}/accept")->assertOk();
+        $this->authAs($this->supirA)->postJson("/api/mobile/tasks/{$task->id}/start")->assertOk();
+        $this->authAs($this->supirA)->post("/api/mobile/tasks/{$task->id}/inspection/before", array_merge(
+            $this->payloadInspeksi(),
+            ['fotos' => [UploadedFile::fake()->image('foto-depan.jpg')]]
+        ))->assertStatus(201);
+        $this->authAs($this->supirA)->postJson("/api/mobile/tasks/{$task->id}/start-delivery", [
+            'latitude' => -6.3,
+            'longitude' => 106.9,
+        ])->assertOk();
+        $this->authAs($this->supirA)->postJson("/api/mobile/tasks/{$task->id}/arrive", [
+            'latitude' => -6.92,
+            'longitude' => 107.6,
+        ])->assertOk();
+        $this->authAs($this->supirA)->post("/api/mobile/tasks/{$task->id}/inspection/after", array_merge(
+            $this->payloadInspeksi(['odometer' => 45100]),
+            ['fotos' => [UploadedFile::fake()->image('foto-belakang.jpg')]]
+        ))->assertStatus(201);
+
+        $fresh = $order->fresh();
+        // Kendaraan sudah kembali, tapi order tetap "active" sampai kantor
+        // menutupnya (cek pembayaran + lengkapi TTD).
+        $this->assertSame('active', $fresh->status_order);
+        $this->assertSame('sudah_dikembalikan', $fresh->status_pengiriman);
     }
 
     public function test_inspeksi_awal_tidak_bisa_sebelum_accept(): void

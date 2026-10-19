@@ -48,7 +48,6 @@ class OvertimeCalculator
      *
      * @param  Carbon  $batasWaktu  Tanggal + jam selesai sewa yang dijanjikan
      * @param  Carbon  $waktuAktual  Waktu pengembalian aktual (atau "sekarang" untuk overtime berjalan)
-     * @param  int  $rate  Tarif denda per jam (null = pakai konstanta fallback)
      * @param  int  $grace  Grace period dalam menit (null = pakai konstanta fallback)
      */
     public static function hitungJamTerlambat(Carbon $batasWaktu, Carbon $waktuAktual, ?int $grace = null): int

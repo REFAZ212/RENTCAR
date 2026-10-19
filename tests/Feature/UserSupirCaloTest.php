@@ -51,6 +51,7 @@ class UserSupirCaloTest extends TestCase
             $t->foreignId('user_id')->nullable()->unique();
             $t->enum('jenis', ['supir', 'calo']);
             $t->string('nama');
+            $t->string('email')->nullable();
             $t->string('no_hp');
             $t->text('alamat')->nullable();
             $t->enum('status', ['active', 'inactive'])->default('active');

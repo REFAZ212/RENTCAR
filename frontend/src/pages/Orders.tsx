@@ -1,10 +1,26 @@
-﻿import { useState, useEffect, useCallback, useRef, useMemo, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { isAxiosError } from 'axios';
 import { orderAPI, customerAPI, kendaraanAPI, supirCaloAPI, settingsAPI, inspeksiAPI, type Customer, type Kendaraan, type SupirCalo, type Order, type OrderCancelPreview, type InspeksiKendaraan } from '../services/api';
+import { Lock } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import ConfirmModal from '../components/ConfirmModal';
-import { formatHpDisplay, formatHpWa, todayJakarta, nowWIB, nowWIBTime, formatRupiah, warnaKendaraanHex } from '../lib/format';
+import { formatHpDisplay, formatHpWa, todayJakarta, nowWIB, nowWIBTime, toWIBInput, formatRupiah, warnaKendaraanHex } from '../lib/format';
+import { storageUrl } from '../lib/storage';
+import {
+  statusOrderLabels,
+  statusPembayaranLabels,
+  statusPengirimanLabels,
+  metodePembayaranLabels,
+  statusOrderColors,
+  statusPembayaranColors,
+  statusPengirimanColors,
+  OVERDUE_BADGE,
+  type StatusOrder,
+  type StatusPembayaran,
+  type StatusPengiriman,
+  type MetodePembayaran,
+} from '../constants/status';
 
 /**
  * ─────────────────────────────────────────────────────────────
@@ -21,10 +37,6 @@ import { formatHpDisplay, formatHpWa, todayJakarta, nowWIB, nowWIBTime, formatRu
  * di tiap baris — hanya tidak lagi jadi filter terpisah yang saling tabrak.
  * ───────────────────────────────────────────────────────────── */
 
-type StatusOrder = 'pending' | 'confirmed' | 'active' | 'perlu_verifikasi' | 'completed' | 'cancelled';
-type StatusPembayaran = 'unpaid' | 'partial' | 'paid';
-type StatusPengiriman = 'belum_diambil' | 'sudah_diantarkan' | 'dalam_penyewaan' | 'selesai' | 'sudah_dikembalikan';
-type MetodePembayaran = 'cash' | 'transfer' | 'qris' | 'lainnya';
 type StatusFilter = '' | StatusOrder | 'overdue';
 
 const statusPembayaranOptions: StatusPembayaran[] = ['unpaid', 'partial', 'paid'];
@@ -37,63 +49,6 @@ const DEFAULT_OVERTIME_RATE = 25000;
 // supaya baris filter tetap bersih.
 const PER_PAGE = 30;
 
-const statusOrderLabels: Record<StatusOrder, string> = {
-  pending: 'Menunggu',
-  confirmed: 'Dikonfirmasi',
-  active: 'Sedang Disewa',
-  perlu_verifikasi: 'Perlu Verifikasi',
-  completed: 'Selesai',
-  cancelled: 'Dibatalkan',
-};
-
-const statusPembayaranLabels: Record<StatusPembayaran, string> = {
-  unpaid: 'Belum Bayar',
-  partial: 'DP / Sebagian',
-  paid: 'Lunas',
-};
-
-const statusPengirimanLabels: Record<StatusPengiriman, string> = {
-  belum_diambil: 'Belum Diambil',
-  sudah_diantarkan: 'Sudah Diantarkan',
-  dalam_penyewaan: 'Dalam Penyewaan',
-  selesai: 'Selesai',
-  sudah_dikembalikan: 'Sudah Dikembalikan',
-};
-
-const metodePembayaranLabels: Record<MetodePembayaran, string> = {
-  cash: 'Tunai',
-  transfer: 'Transfer',
-  qris: 'QRIS',
-  lainnya: 'Lainnya',
-};
-
-// Badge warna per domain status — token tema: primary (biru), accent (amber), success (hijau), error (merah)
-const statusOrderColors: Record<string, string> = {
-  pending: 'bg-accent-50 text-accent-700',
-  confirmed: 'bg-primary-50 text-primary-500',
-  active: 'bg-primary-100 text-primary-600',
-  perlu_verifikasi: 'bg-accent-50 text-accent-700',
-  completed: 'bg-success-50 text-success-600',
-  cancelled: 'bg-error-50 text-error-600',
-};
-
-const statusPembayaranColors: Record<string, string> = {
-  unpaid: 'bg-error-50 text-error-600',
-  partial: 'bg-accent-50 text-accent-600',
-  paid: 'bg-success-50 text-success-600',
-};
-
-const statusPengirimanColors: Record<string, string> = {
-  belum_diambil: 'bg-accent-100 text-accent-700',
-  sudah_diantarkan: 'bg-primary-50 text-primary-500',
-  dalam_penyewaan: 'bg-primary-100 text-primary-600',
-  selesai: 'bg-success-50 text-success-600',
-  sudah_dikembalikan: 'bg-success-50 text-success-600',
-};
-
-// Status turunan (hasil hitung, bukan enum) — Terlambat.
-const OVERDUE_BADGE = 'bg-error-50 text-error-600';
-
 const formatJam = (jam: number): string => {
   const hari = Math.floor(jam / 24);
   const sisaJam = jam % 24;
@@ -101,6 +56,21 @@ const formatJam = (jam: number): string => {
   if (sisaJam === 0) return `${hari} hari`;
   return `${hari} hari ${sisaJam} jam`;
 };
+
+/**
+ * Total tagihan yang ditampilkan (harga_total + denda berjalan untuk order
+ * berjalan + biaya kerusakan). Sengaja mirror `Order::totalTagihan()` di
+ * backend supaya angka "Sisa Bayar" konsisten dengan validasi pelunasan.
+ */
+const totalTagihanOrder = (o: Order): number =>
+  Number(o.harga_total) +
+  (((o.status_order === 'active' && o.jam_overtime_saat_ini > 0 && !o.jam_overtime) || o.status_order === 'perlu_verifikasi')
+    ? Number(o.denda_overtime_saat_ini)
+    : 0) +
+  Number(o.biaya_kerusakan || 0);
+
+const totalBayarOrder = (o: Order): number =>
+  o.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
 
 const inputClass =
   'w-full rounded-lg border border-black-200 px-3 py-2 text-sm text-black-900 outline-none transition-colors focus:border-primary-500 focus:ring-1 focus:ring-primary-500';
@@ -542,10 +512,8 @@ export default function Orders() {
       const targetPage = pageNum ?? pageRef.current;
       const params: Record<string, string> = { search: debouncedSearch, page: String(targetPage), per_page: String(PER_PAGE) };
 
-      if (dateFrom && dateTo) {
-        params.tanggal_mulai = dateFrom;
-        params.tanggal_selesai = dateTo;
-      }
+      if (dateFrom) params.tanggal_mulai = dateFrom;
+      if (dateTo) params.tanggal_selesai = dateTo;
 
       // 'overdue' bukan status asli di database — server menyaringnya dari
       // batas waktu pengembalian (Order::batasWaktuKembali()).
@@ -570,7 +538,11 @@ export default function Orders() {
         .catch(() => { if (requestId === loadRequestId.current) toast.error('Gagal memuat data order'); })
         .finally(() => { if (requestId === loadRequestId.current) setLoading(false); });
     },
-    [debouncedSearch, dateFrom, dateTo, statusFilter, toast]
+    // 'toast' sengaja tidak dimasukkan ke dependency array — identitasnya
+    // berubah tiap notifikasi muncul/hilang (lihat ToastContext), sehingga akan
+    // memicu fetch ulang tak perlu dan bisa mereset daftar yang sudah ditumpuk.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [debouncedSearch, dateFrom, dateTo, statusFilter]
   );
 
   // Pindah ke halaman pertama saat pencarian/filter berubah. Dideklarasikan
@@ -625,7 +597,9 @@ export default function Orders() {
       .list({ jenis: 'calo' })
       .then(({ data }: { data: ListResponse<SupirCalo> }) => setCalos(data.data))
       .catch(() => toast.error('Gagal memuat data calo'));
-  }, [canManage, toast]);
+    // 'toast' sengaja tidak dimasukkan ke dependency array (lihat catatan di atas).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canManage]);
 
   // Saat modal buat order terbuka dan tanggal mulai/selesai sudah diisi,
   // muat ulang daftar mobil yang TIDAK bertabrakan dengan rentang tanggal
@@ -980,7 +954,7 @@ export default function Orders() {
 
 setEditBuktiPreview(
     item.bukti_transfer
-        ? `https://api.udinrentcar.com/storage/${item.bukti_transfer}`
+        ? storageUrl(item.bukti_transfer)
         : null
 );
 
@@ -990,7 +964,7 @@ setEditCustFotoKtpFile(null);
 
 setEditCustFotoKtpPreview(
     item.customer?.foto_ktp
-        ? `https://api.udinrentcar.com/storage/${item.customer.foto_ktp}`
+        ? storageUrl(item.customer.foto_ktp)
         : null
 );
 
@@ -1265,6 +1239,13 @@ setShowEditForm(true);
       const latestReturn = [...data].reverse().find((i) => i.jenis === 'return') ?? null;
       const validReturn = latestReturn && latestReturn.ttd_customer && latestReturn.ttd_petugas ? latestReturn : null;
       setCompleteReturnInspeksi(validReturn);
+      // Default waktu pengembalian = waktu inspeksi return dibuat (kendaraan
+      // benar-benar kembali), bukan saat admin menekan "Selesaikan" — supaya
+      // denda tidak kelebihan hanya karena penutupan order tertunda.
+      if (validReturn?.created_at) {
+        const wib = toWIBInput(validReturn.created_at);
+        if (wib) setCompleteReturnTime(wib);
+      }
       const kerusakan = validReturn && Number(validReturn.biaya_kerusakan || 0) > 0 ? String(Math.round(Number(validReturn.biaya_kerusakan))) : '';
       setCompleteKerusakanAmount(kerusakan);
       const totalPaid = order.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
@@ -1282,6 +1263,7 @@ setShowEditForm(true);
     setConfirmComplete(item);
     setCompleteReturnInspeksi(null);
     setCompleteKerusakanAmount('');
+    setCompleteReturnTime(nowWIB());
     void cekInspeksiReturn(item);
     const totalPaid = item.pembayarans?.reduce((sum, p) => sum + Number(p.jumlah), 0) ?? 0;
     const denda = item.jam_overtime_saat_ini > 0 ? Number(item.denda_overtime_saat_ini || 0) : 0;
@@ -1629,7 +1611,7 @@ setShowEditForm(true);
                                     src={
                                       k.foto.startsWith('http')
                                       ? k.foto
-                                      : `https://api.udinrentcar.com/storage/${k.foto}`
+                                      : storageUrl(k.foto) || ''
                                            }
                                          alt={k.nama_kendaraan}
                                            className={`h-full w-full object-cover ${!available ? 'grayscale blur-[1px]' : ''}`}
@@ -2118,7 +2100,7 @@ setShowEditForm(true);
                         </div>
                         {p.bukti_transfer && (
                           <img
-  src={`https://api.udinrentcar.com/storage/${p.bukti_transfer}`}
+  src={storageUrl(p.bukti_transfer) || ''}
   alt="Bukti"
   className="h-12 w-16 shrink-0 rounded border border-black-200 object-cover"
 />
@@ -2158,7 +2140,7 @@ setShowEditForm(true);
                 </div>
               )}
 
-              {isPlainCoreLocked && (
+              {isPlainCoreLocked && editingOrder?.status_pembayaran === 'paid' && (
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-sm font-medium text-black-700">Status Pembayaran</label>
@@ -2329,7 +2311,7 @@ setShowEditForm(true);
                             <div>
                               <p className="mb-1 text-xs text-black-400">Dokumen Identitas</p>
                               <img
-  src={`https://api.udinrentcar.com/storage/${editingOrder.customer.foto_ktp}`}
+  src={storageUrl(editingOrder.customer.foto_ktp) || ''}
   alt="Dokumen Identitas"
   className="h-20 w-28 rounded-lg border border-black-200 object-cover"
 />
@@ -2348,7 +2330,7 @@ setShowEditForm(true);
                                 setEditCustFotoKtpFile(null);
                                 setEditCustFotoKtpPreview(
   editingOrder.customer?.foto_ktp
-    ? `https://api.udinrentcar.com/storage/${editingOrder.customer.foto_ktp}`
+    ? storageUrl(editingOrder.customer.foto_ktp)
     : null
 );
                               }}
@@ -2510,7 +2492,7 @@ setShowEditForm(true);
   src={
     k.foto.startsWith('http')
       ? k.foto
-      : `https://api.udinrentcar.com/storage/${k.foto}`
+      : storageUrl(k.foto) || ''
   }
   alt={k.nama_kendaraan}
   className={`h-full w-full object-cover ${!available ? 'grayscale blur-[1px]' : ''}`}
@@ -2771,7 +2753,7 @@ setShowEditForm(true);
                 {isFullyLocked ? (
                   editingOrder.bukti_transfer ? (
                     <img
-  src={`https://api.udinrentcar.com/storage/${editingOrder.bukti_transfer}`}
+  src={storageUrl(editingOrder.bukti_transfer) || ''}
   alt="Bukti Pembayaran"
   className="h-24 w-32 rounded-lg border border-black-200 object-cover"
 />
@@ -2797,7 +2779,7 @@ setShowEditForm(true);
                       setEditBuktiFile(null);
                       setEditBuktiPreview(
   editingOrder.bukti_transfer
-    ? `https://api.udinrentcar.com/storage/${editingOrder.bukti_transfer}`
+    ? storageUrl(editingOrder.bukti_transfer)
     : null
 );
                       setEditBuktiNewPreview(null);
@@ -2863,24 +2845,6 @@ setShowEditForm(true);
           </div>
         </div>
       )}
-
-      {/* ─────────────────────────────────────────────────────────────
- * Detail Order Modal — redesign
- * ─────────────────────────────────────────────────────────────
- * Ganti seluruh blok "{/* Detail Modal *​/}" (dari {detailOrder && ( ...
- * sampai penutupnya )} ) di Orders.tsx dengan kode di bawah ini.
- * State & handler yang dipakai (detailOrder, setDetailOrder,
- * setInvoiceOrder, overtimeRate, toast) sudah ada di file kamu,
- * tidak perlu tambahan apa pun selain kode ini.
- *
- * CATATAN: Field "Kategori / Tipe / Transmisi" pada card Kendaraan
- * di gambar referensi kemungkinan berasal dari field tambahan pada
- * objek `kendaraan` (mis. kendaraan.kategori, kendaraan.tipe,
- * kendaraan.transmisi) yang belum saya lihat di type Kendaraan kamu.
- * Saya buat opsional (hanya tampil kalau field-nya ada) — kalau
- * field itu belum ada di API/type kamu, kasih tahu saya nama field
- * aslinya biar saya sesuaikan, atau baris itu otomatis tidak muncul.
- * ───────────────────────────────────────────────────────────── */}
 
       {detailOrder && (
         <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/50 p-4" onClick={() => setDetailOrder(null)}>
@@ -2976,7 +2940,7 @@ setShowEditForm(true);
                   <div className="flex items-center gap-3">
                     {detailOrder.kendaraan?.foto ? (
                       <img
-  src={`https://api.udinrentcar.com/storage/${detailOrder.kendaraan.foto}`}
+  src={storageUrl(detailOrder.kendaraan.foto) || ''}
   alt=""
   className="h-14 w-16 shrink-0 rounded-lg object-cover"
 />
@@ -3006,20 +2970,16 @@ setShowEditForm(true);
                       <span className="inline-block rounded-full bg-canvas px-2.5 py-1 text-xs font-medium text-black-700">{detailOrder.kendaraan.tipe.nama_tipe}</span>
                     </div>
                   )}
-                  {/* Transmisi: belum ada field ini di type Kendaraan (api.ts).
-                      Kalau kamu tambahkan field `transmisi` di backend + type Kendaraan,
-                      tinggal aktifkan blok ini:
                   {detailOrder.kendaraan?.transmisi && (
                     <div>
                       <p className="mb-1 text-xs text-black-400">Transmisi</p>
-                      <span className="inline-block rounded-full bg-canvas px-2.5 py-1 text-xs font-medium text-black-700">{detailOrder.kendaraan.transmisi}</span>
+                      <span className="inline-block rounded-full bg-canvas px-2.5 py-1 text-xs font-medium text-black-700 capitalize">{detailOrder.kendaraan.transmisi}</span>
                     </div>
                   )}
-                  */}
-                  {detailOrder.kendaraan?.garasiPartner && (
+                  {detailOrder.kendaraan?.garasi_partner && (
                     <div>
                       <p className="mb-1 text-xs text-black-400">Garasi</p>
-                      <span className="inline-block rounded-full bg-canvas px-2.5 py-1 text-xs font-medium text-black-700">{detailOrder.kendaraan.garasiPartner.nama_partner}</span>
+                      <span className="inline-block rounded-full bg-canvas px-2.5 py-1 text-xs font-medium text-black-700">{detailOrder.kendaraan.garasi_partner.nama_garasi}</span>
                     </div>
                   )}
                 </div>
@@ -3134,14 +3094,25 @@ setShowEditForm(true);
                 <div className="flex items-center justify-between border-t border-primary-200 pt-3">
                   <span className="text-sm font-semibold text-black-900">Total</span>
                   <span className="text-lg font-bold text-primary-600">
-                    {formatRupiah(
-                      Number(detailOrder.harga_total) +
-                        ((detailOrder.status_order === 'active' || detailOrder.status_order === 'perlu_verifikasi') && detailOrder.jam_overtime_saat_ini > 0
-                          ? Number(detailOrder.denda_overtime_saat_ini)
-                          : 0)
-                    )}
+                    {formatRupiah(totalTagihanOrder(detailOrder))}
                   </span>
                 </div>
+                {totalBayarOrder(detailOrder) > 0 && (
+                  <div className="flex items-center justify-between border-t border-primary-100/70 pt-3">
+                    <span className="text-sm font-medium text-black-700">Sudah Dibayar</span>
+                    <span className="text-sm font-semibold text-success-600">{formatRupiah(totalBayarOrder(detailOrder))}</span>
+                  </div>
+                )}
+                {detailOrder.status_order !== 'cancelled' && (
+                  <div className="flex items-center justify-between border-t border-primary-200 pt-3">
+                    <span className="text-sm font-semibold text-black-900">Sisa Bayar</span>
+                    <span className={`text-lg font-bold ${
+                      Math.max(0, totalTagihanOrder(detailOrder) - totalBayarOrder(detailOrder)) > 0 ? 'text-error-600' : 'text-success-600'
+                    }`}>
+                      {formatRupiah(Math.max(0, totalTagihanOrder(detailOrder) - totalBayarOrder(detailOrder)))}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* ── Alamat Jemput / Tujuan / Tanggal & Waktu ── */}
@@ -3201,12 +3172,12 @@ setShowEditForm(true);
                     <div>
                       <p className="mb-1.5 text-xs text-black-400">Bukti Pembayaran</p>
                       <a
-  href={`https://api.udinrentcar.com/storage/${detailOrder.bukti_transfer}`}
+  href={storageUrl(detailOrder.bukti_transfer) || ''}
   target="_blank"
   rel="noopener noreferrer"
 >
   <img
-    src={`https://api.udinrentcar.com/storage/${detailOrder.bukti_transfer}`}
+    src={storageUrl(detailOrder.bukti_transfer) || ''}
                           alt="Bukti Transfer"
                           className="h-24 w-full cursor-pointer rounded-xl border border-gray-200 object-cover transition-all hover:ring-2 hover:ring-primary-400 sm:h-32"
                         />
@@ -3217,12 +3188,12 @@ setShowEditForm(true);
                     <div>
                       <p className="mb-1.5 text-xs text-black-400">Bukti Pengiriman</p>
                       <a
-  href={`https://api.udinrentcar.com/storage/${detailOrder.bukti_pengiriman}`}
+  href={storageUrl(detailOrder.bukti_pengiriman) || ''}
   target="_blank"
   rel="noopener noreferrer"
 >
   <img
-    src={`https://api.udinrentcar.com/storage/${detailOrder.bukti_pengiriman}`}
+    src={storageUrl(detailOrder.bukti_pengiriman) || ''}
                       
                           alt="Bukti Pengiriman"
                           className="h-24 w-full cursor-pointer rounded-xl border border-gray-200 object-cover transition-all hover:ring-2 hover:ring-primary-400 sm:h-32"
@@ -3234,12 +3205,12 @@ setShowEditForm(true);
                     <div>
                       <p className="mb-1.5 text-xs text-black-400">Bukti Pengembalian</p>
                       <a
-  href={`https://api.udinrentcar.com/storage/${detailOrder.bukti_pengembalian}`}
+  href={storageUrl(detailOrder.bukti_pengembalian) || ''}
   target="_blank"
   rel="noopener noreferrer"
 >
   <img
-    src={`https://api.udinrentcar.com/storage/${detailOrder.bukti_pengembalian}`}
+    src={storageUrl(detailOrder.bukti_pengembalian) || ''}
                           alt="Bukti Pengembalian"
                           className="h-24 w-full cursor-pointer rounded-xl border border-gray-200 object-cover transition-all hover:ring-2 hover:ring-primary-400 sm:h-32"
                         />
@@ -3695,8 +3666,7 @@ setShowEditForm(true);
               </div>
 
               <div className="w-full shrink-0 space-y-4 md:w-72">
-                {confirmComplete &&
-                  (confirmComplete.status_pembayaran !== 'paid' || confirmComplete.jam_overtime_saat_ini > 0) && (
+                {confirmComplete && completeSisa > 0 && (
                     <div>
                       <label className="mb-1 block text-sm font-medium text-black-700">
                         Bukti Pembayaran <span className="text-error-500">*</span>
@@ -3770,6 +3740,12 @@ setShowEditForm(true);
             const isPerluVerifikasi = item.status_order === 'perlu_verifikasi';
             const isTerlambat = isAktif && item.jam_overtime_saat_ini > 0;
             const isSelesai = item.status_order === 'completed';
+            // Kendaraan baru boleh diselesaikan setelah benar-benar kembali.
+            // Server tetap memvalidasi (butuh inspeksi akhir + 2 tanda tangan),
+            // ini hanya kunci visual supaya petugas tidak menekan tombol sia-sia.
+            const bisaSelesai = item.status_pengiriman === 'sudah_dikembalikan';
+            const totalTagihan = totalTagihanOrder(item);
+            const sisaBayar = Math.max(0, totalTagihan - totalBayarOrder(item));
             const borderColor = isTerlambat ? 'border-t-error-500' : orderCardBorderColor[item.status_order];
             const canDelete =
               item.status_order === 'pending' ||
@@ -3866,7 +3842,7 @@ setShowEditForm(true);
                       <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-black-50 text-black-400">
                         {item.kendaraan?.foto ? (
                           <img
-  src={`https://api.udinrentcar.com/storage/${item.kendaraan.foto}`}
+  src={storageUrl(item.kendaraan.foto) || ''}
   alt=""
   className="h-8 w-8 rounded-lg object-cover"
 />
@@ -3904,15 +3880,13 @@ setShowEditForm(true);
                         <p className="mt-1 pl-5 text-[11px] text-black-400">{item.durasi_hari} hari</p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="text-sm font-bold text-black-900">
-                          {formatRupiah(
-                            Number(item.harga_total) +
-                              ((isAktif && item.jam_overtime_saat_ini > 0 && !item.jam_overtime) || isPerluVerifikasi
-                                ? Number(item.denda_overtime_saat_ini)
-                                : 0)
-                          )}
-                        </p>
+                        <p className="text-sm font-bold text-black-900">{formatRupiah(totalTagihan)}</p>
                         <p className="text-[11px] text-black-400">{formatRupiah(item.harga_per_hari)}/hari</p>
+                        {item.status_order !== 'cancelled' && sisaBayar > 0 && (
+                          <p className="text-[11px] font-semibold text-error-600" title="Sisa yang belum dibayar">
+                            Sisa {formatRupiah(sisaBayar)}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -3974,13 +3948,31 @@ setShowEditForm(true);
                     <div className="mt-auto grid grid-cols-2 gap-2 pt-1">
                         {isAktif && (
                           <>
-                            <button onClick={() => openCompleteModal(item)} className="flex-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-500">Selesai</button>
+                            <span title={bisaSelesai ? undefined : 'Aktif setelah kendaraan dikembalikan (inspeksi akhir + tanda tangan lengkap).'} className="flex-1">
+                              <button
+                                onClick={() => openCompleteModal(item)}
+                                disabled={!bisaSelesai}
+                                className="flex w-full items-center justify-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-primary-600"
+                              >
+                                {!bisaSelesai && <Lock className="h-3 w-3" />}
+                                Selesai
+                              </button>
+                            </span>
                             <button onClick={() => setCancelOrder(item)} title="Batalkan order" className="flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-black-500 transition-colors hover:bg-gray-50">Batal</button>
                           </>
                         )}
                         {isPerluVerifikasi && (
                           <>
-                            <button onClick={() => openCompleteModal(item)} className="flex-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-600">Selesaikan</button>
+                            <span title={bisaSelesai ? undefined : 'Aktif setelah kendaraan dikembalikan (inspeksi akhir + tanda tangan lengkap).'} className="flex-1">
+                              <button
+                                onClick={() => openCompleteModal(item)}
+                                disabled={!bisaSelesai}
+                                className="flex w-full items-center justify-center gap-1 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-amber-500"
+                              >
+                                {!bisaSelesai && <Lock className="h-3 w-3" />}
+                                Selesaikan
+                              </button>
+                            </span>
                             <button
                               onClick={() => setConfirmAction({ title: 'Kembalikan ke Sedang Disewa', message: `Kembalikan order "${item.kode_order}" ke status Sedang Disewa? Denda freeze akan dihitung ulang.`, onConfirm: () => handleInlineUpdate(item.id, 'status_order', 'active') })}
                               className="flex-1 rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 transition-colors hover:bg-amber-50"

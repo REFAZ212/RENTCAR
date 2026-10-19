@@ -4,27 +4,10 @@ import { customerAPI, type Customer, type Order } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { formatHpDisplay, formatHpWa, formatRupiah } from '../lib/format';
+import { storageUrl } from '../lib/storage';
 import ConfirmModal from '../components/ConfirmModal';
 import { ArrowLeft, Phone, Search, X, FileText, Trash2, Clock, Tag, Image as ImageIcon, CreditCard, RefreshCw } from 'lucide-react';
-
-const statusOrderLabels: Record<string, string> = {
-    pending: 'Menunggu',
-    confirmed: 'Dikonfirmasi',
-    active: 'Sedang Disewa',
-    perlu_verifikasi: 'Perlu Verifikasi',
-    completed: 'Selesai',
-    cancelled: 'Dibatalkan',
-};
-
-// Badge warna status pesanan — token tema: primary (biru), accent (amber), success (hijau), error (merah)
-const statusOrderColors: Record<string, string> = {
-    pending: 'bg-accent-100 text-accent-700',
-    confirmed: 'bg-primary-50 text-primary-500',
-    active: 'bg-primary-100 text-primary-600',
-    perlu_verifikasi: 'bg-accent-50 text-accent-700',
-    completed: 'bg-success-50 text-success-600',
-    cancelled: 'bg-error-50 text-error-600',
-};
+import { statusOrderLabels, statusOrderColors } from '../constants/status';
 
 const statusFilters = [
     { key: 'all', label: 'Semua' },
@@ -37,9 +20,7 @@ const statusFilters = [
 const getStorageUrl = (path: string | null | undefined): string | null => {
     if (!path) return null;
 
-    if (path.startsWith('http')) return path;
-
-    return `https://api.udinrentcar.com/storage/${path}`;
+    return storageUrl(path);
 };
 
 function DetailSkeleton() {
@@ -328,13 +309,13 @@ active: 'Sedang Disewa',
                                     <div className="text-center">
                                         <p className="text-xs text-black-400 mb-1">Bukti Transfer</p>
                                         <a
-    href={`https://api.udinrentcar.com/storage/${order.bukti_transfer}`}
+    href={storageUrl(order.bukti_transfer) || ''}
     target="_blank"
     rel="noopener noreferrer"
     className="block w-20 h-20 rounded-lg border border-black-200 overflow-hidden hover:border-primary-300 transition-colors"
 >
                                             <img
-  src={`https://api.udinrentcar.com/storage/${order.bukti_transfer}`}
+  src={storageUrl(order.bukti_transfer) || ''}
   alt="Bukti transfer"
   className="w-full h-full object-cover"
 />
@@ -345,13 +326,13 @@ active: 'Sedang Disewa',
                                     <div className="text-center">
                                         <p className="text-xs text-black-400 mb-1">Bukti Pengiriman</p>
                                         <a
-                                            href={`https://api.udinrentcar.com/storage/${order.bukti_pengiriman}`}
+                                            href={storageUrl(order.bukti_pengiriman) || ''}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="block w-20 h-20 rounded-lg border border-black-200 overflow-hidden hover:border-primary-300 transition-colors"
                                         >
                                             <img
-  src={`https://api.udinrentcar.com/storage/${order.bukti_pengiriman}`}
+  src={storageUrl(order.bukti_pengiriman) || ''}
   alt="Bukti pengiriman"
   className="w-full h-full object-cover"
 />
@@ -362,13 +343,13 @@ active: 'Sedang Disewa',
                                     <div className="text-center">
                                         <p className="text-xs text-black-400 mb-1">Bukti Pengembalian</p>
                                         <a
-                                            href={`https://api.udinrentcar.com/storage/${order.bukti_pengembalian}`}
+                                            href={storageUrl(order.bukti_pengembalian) || ''}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="block w-20 h-20 rounded-lg border border-black-200 overflow-hidden hover:border-primary-300 transition-colors"
                                         >
                                             <img
-  src={`https://api.udinrentcar.com/storage/${order.bukti_pengembalian}`}
+  src={storageUrl(order.bukti_pengembalian) || ''}
   alt="Bukti pengembalian"
   className="w-full h-full object-cover"
 />

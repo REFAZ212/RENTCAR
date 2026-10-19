@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { isAxiosError } from 'axios';
 import { customerAPI, type Customer } from '../services/api';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,18 +18,43 @@ export default function Customers() {
   const [items, setItems] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<{ current_page: number; last_page: number; total: number } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<Customer | null>(null);
 
   const canDelete = user?.role === 'admin_utama';
 
+  /* Debounce kotak cari: tunda 400ms setelah berhenti mengetik, lalu reset ke
+     halaman 1 supaya hasil pencarian selalu mulai dari halaman awal. */
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const load = useCallback(() => {
     setLoading(true);
     customerAPI
-      .list({ search })
-      .then(({ data }) => setItems(data.data))
+      .list({ search: debouncedSearch, page })
+      .then(({ data }) => {
+        const res = data as unknown as {
+          data: Customer[];
+          current_page: number;
+          last_page: number;
+          total: number;
+        };
+        setItems(res.data);
+        setMeta({ current_page: res.current_page, last_page: res.last_page, total: res.total });
+      })
       .catch(() => toastError('Gagal memuat data customer'))
       .finally(() => setLoading(false));
-  }, [search, toastError]);
+    // 'toastError' sengaja tidak dimasukkan ke dependency array — identitasnya
+    // berubah tiap toast muncul, sehingga akan memicu fetch ulang tak perlu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, page]);
 
   useEffect(() => {
     load();
@@ -39,8 +65,9 @@ export default function Customers() {
     try {
       await customerAPI.delete(confirmDelete.id);
       toastSuccess('Customer berhasil dihapus');
-    } catch {
-      toastError('Gagal menghapus customer');
+    } catch (err) {
+      const msg = isAxiosError(err) ? err.response?.data?.message : undefined;
+      toastError(msg || 'Gagal menghapus customer');
     }
     setConfirmDelete(null);
     load();
@@ -225,6 +252,28 @@ export default function Customers() {
           </table>
         </div>
       </div>
+
+      {meta && meta.last_page > 1 && (
+        <nav className="flex items-center justify-center gap-2" aria-label="Paginasi">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="rounded-lg border border-black-200 px-3 py-2 text-sm font-medium transition-colors hover:bg-canvas disabled:opacity-40"
+          >
+            Sebelumnya
+          </button>
+          <span className="px-3 text-sm text-black-600">
+            Halaman {page} dari {meta.last_page}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
+            disabled={page === meta.last_page}
+            className="rounded-lg border border-black-200 px-3 py-2 text-sm font-medium transition-colors hover:bg-canvas disabled:opacity-40"
+          >
+            Selanjutnya
+          </button>
+        </nav>
+      )}
 
       <ConfirmModal
         open={!!confirmDelete}
